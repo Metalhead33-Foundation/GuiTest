@@ -5,6 +5,11 @@ CONFIG -= qt
 LIBS += -lSDL2
 
 SOURCES += \
+        Pipeline/BasicPipeline.cpp \
+        Pipeline/EdgeFunction.cpp \
+        Pipeline/ModelPipeline.cpp \
+        Pipeline/TexturedPipeline.cpp \
+        Pipeline/ZBuffer.cpp \
         System/AppSystem.cpp \
         System/GuiRenderSystem.cpp \
         Texture/Texture.cpp \
@@ -18,6 +23,12 @@ SOURCES += \
         main.cpp
 
 HEADERS += \
+	Pipeline/BasicPipeline.hpp \
+	Pipeline/EdgeFunction.hpp \
+	Pipeline/ModelPipeline.hpp \
+	Pipeline/RenderingPipeline.hpp \
+	Pipeline/TexturedPipeline.hpp \
+	Pipeline/ZBuffer.hpp \
 	System/AppSystem.hpp \
 	System/GuiRenderSystem.hpp \
 	Texture/StandardTexture.hpp \

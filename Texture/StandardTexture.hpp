@@ -49,20 +49,27 @@ public:
 		return stride;
 	}
 	void getPixel(const glm::ivec2& pos, glm::vec4& colourKernel, Wrap wrap) const override {
+		int x;
+		int y;
 		switch (wrap) {
 		case Wrap::REPEAT:
-			pixels[ ((pos.y % height) * width) + (pos.x % width) ].toKernel(colourKernel);
+			x = (pos.x >= 0) ? (pos.x % width) : ((pos.x % width) + width);
+			y = (pos.y >= 0) ? (pos.y % height) : ((pos.y % height) + height);
 			break;
 		case MIRRORED_REPEAT:
-			pixels[ ((pos.y % height) * width) + (pos.x % width) ].toKernel(colourKernel);
+			x = std::abs(pos.x % width);
+			y = std::abs(pos.y % height);
 			break;
 		case CLAMP_TO_EDGE:
-			pixels[ (std::clamp(pos.y,0,height) * width) + std::clamp(pos.x,0,width) ].toKernel(colourKernel);
+			x = std::clamp(pos.x,0,width);
+			y = std::clamp(pos.y,0,height);
 			break;
 		case CLAMP_TO_BORDER:
-			if(pos.x > 0 && pos.x < width && pos.y > 0 && pos.y < height) pixels[ (pos.y * width) + pos.x ].toKernel(colourKernel);
+			if(pos.x > 0 && pos.x < width && pos.y > 0 && pos.y < height) { x = pos.x; y = pos.y; }
+			else { std::memset(&colourKernel,0,sizeof(glm::vec4)); return; }
 			break;
 		}
+		pixels[ (y * width) + x ].toKernel(colourKernel);
 	}
 	void setPixel(const glm::ivec2& pos, const glm::vec4& colourKernel) override {
 		pixels[ (pos.y * width) + pos.x ].fromKernel(colourKernel);
@@ -192,20 +199,27 @@ public:
 		return stride;
 	}
 	void getPixel(const glm::ivec2& pos, glm::vec4& colourKernel, Wrap wrap) const override {
+		int x;
+		int y;
 		switch (wrap) {
 		case Wrap::REPEAT:
-			pixels[ ((pos.y % height) * width) + (pos.x % width) ].toKernel(colourKernel);
+			x = (pos.x >= 0) ? (pos.x % width) : ((pos.x % width) + width);
+			y = (pos.y >= 0) ? (pos.y % height) : ((pos.y % height) + height);
 			break;
 		case MIRRORED_REPEAT:
-			pixels[ ((pos.y % height) * width) + (pos.x % width) ].toKernel(colourKernel);
+			x = std::abs(pos.x % width);
+			y = std::abs(pos.y % height);
 			break;
 		case CLAMP_TO_EDGE:
-			pixels[ (std::clamp(pos.y,0,height) * width) + std::clamp(pos.x,0,width) ].toKernel(colourKernel);
+			x = std::clamp(pos.x,0,width);
+			y = std::clamp(pos.y,0,height);
 			break;
 		case CLAMP_TO_BORDER:
-			if(pos.x > 0 && pos.x < width && pos.y > 0 && pos.y < height) pixels[ (pos.y * width) + pos.x ].toKernel(colourKernel);
+			if(pos.x > 0 && pos.x < width && pos.y > 0 && pos.y < height) { x = pos.x; y = pos.y; }
+			else { std::memset(&colourKernel,0,sizeof(glm::vec4)); return; }
 			break;
 		}
+		pixels[ (y * width) + x ].toKernel(colourKernel);
 	}
 	void setPixel(const glm::ivec2& pos, const glm::vec4& colourKernel) override {
 		pixels[ (pos.y * width) + pos.x ].fromKernel(colourKernel);

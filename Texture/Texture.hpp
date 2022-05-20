@@ -21,6 +21,11 @@ enum Wrap {
 	CLAMP_TO_BORDER
 };
 
+struct Sampler {
+	Wrap wrap;
+	TextureFiltering filtering;
+};
+
 class Texture
 {
 public:
@@ -42,7 +47,7 @@ public:
 	}
 	virtual void setPixel(const glm::ivec2& pos, const glm::vec4& colourKernel) = 0;
 	virtual void setPixelDithered(const glm::ivec2& pos, const glm::vec4& colourKernel) = 0;
-	bool setPixelWithBlending(const glm::ivec2& pos, const glm::ivec2& screenpos, const glm::vec4& colourKernel, AlphaBlending blendingType);
+	bool setPixelWithBlending(const glm::ivec2& pos,const glm::vec4& colourKernel, AlphaBlending blendingType);
 	virtual void* getRawPixels() = 0;
 	virtual const void* getRawPixels() const = 0;
 
@@ -50,6 +55,14 @@ public:
 	inline glm::vec4 sample(const glm::vec2& pos, const glm::ivec2& screenpos, TextureFiltering filteringType = NEAREST_NEIGHBOUR, Wrap wrap = REPEAT) const {
 		glm::vec4 tmp;
 		sample(pos,screenpos,tmp,filteringType,wrap);
+		return tmp;
+	}
+	inline void sample(const glm::vec2& pos, const glm::ivec2& screenpos, glm::vec4& colourKernel, const Sampler& sampler) const {
+		sample(pos,screenpos,colourKernel,sampler.filtering,sampler.wrap);
+	}
+	inline glm::vec4 sample(const glm::vec2& pos, const glm::ivec2& screenpos, const Sampler& sampler) const {
+		glm::vec4 tmp;
+		sample(pos,screenpos,tmp,sampler.filtering,sampler.wrap);
 		return tmp;
 	}
 	virtual void clearToColour(const glm::vec4& colourKernel) = 0;

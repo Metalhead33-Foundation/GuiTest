@@ -2,7 +2,7 @@
 #include "../Util/Dither.hpp"
 #include <cmath>
 
-bool Texture::setPixelWithBlending(const glm::ivec2 &pos, const glm::ivec2 &screenpos, const glm::vec4 &colourKernel, AlphaBlending blendingType)
+bool Texture::setPixelWithBlending(const glm::ivec2 &pos, const glm::vec4 &colourKernel, AlphaBlending blendingType)
 {
 	float a = colourKernel.a;
 	switch (blendingType) {
@@ -15,7 +15,7 @@ bool Texture::setPixelWithBlending(const glm::ivec2 &pos, const glm::ivec2 &scre
 	}
 	case ALPHA_DITHERING:
 	{
-		a = (a >= thresholdMatrix[screenpos.x % 4][screenpos.y % 4]) ? 1.0f : 0.0f;
+		a = (a >= thresholdMatrix[pos.x % 4][pos.y % 4]) ? 1.0f : 0.0f;
 		if(a >= 0.99607843137255f) {
 			setPixelDithered(pos,colourKernel);
 			return true;

@@ -37,12 +37,12 @@ int main()
 		{
 			if (event.type == SDL_QUIT) exit(0);
 		}
-		framebuffer->clearToColour(glm::vec4(0.0f,0.2f,1.0f,1.0f));
-		/*framebuffer->clearToColour([](const glm::ivec2& winpos) {
+		//framebuffer->clearToColour(glm::vec4(0.0f,0.2f,1.0f,1.0f));
+		framebuffer->clearToColour([](const glm::ivec2& winpos) {
 			const float r = static_cast<float>(winpos.x) / static_cast<float>(WIDTH);
 			const float g = static_cast<float>(winpos.y) / static_cast<float>(HEIGHT);
 			return glm::vec4(r,g,0.0f,1.0f);
-		})*/;
+		});
 		SDL_UpdateWindowSurface(window);
 	}
 	//SDL_Init(SDL_INIT_VIDEO);
