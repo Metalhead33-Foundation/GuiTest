@@ -17,7 +17,6 @@ void GuiRenderSystem::render()
 {
 	const auto start_time = SDL_GetTicks();
 	framebuffer->clearToColour(glm::vec4(0.0f,0.0f,0.0f,0.0f));
-	framebuffer->setPixel(glm::ivec2(100,100),glm::vec4(1.0f,1.0f,1.0f,1.0f));
 	zbuffer->clear();
 	widgets.access( [this](const std::vector<sWidget>& cntr) {
 		for(auto& it : cntr) {
@@ -170,10 +169,6 @@ void GuiRenderSystem::handleMouseMotionEvent(const SDL_MouseMotionEvent& event)
 	IWidget* cwidg = nullptr;
 	mousePos = glm::vec2( static_cast<float>(event.x), static_cast<float>(event.y) ) * sizeReciprocal - glm::vec2(1.0f,1.0f);
 	const auto relpos = glm::vec2( static_cast<float>(event.xrel), static_cast<float>(event.yrel) ) * sizeReciprocal;
-	//const auto relpos = glm::vec2( static_cast<float>(event.xrel), static_cast<float>(-event.yrel) ) * sizeReciprocal;
-	mousePos += relpos;
-	mousePos.x = std::clamp(mousePos.x, -1.0f, 1.0f);
-	mousePos.y = std::clamp(mousePos.y, -1.0f, 1.0f);
 	widgets.access( [&,this](std::vector<sWidget>& cntr) {
 	for(auto& it : cntr) {
 		const auto& tl = it->getTopLeft();
