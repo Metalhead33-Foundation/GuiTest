@@ -1,25 +1,41 @@
 #ifndef GUIRENDERSYSTEM_H
 #define GUIRENDERSYSTEM_H
 #include "AppSystem.hpp"
+#include "../Texture/Texture.hpp"
+#include "../Pipeline/ZBuffer.hpp"
 #include "../Widget/IWidget.hpp"
+#include "../Pipeline/GuiRenderer.hpp"
+#include "../Pipeline/BasicPipeline.hpp"
+#include "../Pipeline/TexturedPipeline.hpp"
+#include "../Util/ThreadsafeContainer.hpp"
 #include <vector>
 
-class GuiRenderSystem : public AppSystem
+class GuiRenderSystem : public AppSystem, public GuiRenderer
 {
 protected:
-	uSdlRenderer renderer;
+	std::shared_ptr<Texture> framebuffer;
+	std::shared_ptr<ZBuffer> zbuffer;
+	BasicPipeline bpipeline;
+	TexturedPipeline tpipeline;
+
 	IWidget* currentWidget;
 	glm::mat4 projection;
 	glm::vec2 sizeReciprocal;
 	glm::ivec4 viewport;
-	std::vector<sWidget> widgets;
+	threadsafe<std::vector<sWidget>> widgets;
 	std::string strbuffer;
+	glm::vec2 mousePos;
 	bool fullscreen;
+	float fpsMin;
+	float fpsMax;
 	virtual void updateLogic() override;
 	virtual void render() override;
+	void onResolutionChange(int newWidth, int newHeight);
 public:
 	GuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags);
 	glm::vec2 absToRel(const glm::ivec2& abs) const;
+	glm::vec2 absToRel(const glm::ivec2& abs, const glm::ivec2& customRes) const;
+	glm::ivec2 relToAbs(const glm::vec2& rel) const;
 
 	// AppSystem interface
 protected:
@@ -45,6 +61,13 @@ protected:
 	void handleTextInputEvent(const SDL_TextInputEvent& event) override;
 	void handleUserEvent(const SDL_UserEvent& event) override;
 	void handleWindowEvent(const SDL_WindowEvent& event) override;
+
+	// GuiRenderer interface
+public:
+	void renderCLine(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour) override;
+	void renderCRect(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour) override;
+	void renderCTriang(const glm::vec2& p0, const glm::vec2& p1, const glm::vec2& p2, const glm::vec4& colour) override;
+	void renderTex(const glm::vec2& p0, const glm::vec2& p1, const std::shared_ptr<Texture> tex) override;
 };
 
 #endif // GUIRENDERSYSTEM_H

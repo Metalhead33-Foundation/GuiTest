@@ -6,39 +6,39 @@ TickboxWidget::TickboxWidget(const glm::vec2& topLeft, const glm::vec2& bottomRi
 
 }
 
-void TickboxWidget::render(SDL_Renderer& renderer, glm::ivec4 viewport)
+void TickboxWidget::render(GuiRenderer& renderer)
 {
 	const bool isClicked = this->getIsClicked() || getTimeSinceLastClick() <= 250;
 
-	if(isClicked) SDL_SetRenderDrawColor(&renderer,255,255,255,255);
-	else if(getIsActive()) SDL_SetRenderDrawColor(&renderer,255,0,0,200);
-	else SDL_SetRenderDrawColor(&renderer,0,127,127,200);
+	glm::vec4 clr;
 
-	const auto topLeft = getAbsolutePositionFromRel(this->topLeft,viewport);
-	const auto bottomRight = getAbsolutePositionFromRel(this->bottomRight,viewport);
+	if(isClicked) clr = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	else if(getIsActive()) clr = glm::vec4(1.0f, 0.0f, 0.0f, 0.75f);
+	else clr = glm::vec4(0.0f, 0.5f, 0.5f, 0.75f);
+
 
 	if(isClicked)
 	{
-		SDL_Point points[] = {
-			{ .x = topLeft.x, .y = topLeft.y },
-			{ .x = bottomRight.x, .y = bottomRight.y },
-			{ .x = bottomRight.x, .y = topLeft.y },
-			{ .x = topLeft.x, .y = bottomRight.y },
-			{ .x = bottomRight.x, .y = bottomRight.y },
-			{ .x = topLeft.x, .y = bottomRight.y },
-			{ .x = topLeft.x, .y = topLeft.y },
-			{ .x = bottomRight.x, .y = topLeft.y }
+		glm::vec2 points[] = {
+			glm::vec2( topLeft.x, topLeft.y ),
+			glm::vec2( bottomRight.x, bottomRight.y ),
+			glm::vec2( bottomRight.x, topLeft.y ),
+			glm::vec2( topLeft.x, bottomRight.y ),
+			glm::vec2( bottomRight.x, bottomRight.y ),
+			glm::vec2( topLeft.x, bottomRight.y ),
+			glm::vec2( topLeft.x, topLeft.y ),
+			glm::vec2( bottomRight.x, topLeft.y )
 		};
-		SDL_RenderDrawLines(&renderer,points,8);
+		renderer.renderCLines(points,clr);
 	} else {
-	SDL_Point points[] = {
-		{ .x = topLeft.x, .y = topLeft.y },
-		{ .x = bottomRight.x, .y = topLeft.y },
-		{ .x = bottomRight.x, .y = bottomRight.y },
-		{ .x = topLeft.x, .y = bottomRight.y },
-		{ .x = topLeft.x, .y = topLeft.y },
+	glm::vec2 points[] = {
+		glm::vec2( topLeft.x, topLeft.y ),
+		glm::vec2( bottomRight.x, topLeft.y ),
+		glm::vec2( bottomRight.x, bottomRight.y ),
+		glm::vec2( topLeft.x, bottomRight.y ),
+		glm::vec2( topLeft.x, topLeft.y )
 	};
-	SDL_RenderDrawLines(&renderer,points,5);
+	renderer.renderCLines(points,clr);
 	}
 
 }

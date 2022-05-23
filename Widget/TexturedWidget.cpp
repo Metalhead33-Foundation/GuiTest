@@ -1,19 +1,15 @@
 #include "TexturedWidget.hpp"
+#include "../Texture/StandardTexture.hpp"
+#include <SDL2/SDL.h>
 
-TexturedWidget::TexturedWidget(const glm::vec2& topLeft, const glm::vec2& bottomRight, SDL_Renderer& renderer, int w, int h, const uint32_t* texdis,
+TexturedWidget::TexturedWidget(const glm::vec2& topLeft, const glm::vec2& bottomRight, int w, int h, const uint32_t* texdis,
 							   const uint32_t* textact, const uint32_t* textclick)
 	: topLeft(topLeft), bottomRight(bottomRight), w(w),h(h), wf(static_cast<float>(w-1)), hf(static_cast<float>(h-1)),alpha(w*h),
-	  textureDistact(SDL_CreateTexture(&renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,w,h),SDL_DestroyTexture),
-	  textureActive(SDL_CreateTexture(&renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,w,h),SDL_DestroyTexture),
-	  textureClicked(SDL_CreateTexture(&renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,w,h),SDL_DestroyTexture),
+	  textureDistact(std::make_shared<TexARGB8888>(reinterpret_cast<const PixelARGB8888*>(texdis),w,h)),
+	  textureActive(std::make_shared<TexARGB8888>(reinterpret_cast<const PixelARGB8888*>(textact),w,h)),
+	  textureClicked(std::make_shared<TexARGB8888>(reinterpret_cast<const PixelARGB8888*>(textclick),w,h)),
 	  state(OUT_OF_FOCUS)
 {
-	SDL_UpdateTexture(textureDistact.get(),nullptr,texdis,w*sizeof(uint32_t));
-	SDL_SetTextureBlendMode(textureDistact.get(),SDL_BLENDMODE_BLEND);
-	SDL_UpdateTexture(textureActive.get(),nullptr,textact,w*sizeof(uint32_t));
-	SDL_SetTextureBlendMode(textureActive.get(),SDL_BLENDMODE_BLEND);
-	SDL_UpdateTexture(textureClicked.get(),nullptr,textclick,w*sizeof(uint32_t));
-	SDL_SetTextureBlendMode(textureClicked.get(),SDL_BLENDMODE_BLEND);
 	const int totalsize = w * h;
 	for(int i = 0; i < totalsize; ++i) {
 		alpha[i] = ((texdis[i] & 0xFF000000) != 0);
@@ -51,13 +47,12 @@ void TexturedWidget::setBottomRight(const glm::vec2& newBottomRight)
 	bottomRight = newBottomRight;
 }
 
-void TexturedWidget::render(SDL_Renderer& renderer, glm::ivec4 viewport)
+void TexturedWidget::render(GuiRenderer& renderer)
 {
-	SDL_Rect sdlRect = posToSCreenspaceRect(topLeft,bottomRight,viewport);
 	switch (state) {
-		case OUT_OF_FOCUS: SDL_RenderCopy(&renderer,textureDistact.get(),nullptr,&sdlRect); break;
-		case IN_FOCUS: SDL_RenderCopy(&renderer,textureActive.get(),nullptr,&sdlRect); break;
-		case CLICKED: SDL_RenderCopy(&renderer,textureClicked.get(),nullptr,&sdlRect); break;
+		case OUT_OF_FOCUS: renderer.renderTex(topLeft,bottomRight,textureDistact); break;
+		case IN_FOCUS: renderer.renderTex(topLeft,bottomRight,textureActive); break;
+		case CLICKED: renderer.renderTex(topLeft,bottomRight,textureClicked); break;
 	}
 }
 

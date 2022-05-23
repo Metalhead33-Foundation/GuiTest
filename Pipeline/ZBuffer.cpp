@@ -24,11 +24,7 @@ unsigned ZBuffer::getW() const
 
 void ZBuffer::clear()
 {
-	//memset(buff.data(),0,buff.size()*sizeof(float));
-	for(auto& it : buff) {
-		it = std::numeric_limits<float>::infinity();
-		//it = 1.0f;
-	}
+	std::fill(std::begin(buff),std::end(buff),-std::numeric_limits<float>::infinity());
 }
 
 float &ZBuffer::get(unsigned x, unsigned y)

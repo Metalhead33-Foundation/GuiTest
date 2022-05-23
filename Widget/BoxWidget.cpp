@@ -6,12 +6,10 @@ BoxWidget::BoxWidget(const glm::vec2& topLeft, const glm::vec2& bottomRight)
 
 }
 
-void BoxWidget::render(SDL_Renderer& renderer, glm::ivec4 viewport)
+void BoxWidget::render(GuiRenderer& renderer)
 {
 	const bool isClicked = this->getIsClicked() || getTimeSinceLastClick() <= 250;
-	if(isClicked) SDL_SetRenderDrawColor(&renderer,255,255,255,255);
-	else if(getIsActive()) SDL_SetRenderDrawColor(&renderer,255,0,0,200);
-	else SDL_SetRenderDrawColor(&renderer,0,127,127,200);
-	SDL_Rect sdlRect = posToSCreenspaceRect(topLeft,bottomRight,viewport);
-	SDL_RenderFillRect(&renderer,&sdlRect);
+	if(isClicked) renderer.renderCRect(topLeft,bottomRight,glm::vec4(1.0f, 1.0f, 1.0f, 0.75f));
+	else if(getIsActive()) renderer.renderCRect(topLeft,bottomRight,glm::vec4(1.0f, 0.0f, 0.0f, 0.75f));
+	else renderer.renderCRect(topLeft,bottomRight,glm::vec4(0.0f, 0.5f, 0.5f, 0.75f));
 }

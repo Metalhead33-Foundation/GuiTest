@@ -45,6 +45,24 @@ struct TexturedVertexOut {
 		if(perspectiveCorrect) out.TEXCOORD *= out.POS.w; // We're assuming that the TEXCOORD attribute of each vertex was divided by POS.z prior to calling this function
 		return out;
 	}
+	inline static TexturedVertexOut interpolate2D(const TexturedVertexOut& v0, const TexturedVertexOut& v1, float rowWeight, float columnWeight, bool perspectiveCorrect) {
+		const float w1 = rowWeight * columnWeight;
+		const float w0 = 1.0f - w1;
+		TexturedVertexOut out = {
+							glm::vec4(  // POS
+							(v0.POS.x * (1.0f - columnWeight)) + (v1.POS.x * columnWeight), // X
+							(v0.POS.y * (1.0f - rowWeight)) + (v1.POS.y * rowWeight), // Y
+							(v0.POS.z * w0) + (v1.POS.z * w1), // Z
+							(v0.POS.w * w0) + (v1.POS.w * w1) // W
+							),
+							glm::vec2( // TEXCOORD
+							(v0.TEXCOORD.x * (1.0f - columnWeight)) + (v1.TEXCOORD.x * columnWeight), // X
+							(v0.TEXCOORD.y * (1.0f - rowWeight)) + (v1.TEXCOORD.y * rowWeight) // Y
+							)
+					};
+		if(perspectiveCorrect) out.TEXCOORD *= out.POS.w; // We're assuming that the TEXCOORD attribute of each vertex was divided by POS.z prior to calling this function
+		return out;
+	}
 	inline static TexturedVertexOut interpolate(const TexturedVertexOut& v0, const TexturedVertexOut& v1, const TexturedVertexOut& v2, float w0, float w1, float w2, bool perspectiveCorrect) {
 		TexturedVertexOut out = {
 							glm::vec4(  // POS

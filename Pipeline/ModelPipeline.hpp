@@ -67,6 +67,34 @@ struct ModelVertexOut {
 		}
 		return out;
 	}
+	inline static ModelVertexOut interpolate2D(const ModelVertexOut& v0, const ModelVertexOut& v1, float rowWeight, float columnWeight, bool perspectiveCorrect) {
+		const float w1 = rowWeight * columnWeight;
+		const float w0 = 1.0f - w1;
+		ModelVertexOut out = {
+							glm::vec4(  // POS
+							(v0.POS.x * (1.0f - columnWeight)) + (v1.POS.x * columnWeight), // X
+							(v0.POS.y * (1.0f - rowWeight)) + (v1.POS.y * rowWeight), // Y
+							(v0.POS.z * w0) + (v1.POS.z * w1), // Z
+							(v0.POS.w * w0) + (v1.POS.w * w1) // W
+							),
+							glm::vec2( // TEXCOORD
+							(v0.TEXCOORD.x * (1.0f - columnWeight)) + (v1.TEXCOORD.x * columnWeight), // X
+							(v0.TEXCOORD.y * (1.0f - rowWeight)) + (v1.TEXCOORD.y * rowWeight) // Y
+							),
+							glm::vec4( // COLOUR
+							(v0.COLOUR.x * w0) + (v1.COLOUR.x * w1), // X
+							(v0.COLOUR.y * w0) + (v1.COLOUR.y * w1), // Y
+							(v0.COLOUR.z * w0) + (v1.COLOUR.z * w1), // Z
+							(v0.COLOUR.w * w0) + (v1.COLOUR.w * w1) // W
+							)
+					};
+		if(perspectiveCorrect)
+		{
+			out.TEXCOORD *= out.POS.w; // We're assuming that the TEXCOORD attribute of each vertex was divided by POS.z prior to calling this function
+			out.COLOUR *= out.POS.w; // We're assuming that the COLOUR attribute of each vertex was divided by POS.z prior to calling this function
+		}
+		return out;
+	}
 	inline static ModelVertexOut interpolate(const ModelVertexOut& v0, const ModelVertexOut& v1, const ModelVertexOut& v2, float w0, float w1, float w2, bool perspectiveCorrect) {
 		ModelVertexOut out = {
 							glm::vec4(  // POS

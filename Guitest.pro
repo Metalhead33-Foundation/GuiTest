@@ -2,11 +2,14 @@ TEMPLATE = app
 CONFIG += console c++2a
 CONFIG -= app_bundle
 CONFIG -= qt
+QMAKE_CFLAGS += -O3 -ffast-math
+QMAKE_CXXFLAGS += -O3 -ffast-math
 LIBS += -lSDL2
 
 SOURCES += \
         Pipeline/BasicPipeline.cpp \
         Pipeline/EdgeFunction.cpp \
+        Pipeline/GuiRenderer.cpp \
         Pipeline/ModelPipeline.cpp \
         Pipeline/TexturedPipeline.cpp \
         Pipeline/ZBuffer.cpp \
@@ -25,6 +28,7 @@ SOURCES += \
 HEADERS += \
 	Pipeline/BasicPipeline.hpp \
 	Pipeline/EdgeFunction.hpp \
+	Pipeline/GuiRenderer.hpp \
 	Pipeline/ModelPipeline.hpp \
 	Pipeline/RenderingPipeline.hpp \
 	Pipeline/TexturedPipeline.hpp \
@@ -39,6 +43,7 @@ HEADERS += \
 	Util/PixelFormat.hpp \
 	Util/TextureFromSurface.hpp \
 	Util/TextureHelpers.hpp \
+	Util/ThreadsafeContainer.hpp \
 	Widget/BoxWidget.hpp \
 	Widget/IWidget.hpp \
 	Widget/SimpleWidget.hpp \
