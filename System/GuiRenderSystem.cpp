@@ -50,13 +50,13 @@ void GuiRenderSystem::onResolutionChange(int newWidth, int newHeight)
 static const int CIRCLE_W = 128;
 static const int CIRCLE_H = 128;
 
-static const glm::ivec2 virtualRes = glm::ivec2(640,480);
+static const glm::ivec2 virtualRes = glm::ivec2(320,240);
 
 GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags)
 	: AppSystem(title,offsetX,offsetY,width,height,flags), currentWidget(nullptr),
-	  strbuffer(""), fullscreen(false), fpsMin(std::numeric_limits<float>::infinity()), fpsMax(-std::numeric_limits<float>::infinity())
+	  strbuffer(""), fullscreen(false), fpsMin(std::numeric_limits<float>::infinity()), fpsMax(-std::numeric_limits<float>::infinity()),
+	  mousePos(glm::vec2(0.0,0.0f))
 {
-	mousePos = glm::vec2(0.0,0.0f);
 	bpipeline.uniform.blending = ALPHA_BLENDING;
 	bpipeline.vert = basicVertexShader;
 	bpipeline.frag = basicFragmentShader;
@@ -73,9 +73,9 @@ GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offs
 	createCircleTextures(tex1,tex2,tex3,CIRCLE_W,CIRCLE_H);
 	widgets.access( [&,this](std::vector<sWidget>& cntr) {
 		cntr.reserve(256);
-		cntr.push_back(std::make_shared<BoxWidget>(absToRel(glm::ivec2(100,100),virtualRes),absToRel(glm::ivec2(150,150),virtualRes)));
-		cntr.push_back(std::make_shared<TickboxWidget>(absToRel(glm::ivec2(200,200),virtualRes),absToRel(glm::ivec2(300,300),virtualRes) ));
-		cntr.push_back(std::make_shared<TexturedWidget>(absToRel(glm::ivec2(400,400),virtualRes),absToRel(glm::ivec2(400+CIRCLE_W,400+CIRCLE_H),virtualRes),CIRCLE_W,CIRCLE_H,tex1.data(),tex2.data(),tex3.data()));
+		cntr.push_back(std::make_shared<BoxWidget>(absToRel(glm::ivec2(25,25),virtualRes),absToRel(glm::ivec2(125,125),virtualRes)));
+		cntr.push_back(std::make_shared<TickboxWidget>(absToRel(glm::ivec2(100,100),virtualRes),absToRel(glm::ivec2(200,200),virtualRes),2));
+		cntr.push_back(std::make_shared<TexturedWidget>(absToRel(glm::ivec2(200,200),virtualRes),absToRel(glm::ivec2(200+CIRCLE_W,200+CIRCLE_H),virtualRes),CIRCLE_W,CIRCLE_H,tex1.data(),tex2.data(),tex3.data()));
 	});
 	}
 
@@ -263,44 +263,24 @@ void GuiRenderSystem::handleWindowEvent(const SDL_WindowEvent& event)
 	switch (event.event) {
 		case SDL_WINDOWEVENT_CLOSE: SDL_Quit(); exit(0); break;
 		case SDL_WINDOWEVENT_ENTER: // break through
-		case SDL_WINDOWEVENT_FOCUS_GAINED: SDL_SetRelativeMouseMode(SDL_TRUE); break;
+		case SDL_WINDOWEVENT_FOCUS_GAINED: /*SDL_SetRelativeMouseMode(SDL_TRUE);*/ break;
 		case SDL_WINDOWEVENT_LEAVE: // break through
-		case SDL_WINDOWEVENT_FOCUS_LOST: SDL_SetRelativeMouseMode(SDL_FALSE); break;
+		case SDL_WINDOWEVENT_FOCUS_LOST: /*SDL_SetRelativeMouseMode(SDL_FALSE);*/ break;
 		case SDL_WINDOWEVENT_SIZE_CHANGED: onResolutionChange(event.data1,event.data2); break;
 		default: break;
 	}
 }
 
-void GuiRenderSystem::renderCLine(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour)
+void GuiRenderSystem::renderCLine(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour, int thickness)
 {
-	/*BasicVertexIn vertices[] = {
-		BasicVertexIn{ .POS = p0 - sizeReciprocal, .COLOUR = colour }, // 0
-		BasicVertexIn{ .POS = p0 + sizeReciprocal, .COLOUR = colour }, // 1
-		BasicVertexIn{ .POS = p1 - sizeReciprocal, .COLOUR = colour }, // 2
-		BasicVertexIn{ .POS = p1 + sizeReciprocal, .COLOUR = colour } // 3
-	};
-	unsigned indices[] = { 0, 1, 2, 2, 1, 3 };
-	bpipeline.renderTriangles(vertices,indices);*/
-	/*bpipeline.renderLine(
-				BasicVertexIn{ .POS = glm::vec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .COLOUR = colour },
-				BasicVertexIn{ .POS = glm::vec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .COLOUR = colour }
-				);*/
 	bpipeline.renderLine(
 				BasicVertexIn{ .POS = p0, .COLOUR = colour },
-				BasicVertexIn{ .POS = p1, .COLOUR = colour }
-				);
+				BasicVertexIn{ .POS = p1, .COLOUR = colour },
+				thickness);
 }
 
 void GuiRenderSystem::renderCRect(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour)
 {
-	/*BasicVertexIn vertices[] = {
-		BasicVertexIn{ .POS = glm::vec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .COLOUR = colour }, // 0
-		BasicVertexIn{ .POS = glm::vec2(std::max(p0.x,p1.x),std::min(p0.y,p1.y)), .COLOUR = colour }, // 1
-		BasicVertexIn{ .POS = glm::vec2(std::min(p0.x,p1.x),std::max(p0.y,p1.y)), .COLOUR = colour }, // 2
-		BasicVertexIn{ .POS = glm::vec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .COLOUR = colour } // 3
-	};
-	unsigned indices[] = { 0, 1, 2, 2, 1, 3 };
-	bpipeline.renderTriangles(vertices,indices);*/
 	bpipeline.renderRectangle(
 				BasicVertexIn{ .POS = glm::vec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .COLOUR = colour },
 				BasicVertexIn{ .POS = glm::vec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .COLOUR = colour }
@@ -318,17 +298,18 @@ void GuiRenderSystem::renderCTriang(const glm::vec2& p0, const glm::vec2& p1, co
 
 void GuiRenderSystem::renderTex(const glm::vec2& p0, const glm::vec2& p1, const std::shared_ptr<Texture> tex)
 {
-	/*TexturedVertexIn vertices[] = { TexturedVertexIn{ .POS = glm::vec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::vec2(0.0f, 0.0f) },
-	TexturedVertexIn{ .POS = glm::vec2(std::max(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::vec2(1.0f, 0.0f) },
-	TexturedVertexIn{ .POS = glm::vec2(std::min(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::vec2(0.0f, 1.0f) },
-	TexturedVertexIn{ .POS = glm::vec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::vec2(1.0f, 1.0f) }
-	};
-	tpipeline.uniform.tex = tex;
-	unsigned indices[] = { 0, 1, 2, 2, 1, 3 };
-	tpipeline.renderTriangles(vertices,indices);*/
 	tpipeline.uniform.tex = tex;
 	tpipeline.renderRectangle(
 				TexturedVertexIn{ .POS = glm::vec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::vec2(0.0f, 0.0f) },
 				TexturedVertexIn{ .POS = glm::vec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::vec2(1.0f, 1.0f) }
+				);
+}
+
+void GuiRenderSystem::renderTex(const std::shared_ptr<Texture> tex)
+{
+	tpipeline.uniform.tex = tex;
+	tpipeline.renderRectangle(
+				TexturedVertexIn{ .POS = glm::vec2(-1.0f,-1.0f), .TEXCOORD = glm::vec2(0.0f, 0.0f) },
+				TexturedVertexIn{ .POS = glm::vec2(1.0f,1.0f), .TEXCOORD = glm::vec2(1.0f, 1.0f) }
 				);
 }

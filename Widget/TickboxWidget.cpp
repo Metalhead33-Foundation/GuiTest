@@ -1,7 +1,17 @@
 #include "TickboxWidget.hpp"
 
-TickboxWidget::TickboxWidget(const glm::vec2& topLeft, const glm::vec2& bottomRight)
-	: SimpleWidget(topLeft,bottomRight)
+int TickboxWidget::getThickness() const
+{
+	return thickness;
+}
+
+void TickboxWidget::setThickness(int newThickness)
+{
+	thickness = newThickness;
+}
+
+TickboxWidget::TickboxWidget(const glm::vec2& topLeft, const glm::vec2& bottomRight, int thickness)
+	: SimpleWidget(topLeft,bottomRight), thickness(thickness)
 {
 
 }
@@ -29,7 +39,7 @@ void TickboxWidget::render(GuiRenderer& renderer)
 			glm::vec2( topLeft.x, topLeft.y ),
 			glm::vec2( bottomRight.x, topLeft.y )
 		};
-		renderer.renderCLines(points,clr);
+		renderer.renderCLines(points,clr,thickness);
 	} else {
 	glm::vec2 points[] = {
 		glm::vec2( topLeft.x, topLeft.y ),
@@ -38,7 +48,7 @@ void TickboxWidget::render(GuiRenderer& renderer)
 		glm::vec2( topLeft.x, bottomRight.y ),
 		glm::vec2( topLeft.x, topLeft.y )
 	};
-	renderer.renderCLines(points,clr);
+	renderer.renderCLines(points,clr,thickness);
 	}
 
 }

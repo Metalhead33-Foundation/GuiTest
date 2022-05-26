@@ -64,10 +64,11 @@ protected:
 
 	// GuiRenderer interface
 public:
-	void renderCLine(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour) override;
+	void renderCLine(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour, int thickness = 1) override;
 	void renderCRect(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour) override;
 	void renderCTriang(const glm::vec2& p0, const glm::vec2& p1, const glm::vec2& p2, const glm::vec4& colour) override;
 	void renderTex(const glm::vec2& p0, const glm::vec2& p1, const std::shared_ptr<Texture> tex) override;
+	void renderTex(const std::shared_ptr<Texture> tex) override;
 };
 
 #endif // GUIRENDERSYSTEM_H

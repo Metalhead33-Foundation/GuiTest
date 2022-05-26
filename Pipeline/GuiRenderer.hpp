@@ -8,11 +8,12 @@
 class GuiRenderer {
 public:
 	virtual ~GuiRenderer() = default;
-	virtual void renderCLine(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour) = 0;
-	void renderCLines(const std::span<glm::vec2>& points, const glm::vec4& colour);
+	virtual void renderCLine(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour, int thickness = 1) = 0;
+	void renderCLines(const std::span<glm::vec2>& points, const glm::vec4& colour, int thickness = 1);
 	virtual void renderCRect(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour) = 0;
 	virtual void renderCTriang(const glm::vec2& p0, const glm::vec2& p1, const glm::vec2& p2, const glm::vec4& colour) = 0;
 	virtual void renderTex(const glm::vec2& p0, const glm::vec2& p1, const std::shared_ptr<Texture> tex) = 0;
+	virtual void renderTex(const std::shared_ptr<Texture> tex) = 0;
 };
 
 #endif // GUIRENDERER_HPP

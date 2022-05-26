@@ -16,7 +16,9 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 	Texture* framebuffer;
 	glm::ivec4 viewport;
 
-	void fillLine(const VertexOutType& v0, const VertexOutType& v1) {
+	void fillLine(const VertexOutType& v0, const VertexOutType& v1, int thickness = 1) {
+		const int offsetMin = 0 - (thickness / 2); // 1 -> 0-0 = 0
+		const int offsetMax = 1 + (thickness / 2); // 1 -> 1 + 0 = 1
 		const float xdiff = (v1.POS.x - v0.POS.x);
 		const float ydiff = (v1.POS.y - v0.POS.y);
 		const int xmin = static_cast<int>(std::round(std::min(v0.POS.x,v1.POS.x)));
@@ -29,7 +31,10 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 				const int y = static_cast<int>(std::round(v0.POS.y + ((static_cast<float>(x) - v0.POS.x) * slope)));
 				const float w1 = (static_cast<float>(x - xmin) / xdiff);
 				const float w0 = 1.0f - w1;
-				frag(*framebuffer,glm::ivec2(x,y),uniform, VertexOutType::interpolate(v0,v1,w0,w1,false));
+				const int tymin = std::clamp(y+offsetMin,viewport.y,viewport.w);
+				const int tymax = std::clamp(y+offsetMax,viewport.y,viewport.w);
+				const auto pixdata = VertexOutType::interpolate(v0,v1,w0,w1,false);
+				for(int ty = tymin; ty < tymax; ++ty) frag(*framebuffer,glm::ivec2(x,ty),uniform, pixdata);
 			}
 		} else {
 			const float slope = xdiff / ydiff;
@@ -37,7 +42,10 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 				const int x = static_cast<int>(std::round(v0.POS.x + ((static_cast<float>(y) - v0.POS.y) * slope)));
 				const float w1 = (static_cast<float>(y - ymin) / ydiff);
 				const float w0 = 1.0f - w1;
-				frag(*framebuffer,glm::ivec2(x,y),uniform, VertexOutType::interpolate(v0,v1,w0,w1,false));
+				const int txmin = std::clamp(x+offsetMin,viewport.x,viewport.z);
+				const int txmax = std::clamp(x+offsetMax,viewport.x,viewport.z);
+				const auto pixdata = VertexOutType::interpolate(v0,v1,w0,w1,false);
+				for(int tx = txmin; tx < txmax; ++tx) frag(*framebuffer,glm::ivec2(tx,y),uniform, pixdata);
 			}
 		}
 	}
@@ -193,14 +201,14 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 		o1.POS.y = (((o1.POS.y + 1.0f) * 0.5f) * static_cast<float>(viewport[3]-viewport[1])) + static_cast<float>(viewport[1]);
 		fillRectangle(o0,o1);
 	}
-	void renderLine(const VertexInType& i0, const VertexInType& i1) {
+	void renderLine(const VertexInType& i0, const VertexInType& i1, int thickness = 1) {
 		VertexOutType o0 = vert(uniform,i0);
 		o0.POS.x = (((o0.POS.x + 1.0f) * 0.5f) * static_cast<float>(viewport[2]-viewport[0])) + static_cast<float>(viewport[0]);
 		o0.POS.y = (((o0.POS.y + 1.0f) * 0.5f) * static_cast<float>(viewport[3]-viewport[1])) + static_cast<float>(viewport[1]);
 		VertexOutType o1 = vert(uniform,i1);
 		o1.POS.x = (((o1.POS.x + 1.0f) * 0.5f) * static_cast<float>(viewport[2]-viewport[0])) + static_cast<float>(viewport[0]);
 		o1.POS.y = (((o1.POS.y + 1.0f) * 0.5f) * static_cast<float>(viewport[3]-viewport[1])) + static_cast<float>(viewport[1]);
-		fillLine(o0,o1);
+		fillLine(o0,o1,thickness);
 	}
 };
 
