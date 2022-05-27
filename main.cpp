@@ -32,12 +32,15 @@ int main()
 		if (FT_Init_FreeType(&ft)) {
 			return;
 		}
+		sFreeTypeSystem sys(ft,FT_Done_FreeType);
 		FT_Face face;
 		if (FT_New_Face(ft, CJK, 0, &face)) {
 			return;
 		}
 		FT_Set_Pixel_Sizes(face, 0, 48);
-		auto font = std::make_shared<Font>(face);
+		sFreeTypeFace fac(face,FT_Done_Face);
+
+		auto font = std::make_shared<Font>( sys, std::move(fac) );
 		app->setFont(std::move(font));
 	});
 	app->run();
