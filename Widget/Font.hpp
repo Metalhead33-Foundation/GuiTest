@@ -19,6 +19,8 @@ public:
 		unsigned int advance;    // Offset to advance to next glyph
 	};
 	std::map<char32_t,Character> characters;
+	void insertCharacters(FT_Face fontface, const std::pair<char32_t,char32_t>& range);
+	void insertCharacters(FT_Face fontface);
 public:
 	Font(FT_Face fontface);
 	void renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing = 8);

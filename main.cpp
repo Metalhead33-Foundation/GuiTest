@@ -11,6 +11,10 @@ static const int HEIGHT = 480;*/
 static const int WIDTH = 1024;
 static const int HEIGHT = 768;
 
+static const char* DOSFONT = "Perfect DOS VGA 437.ttf";
+static const char* ARIALFONT = "arial.ttf";
+static const char* CJK = "NotoTraditionalNushu-Regular.ttf";
+
 int main()
 {
 	SDL_Init(SDL_INIT_VIDEO);
@@ -29,7 +33,7 @@ int main()
 			return;
 		}
 		FT_Face face;
-		if (FT_New_Face(ft, "Perfect DOS VGA 437.ttf", 0, &face)) {
+		if (FT_New_Face(ft, CJK, 0, &face)) {
 			return;
 		}
 		FT_Set_Pixel_Sizes(face, 0, 48);

@@ -46,7 +46,7 @@ void GuiRenderSystem::updateLogic()
 	float fpsMin, fpsAvg, fpsMax;
 	fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
 	std::stringstream sstrm;
-	sstrm << "FPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << std::endl;
+	sstrm << "Magyarul írt szöveg.\nFPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << std::endl;
 	txt = sstrm.str();
 }
 

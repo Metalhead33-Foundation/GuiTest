@@ -3,9 +3,9 @@
 #include <codecvt>
 #include <cuchar>
 
-Font::Font(FT_Face fontface)
+void Font::insertCharacters(FT_Face fontface, const std::pair<char32_t, char32_t>& range)
 {
-	for (int c = 0; c < 255; c++) {
+	for (char32_t c = range.first; c <= range.second; c++) {
 		if (FT_Load_Char(fontface, c, FT_LOAD_RENDER))
 		{
 			continue;
@@ -19,6 +19,24 @@ Font::Font(FT_Face fontface)
 		};
 		characters.insert(std::pair<char32_t, Character>(c, character));
 	}
+}
+
+void Font::insertCharacters(FT_Face fontface)
+{
+	insertCharacters(fontface,std::make_pair(0,255));
+}
+
+Font::Font(FT_Face fontface)
+{
+	// Latin
+	insertCharacters(fontface,std::make_pair(0x0000,0x024F));
+	// Cyrillic
+	insertCharacters(fontface,std::make_pair(0x0400,0x052F));
+	// Japanese
+	insertCharacters(fontface,std::make_pair(0x3040,0x30FF));
+	insertCharacters(fontface,std::make_pair(0x3300,0x4DBF));
+	insertCharacters(fontface,std::make_pair(0xF900,0xFAFF));
+	insertCharacters(fontface,std::make_pair(0x4E00,0x9FFF));
 }
 
 void Font::renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing)
