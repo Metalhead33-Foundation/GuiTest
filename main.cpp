@@ -23,6 +23,19 @@ int main()
 		sCursor cursor = std::make_shared<Cursor>(std::move(tex));
 		app->setCursor(std::move(cursor));
 	});
+	auto fontAdderThread = std::thread([app]() {
+		FT_Library ft;
+		if (FT_Init_FreeType(&ft)) {
+			return;
+		}
+		FT_Face face;
+		if (FT_New_Face(ft, "NotoTraditionalNushu-Regular.ttf", 0, &face)) {
+			return;
+		}
+		FT_Set_Pixel_Sizes(face, 0, 48);
+		auto font = std::make_shared<Font>(face);
+		app->setFont(std::move(font));
+	});
 	app->run();
 	delete app;
 	return 0;

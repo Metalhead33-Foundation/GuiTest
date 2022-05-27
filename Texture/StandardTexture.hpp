@@ -12,6 +12,41 @@ private:
 	int width,height,stride;
 	float widthF,heightF;
 public:
+	StandardTexture(const StandardTexture& cpy)
+		: pixels(cpy.pixels), width(cpy.width), height(cpy.height), stride(cpy.stride), widthF(cpy.widthF), heightF(cpy.heightF) {
+
+	}
+	StandardTexture(StandardTexture&& mov)
+		: pixels(std::move(mov.pixels)), width(mov.width), height(mov.height), stride(mov.stride), widthF(mov.widthF), heightF(mov.heightF) {
+		mov.width = 0;
+		mov.height = 0;
+		mov.stride = 0;
+		mov.widthF = 0.0f;
+		mov.heightF = 0.0f;
+	}
+	StandardTexture& operator=(const StandardTexture& cpy) {
+		this->pixels = cpy.pixels;
+		this->width = cpy.width;
+		this->height = cpy.height;
+		this->stride = cpy.stride;
+		this->widthF = cpy.widthF;
+		this->heightF = cpy.heightF;
+		return *this;
+	}
+	StandardTexture& operator=(StandardTexture&& mov) {
+		this->pixels = std::move(mov.pixels);
+		this->width = mov.width;
+		this->height = mov.height;
+		this->stride = mov.stride;
+		this->widthF = mov.widthF;
+		this->heightF = mov.heightF;
+		mov.width = 0;
+		mov.height = 0;
+		mov.stride = 0;
+		mov.widthF = 0.0f;
+		mov.heightF = 0.0f;
+		return *this;
+	}
 	StandardTexture(int width, int height)
 		: pixels(width*height), width(width), height(height), stride(width*sizeof(PixelType)), widthF(width-1), heightF(height-1)
 	{
@@ -218,6 +253,19 @@ private:
 	int width,height,stride;
 	float widthF,heightF;
 public:
+	ReferenceTexture(const ReferenceTexture& cpy)
+		: pixels(cpy.pixels), width(cpy.width), height(cpy.height), stride(cpy.stride), widthF(cpy.widthF), heightF(cpy.heightF) {
+
+	}
+	ReferenceTexture& operator=(const ReferenceTexture& cpy) {
+		this->pixels = cpy.pixels;
+		this->width = cpy.width;
+		this->height = cpy.height;
+		this->stride = cpy.stride;
+		this->widthF = cpy.widthF;
+		this->heightF = cpy.heightF;
+		return *this;
+	}
 	ReferenceTexture(PixelType* pixelsPointing, int width, int height)
 		: pixels(pixelsPointing,width*height), width(width), height(height), stride(width*sizeof(PixelType)), widthF(width-1), heightF(height-1)
 	{

@@ -2,9 +2,9 @@ TEMPLATE = app
 CONFIG += console c++2a
 CONFIG -= app_bundle
 CONFIG -= qt
-QMAKE_CFLAGS += -O3 -ffast-math
-QMAKE_CXXFLAGS += -O3 -ffast-math
-LIBS += -lSDL2 -lSDL2_image
+QMAKE_CFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
+QMAKE_CXXFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
+LIBS += -lSDL2 -lSDL2_image -lfreetype
 
 SOURCES += \
         Pipeline/BasicPipeline.cpp \
@@ -21,6 +21,7 @@ SOURCES += \
         Util/TextureHelpers.cpp \
         Widget/BoxWidget.cpp \
         Widget/Cursor.cpp \
+        Widget/Font.cpp \
         Widget/IWidget.cpp \
         Widget/SimpleWidget.cpp \
         Widget/TexturedWidget.cpp \
@@ -49,6 +50,7 @@ HEADERS += \
 	Util/ThreadsafeContainer.hpp \
 	Widget/BoxWidget.hpp \
 	Widget/Cursor.hpp \
+	Widget/Font.hpp \
 	Widget/IWidget.hpp \
 	Widget/SimpleWidget.hpp \
 	Widget/TexturedWidget.hpp \

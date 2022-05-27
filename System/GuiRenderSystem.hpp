@@ -9,6 +9,7 @@
 #include "../Pipeline/TexturedPipeline.hpp"
 #include "../Util/ThreadsafeContainer.hpp"
 #include "../Widget/Cursor.hpp"
+#include "../Widget/Font.hpp"
 #include "FpsCounter.hpp"
 #include <vector>
 
@@ -20,6 +21,7 @@ protected:
 	BasicPipeline bpipeline;
 	TexturedPipeline tpipeline;
 	sCursor cursor;
+	sFont font;
 	IWidget* currentWidget;
 	glm::mat4 projection;
 	glm::fvec2 sizeReciprocal;
@@ -68,11 +70,15 @@ public:
 	void renderCLine(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour, int thickness = 1) override;
 	void renderCRect(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour) override;
 	void renderCTriang(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2& p2, const glm::fvec4& colour) override;
-	void renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const std::shared_ptr<Texture> tex) override;
-	void renderTex(const std::shared_ptr<Texture> tex) override;
+	void renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const Texture& tex) override;
+	void renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const Texture& tex) override;
+	void renderTex(const Texture& tex) override;
 	const sCursor& getCursor() const;
 	void setCursor(const sCursor& newCursor);
 	void setCursor(sCursor&& newCursor);
+	const sFont& getFont() const;
+	void setFont(const sFont& newFont);
+	void setFont(sFont&& newFont);
 };
 
 #endif // GUIRENDERSYSTEM_H

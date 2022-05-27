@@ -50,9 +50,9 @@ void TexturedWidget::setBottomRight(const glm::fvec2& newBottomRight)
 void TexturedWidget::render(GuiRenderer& renderer)
 {
 	switch (state) {
-		case OUT_OF_FOCUS: renderer.renderTex(topLeft,bottomRight,textureDistact); break;
-		case IN_FOCUS: renderer.renderTex(topLeft,bottomRight,textureActive); break;
-		case CLICKED: renderer.renderTex(topLeft,bottomRight,textureClicked); break;
+		case OUT_OF_FOCUS: renderer.renderTex(topLeft,bottomRight,*textureDistact); break;
+		case IN_FOCUS: renderer.renderTex(topLeft,bottomRight,*textureActive); break;
+		case CLICKED: renderer.renderTex(topLeft,bottomRight,*textureClicked); break;
 	}
 }
 

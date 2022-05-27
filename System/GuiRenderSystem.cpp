@@ -23,16 +23,36 @@ void GuiRenderSystem::setCursor(sCursor&& newCursor)
 	cursor = std::move(newCursor);
 }
 
+const sFont& GuiRenderSystem::getFont() const
+{
+	return font;
+}
+
+void GuiRenderSystem::setFont(const sFont& newFont)
+{
+	font = newFont;
+}
+
+void GuiRenderSystem::setFont(sFont&& newFont)
+{
+	font = std::move(newFont);
+}
+
 void GuiRenderSystem::updateLogic()
 {
 
 }
+
+static const std::string txt = "Whatever";
 
 void GuiRenderSystem::render()
 {
 	fpsCounter.singleTick([this]() {
 		framebuffer->clearToColour(glm::fvec4(0.0f,0.0f,0.0f,0.0f));
 		zbuffer->clear();
+		if(font) {
+			font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),std::min(sizeReciprocal.x,sizeReciprocal.y),glm::fvec4(0.75f,0.75f,0.75f,1.0f));
+		}
 		widgets.access( [this](const std::vector<sWidget>& cntr) {
 			for(auto& it : cntr) {
 				it->render(*this);
@@ -69,7 +89,7 @@ static const glm::ivec2 virtualRes = glm::ivec2(320,240);
 
 GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags)
 	: AppSystem(title,offsetX,offsetY,width,height,flags), currentWidget(nullptr),
-	  strbuffer(""), fullscreen(false), mousePos(glm::fvec2(0.0,0.0f)), cursor(nullptr)
+	  strbuffer(""), fullscreen(false), mousePos(glm::fvec2(0.0,0.0f)), cursor(nullptr), font(nullptr)
 {
 	bpipeline.uniform.blending = ALPHA_DITHERING;
 	bpipeline.vert = basicVertexShader;
@@ -312,18 +332,27 @@ void GuiRenderSystem::renderCTriang(const glm::fvec2& p0, const glm::fvec2& p1, 
 	bpipeline.renderTriangles(vertices);
 }
 
-void GuiRenderSystem::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const std::shared_ptr<Texture> tex)
+void GuiRenderSystem::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const Texture& tex)
 {
-	tpipeline.uniform.tex = tex;
+	tpipeline.uniform.tex = &tex;
+	tpipeline.renderRectangle(
+				TexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = t0 },
+				TexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = t1 }
+				);
+}
+
+void GuiRenderSystem::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const Texture& tex)
+{
+	tpipeline.uniform.tex = &tex;
 	tpipeline.renderRectangle(
 				TexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
 				TexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }
 				);
 }
 
-void GuiRenderSystem::renderTex(const std::shared_ptr<Texture> tex)
+void GuiRenderSystem::renderTex(const Texture& tex)
 {
-	tpipeline.uniform.tex = tex;
+	tpipeline.uniform.tex = &tex;
 	tpipeline.renderRectangle(
 				TexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
 				TexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }

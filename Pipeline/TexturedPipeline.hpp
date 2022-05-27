@@ -6,7 +6,7 @@
 #include <memory>
 
 struct TexturedUniform {
-	sTexture tex;
+	const Texture* tex;
 	Sampler samplerState;
 	AlphaBlending blending;
 };

@@ -8,7 +8,7 @@
 
 struct ModelUniform {
 	ZBuffer* zbuff;
-	std::shared_ptr<Texture> tex;
+	const Texture* tex;
 	Sampler samplerState;
 	AlphaBlending blending;
 	glm::mat4 model;
