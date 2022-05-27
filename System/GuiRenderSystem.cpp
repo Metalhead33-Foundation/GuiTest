@@ -7,6 +7,7 @@
 #include <string_view>
 #include "../Util/TextureHelpers.hpp"
 #include "../Util/TextureFromSurface.hpp"
+#include <sstream>
 
 const sCursor& GuiRenderSystem::getCursor() const
 {
@@ -38,12 +39,17 @@ void GuiRenderSystem::setFont(sFont&& newFont)
 	font = std::move(newFont);
 }
 
+static std::string txt = "Multi-line\ntext";
+
 void GuiRenderSystem::updateLogic()
 {
-
+	float fpsMin, fpsAvg, fpsMax;
+	fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
+	std::stringstream sstrm;
+	sstrm << "FPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << std::endl;
+	txt = sstrm.str();
 }
 
-static const std::string txt = "Whatever";
 
 void GuiRenderSystem::render()
 {
@@ -51,7 +57,7 @@ void GuiRenderSystem::render()
 		framebuffer->clearToColour(glm::fvec4(0.0f,0.0f,0.0f,0.0f));
 		zbuffer->clear();
 		if(font) {
-			font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),std::min(sizeReciprocal.x,sizeReciprocal.y),glm::fvec4(0.75f,0.75f,0.75f,1.0f));
+			font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,1.5f,glm::fvec4(0.75f,0.75f,0.75f,1.0f),8);
 		}
 		widgets.access( [this](const std::vector<sWidget>& cntr) {
 			for(auto& it : cntr) {
@@ -260,12 +266,6 @@ void GuiRenderSystem::handleKeyboardEvent(const SDL_KeyboardEvent& event)
 		}
 		case SDLK_RETURN: {
 			std::cout << strbuffer << std::endl;
-			break;
-		}
-		case SDLK_SPACE : {
-			float fpsMin, fpsAvg, fpsMax;
-			fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
-			std::cout << "FPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << std::endl;
 			break;
 		}
 		case SDLK_F1: {

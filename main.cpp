@@ -29,7 +29,7 @@ int main()
 			return;
 		}
 		FT_Face face;
-		if (FT_New_Face(ft, "NotoTraditionalNushu-Regular.ttf", 0, &face)) {
+		if (FT_New_Face(ft, "Perfect DOS VGA 437.ttf", 0, &face)) {
 			return;
 		}
 		FT_Set_Pixel_Sizes(face, 0, 48);
