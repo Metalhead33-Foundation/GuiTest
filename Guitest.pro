@@ -8,6 +8,7 @@ LIBS += -lSDL2 -lSDL2_image -lfreetype
 
 SOURCES += \
         Pipeline/BasicPipeline.cpp \
+        Pipeline/ColouredTexturedPipeline.cpp \
         Pipeline/EdgeFunction.cpp \
         Pipeline/GuiRenderer.cpp \
         Pipeline/ModelPipeline.cpp \
@@ -30,6 +31,7 @@ SOURCES += \
 
 HEADERS += \
 	Pipeline/BasicPipeline.hpp \
+	Pipeline/ColouredTexturedPipeline.hpp \
 	Pipeline/EdgeFunction.hpp \
 	Pipeline/GuiRenderer.hpp \
 	Pipeline/ModelPipeline.hpp \

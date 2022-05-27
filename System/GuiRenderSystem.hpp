@@ -7,6 +7,7 @@
 #include "../Pipeline/GuiRenderer.hpp"
 #include "../Pipeline/BasicPipeline.hpp"
 #include "../Pipeline/TexturedPipeline.hpp"
+#include "../Pipeline/ColouredTexturedPipeline.hpp"
 #include "../Util/ThreadsafeContainer.hpp"
 #include "../Widget/Cursor.hpp"
 #include "../Widget/Font.hpp"
@@ -20,6 +21,7 @@ protected:
 	std::shared_ptr<ZBuffer> zbuffer;
 	BasicPipeline bpipeline;
 	TexturedPipeline tpipeline;
+	ColouredTexturedPipeline ctpipeline;
 	sCursor cursor;
 	sFont font;
 	IWidget* currentWidget;
@@ -73,6 +75,9 @@ public:
 	void renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const Texture& tex) override;
 	void renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const Texture& tex) override;
 	void renderTex(const Texture& tex) override;
+	void renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const Texture& tex) override;
+	void renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::vec4& colour, const Texture& tex) override;
+	void renderCTex(const glm::vec4& colour, const Texture& tex) override;
 	const sCursor& getCursor() const;
 	void setCursor(const sCursor& newCursor);
 	void setCursor(sCursor&& newCursor);

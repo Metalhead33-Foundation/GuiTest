@@ -57,7 +57,7 @@ void GuiRenderSystem::render()
 		framebuffer->clearToColour(glm::fvec4(0.0f,0.0f,0.0f,0.0f));
 		zbuffer->clear();
 		if(font) {
-			font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,1.5f,glm::fvec4(0.75f,0.75f,0.75f,1.0f),8);
+			font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,0.5f,glm::fvec4(0.99f,0.35f,0.35f,1.0f),8);
 		}
 		widgets.access( [this](const std::vector<sWidget>& cntr) {
 			for(auto& it : cntr) {
@@ -84,8 +84,10 @@ void GuiRenderSystem::onResolutionChange(int newWidth, int newHeight)
 	zbuffer = std::make_shared<ZBuffer>(newWidth,newHeight);
 	bpipeline.framebuffer = framebuffer.get();
 	tpipeline.framebuffer = framebuffer.get();
+	ctpipeline.framebuffer = framebuffer.get();
 	bpipeline.viewport = viewport;
 	tpipeline.viewport = viewport;
+	ctpipeline.viewport = viewport;
 }
 
 static const int CIRCLE_W = 128;
@@ -105,6 +107,11 @@ GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offs
 	tpipeline.uniform.samplerState.filtering = TextureFiltering::DITHERED;
 	tpipeline.vert = TexturedVertexShader;
 	tpipeline.frag = TexturedFragmentShader;
+	ctpipeline.uniform.blending = ALPHA_TESTING;
+	ctpipeline.uniform.samplerState.wrap = Wrap::MIRRORED_REPEAT;
+	ctpipeline.uniform.samplerState.filtering = TextureFiltering::NEAREST_NEIGHBOUR;
+	ctpipeline.vert = ColouredTexturedVertexShader;
+	ctpipeline.frag = ColouredTexturedFragmentShader;
 	onResolutionChange(width,height);
 	SDL_ShowCursor(SDL_DISABLE);
 	//SDL_SetRelativeMouseMode(SDL_TRUE);
@@ -356,5 +363,33 @@ void GuiRenderSystem::renderTex(const Texture& tex)
 	tpipeline.renderRectangle(
 				TexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
 				TexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }
+				);
+}
+
+
+void GuiRenderSystem::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const Texture& tex)
+{
+	ctpipeline.uniform.tex = &tex;
+	ctpipeline.renderRectangle(
+				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = t0, .COLOUR = colour },
+				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = t1, .COLOUR = colour }
+				);
+}
+
+void GuiRenderSystem::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::vec4& colour, const Texture& tex)
+{
+	ctpipeline.uniform.tex = &tex;
+	ctpipeline.renderRectangle(
+				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(0.0f, 0.0f), .COLOUR = colour },
+				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(1.0f, 1.0f), .COLOUR = colour }
+				);
+}
+
+void GuiRenderSystem::renderCTex(const glm::vec4& colour, const Texture& tex)
+{
+	ctpipeline.uniform.tex = &tex;
+	ctpipeline.renderRectangle(
+				ColouredTexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f), .COLOUR = colour },
+				ColouredTexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f), .COLOUR = colour }
 				);
 }
