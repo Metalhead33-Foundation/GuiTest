@@ -8,34 +8,35 @@
 #include "../Pipeline/BasicPipeline.hpp"
 #include "../Pipeline/TexturedPipeline.hpp"
 #include "../Util/ThreadsafeContainer.hpp"
+#include "../Widget/Cursor.hpp"
+#include "FpsCounter.hpp"
 #include <vector>
 
 class GuiRenderSystem : public AppSystem, public GuiRenderer
 {
 protected:
-	std::shared_ptr<Texture> framebuffer;
+	sTexture framebuffer;
 	std::shared_ptr<ZBuffer> zbuffer;
 	BasicPipeline bpipeline;
 	TexturedPipeline tpipeline;
-
+	sCursor cursor;
 	IWidget* currentWidget;
 	glm::mat4 projection;
-	glm::vec2 sizeReciprocal;
+	glm::fvec2 sizeReciprocal;
 	glm::ivec4 viewport;
 	threadsafe<std::vector<sWidget>> widgets;
 	std::string strbuffer;
-	glm::vec2 mousePos;
+	glm::fvec2 mousePos;
 	bool fullscreen;
-	float fpsMin;
-	float fpsMax;
+	FpsCounter fpsCounter;
 	virtual void updateLogic() override;
 	virtual void render() override;
 	void onResolutionChange(int newWidth, int newHeight);
 public:
 	GuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags);
-	glm::vec2 absToRel(const glm::ivec2& abs) const;
-	glm::vec2 absToRel(const glm::ivec2& abs, const glm::ivec2& customRes) const;
-	glm::ivec2 relToAbs(const glm::vec2& rel) const;
+	glm::fvec2 absToRel(const glm::ivec2& abs) const;
+	glm::fvec2 absToRel(const glm::ivec2& abs, const glm::ivec2& customRes) const;
+	glm::ivec2 relToAbs(const glm::fvec2& rel) const;
 
 	// AppSystem interface
 protected:
@@ -64,11 +65,14 @@ protected:
 
 	// GuiRenderer interface
 public:
-	void renderCLine(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour, int thickness = 1) override;
-	void renderCRect(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour) override;
-	void renderCTriang(const glm::vec2& p0, const glm::vec2& p1, const glm::vec2& p2, const glm::vec4& colour) override;
-	void renderTex(const glm::vec2& p0, const glm::vec2& p1, const std::shared_ptr<Texture> tex) override;
+	void renderCLine(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour, int thickness = 1) override;
+	void renderCRect(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour) override;
+	void renderCTriang(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2& p2, const glm::fvec4& colour) override;
+	void renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const std::shared_ptr<Texture> tex) override;
 	void renderTex(const std::shared_ptr<Texture> tex) override;
+	const sCursor& getCursor() const;
+	void setCursor(const sCursor& newCursor);
+	void setCursor(sCursor&& newCursor);
 };
 
 #endif // GUIRENDERSYSTEM_H

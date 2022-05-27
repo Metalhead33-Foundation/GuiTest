@@ -48,7 +48,7 @@ public:
 	int getStride() const override {
 		return stride;
 	}
-	void getPixel(const glm::ivec2& pos, glm::vec4& colourKernel, Wrap wrap) const override {
+	void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap) const override {
 		int x;
 		int y;
 		switch (wrap) {
@@ -66,15 +66,15 @@ public:
 			break;
 		case CLAMP_TO_BORDER:
 			if(pos.x > 0 && pos.x < width && pos.y > 0 && pos.y < height) { x = pos.x; y = pos.y; }
-			else { std::memset(&colourKernel,0,sizeof(glm::vec4)); return; }
+			else { std::memset(&colourKernel,0,sizeof(glm::fvec4)); return; }
 			break;
 		}
 		pixels[ (y * width) + x ].toKernel(colourKernel);
 	}
-	void setPixel(const glm::ivec2& pos, const glm::vec4& colourKernel) override {
+	void setPixel(const glm::ivec2& pos, const glm::fvec4& colourKernel) override {
 		pixels[ (pos.y * width) + pos.x ].fromKernel(colourKernel);
 	}
-	void setPixelDithered(const glm::ivec2& pos, const glm::vec4& colourKernel) override {
+	void setPixelDithered(const glm::ivec2& pos, const glm::fvec4& colourKernel) override {
 		pixels[ (pos.y * width) + pos.x ].fromKernelDithered(colourKernel,pos);
 	}
 	void* getRawPixels() override {
@@ -83,7 +83,7 @@ public:
 	const void* getRawPixels() const override {
 		return pixels.data();
 	}
-	void clearToColour(const glm::vec4& colourKernel) override {
+	void clearToColour(const glm::fvec4& colourKernel) override {
 		PixelType p;
 		p.fromKernel(colourKernel);
 		for(int y = 0; y < height; ++y) {
@@ -107,9 +107,60 @@ public:
 			PixelType* const scanline = &pixels[y*width];
 			for(int x = 0; x < width; ++x) {
 				glm::ivec2 pos = glm::ivec2(x,y);
-				glm::vec4 kernel;
+				glm::fvec4 kernel;
 				scanline[x].toKernel(kernel);
 				scanline[x].fromKernelDithered(program(pos,kernel),pos);
+			}
+		}
+	}
+	void clearToColour(const ColourProgrammer3& program)
+	{
+		const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
+		for(int y = 0; y < height; ++y) {
+			PixelType* const scanline = &pixels[y*width];
+			for(int x = 0; x < width; ++x) {
+				glm::ivec2 pos = glm::ivec2(x,y);
+				glm::fvec2 fpos = glm::fvec2(static_cast<float>(x) * reciprocal.x, static_cast<float>(y) * reciprocal.y);
+				scanline[x].fromKernelDithered(program(fpos),pos);
+			}
+		}
+	}
+	void clearToColour(const ColourProgrammer4& program)
+	{
+		const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
+		for(int y = 0; y < height; ++y) {
+			PixelType* const scanline = &pixels[y*width];
+			for(int x = 0; x < width; ++x) {
+				glm::ivec2 pos = glm::ivec2(x,y);
+				glm::fvec2 fpos = glm::fvec2(static_cast<float>(x) * reciprocal.x, static_cast<float>(y) * reciprocal.y);
+				glm::fvec4 kernel;
+				scanline[x].toKernel(kernel);
+				scanline[x].fromKernelDithered(program(fpos,kernel),pos);
+			}
+		}
+	}
+	void iterateOverPixels(const ColourIterator& program) const
+	{
+		for(int y = 0; y < height; ++y) {
+			const PixelType* const scanline = &pixels[y*width];
+			for(int x = 0; x < width; ++x) {
+				glm::ivec2 pos = glm::ivec2(x,y);
+				glm::fvec4 kernel;
+				scanline[x].toKernel(kernel);
+				program(pos,kernel);
+			}
+		}
+	}
+	void iterateOverPixels(const ColourIterator2& program) const
+	{
+		const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
+		for(int y = 0; y < height; ++y) {
+			const PixelType* const scanline = &pixels[y*width];
+			for(int x = 0; x < width; ++x) {
+				glm::fvec2 fpos = glm::fvec2(static_cast<float>(x) * reciprocal.x, static_cast<float>(y) * reciprocal.y);
+				glm::fvec4 kernel;
+				scanline[x].toKernel(kernel);
+				program(fpos,kernel);
 			}
 		}
 	}
@@ -198,7 +249,7 @@ public:
 	int getStride() const override {
 		return stride;
 	}
-	void getPixel(const glm::ivec2& pos, glm::vec4& colourKernel, Wrap wrap) const override {
+	void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap) const override {
 		int x;
 		int y;
 		switch (wrap) {
@@ -216,15 +267,15 @@ public:
 			break;
 		case CLAMP_TO_BORDER:
 			if(pos.x > 0 && pos.x < width && pos.y > 0 && pos.y < height) { x = pos.x; y = pos.y; }
-			else { std::memset(&colourKernel,0,sizeof(glm::vec4)); return; }
+			else { std::memset(&colourKernel,0,sizeof(glm::fvec4)); return; }
 			break;
 		}
 		pixels[ (y * width) + x ].toKernel(colourKernel);
 	}
-	void setPixel(const glm::ivec2& pos, const glm::vec4& colourKernel) override {
+	void setPixel(const glm::ivec2& pos, const glm::fvec4& colourKernel) override {
 		pixels[ (pos.y * width) + pos.x ].fromKernel(colourKernel);
 	}
-	void setPixelDithered(const glm::ivec2& pos, const glm::vec4& colourKernel) override {
+	void setPixelDithered(const glm::ivec2& pos, const glm::fvec4& colourKernel) override {
 		pixels[ (pos.y * width) + pos.x ].fromKernelDithered(colourKernel,pos);
 	}
 	void* getRawPixels() override {
@@ -233,7 +284,7 @@ public:
 	const void* getRawPixels() const override {
 		return pixels.data();
 	}
-	void clearToColour(const glm::vec4& colourKernel) override {
+	void clearToColour(const glm::fvec4& colourKernel) override {
 		PixelType p;
 		p.fromKernel(colourKernel);
 		for(int y = 0; y < height; ++y) {
@@ -257,9 +308,60 @@ public:
 			PixelType* const scanline = &pixels[y*width];
 			for(int x = 0; x < width; ++x) {
 				glm::ivec2 pos = glm::ivec2(x,y);
-				glm::vec4 kernel;
+				glm::fvec4 kernel;
 				scanline[x].toKernel(kernel);
 				scanline[x].fromKernelDithered(program(pos,kernel),pos);
+			}
+		}
+	}
+	void clearToColour(const ColourProgrammer3& program)
+	{
+		const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
+		for(int y = 0; y < height; ++y) {
+			PixelType* const scanline = &pixels[y*width];
+			for(int x = 0; x < width; ++x) {
+				glm::ivec2 pos = glm::ivec2(x,y);
+				glm::fvec2 fpos = glm::fvec2(static_cast<float>(x) * reciprocal.x, static_cast<float>(y) * reciprocal.y);
+				scanline[x].fromKernelDithered(program(fpos),pos);
+			}
+		}
+	}
+	void clearToColour(const ColourProgrammer4& program)
+	{
+		const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
+		for(int y = 0; y < height; ++y) {
+			PixelType* const scanline = &pixels[y*width];
+			for(int x = 0; x < width; ++x) {
+				glm::ivec2 pos = glm::ivec2(x,y);
+				glm::fvec2 fpos = glm::fvec2(static_cast<float>(x) * reciprocal.x, static_cast<float>(y) * reciprocal.y);
+				glm::fvec4 kernel;
+				scanline[x].toKernel(kernel);
+				scanline[x].fromKernelDithered(program(fpos,kernel),pos);
+			}
+		}
+	}
+	void iterateOverPixels(const ColourIterator& program) const
+	{
+		for(int y = 0; y < height; ++y) {
+			const PixelType* const scanline = &pixels[y*width];
+			for(int x = 0; x < width; ++x) {
+				glm::ivec2 pos = glm::ivec2(x,y);
+				glm::fvec4 kernel;
+				scanline[x].toKernel(kernel);
+				program(pos,kernel);
+			}
+		}
+	}
+	void iterateOverPixels(const ColourIterator2& program) const
+	{
+		const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
+		for(int y = 0; y < height; ++y) {
+			const PixelType* const scanline = &pixels[y*width];
+			for(int x = 0; x < width; ++x) {
+				glm::fvec2 fpos = glm::fvec2(static_cast<float>(x) * reciprocal.x, static_cast<float>(y) * reciprocal.y);
+				glm::fvec4 kernel;
+				scanline[x].toKernel(kernel);
+				program(fpos,kernel);
 			}
 		}
 	}

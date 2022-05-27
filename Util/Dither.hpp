@@ -21,48 +21,48 @@ template <typename T, T maximum = std::numeric_limits<T>::max() > struct Ordered
 	static constexpr float ditherDown(float value, const glm::ivec2& coords) {
 		return std::clamp(value - LookupTable[coords.y%4][coords.x%4],0.0f,1.0f);
 	}
-	static constexpr glm::vec2 ditherUp(const glm::vec2& value, const glm::ivec2& coords) {
+	static constexpr glm::fvec2 ditherUp(const glm::fvec2& value, const glm::ivec2& coords) {
 		const auto& lookupVal = LookupTable[coords.y%4][coords.x%4];
-		return glm::vec2(
+		return glm::fvec2(
 					std::clamp(value.x + lookupVal, 0.0f, 1.0f),
 					std::clamp(value.y + lookupVal, 0.0f, 1.0f)
 						 );
 	}
-	static constexpr glm::vec2 ditherDown(const glm::vec2& value, const glm::ivec2& coords) {
+	static constexpr glm::fvec2 ditherDown(const glm::fvec2& value, const glm::ivec2& coords) {
 		const auto& lookupVal = LookupTable[coords.y%4][coords.x%4];
-		return glm::vec2(
+		return glm::fvec2(
 					std::clamp(value.x - lookupVal, 0.0f, 1.0f),
 					std::clamp(value.y - lookupVal, 0.0f, 1.0f)
 						 );
 	}
-	static constexpr glm::vec3 ditherUp(const glm::vec3& value, const glm::ivec2& coords) {
+	static constexpr glm::fvec3 ditherUp(const glm::fvec3& value, const glm::ivec2& coords) {
 		const auto& lookupVal = LookupTable[coords.y%4][coords.x%4];
-		return glm::vec3(
+		return glm::fvec3(
 					std::clamp(value.x + lookupVal, 0.0f, 1.0f),
 					std::clamp(value.y + lookupVal, 0.0f, 1.0f),
 					std::clamp(value.z + lookupVal, 0.0f, 1.0f)
 						 );
 	}
-	static constexpr glm::vec3 ditherDown(const glm::vec3& value, const glm::ivec2& coords) {
+	static constexpr glm::fvec3 ditherDown(const glm::fvec3& value, const glm::ivec2& coords) {
 		const auto& lookupVal = LookupTable[coords.y%4][coords.x%4];
-		return glm::vec3(
+		return glm::fvec3(
 					std::clamp(value.x - lookupVal, 0.0f, 1.0f),
 					std::clamp(value.y - lookupVal, 0.0f, 1.0f),
 					std::clamp(value.z - lookupVal, 0.0f, 1.0f)
 						 );
 	}
-	static constexpr glm::vec4 ditherUp(const glm::vec4& value, const glm::ivec2& coords) {
+	static constexpr glm::fvec4 ditherUp(const glm::fvec4& value, const glm::ivec2& coords) {
 		const auto& lookupVal = LookupTable[coords.y%4][coords.x%4];
-		return glm::vec4(
+		return glm::fvec4(
 					std::clamp(value.x + lookupVal, 0.0f, 1.0f),
 					std::clamp(value.y + lookupVal, 0.0f, 1.0f),
 					std::clamp(value.z + lookupVal, 0.0f, 1.0f),
 					std::clamp(value.w + lookupVal, 0.0f, 1.0f)
 						 );
 	}
-	static constexpr glm::vec4 ditherDown(const glm::vec4& value, const glm::ivec2& coords) {
+	static constexpr glm::fvec4 ditherDown(const glm::fvec4& value, const glm::ivec2& coords) {
 		const auto& lookupVal = LookupTable[coords.y%4][coords.x%4];
-		return glm::vec4(
+		return glm::fvec4(
 					std::clamp(value.x - lookupVal, 0.0f, 1.0f),
 					std::clamp(value.y - lookupVal, 0.0f, 1.0f),
 					std::clamp(value.z - lookupVal, 0.0f, 1.0f),
@@ -72,20 +72,20 @@ template <typename T, T maximum = std::numeric_limits<T>::max() > struct Ordered
 
 };
 
-constexpr const glm::vec4 thresholdMatrix[4] = {
-glm::vec4(1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0),
-glm::vec4(13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0),
-glm::vec4(4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0),
-glm::vec4(16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0)
+constexpr const glm::fvec4 thresholdMatrix[4] = {
+glm::fvec4(1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0),
+glm::fvec4(13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0),
+glm::fvec4(4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0),
+glm::fvec4(16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0)
 };
 constexpr bool stippleAlpha(float alpha, const glm::ivec2& coords) {
 	return (alpha >= thresholdMatrix[coords.x % 4][coords.y % 4]);
 }
 
 
-constexpr const glm::vec2 LOOKUP[2][2] = {
-{  glm::vec2( 0.25f, 0.00f ), glm::vec2( 0.50f, 0.75f ) },
-{  glm::vec2( 0.75f, 0.50f ), glm::vec2( 0.00f, 0.25f ) }
+constexpr const glm::fvec2 LOOKUP[2][2] = {
+{  glm::fvec2( 0.25f, 0.00f ), glm::fvec2( 0.50f, 0.75f ) },
+{  glm::fvec2( 0.75f, 0.50f ), glm::fvec2( 0.00f, 0.25f ) }
 };
 
 #endif // DITHER_HPP

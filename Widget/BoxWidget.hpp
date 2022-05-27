@@ -6,7 +6,7 @@
 class BoxWidget : public SimpleWidget
 {
 public:
-	BoxWidget(const glm::vec2& topLeft, const glm::vec2& bottomRight);
+	BoxWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight);
 	void render(GuiRenderer& renderer) override;
 };
 

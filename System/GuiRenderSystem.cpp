@@ -8,6 +8,21 @@
 #include "../Util/TextureHelpers.hpp"
 #include "../Util/TextureFromSurface.hpp"
 
+const sCursor& GuiRenderSystem::getCursor() const
+{
+	return cursor;
+}
+
+void GuiRenderSystem::setCursor(const sCursor& newCursor)
+{
+	cursor = newCursor;
+}
+
+void GuiRenderSystem::setCursor(sCursor&& newCursor)
+{
+	cursor = std::move(newCursor);
+}
+
 void GuiRenderSystem::updateLogic()
 {
 
@@ -15,22 +30,22 @@ void GuiRenderSystem::updateLogic()
 
 void GuiRenderSystem::render()
 {
-	const auto start_time = SDL_GetTicks();
-	framebuffer->clearToColour(glm::vec4(0.0f,0.0f,0.0f,0.0f));
-	zbuffer->clear();
-	widgets.access( [this](const std::vector<sWidget>& cntr) {
-		for(auto& it : cntr) {
-			it->render(*this);
+	fpsCounter.singleTick([this]() {
+		framebuffer->clearToColour(glm::fvec4(0.0f,0.0f,0.0f,0.0f));
+		zbuffer->clear();
+		widgets.access( [this](const std::vector<sWidget>& cntr) {
+			for(auto& it : cntr) {
+				it->render(*this);
+			}
+		});
+		if(cursor) cursor->render(*this,mousePos,sizeReciprocal);
+		else {
+		const glm::fvec2 mouseBottom = glm::fvec2(mousePos.x + (sizeReciprocal.x * 10.f), mousePos.y);
+		const glm::fvec2 mouseRight = glm::fvec2(mousePos.x, mousePos.y + (sizeReciprocal.y * 10.f));
+		renderCTriang(mousePos,mouseBottom,mouseRight,glm::fvec4(1.0f, 1.0f, 1.0f, 1.0f));
 		}
+		SDL_UpdateWindowSurface(window.get());
 	});
-	const glm::vec2 mouseBottom = glm::vec2(mousePos.x + (sizeReciprocal.x * 10.f), mousePos.y);
-	const glm::vec2 mouseRight = glm::vec2(mousePos.x, mousePos.y + (sizeReciprocal.y * 10.f));
-	renderCTriang(mousePos,mouseBottom,mouseRight,glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-	SDL_UpdateWindowSurface(window.get());
-	const auto frame_time = SDL_GetTicks()-start_time;
-	const float fps = (frame_time > 0) ? (1000.0f / static_cast<float>(frame_time)) : 0.0f;
-	fpsMin = std::min(fpsMin,fps);
-	fpsMax = std::max(fpsMax,fps);
 }
 
 void GuiRenderSystem::onResolutionChange(int newWidth, int newHeight)
@@ -38,7 +53,7 @@ void GuiRenderSystem::onResolutionChange(int newWidth, int newHeight)
 	SDL_Surface * window_surface = SDL_GetWindowSurface(window.get());
 	viewport = glm::ivec4(0,0,newWidth,newHeight);
 	projection = glm::ortho(0,newWidth,0,newHeight);
-	sizeReciprocal = glm::vec2(2.0f/static_cast<float>(newWidth),2.0f/static_cast<float>(newHeight));
+	sizeReciprocal = glm::fvec2(2.0f/static_cast<float>(newWidth),2.0f/static_cast<float>(newHeight));
 	framebuffer = textureFromSurface(*window_surface);
 	zbuffer = std::make_shared<ZBuffer>(newWidth,newHeight);
 	bpipeline.framebuffer = framebuffer.get();
@@ -54,15 +69,14 @@ static const glm::ivec2 virtualRes = glm::ivec2(320,240);
 
 GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags)
 	: AppSystem(title,offsetX,offsetY,width,height,flags), currentWidget(nullptr),
-	  strbuffer(""), fullscreen(false), fpsMin(std::numeric_limits<float>::infinity()), fpsMax(-std::numeric_limits<float>::infinity()),
-	  mousePos(glm::vec2(0.0,0.0f))
+	  strbuffer(""), fullscreen(false), mousePos(glm::fvec2(0.0,0.0f)), cursor(nullptr)
 {
-	bpipeline.uniform.blending = ALPHA_BLENDING;
+	bpipeline.uniform.blending = ALPHA_DITHERING;
 	bpipeline.vert = basicVertexShader;
 	bpipeline.frag = basicFragmentShader;
-	tpipeline.uniform.blending = ALPHA_BLENDING;
+	tpipeline.uniform.blending = ALPHA_DITHERING;
 	tpipeline.uniform.samplerState.wrap = Wrap::MIRRORED_REPEAT;
-	tpipeline.uniform.samplerState.filtering = TextureFiltering::BILINEAR;
+	tpipeline.uniform.samplerState.filtering = TextureFiltering::DITHERED;
 	tpipeline.vert = TexturedVertexShader;
 	tpipeline.frag = TexturedFragmentShader;
 	onResolutionChange(width,height);
@@ -74,28 +88,28 @@ GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offs
 	widgets.access( [&,this](std::vector<sWidget>& cntr) {
 		cntr.reserve(256);
 		cntr.push_back(std::make_shared<BoxWidget>(absToRel(glm::ivec2(25,25),virtualRes),absToRel(glm::ivec2(125,125),virtualRes)));
-		cntr.push_back(std::make_shared<TickboxWidget>(absToRel(glm::ivec2(100,100),virtualRes),absToRel(glm::ivec2(200,200),virtualRes),2));
+		cntr.push_back(std::make_shared<TickboxWidget>(absToRel(glm::ivec2(100,100),virtualRes),absToRel(glm::ivec2(200,200),virtualRes),1));
 		cntr.push_back(std::make_shared<TexturedWidget>(absToRel(glm::ivec2(200,200),virtualRes),absToRel(glm::ivec2(200+CIRCLE_W,200+CIRCLE_H),virtualRes),CIRCLE_W,CIRCLE_H,tex1.data(),tex2.data(),tex3.data()));
 	});
-	}
+}
 
-glm::vec2 GuiRenderSystem::absToRel(const glm::ivec2& abs) const
+glm::fvec2 GuiRenderSystem::absToRel(const glm::ivec2& abs) const
 {
-	return glm::vec2(
+	return glm::fvec2(
 				((static_cast<float>(abs.x) / static_cast<float>(viewport.z)) * 2.0f) - 1.0f,
 				((static_cast<float>(abs.y) / static_cast<float>(viewport.w)) * 2.0f) - 1.0f
 				);
 }
 
-glm::vec2 GuiRenderSystem::absToRel(const glm::ivec2& abs, const glm::ivec2& customRes) const
+glm::fvec2 GuiRenderSystem::absToRel(const glm::ivec2& abs, const glm::ivec2& customRes) const
 {
-	return glm::vec2(
+	return glm::fvec2(
 				((static_cast<float>(abs.x) / static_cast<float>(customRes.x)) * 2.0f) - 1.0f,
 				((static_cast<float>(abs.y) / static_cast<float>(customRes.y)) * 2.0f) - 1.0f
 				);
 }
 
-glm::ivec2 GuiRenderSystem::relToAbs(const glm::vec2& rel) const
+glm::ivec2 GuiRenderSystem::relToAbs(const glm::fvec2& rel) const
 {
 	return glm::ivec2(
 				static_cast<int>(((rel.x + 1.0f) * 0.5f) * static_cast<float>(viewport.z)),
@@ -167,8 +181,8 @@ void GuiRenderSystem::handleMouseMotionEvent(const SDL_MouseMotionEvent& event)
 {
 	IWidget* pcwidg = currentWidget;
 	IWidget* cwidg = nullptr;
-	mousePos = glm::vec2( static_cast<float>(event.x), static_cast<float>(event.y) ) * sizeReciprocal - glm::vec2(1.0f,1.0f);
-	const auto relpos = glm::vec2( static_cast<float>(event.xrel), static_cast<float>(event.yrel) ) * sizeReciprocal;
+	mousePos = glm::fvec2( static_cast<float>(event.x), static_cast<float>(event.y) ) * sizeReciprocal - glm::fvec2(1.0f,1.0f);
+	const auto relpos = glm::fvec2( static_cast<float>(event.xrel), static_cast<float>(event.yrel) ) * sizeReciprocal;
 	widgets.access( [&,this](std::vector<sWidget>& cntr) {
 	for(auto& it : cntr) {
 		const auto& tl = it->getTopLeft();
@@ -229,7 +243,9 @@ void GuiRenderSystem::handleKeyboardEvent(const SDL_KeyboardEvent& event)
 			break;
 		}
 		case SDLK_SPACE : {
-			std::cout << "FPS min: " << fpsMin << "\nFPS max: " << fpsMax << std::endl;
+			float fpsMin, fpsAvg, fpsMax;
+			fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
+			std::cout << "FPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << std::endl;
 			break;
 		}
 		case SDLK_F1: {
@@ -271,7 +287,7 @@ void GuiRenderSystem::handleWindowEvent(const SDL_WindowEvent& event)
 	}
 }
 
-void GuiRenderSystem::renderCLine(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour, int thickness)
+void GuiRenderSystem::renderCLine(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour, int thickness)
 {
 	bpipeline.renderLine(
 				BasicVertexIn{ .POS = p0, .COLOUR = colour },
@@ -279,15 +295,15 @@ void GuiRenderSystem::renderCLine(const glm::vec2& p0, const glm::vec2& p1, cons
 				thickness);
 }
 
-void GuiRenderSystem::renderCRect(const glm::vec2& p0, const glm::vec2& p1, const glm::vec4& colour)
+void GuiRenderSystem::renderCRect(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour)
 {
 	bpipeline.renderRectangle(
-				BasicVertexIn{ .POS = glm::vec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .COLOUR = colour },
-				BasicVertexIn{ .POS = glm::vec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .COLOUR = colour }
+				BasicVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .COLOUR = colour },
+				BasicVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .COLOUR = colour }
 				);
 }
 
-void GuiRenderSystem::renderCTriang(const glm::vec2& p0, const glm::vec2& p1, const glm::vec2& p2, const glm::vec4& colour)
+void GuiRenderSystem::renderCTriang(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2& p2, const glm::fvec4& colour)
 {
 	BasicVertexIn vertices[] = { BasicVertexIn{ .POS = p0, .COLOUR = colour },
 	BasicVertexIn{ .POS = p1, .COLOUR = colour },
@@ -296,12 +312,12 @@ void GuiRenderSystem::renderCTriang(const glm::vec2& p0, const glm::vec2& p1, co
 	bpipeline.renderTriangles(vertices);
 }
 
-void GuiRenderSystem::renderTex(const glm::vec2& p0, const glm::vec2& p1, const std::shared_ptr<Texture> tex)
+void GuiRenderSystem::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const std::shared_ptr<Texture> tex)
 {
 	tpipeline.uniform.tex = tex;
 	tpipeline.renderRectangle(
-				TexturedVertexIn{ .POS = glm::vec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::vec2(0.0f, 0.0f) },
-				TexturedVertexIn{ .POS = glm::vec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::vec2(1.0f, 1.0f) }
+				TexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
+				TexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }
 				);
 }
 
@@ -309,7 +325,7 @@ void GuiRenderSystem::renderTex(const std::shared_ptr<Texture> tex)
 {
 	tpipeline.uniform.tex = tex;
 	tpipeline.renderRectangle(
-				TexturedVertexIn{ .POS = glm::vec2(-1.0f,-1.0f), .TEXCOORD = glm::vec2(0.0f, 0.0f) },
-				TexturedVertexIn{ .POS = glm::vec2(1.0f,1.0f), .TEXCOORD = glm::vec2(1.0f, 1.0f) }
+				TexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
+				TexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }
 				);
 }

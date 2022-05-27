@@ -4,7 +4,7 @@ CONFIG -= app_bundle
 CONFIG -= qt
 QMAKE_CFLAGS += -O3 -ffast-math
 QMAKE_CXXFLAGS += -O3 -ffast-math
-LIBS += -lSDL2
+LIBS += -lSDL2 -lSDL2_image
 
 SOURCES += \
         Pipeline/BasicPipeline.cpp \
@@ -14,11 +14,13 @@ SOURCES += \
         Pipeline/TexturedPipeline.cpp \
         Pipeline/ZBuffer.cpp \
         System/AppSystem.cpp \
+        System/FpsCounter.cpp \
         System/GuiRenderSystem.cpp \
         Texture/Texture.cpp \
         Util/TextureFromSurface.cpp \
         Util/TextureHelpers.cpp \
         Widget/BoxWidget.cpp \
+        Widget/Cursor.cpp \
         Widget/IWidget.cpp \
         Widget/SimpleWidget.cpp \
         Widget/TexturedWidget.cpp \
@@ -34,6 +36,7 @@ HEADERS += \
 	Pipeline/TexturedPipeline.hpp \
 	Pipeline/ZBuffer.hpp \
 	System/AppSystem.hpp \
+	System/FpsCounter.hpp \
 	System/GuiRenderSystem.hpp \
 	Texture/StandardTexture.hpp \
 	Texture/Texture.hpp \
@@ -45,6 +48,7 @@ HEADERS += \
 	Util/TextureHelpers.hpp \
 	Util/ThreadsafeContainer.hpp \
 	Widget/BoxWidget.hpp \
+	Widget/Cursor.hpp \
 	Widget/IWidget.hpp \
 	Widget/SimpleWidget.hpp \
 	Widget/TexturedWidget.hpp \

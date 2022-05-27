@@ -2,7 +2,7 @@
 
 TexturedVertexOut TexturedVertexShader(const TexturedUniform &uniform, const TexturedVertexIn &vertex)
 {
-	TexturedVertexOut out = { glm::vec4(vertex.POS,0.5f, 1.0f) , vertex.TEXCOORD };
+	TexturedVertexOut out = { glm::fvec4(vertex.POS,0.5f, 1.0f) , vertex.TEXCOORD };
 	//if(perspectiveCorrection) out.TEXCOORD /= out.POS.z;
 	return out;
 }

@@ -2,7 +2,7 @@
 
 BasicVertexOut basicVertexShader(const BasicUniform &uniform, const BasicVertexIn &vertex)
 {
-	BasicVertexOut out = { glm::vec4(vertex.POS,0.5f, 1.0f) , vertex.COLOUR };
+	BasicVertexOut out = { glm::fvec4(vertex.POS,0.5f, 1.0f) , vertex.COLOUR };
 	return out;
 }
 

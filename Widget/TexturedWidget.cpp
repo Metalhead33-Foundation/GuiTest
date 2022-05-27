@@ -2,7 +2,7 @@
 #include "../Texture/StandardTexture.hpp"
 #include <SDL2/SDL.h>
 
-TexturedWidget::TexturedWidget(const glm::vec2& topLeft, const glm::vec2& bottomRight, int w, int h, const uint32_t* texdis,
+TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, int w, int h, const uint32_t* texdis,
 							   const uint32_t* textact, const uint32_t* textclick)
 	: topLeft(topLeft), bottomRight(bottomRight), w(w),h(h), wf(static_cast<float>(w-1)), hf(static_cast<float>(h-1)),alpha(w*h),
 	  textureDistact(std::make_shared<TexARGB8888>(reinterpret_cast<const PixelARGB8888*>(texdis),w,h)),
@@ -16,33 +16,33 @@ TexturedWidget::TexturedWidget(const glm::vec2& topLeft, const glm::vec2& bottom
 	}
 }
 
-const glm::vec2& TexturedWidget::getTopLeft() const
+const glm::fvec2& TexturedWidget::getTopLeft() const
 {
 	return topLeft;
 }
 
-void TexturedWidget::setTopLeft(const glm::vec2& newTopLeft)
+void TexturedWidget::setTopLeft(const glm::fvec2& newTopLeft)
 {
 	topLeft = newTopLeft;
 }
 
-const glm::vec2& TexturedWidget::getBottomRight() const
+const glm::fvec2& TexturedWidget::getBottomRight() const
 {
 	return bottomRight;
 }
 
-void TexturedWidget::offsetPos(const glm::vec2& posOffset)
+void TexturedWidget::offsetPos(const glm::fvec2& posOffset)
 {
 	topLeft += posOffset;
 	bottomRight += posOffset;
 }
 
-glm::ivec2 TexturedWidget::translateOffset(const glm::vec2& offset) const
+glm::ivec2 TexturedWidget::translateOffset(const glm::fvec2& offset) const
 {
 	return glm::ivec2(static_cast<int>(std::round(offset.x * wf)),static_cast<int>(std::round(offset.y * hf)));
 }
 
-void TexturedWidget::setBottomRight(const glm::vec2& newBottomRight)
+void TexturedWidget::setBottomRight(const glm::fvec2& newBottomRight)
 {
 	bottomRight = newBottomRight;
 }
@@ -56,7 +56,7 @@ void TexturedWidget::render(GuiRenderer& renderer)
 	}
 }
 
-bool TexturedWidget::onClick(const glm::vec2& offset, uint8_t button, uint8_t mousestate, uint8_t clicks)
+bool TexturedWidget::onClick(const glm::fvec2& offset, uint8_t button, uint8_t mousestate, uint8_t clicks)
 {
 	const auto noffset = translateOffset(offset);
 	if(alpha[(noffset.y*w)+noffset.x]) {
@@ -73,7 +73,7 @@ bool TexturedWidget::onClick(const glm::vec2& offset, uint8_t button, uint8_t mo
 	}
 }
 
-bool TexturedWidget::onHover(const glm::vec2& offset, const glm::vec2& relativePosToLast)
+bool TexturedWidget::onHover(const glm::fvec2& offset, const glm::fvec2& relativePosToLast)
 {
 	const auto noffset = translateOffset(offset);
 	if( !alpha[(noffset.y*w)+noffset.x] ) {

@@ -1,22 +1,22 @@
 #include "EdgeFunction.hpp"
 
-float edgeFunction(const glm::vec2 &a, const glm::vec2 &b, const glm::vec2 &c)
+float edgeFunction(const glm::fvec2 &a, const glm::fvec2 &b, const glm::fvec2 &c)
 {
 	return ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x));
 }
-float edgeFunction(const glm::vec3 &a, const glm::vec3 &b, const glm::vec3 &c)
+float edgeFunction(const glm::fvec3 &a, const glm::fvec3 &b, const glm::fvec3 &c)
 {
 	return ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x));
 }
-float edgeFunction(const glm::vec3 &a, const glm::vec3 &b, const glm::vec2 &c)
+float edgeFunction(const glm::fvec3 &a, const glm::fvec3 &b, const glm::fvec2 &c)
 {
 	return ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x));
 }
-float edgeFunction(const glm::vec4& a, const glm::vec4& b, const glm::vec4& c)
+float edgeFunction(const glm::fvec4& a, const glm::fvec4& b, const glm::fvec4& c)
 {
 	return ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x));
 }
-float edgeFunction(const glm::vec4& a, const glm::vec4& b, const glm::vec2& c)
+float edgeFunction(const glm::fvec4& a, const glm::fvec4& b, const glm::fvec2& c)
 {
 	return ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x));
 }

@@ -8,7 +8,7 @@ uint32_t argb32(const float alpha)
 	return static_cast<uint32_t>(std::round(alpha*255.0f)) << 24u;
 }
 
-uint32_t argb32(const glm::vec3& rgbF)
+uint32_t argb32(const glm::fvec3& rgbF)
 {
 	const uint32_t a = 255;
 	const uint32_t r = static_cast<uint32_t>(std::round(rgbF.r * 255.0f));
@@ -17,7 +17,7 @@ uint32_t argb32(const glm::vec3& rgbF)
 	return (a << 24u) | (r << 16u) << (g << 8u) << b;
 }
 
-uint32_t argb32(const glm::vec4& rgbaF)
+uint32_t argb32(const glm::fvec4& rgbaF)
 {
 	const uint32_t a = static_cast<uint32_t>(std::round(rgbaF.a * 255.0f));
 	const uint32_t r = static_cast<uint32_t>(std::round(rgbaF.r * 255.0f));
@@ -26,11 +26,11 @@ uint32_t argb32(const glm::vec4& rgbaF)
 	return (a << 24u) | (r << 16u) << (g << 8u) << b;
 }
 
-void createButtons(ButtonTextureCollection& buttons, int width, int height, const glm::vec3& baseColour, const glm::vec3& borderColour)
+void createButtons(ButtonTextureCollection& buttons, int width, int height, const glm::fvec3& baseColour, const glm::fvec3& borderColour)
 {
 	const int size = width * height;
-	const auto shadowColourA = argb32(glm::mix(baseColour,glm::vec3(0.0f,0.0f,0.0f),0.5f));
-	const auto shadowColourB = argb32(glm::mix(baseColour,glm::vec3(0.0f,0.0f,0.0f),0.25f));
+	const auto shadowColourA = argb32(glm::mix(baseColour,glm::fvec3(0.0f,0.0f,0.0f),0.5f));
+	const auto shadowColourB = argb32(glm::mix(baseColour,glm::fvec3(0.0f,0.0f,0.0f),0.25f));
 	const auto baseColour32 = argb32(baseColour);
 	const auto borderColour32 = argb32(borderColour);
 	const auto borderA = argb32( 0.75f );
@@ -106,7 +106,7 @@ void createCircleTextures(std::vector<uint32_t>& redCircle, std::vector<uint32_t
 	}
 }
 
-void createCircleTexture(std::vector<uint32_t>& output, const glm::vec3& colour, int CIRCLE_W, int CIRCLE_H)
+void createCircleTexture(std::vector<uint32_t>& output, const glm::fvec3& colour, int CIRCLE_W, int CIRCLE_H)
 {
 	const int CIRCLE_SIZE = CIRCLE_W * CIRCLE_H;
 	const int CIRCLE_ORIGO_X = CIRCLE_W / 2;
@@ -124,7 +124,7 @@ void createCircleTexture(std::vector<uint32_t>& output, const glm::vec3& colour,
 			} else {
 				const float intens_base = 1.0f - (distance / CIRCLE_RADIUS);
 				const float intens_base2 = std::clamp((intens_base - 0.33f) * 2.0f ,0.0f,1.0f);
-				line[x] = argb32(glm::vec4(
+				line[x] = argb32(glm::fvec4(
 							((intens_base >= 0.5f) ? 1.0f : intens_base * 2.0f),
 							std::max(colour.r,intens_base2),
 							std::max(colour.g,intens_base2),

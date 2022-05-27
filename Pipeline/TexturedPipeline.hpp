@@ -6,38 +6,38 @@
 #include <memory>
 
 struct TexturedUniform {
-	std::shared_ptr<Texture> tex;
+	sTexture tex;
 	Sampler samplerState;
 	AlphaBlending blending;
 };
 struct TexturedVertexIn {
-	glm::vec2 POS;
-	glm::vec2 TEXCOORD;
+	glm::fvec2 POS;
+	glm::fvec2 TEXCOORD;
 };
 struct TexturedVertexOut {
-	glm::vec4 POS;
-	glm::vec2 TEXCOORD;
+	glm::fvec4 POS;
+	glm::fvec2 TEXCOORD;
 	inline static TexturedVertexOut split(const TexturedVertexOut& t, const TexturedVertexOut& m, const TexturedVertexOut& b, float dy, float iy) {
-		return { glm::vec4(
+		return { glm::fvec4(
 						t.POS.x + ((b.POS.x - t.POS.x) / dy) * iy,
 						m.POS.y,
 						t.POS.z + ((b.POS.z - t.POS.z) / dy) * iy,
 						t.POS.w + ((b.POS.w - t.POS.w) / dy) * iy
 						),
-					glm::vec2(
+					glm::fvec2(
 						t.TEXCOORD.r + ((b.TEXCOORD.r - t.TEXCOORD.r) / dy) * iy,
 						t.TEXCOORD.g + ((b.TEXCOORD.g - t.TEXCOORD.g) / dy) * iy
 						) };
 	}
 	inline static TexturedVertexOut interpolate(const TexturedVertexOut& v0, const TexturedVertexOut& v1, float w0, float w1, bool perspectiveCorrect) {
 		TexturedVertexOut out = {
-							glm::vec4(  // POS
+							glm::fvec4(  // POS
 							(v0.POS.x * w0) + (v1.POS.x * w1), // X
 							(v0.POS.y * w0) + (v1.POS.y * w1), // Y
 							(v0.POS.z * w0) + (v1.POS.z * w1), // Z
 							(v0.POS.w * w0) + (v1.POS.w * w1) // Z
 							),
-							glm::vec2( // TEXCOORD
+							glm::fvec2( // TEXCOORD
 							(v0.TEXCOORD.x * w0) + (v1.TEXCOORD.x * w1), // X
 							(v0.TEXCOORD.y * w0) + (v1.TEXCOORD.y * w1) // Y
 							)
@@ -49,13 +49,13 @@ struct TexturedVertexOut {
 		const float w1 = rowWeight * columnWeight;
 		const float w0 = 1.0f - w1;
 		TexturedVertexOut out = {
-							glm::vec4(  // POS
+							glm::fvec4(  // POS
 							(v0.POS.x * (1.0f - columnWeight)) + (v1.POS.x * columnWeight), // X
 							(v0.POS.y * (1.0f - rowWeight)) + (v1.POS.y * rowWeight), // Y
 							(v0.POS.z * w0) + (v1.POS.z * w1), // Z
 							(v0.POS.w * w0) + (v1.POS.w * w1) // W
 							),
-							glm::vec2( // TEXCOORD
+							glm::fvec2( // TEXCOORD
 							(v0.TEXCOORD.x * (1.0f - columnWeight)) + (v1.TEXCOORD.x * columnWeight), // X
 							(v0.TEXCOORD.y * (1.0f - rowWeight)) + (v1.TEXCOORD.y * rowWeight) // Y
 							)
@@ -65,13 +65,13 @@ struct TexturedVertexOut {
 	}
 	inline static TexturedVertexOut interpolate(const TexturedVertexOut& v0, const TexturedVertexOut& v1, const TexturedVertexOut& v2, float w0, float w1, float w2, bool perspectiveCorrect) {
 		TexturedVertexOut out = {
-							glm::vec4(  // POS
+							glm::fvec4(  // POS
 							(v0.POS.x * w0) + (v1.POS.x * w1) + (v2.POS.x * w2), // X
 							(v0.POS.y * w0) + (v1.POS.y * w1) + (v2.POS.y * w2), // Y
 							(v0.POS.z * w0) + (v1.POS.z * w1) + (v2.POS.z * w2), // Z
 							(v0.POS.w * w0) + (v1.POS.w * w1) + (v2.POS.w * w2) // Z
 							),
-							glm::vec2( // TEXCOORD
+							glm::fvec2( // TEXCOORD
 							(v0.TEXCOORD.x * w0) + (v1.TEXCOORD.x * w1) + (v2.TEXCOORD.x * w2), // X
 							(v0.TEXCOORD.y * w0) + (v1.TEXCOORD.y * w1) + (v2.TEXCOORD.y * w2) // Y
 							)

@@ -1,39 +1,39 @@
 #include "SimpleWidget.hpp"
 #include <iostream>
 
-const glm::vec2& SimpleWidget::getTopLeft() const
+const glm::fvec2& SimpleWidget::getTopLeft() const
 {
 	return topLeft;
 }
 
-void SimpleWidget::setTopLeft(const glm::vec2& newTopLeft)
+void SimpleWidget::setTopLeft(const glm::fvec2& newTopLeft)
 {
 	topLeft = newTopLeft;
 }
 
-const glm::vec2& SimpleWidget::getBottomRight() const
+const glm::fvec2& SimpleWidget::getBottomRight() const
 {
 	return bottomRight;
 }
 
-void SimpleWidget::setBottomRight(const glm::vec2& newBottomRight)
+void SimpleWidget::setBottomRight(const glm::fvec2& newBottomRight)
 {
 	bottomRight = newBottomRight;
 }
 
-void SimpleWidget::setPosition(const glm::vec2& topLeft, const glm::vec2& bottomRight)
+void SimpleWidget::setPosition(const glm::fvec2& topLeft, const glm::fvec2& bottomRight)
 {
 	this->topLeft = topLeft;
 	this->bottomRight = bottomRight;
 }
 
-void SimpleWidget::offsetPos(const glm::vec2& posOffset)
+void SimpleWidget::offsetPos(const glm::fvec2& posOffset)
 {
 	topLeft += posOffset;
 	bottomRight += posOffset;
 }
 
-bool SimpleWidget::onClick(const glm::vec2& offset, uint8_t button, uint8_t mousestate, uint8_t clicks)
+bool SimpleWidget::onClick(const glm::fvec2& offset, uint8_t button, uint8_t mousestate, uint8_t clicks)
 {
 	if(mousestate == SDL_PRESSED) {
 	isClicked = true;
@@ -46,7 +46,7 @@ bool SimpleWidget::onClick(const glm::vec2& offset, uint8_t button, uint8_t mous
 	}
 }
 
-bool SimpleWidget::onHover(const glm::vec2& offset, const glm::vec2& relativePosToLast)
+bool SimpleWidget::onHover(const glm::fvec2& offset, const glm::fvec2& relativePosToLast)
 {
 	(void)offset;
 	isActive = true;
@@ -82,7 +82,7 @@ bool SimpleWidget::getIsClicked() const
 	return isClicked;
 }
 
-SimpleWidget::SimpleWidget(const glm::vec2& topLeft, const glm::vec2& bottomRight)
+SimpleWidget::SimpleWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight)
 	: topLeft(topLeft), bottomRight(bottomRight), lastClick(SDL_GetTicks()), isActive(false)
 {
 

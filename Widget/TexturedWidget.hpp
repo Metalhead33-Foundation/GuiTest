@@ -12,7 +12,7 @@ public:
 protected:
 	const int w,h;
 	float wf,hf;
-	glm::vec2 topLeft, bottomRight;
+	glm::fvec2 topLeft, bottomRight;
 	std::vector<bool> alpha;
 	sTexture textureDistact, textureActive, textureClicked;
 	enum {
@@ -21,19 +21,19 @@ protected:
 		CLICKED
 	} state;
 public:
-	TexturedWidget(const glm::vec2& topLeft, const glm::vec2& bottomRight, int w, int h,
+	TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, int w, int h,
 				   const uint32_t* texdis, const uint32_t* textact, const uint32_t* textclick);
-	const glm::vec2& getTopLeft() const override;
-	void setTopLeft(const glm::vec2& newTopLeft);
-	const glm::vec2& getBottomRight() const override;
-	void setBottomRight(const glm::vec2& newBottomRight);
-	void offsetPos(const glm::vec2& posOffset);
-	glm::ivec2 translateOffset(const glm::vec2& offset) const;
+	const glm::fvec2& getTopLeft() const override;
+	void setTopLeft(const glm::fvec2& newTopLeft);
+	const glm::fvec2& getBottomRight() const override;
+	void setBottomRight(const glm::fvec2& newBottomRight);
+	void offsetPos(const glm::fvec2& posOffset);
+	glm::ivec2 translateOffset(const glm::fvec2& offset) const;
 
 	// IWidget interface
 	void render(GuiRenderer& renderer) override;
-	bool onClick(const glm::vec2& offset, uint8_t button, uint8_t mousestate, uint8_t clicks) override;
-	bool onHover(const glm::vec2& offset, const glm::vec2& relativePosToLast) override;
+	bool onClick(const glm::fvec2& offset, uint8_t button, uint8_t mousestate, uint8_t clicks) override;
+	bool onHover(const glm::fvec2& offset, const glm::fvec2& relativePosToLast) override;
 	void onOutOfFocus() override;
 };
 

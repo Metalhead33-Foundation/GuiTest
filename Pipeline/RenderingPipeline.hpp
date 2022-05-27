@@ -6,6 +6,10 @@
 #include "EdgeFunction.hpp"
 #include <span>
 
+constexpr int getMiddle(int number) {
+	return (number & 1) ? ((number/2)+1) : (number/2);
+}
+
 template<typename VertexInType, typename VertexOutType, typename UniformType> struct RenderingPipeline {
 	typedef std::function<VertexOutType(const UniformType&, const VertexInType&)> VertexShader;
 	typedef std::function<void(Texture&, const glm::ivec2&, const UniformType&, const VertexOutType&)> FragmentShader;
@@ -17,8 +21,8 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 	glm::ivec4 viewport;
 
 	void fillLine(const VertexOutType& v0, const VertexOutType& v1, int thickness = 1) {
-		const int offsetMin = 0 - (thickness / 2); // 1 -> 0-0 = 0
-		const int offsetMax = 1 + (thickness / 2); // 1 -> 1 + 0 = 1
+		const int offsetMax = getMiddle(thickness);
+		const int offsetMin = offsetMax-thickness;
 		const float xdiff = (v1.POS.x - v0.POS.x);
 		const float ydiff = (v1.POS.y - v0.POS.y);
 		const int xmin = static_cast<int>(std::round(std::min(v0.POS.x,v1.POS.x)));
@@ -58,9 +62,9 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 					static_cast<int>(std::max(v0.POS.x,v1.POS.x)),
 					static_cast<int>(std::max(v0.POS.y,v1.POS.y))
 					);
-		glm::ivec2 diff = glm::vec2((bottomRight.x - topLeft.x),
+		glm::ivec2 diff = glm::fvec2((bottomRight.x - topLeft.x),
 										(bottomRight.y - topLeft.y));
-		const glm::vec2 diffRecp = glm::vec2(1.0f / static_cast<float>(diff.x),
+		const glm::fvec2 diffRecp = glm::fvec2(1.0f / static_cast<float>(diff.x),
 											 1.0f / static_cast<float>(diff.y));
 
 		int startX = 0;
@@ -111,7 +115,7 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 		maxX = std::min(maxX,viewport[2]);
 		// Okay, let's render!
 		for(int x = minX; x < maxX; ++x) {
-			const glm::vec2 p = glm::vec2(float(x)+0.5f,float(y)+0.5f);
+			const glm::fvec2 p = glm::fvec2(float(x)+0.5f,float(y)+0.5f);
 			const float w0 = edgeFunction(v1.POS, v2.POS, p) * areaReciprocal;
 			const float w1 = edgeFunction(v2.POS, v0.POS, p) * areaReciprocal;
 			const float w2 = edgeFunction(v0.POS, v1.POS, p) * areaReciprocal;

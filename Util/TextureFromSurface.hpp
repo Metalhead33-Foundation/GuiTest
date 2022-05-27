@@ -4,6 +4,7 @@
 #include "../Texture/Texture.hpp"
 #include <SDL2/SDL_surface.h>
 
-std::shared_ptr<Texture> textureFromSurface(SDL_Surface& surface);
+sTexture textureFromSurface(SDL_Surface& surface);
+sTexture textureFromSurfaceCopy(SDL_Surface& surface);
 
 #endif // TEXTUREFROMSURFACE_HPP
