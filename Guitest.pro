@@ -4,7 +4,7 @@ CONFIG -= app_bundle
 CONFIG -= qt
 QMAKE_CFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
 QMAKE_CXXFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
-LIBS += -lSDL2 -lSDL2_image -lfreetype -lrtfcpp
+LIBS += -lSDL2 -lSDL2_image -lfreetype
 
 SOURCES += \
         Pipeline/BasicPipeline.cpp \

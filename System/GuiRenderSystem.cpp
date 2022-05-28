@@ -65,10 +65,7 @@ void GuiRenderSystem::updateLogic()
 	if(richie && textToRender.empty()) {
 		float fpsMin, fpsAvg, fpsMax;
 		fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
-		//sstrm << "{\\rtf1\\ansi\\fnil\n";
-		//sstrm << "{\\cf2\\b\\ab\\rtlch \\ltrch\\loch\nMagyarul}{\\cf2\\rtlch \\ltrch\\loch\n \\uc2 \\u237\\\'c3\\\'adrt \\uc1 }{\\cf2\\i\\ai\\rtlch \\ltrch\\loch\nsz\\uc2 \\u246\\\'c3\\\'b6veg\\uc1 }{\\cf2\\rtlch \\ltrch\\loch\n.}\n\\par \\pard\\plain \\s20\\sb0\\sa0\\hich\\af7\\dbch\\af5\\afs20\\loch\\f5\\fs20\\li0\\ri0\\lin0\\rin0\\fi0\\sb0\\sa0{\\cf4\\rtlch \\ltrch\\loch\n\\uc2 \\u1071\\\'d0\\\'af \\uc1 }{\\cf4\\i\\ai\\rtlch \\ltrch\\loch\n\\uc2 \\u1083\\\'d0\\\'bb\\u1102\\\'d1\\\'8e\\u1073\\\'d0\\\'b1\\u1083\\\'d0\\\'bb\\u1102\\\'d1\\\'8e\\uc1 }{\\cf4\\rtlch \\ltrch\\loch\n }{\\cf4\\b\\ab\\rtlch \\ltrch\\loch\n\\uc2 \\u1053\\\'d0\\\'9d\\u1080\\\'d0\\\'b8\\u1082\\\'d0\\\'ba\\u1091\\\'d1\\\'83\\uc1 }{\\cf4\\rtlch \\ltrch\\loch\n.}\n\\par }";
-
-		/*sstrm << "{\\rtf1\\ansi \\deff \\fnil";
+		/*
 	#ifdef INSERT_HUNGARIAN
 		sstrm << "Magyarul írt szöveg." << std::endl;
 	#endif
@@ -88,11 +85,7 @@ void GuiRenderSystem::updateLogic()
 		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("Нику.\n"), .font = font->getFont("Noto",true,true).get(), .colour = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f) } );
 		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("メグミンがすきです。"), .font = font->getFont("Noto",false,false).get(), .colour = glm::vec4(0.75f, 0.0f, 0.75f, 1.0f) } );
 
-		/*std::stringstream stream2(sstrm.str());
-		format::utils::stream_logger log ( std::cerr, true, true, true );
-		format::utils::stream_source src(stream2);
-		format::parsers::rtf parser(src,*richie,log);
-		richie->flush();
+		/*richie->flush();
 		textToRender = richie->getBlocks();
 		richie->getBlocks().clear();*/
 	}
