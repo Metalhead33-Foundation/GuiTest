@@ -51,12 +51,25 @@ GuiRenderSystem::FunctionMap& GuiRenderSystem::getFunctionMap()
 	return functionMap;
 }
 
+#define INSERT_HUNGARIAN
+#define INSERT_RUSSIAN
+//#define INSERT_JAPANESE
+
 void GuiRenderSystem::updateLogic()
 {
 	float fpsMin, fpsAvg, fpsMax;
 	fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
 	std::stringstream sstrm;
-	sstrm << "Magyarul írt szöveg.\nЯ люблю Нику.\nニカが大好きです。FPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << std::endl;
+#ifdef INSERT_HUNGARIAN
+	sstrm << "Magyarul írt szöveg." << std::endl;
+#endif
+#ifdef INSERT_RUSSIAN
+	sstrm << "Я люблю Нику." << std::endl;
+#endif
+#ifdef INSERT_JAPANESE
+	sstrm << "ニカが大好きです。" << std::endl;
+#endif
+	sstrm << "FPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << std::endl;
 	txt = sstrm.str();
 }
 

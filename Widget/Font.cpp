@@ -137,8 +137,9 @@ const TexGreyscale_U8& Font::getTexture() const
 void Font::insertCharacters(FT_Face fontface, const std::pair<char32_t, char32_t>& range)
 {
 	for (char32_t c = range.first; c <= range.second; c++) {
-		if (FT_Load_Char(fontface, c, FT_LOAD_RENDER))
+		if (!FT_Get_Char_Index(fontface,c) || FT_Load_Char(fontface, c, FT_LOAD_RENDER))
 		{
+			characters.insert(std::pair<char32_t, Character>(c, Character{ .valid = false } ));
 			continue;
 		}
 		const glm::ivec2 glyphSize(fontface->glyph->bitmap.width,fontface->glyph->bitmap.rows);
@@ -163,6 +164,7 @@ void Font::insertCharacters(FT_Face fontface, const std::pair<char32_t, char32_t
 		texture.blit(reinterpret_cast<PixelGreyscale_U8*>(fontface->glyph->bitmap.buffer),textureOffset,glyphSize);
 
 		Character character = {
+			.valid = true,
 			.offset = glyphOffset,
 			.size = glyphSize,
 			.bearing = glyphBearing,
@@ -218,6 +220,7 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, const g
 			charIt = characters.find(c);
 			if(charIt == std::end(characters)) continue;
 		}
+		if(charIt->second.valid) {
 		const glm::fvec2 pos = glm::fvec2(x + (charIt->second.bearing.x * reciprocalSize.x * scale),
 										  y + ((charIt->second.size.y - charIt->second.bearing.y) * reciprocalSize.y * scale));
 		const glm::fvec2 dim = glm::fvec2(charIt->second.size.x * scale,charIt->second.size.y * -scale) * reciprocalSize;
@@ -226,5 +229,6 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, const g
 		const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * texture.getWidthR(), static_cast<float>(charIt->second.size.y) * texture.getHeightR());
 		renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, colour, texture );
 		x += (charIt->second.advance >> 6) * reciprocalSize.x * scale;
+		}
 	}
 }

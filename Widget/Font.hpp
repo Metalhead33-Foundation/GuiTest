@@ -16,6 +16,7 @@ class Font
 {
 public:
 	struct Character {
+		bool valid;
 		glm::ivec2 offset; // Top-left pixel coordinate of the glyph.
 		glm::ivec2 size;       // Size of glyph
 		glm::ivec2 bearing;    // Offset from baseline to left/top of glyph
