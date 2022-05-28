@@ -10,19 +10,23 @@ template <typename PixelType> class StandardTexture : public Texture {
 private:
 	std::vector<PixelType> pixels;
 	int width,height,stride;
-	float widthF,heightF;
+	float widthF,heightF,widthR,heightR;
 public:
 	StandardTexture(const StandardTexture& cpy)
-		: pixels(cpy.pixels), width(cpy.width), height(cpy.height), stride(cpy.stride), widthF(cpy.widthF), heightF(cpy.heightF) {
+		: pixels(cpy.pixels), width(cpy.width), height(cpy.height), stride(cpy.stride),
+		  widthF(cpy.widthF), heightF(cpy.heightF), widthR(cpy.widthR), heightR(cpy.heightR) {
 
 	}
 	StandardTexture(StandardTexture&& mov)
-		: pixels(std::move(mov.pixels)), width(mov.width), height(mov.height), stride(mov.stride), widthF(mov.widthF), heightF(mov.heightF) {
+		: pixels(std::move(mov.pixels)), width(mov.width), height(mov.height), stride(mov.stride),
+		  widthF(mov.widthF), heightF(mov.heightF), widthR(mov.widthR), heightR(mov.heightR) {
 		mov.width = 0;
 		mov.height = 0;
 		mov.stride = 0;
 		mov.widthF = 0.0f;
 		mov.heightF = 0.0f;
+		mov.widthR = 0.0f;
+		mov.heightR = 0.0f;
 	}
 	StandardTexture& operator=(const StandardTexture& cpy) {
 		this->pixels = cpy.pixels;
@@ -31,6 +35,8 @@ public:
 		this->stride = cpy.stride;
 		this->widthF = cpy.widthF;
 		this->heightF = cpy.heightF;
+		this->widthR = cpy.widthR;
+		this->heightR = cpy.heightR;
 		return *this;
 	}
 	StandardTexture& operator=(StandardTexture&& mov) {
@@ -40,30 +46,38 @@ public:
 		this->stride = mov.stride;
 		this->widthF = mov.widthF;
 		this->heightF = mov.heightF;
+		this->widthR = mov.widthR;
+		this->heightR = mov.heightR;
 		mov.width = 0;
 		mov.height = 0;
 		mov.stride = 0;
 		mov.widthF = 0.0f;
 		mov.heightF = 0.0f;
+		mov.widthR = 0.0f;
+		mov.heightR = 0.0f;
 		return *this;
 	}
 	StandardTexture(int width, int height)
-		: pixels(width*height), width(width), height(height), stride(width*sizeof(PixelType)), widthF(width-1), heightF(height-1)
+		: pixels(width*height), width(width), height(height), stride(width*sizeof(PixelType)),
+		  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 	{
 		std::memset(pixels.data(),0,sizeof(PixelType)*pixels.size());
 	}
 	StandardTexture(const PixelType* pixelsToCopy, int width, int height)
-		: pixels(width*height), width(width), height(height), stride(width*sizeof(PixelType)), widthF(width-1), heightF(height-1)
+		: pixels(width*height), width(width), height(height), stride(width*sizeof(PixelType)),
+		  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 	{
 		std::memcpy(pixels.data(),pixelsToCopy,sizeof(PixelType)*pixels.size());
 	}
 	StandardTexture(const std::span<PixelType> pixelsToCopy, int width, int height)
-		: pixels(width*height), width(width), height(height), stride(width*sizeof(PixelType)), widthF(width-1), heightF(height-1)
+		: pixels(width*height), width(width), height(height), stride(width*sizeof(PixelType)),
+		  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 	{
 		std::memcpy(pixels.data(),pixelsToCopy.data(),sizeof(PixelType)*pixels.size());
 	}
 	StandardTexture(std::vector<PixelType>&& mov, int width, int height)
-		: pixels(std::move(mov)), width(width), height(height), stride(width*sizeof(PixelType)), widthF(width-1), heightF(height-1)
+		: pixels(std::move(mov)), width(width), height(height), stride(width*sizeof(PixelType)),
+		  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 	{
 
 	}
@@ -74,7 +88,7 @@ public:
 		std::memset(newPixels.data(),0,sizeof(PixelType) * newPixels.size());
 		for(int y = 0; y < rowsToRunThrough; ++y) {
 			const PixelType* const originalRow = &pixels[y*width];
-			PixelType* const newRow = &newPixels[y*width];
+			PixelType* const newRow = &newPixels[y*newWidth];
 			memcpy(newRow,originalRow,bytesPerRow);
 		}
 		this->pixels = std::move(newPixels);
@@ -82,6 +96,8 @@ public:
 		this->height = newHeight;
 		this->widthF = static_cast<float>(newWidth - 1);
 		this->heightF = static_cast<float>(newHeight - 1);
+		this->widthR = 1.0f / static_cast<float>(newWidth);
+		this->heightR = 1.0f / static_cast<float>(newHeight);
 		return true;
 	}
 	void blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
@@ -90,8 +106,8 @@ public:
 		const int columnsToCopy = std::min(dimensions.x,width - offset.x);
 		const size_t bytesPerRow = columnsToCopy * sizeof(PixelType);
 		for(int y = 0; y < rowsToCopy; ++y) {
-			const PixelType* const originalRow = &pixels[y*width];
-			PixelType* const newRow = &cpy[y*width];
+			const PixelType* const originalRow = cpy + (y*dimensions.x);
+			PixelType* const newRow = pixels.data() + (((offset.y+y)*width)+offset.x);
 			memcpy(newRow,originalRow,bytesPerRow);
 		}
 	}
@@ -101,21 +117,13 @@ public:
 	void blit(const StandardTexture& cpy, const glm::ivec2 offset) {
 		blit(cpy.pixels,offset,glm::ivec2(cpy.width,cpy.height));
 	}
-	int getWidth() const override {
-		return width;
-	}
-	float getWidthF() const override {
-		return widthF;
-	}
-	int getHeight() const override {
-		return height;
-	}
-	float getHeightF() const override {
-		return heightF;
-	}
-	int getStride() const override {
-		return stride;
-	}
+	int getWidth() const override { return width; }
+	float getWidthF() const override { return widthF; }
+	float getWidthR() const override { return widthR; }
+	int getHeight() const override { return height; }
+	float getHeightF() const override { return heightF; }
+	float getHeightR() const override { return heightR; }
+	int getStride() const override { return stride; }
 	void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap) const override {
 		int x;
 		int y;
@@ -284,10 +292,11 @@ template <typename PixelType> class ReferenceTexture : public Texture {
 private:
 	std::span<PixelType> pixels;
 	int width,height,stride;
-	float widthF,heightF;
+	float widthF,heightF,widthR,heightR;
 public:
 	ReferenceTexture(const ReferenceTexture& cpy)
-		: pixels(cpy.pixels), width(cpy.width), height(cpy.height), stride(cpy.stride), widthF(cpy.widthF), heightF(cpy.heightF) {
+		: pixels(cpy.pixels), width(cpy.width), height(cpy.height), stride(cpy.stride),
+		  widthF(cpy.widthF), heightF(cpy.heightF), widthR(cpy.widthR), heightR(cpy.heightR)  {
 
 	}
 	ReferenceTexture& operator=(const ReferenceTexture& cpy) {
@@ -297,20 +306,25 @@ public:
 		this->stride = cpy.stride;
 		this->widthF = cpy.widthF;
 		this->heightF = cpy.heightF;
+		this->widthR = cpy.widthR;
+		this->heightR = cpy.heightR;
 		return *this;
 	}
 	ReferenceTexture(PixelType* pixelsPointing, int width, int height)
-		: pixels(pixelsPointing,width*height), width(width), height(height), stride(width*sizeof(PixelType)), widthF(width-1), heightF(height-1)
+		: pixels(pixelsPointing,width*height), width(width), height(height), stride(width*sizeof(PixelType)),
+		  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 	{
 
 	}
 	ReferenceTexture(const std::span<PixelType> pixelsToCopy, int width, int height)
-		: pixels(pixelsToCopy), width(width), height(height), stride(width*sizeof(PixelType)), widthF(width-1), heightF(height-1)
+		: pixels(pixelsToCopy), width(width), height(height), stride(width*sizeof(PixelType)),
+		  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 	{
 
 	}
 	ReferenceTexture(std::span<PixelType>&& mov, int width, int height)
-		: pixels(std::move(mov)), width(width), height(height), stride(width*sizeof(PixelType)), widthF(width-1), heightF(height-1)
+		: pixels(std::move(mov)), width(width), height(height), stride(width*sizeof(PixelType)),
+		  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 	{
 
 	}
@@ -325,8 +339,8 @@ public:
 		const int columnsToCopy = std::min(dimensions.x,width - offset.x);
 		const size_t bytesPerRow = columnsToCopy * sizeof(PixelType);
 		for(int y = 0; y < rowsToCopy; ++y) {
-			const PixelType* const originalRow = &pixels[y*width];
-			PixelType* const newRow = &cpy[y*width];
+			const PixelType* const originalRow = cpy + (y*dimensions.x);
+			PixelType* const newRow = pixels.data() + (((offset.y+y)*width)+offset.x);
 			memcpy(newRow,originalRow,bytesPerRow);
 		}
 	}
@@ -336,21 +350,13 @@ public:
 	void blit(const ReferenceTexture& cpy, const glm::ivec2 offset) {
 		blit(cpy.pixels,offset,glm::ivec2(cpy.width,cpy.height));
 	}
-	int getWidth() const override {
-		return width;
-	}
-	float getWidthF() const override {
-		return widthF;
-	}
-	int getHeight() const override {
-		return height;
-	}
-	float getHeightF() const override {
-		return heightF;
-	}
-	int getStride() const override {
-		return stride;
-	}
+	int getWidth() const override { return width; }
+	float getWidthF() const override { return widthF; }
+	float getWidthR() const override { return widthR; }
+	int getHeight() const override { return height; }
+	float getHeightF() const override { return heightF; }
+	float getHeightR() const override { return heightR; }
+	int getStride() const override { return stride; }
 	void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap) const override {
 		int x;
 		int y;

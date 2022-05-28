@@ -16,11 +16,15 @@ class Font
 {
 public:
 	struct Character {
-		TexGreyscale_U8 texture; // The texture
+		glm::ivec2 offset; // Top-left pixel coordinate of the glyph.
 		glm::ivec2 size;       // Size of glyph
 		glm::ivec2 bearing;    // Offset from baseline to left/top of glyph
 		unsigned int advance;    // Offset to advance to next glyph
 	};
+private:
+	TexGreyscale_U8 texture;
+	glm::ivec2 textureOffset;
+	glm::ivec2 maxCharSizeSoFar;
 	std::map<char32_t,Character> characters;
 	void insertCharacters(FT_Face fontface, const std::pair<char32_t,char32_t>& range);
 	void insertCharacters(FT_Face fontface);

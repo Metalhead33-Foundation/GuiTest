@@ -136,14 +136,35 @@ void Font::insertCharacters(FT_Face fontface, const std::pair<char32_t, char32_t
 		{
 			continue;
 		}
+		const glm::ivec2 glyphSize(fontface->glyph->bitmap.width,fontface->glyph->bitmap.rows);
+		maxCharSizeSoFar.x = std::max(maxCharSizeSoFar.x,glyphSize.x);
+		maxCharSizeSoFar.y = std::max(maxCharSizeSoFar.y,glyphSize.y);
+		const glm::ivec2 glyphBearing(fontface->glyph->bitmap_left,fontface->glyph->bitmap_top);
+		const unsigned int glyphAdvance = static_cast<unsigned int>(fontface->glyph->advance.x);
+		glm::ivec2 glyphOffset = textureOffset + glm::ivec2(1, 0);
+		glm::ivec2 intendedCorner = glyphOffset + glyphSize;
+		if(intendedCorner.y >= texture.getHeight()) {
+			texture.resize(texture.getWidth(),texture.getHeight() * 2);
+		}
+		if((glyphOffset.x >= texture.getWidth() || intendedCorner.x >= texture.getWidth())) {
+			if(texture.getWidth() < 8192) {
+				texture.resize(texture.getWidth() * 2, texture.getHeight());
+			} else {
+				textureOffset.x = 1;
+				textureOffset.y += maxCharSizeSoFar.y + 1;
+				glyphOffset = textureOffset + glm::ivec2(1, 0);
+			}
+		}
+		texture.blit(reinterpret_cast<PixelGreyscale_U8*>(fontface->glyph->bitmap.buffer),textureOffset,glyphSize);
+
 		Character character = {
-			.texture = TexGreyscale_U8(reinterpret_cast<PixelGreyscale_U8*>(fontface->glyph->bitmap.buffer),
-			fontface->glyph->bitmap.width,fontface->glyph->bitmap.rows),
-			.size = glm::ivec2(fontface->glyph->bitmap.width,fontface->glyph->bitmap.rows),
-			.bearing = glm::ivec2(fontface->glyph->bitmap_left,fontface->glyph->bitmap_top),
-			.advance = static_cast<unsigned int>(fontface->glyph->advance.x),
+			.offset = glyphOffset,
+			.size = glyphSize,
+			.bearing = glyphBearing,
+			.advance = glyphAdvance,
 		};
 		characters.insert(std::pair<char32_t, Character>(c, character));
+		textureOffset.x += 1 + glyphSize.x;
 	}
 }
 
@@ -152,13 +173,13 @@ void Font::insertCharacters(FT_Face fontface)
 	insertCharacters(fontface,std::make_pair(0,255));
 }
 
-Font::Font(const sFreeTypeSystem& fontSys, const sFreeTypeFace& fontface) : fontSys(fontSys), fontFace(fontface)
+Font::Font(const sFreeTypeSystem& fontSys, const sFreeTypeFace& fontface) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0), fontSys(fontSys), fontFace(fontface)
 {
 	// Latin
 	insertCharacters(fontface.get(),std::make_pair(0x0000,0x024F));
 }
 
-Font::Font(sFreeTypeSystem&& fontSys, sFreeTypeFace&& fontface) : fontSys(std::move(fontSys)), fontFace(std::move(fontface))
+Font::Font(sFreeTypeSystem&& fontSys, sFreeTypeFace&& fontface) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0), fontSys(std::move(fontSys)), fontFace(std::move(fontface))
 {
 	// Latin
 	insertCharacters(fontFace.get(),std::make_pair(0x0000,0x024F));
@@ -192,12 +213,13 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, const g
 			charIt = characters.find(c);
 			if(charIt == std::end(characters)) continue;
 		}
-
 		const glm::fvec2 pos = glm::fvec2(x + (charIt->second.bearing.x * reciprocalSize.x * scale),
 										  y + ((charIt->second.size.y - charIt->second.bearing.y) * reciprocalSize.y * scale));
 		const glm::fvec2 dim = glm::fvec2(charIt->second.size.x * scale,charIt->second.size.y * -scale) * reciprocalSize;
 		maxHeight = std::max(maxHeight,dim.y * -1.0f);
-		renderer.renderCTex( pos, pos + dim, colour, charIt->second.texture );
+		const glm::fvec2 texCoord0(static_cast<float>(charIt->second.offset.x) * texture.getWidthR(), static_cast<float>(charIt->second.offset.y) * texture.getHeightR());
+		const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * texture.getWidthR(), static_cast<float>(charIt->second.size.y) * texture.getHeightR());
+		renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, colour, texture );
 		x += (charIt->second.advance >> 6) * reciprocalSize.x * scale;
 	}
 }

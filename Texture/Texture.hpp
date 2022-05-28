@@ -42,9 +42,11 @@ public:
 	// Data getters
 	virtual int getWidth() const = 0;
 	virtual float getWidthF() const = 0;
+	virtual float getWidthR() const = 0;
 	virtual int getHeight() const = 0;
 	virtual float getHeightF() const = 0;
 	virtual int getStride() const = 0;
+	virtual float getHeightR() const = 0;
 	// Pixel manipulation
 	virtual bool resize(int newWidth, int newHeight) = 0;
 	virtual void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap = REPEAT) const = 0;

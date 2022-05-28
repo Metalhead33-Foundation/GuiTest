@@ -44,6 +44,7 @@ int main()
 		app->setFont(std::move(font));
 	});
 	app->run();
+	fontAdderThread.join();
 	delete app;
 	return 0;
 }
