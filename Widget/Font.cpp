@@ -129,6 +129,11 @@ static const std::pair<char32_t,char32_t> UNICODE_RANGES[] = {
 };
 static constexpr const size_t UNICODE_RANGE_COUNT = sizeof(UNICODE_RANGES) / sizeof(std::pair<char32_t,char32_t>);
 
+const TexGreyscale_U8& Font::getTexture() const
+{
+	return texture;
+}
+
 void Font::insertCharacters(FT_Face fontface, const std::pair<char32_t, char32_t>& range)
 {
 	for (char32_t c = range.first; c <= range.second; c++) {

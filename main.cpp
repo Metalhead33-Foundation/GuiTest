@@ -15,6 +15,8 @@ static const char* DOSFONT = "Perfect DOS VGA 437.ttf";
 static const char* ARIALFONT = "arial.ttf";
 static const char* CJK = "NotoTraditionalNushu-Regular.ttf";
 
+typedef std::unique_ptr<SDL_Surface,decltype(&SDL_FreeSurface)> uSUrface;
+
 int main()
 {
 	SDL_Init(SDL_INIT_VIDEO);
@@ -26,6 +28,14 @@ int main()
 		auto tex = textureFromSurfaceCopy(*surfacePtr);
 		sCursor cursor = std::make_shared<Cursor>(std::move(tex));
 		app->setCursor(std::move(cursor));
+	});
+	app->getFunctionMap().insert_or_assign(SDLK_SPACE,[](GuiRenderSystem* sys) {
+		auto f = sys->getFont();
+		if(f) {
+			uSUrface s(SDL_CreateRGBSurfaceWithFormat(0,f->getTexture().getWidth(),f->getTexture().getHeight(),8,SDL_PIXELFORMAT_RGB332),SDL_FreeSurface);
+			memcpy(s->pixels,f->getTexture().getRawPixels(),s->w * s->h);
+			IMG_SavePNG(s.get(),"fontmap.png");
+		}
 	});
 	auto fontAdderThread = std::thread([app]() {
 		FT_Library ft;

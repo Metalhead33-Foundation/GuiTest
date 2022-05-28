@@ -16,6 +16,9 @@
 
 class GuiRenderSystem : public AppSystem, public GuiRenderer
 {
+public:
+	typedef std::function<void(GuiRenderSystem*)> KeyFunction;
+	typedef std::map<SDL_Keycode,KeyFunction> FunctionMap;
 protected:
 	sTexture framebuffer;
 	std::shared_ptr<ZBuffer> zbuffer;
@@ -33,6 +36,7 @@ protected:
 	glm::fvec2 mousePos;
 	bool fullscreen;
 	FpsCounter fpsCounter;
+	FunctionMap functionMap;
 	virtual void updateLogic() override;
 	virtual void render() override;
 	void onResolutionChange(int newWidth, int newHeight);
@@ -84,6 +88,8 @@ public:
 	const sFont& getFont() const;
 	void setFont(const sFont& newFont);
 	void setFont(sFont&& newFont);
+	const FunctionMap& getFunctionMap() const;
+	FunctionMap& getFunctionMap();
 };
 
 #endif // GUIRENDERSYSTEM_H

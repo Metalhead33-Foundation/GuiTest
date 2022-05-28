@@ -35,6 +35,7 @@ public:
 	Font(sFreeTypeSystem&& fontSys, sFreeTypeFace&& fontface);
 	void renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing = 8);
 	void renderText(GuiRenderer& renderer, const std::u32string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing = 8);
+	const TexGreyscale_U8& getTexture() const;
 };
 typedef std::shared_ptr<Font> sFont;
 

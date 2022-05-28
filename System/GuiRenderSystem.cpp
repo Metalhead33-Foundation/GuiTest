@@ -41,12 +41,22 @@ void GuiRenderSystem::setFont(sFont&& newFont)
 
 static std::string txt = "Multi-line\ntext";
 
+const GuiRenderSystem::FunctionMap& GuiRenderSystem::getFunctionMap() const
+{
+	return functionMap;
+}
+
+GuiRenderSystem::FunctionMap& GuiRenderSystem::getFunctionMap()
+{
+	return functionMap;
+}
+
 void GuiRenderSystem::updateLogic()
 {
 	float fpsMin, fpsAvg, fpsMax;
 	fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
 	std::stringstream sstrm;
-	sstrm << "Magyarul írt szöveg.\nFPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << std::endl;
+	sstrm << "Magyarul írt szöveg.\nЯ люблю Нику.\nニカが大好きです。FPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << std::endl;
 	txt = sstrm.str();
 }
 
@@ -284,7 +294,13 @@ void GuiRenderSystem::handleKeyboardEvent(const SDL_KeyboardEvent& event)
 			}
 			break;
 		}
-		default: break;
+		default: {
+			auto k = functionMap.find(event.keysym.sym);
+			if(k != std::end(functionMap)) {
+				k->second(this);
+			}
+			break;
+		}
 		}
 	}
 }
