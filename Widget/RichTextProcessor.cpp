@@ -6,13 +6,9 @@ void RichTextProcessor::flush()
 	auto tmpStr = sstrm.str();
 	if(!tmpStr.empty()) {
 		sstrm.str(std::string());
-#ifdef NATIVE_STR32
-		currentBlock.text = std::move(tmpStr);
-#else
 		currentBlock.text = convert.from_bytes(tmpStr);
-#endif
-		//currentBlock.colour = getColour(currentColour);
-		//currentBlock.font = getFont(currentFont).get();
+		currentBlock.font = fontRepo->getFont(currentFontName,isBold,isItalic).get();
+		currentColour.toKernel(currentBlock.colour);
 		blocks.push_back(currentBlock);
 	}
 }
@@ -27,19 +23,70 @@ std::vector<TextBlockUtf32>& RichTextProcessor::getBlocks()
 	return blocks;
 }
 
+RichTextProcessor::RichTextManipulator RichTextProcessor::ChangeFont(const std::string& fontname)
+{
+	return [&fontname](RichTextProcessor& rtp) {
+		rtp.setFontFace(fontname);
+	};
+}
+
+RichTextProcessor::RichTextManipulator RichTextProcessor::ChangeColour(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+	return [r,g,b,a](RichTextProcessor& rtp) {
+		rtp.setFontColour(r,g,b,a);
+	};
+}
+
+RichTextProcessor::RichTextManipulator RichTextProcessor::EnableItalic()
+{
+	return [](RichTextProcessor& rtp) {
+		rtp.enableItalic();
+	};
+}
+RichTextProcessor::RichTextManipulator RichTextProcessor::EnableBold()
+{
+	return [](RichTextProcessor& rtp) {
+		rtp.enableBold();
+	};
+}
+RichTextProcessor::RichTextManipulator RichTextProcessor::EnableUnderline()
+{
+	return [](RichTextProcessor& rtp) {
+		rtp.enableUnderline();
+	};
+}
+RichTextProcessor::RichTextManipulator RichTextProcessor::DisableItalic()
+{
+	return [](RichTextProcessor& rtp) {
+		rtp.disableItalic();
+	};
+}
+RichTextProcessor::RichTextManipulator RichTextProcessor::DisableBold()
+{
+	return [](RichTextProcessor& rtp) {
+		rtp.disableBold();
+	};
+}
+RichTextProcessor::RichTextManipulator RichTextProcessor::DisableUnderline()
+{
+	return [](RichTextProcessor& rtp) {
+		rtp.disableUnderline();
+	};
+}
+
 void RichTextProcessor::enableItalic()
 {
 	if(!isItalic) {
-		isItalic = true;
 		flush();
+		isItalic = true;
 	}
 }
 
 void RichTextProcessor::enableBold()
 {
 	if(!isBold) {
-		isBold = true;
 		flush();
+		isBold = true;
 	}
 }
 
@@ -51,16 +98,16 @@ void RichTextProcessor::enableUnderline()
 void RichTextProcessor::disableItalic()
 {
 	if(isItalic) {
-		isItalic = false;
 		flush();
+		isItalic = false;
 	}
 }
 
 void RichTextProcessor::disableBold()
 {
 	if(isBold) {
-		isBold = false;
 		flush();
+		isBold = false;
 	}
 }
 
@@ -74,19 +121,22 @@ void RichTextProcessor::setFontSize(int siz)
 
 }
 
-void RichTextProcessor::setFontFace(int face)
+void RichTextProcessor::setFontFace(const std::string& newfont)
 {
-	if(currentFont != face) {
-		currentFont = face;
+	if(currentFontName != newfont) {
 		flush();
+		currentFontName = newfont;
 	}
 }
 
-void RichTextProcessor::setFontColour(int clr)
+void RichTextProcessor::setFontColour(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
-	if(currentColour != clr) {
-		currentColour = clr;
+	if(currentColour.r != r || currentColour.g != g || currentColour.b != b || currentColour.a != a) {
 		flush();
+		currentColour.r = r;
+		currentColour.g = g;
+		currentColour.b = b;
+		currentColour.a = a;
 	}
 }
 /*
@@ -99,10 +149,8 @@ void RichTextProcessor::setFontColour(int clr)
 */
 
 RichTextProcessor::RichTextProcessor(const sFontRepository& repo)
-	: fontRepo(repo), defaultSize(10), currentSize(10), currentColour(0), currentFont(0), isBold(false), isItalic(false)
+	: fontRepo(repo), defaultSize(10), currentSize(10), currentColour{ .r = 255, .g = 255, .b = 255, .a = 255 }, currentFontName("Noto"), isBold(false), isItalic(false)
 {
-	colours.emplace_back(1.0f,1.0f,1.0f,1.0f);
-	currentBlock.colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	currentBlock.font = nullptr;
 	/*int num = 0;
 	for(auto it = std::begin(repo->getFonts()); it != std::end(repo->getFonts());++it) {
@@ -111,14 +159,90 @@ RichTextProcessor::RichTextProcessor(const sFontRepository& repo)
 }
 
 RichTextProcessor::RichTextProcessor(sFontRepository&& repo)
-	: fontRepo(std::move(repo)), defaultSize(10), currentSize(10), currentColour(0), currentFont(0), isBold(false), isItalic(false)
+	: fontRepo(std::move(repo)), defaultSize(10), currentSize(10), currentColour{ .r = 255, .g = 255, .b = 255, .a = 255 }, currentFontName("Noto"), isBold(false), isItalic(false)
 {
-	//register_color(255,255,255);
-	colours.emplace_back(1.0f,1.0f,1.0f,1.0f);
-	currentBlock.colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	currentBlock.font = nullptr;
 	/*int num = 0;
 	for(auto it = std::begin(fontRepo->getFonts()); it != std::end(fontRepo->getFonts());++it) {
 		++num;
 	}*/
+}
+RichTextProcessor& RichTextProcessor::operator<<(bool val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(short val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(unsigned short val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(int val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(unsigned int val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(long val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(unsigned long val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(float val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(double val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(long double val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(void* val) {
+	sstrm << val;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(signed char c) {
+	sstrm << c;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(unsigned char c) {
+	sstrm << c;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(const char* s) {
+	sstrm << s;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(const std::string& s) {
+	sstrm << s;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(std::ostream& (*pf)(std::ostream&)) {
+	sstrm << pf;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(std::ios& (*pf)(std::ios&)) {
+	sstrm << pf;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(std::ios_base& (*pf)(std::ios_base&)) {
+	sstrm << pf;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(RichTextProcessor& (*pf)(RichTextProcessor&)) {
+	return pf(*this);
+}
+RichTextProcessor& RichTextProcessor::operator<<(const RichTextManipulator& manipulator) {
+	manipulator(*this);
+	return *this;
 }

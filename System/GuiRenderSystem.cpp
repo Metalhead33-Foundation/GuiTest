@@ -62,32 +62,26 @@ GuiRenderSystem::FunctionMap& GuiRenderSystem::getFunctionMap()
 void GuiRenderSystem::updateLogic()
 {
 	std::stringstream sstrm;
-	if(richie && textToRender.empty()) {
+	if(richie) {
+		RichTextProcessor& RT = *richie;
 		float fpsMin, fpsAvg, fpsMax;
 		fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
-		/*
+
 	#ifdef INSERT_HUNGARIAN
-		sstrm << "Magyarul írt szöveg." << std::endl;
+		RT << RT.ChangeColour(255,0,0) << "Magyarul " << RT.ChangeColour(255,255,255) <<  "írt "<< RT.ChangeColour(0,255,0) << "szöveg." << std::endl;
 	#endif
 	#ifdef INSERT_RUSSIAN
-		sstrm << "Я люблю Нику." << std::endl;
+		RT << RT.ChangeColour(255,255,255) << "Я " << RT.ChangeColour(0,0,255) << "люблю " << RT.ChangeColour(200,0,0) << "Нику." << std::endl;
 	#endif
 	#ifdef INSERT_JAPANESE
-		sstrm << "ニカが大好きです。" << std::endl;
+		RT << "ニカが大好きです。" << std::endl;
 	#endif
-		sstrm << "FPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << '}';*/
-		std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("Magyarul "), .font = font->getFont("Noto",false,false).get(), .colour = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) } );
-		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("írt "), .font = font->getFont("Noto",true,false).get(), .colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f) } );
-		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("szöveg.\n"), .font = font->getFont("Noto",false,true).get(), .colour = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f) } );
-		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("Мне "), .font = font->getFont("Noto",true,true).get(), .colour = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) } );
-		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("нравится "), .font = font->getFont("Noto",true,true).get(), .colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f) } );
-		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("Нику.\n"), .font = font->getFont("Noto",true,true).get(), .colour = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f) } );
-		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("メグミンがすきです。"), .font = font->getFont("Noto",false,false).get(), .colour = glm::vec4(0.75f, 0.0f, 0.75f, 1.0f) } );
-
-		/*richie->flush();
+		RT << RT.ChangeColour(255,0,0) << RT.EnableBold() << "FPS min: " << RT.DisableBold() << fpsMin << std::endl;
+		RT << RT.ChangeColour(128,128,128) << RT.EnableBold() << "FPS avg: " << RT.DisableBold() << fpsAvg << std::endl;
+		RT << RT.ChangeColour(0,255,0) << RT.EnableBold() << "FPS max: " << RT.DisableBold() << fpsMax << std::endl;
+		richie->flush();
 		textToRender = richie->getBlocks();
-		richie->getBlocks().clear();*/
+		richie->getBlocks().clear();
 	}
 }
 
