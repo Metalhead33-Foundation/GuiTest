@@ -4,7 +4,7 @@ CONFIG -= app_bundle
 CONFIG -= qt
 QMAKE_CFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
 QMAKE_CXXFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
-LIBS += -lSDL2 -lSDL2_image -lfreetype
+LIBS += -lSDL2 -lSDL2_image -lfreetype -lrtfcpp
 
 SOURCES += \
         Pipeline/BasicPipeline.cpp \
@@ -23,7 +23,9 @@ SOURCES += \
         Widget/BoxWidget.cpp \
         Widget/Cursor.cpp \
         Widget/Font.cpp \
+        Widget/FontRepository.cpp \
         Widget/IWidget.cpp \
+        Widget/RichTextProcessor.cpp \
         Widget/SimpleWidget.cpp \
         Widget/TexturedWidget.cpp \
         Widget/TickboxWidget.cpp \
@@ -53,7 +55,9 @@ HEADERS += \
 	Widget/BoxWidget.hpp \
 	Widget/Cursor.hpp \
 	Widget/Font.hpp \
+	Widget/FontRepository.hpp \
 	Widget/IWidget.hpp \
+	Widget/RichTextProcessor.hpp \
 	Widget/SimpleWidget.hpp \
 	Widget/TexturedWidget.hpp \
 	Widget/TickboxWidget.hpp

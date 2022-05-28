@@ -2,6 +2,9 @@
 #include <locale>
 #include <codecvt>
 #include <cuchar>
+extern "C" {
+#include <freetype/ftbitmap.h>
+}
 
 static const std::pair<char32_t,char32_t> UNICODE_RANGES[] = {
 	{ 0x0020, 0x007F}, // Basic Latin
@@ -134,19 +137,32 @@ const TexGreyscale_U8& Font::getTexture() const
 	return texture;
 }
 
-void Font::insertCharacters(FT_Face fontface, const std::pair<char32_t, char32_t>& range)
+void Font::insertCharacters(const std::pair<char32_t, char32_t>& range)
 {
+	FT_Matrix matrix;
+	if(isItalic) {
+		const float lean = 0.5f;
+		matrix.xx = 0x10000L;
+		matrix.xy = lean * 0x10000L;
+		matrix.yx = 0;
+		matrix.yy = 0x10000L;
+		FT_Set_Transform( fontFace.get(), &matrix, nullptr );
+	}
 	for (char32_t c = range.first; c <= range.second; c++) {
-		if (!FT_Get_Char_Index(fontface,c) || FT_Load_Char(fontface, c, FT_LOAD_RENDER))
+
+		if (!FT_Get_Char_Index(fontFace.get(),c) || FT_Load_Char(fontFace.get(), c, FT_LOAD_RENDER))
 		{
 			characters.insert(std::pair<char32_t, Character>(c, Character{ .valid = false } ));
 			continue;
 		}
-		const glm::ivec2 glyphSize(fontface->glyph->bitmap.width,fontface->glyph->bitmap.rows);
+		if(isBold) {
+			FT_Bitmap_Embolden(sys.get(),&fontFace->glyph->bitmap,2 << 6,2 << 6);
+		}
+		const glm::ivec2 glyphSize(fontFace->glyph->bitmap.width,fontFace->glyph->bitmap.rows);
 		maxCharSizeSoFar.x = std::max(maxCharSizeSoFar.x,glyphSize.x);
 		maxCharSizeSoFar.y = std::max(maxCharSizeSoFar.y,glyphSize.y);
-		const glm::ivec2 glyphBearing(fontface->glyph->bitmap_left,fontface->glyph->bitmap_top);
-		const unsigned int glyphAdvance = static_cast<unsigned int>(fontface->glyph->advance.x);
+		const glm::ivec2 glyphBearing(fontFace->glyph->bitmap_left,fontFace->glyph->bitmap_top);
+		const unsigned int glyphAdvance = static_cast<unsigned int>(fontFace->glyph->advance.x);
 		glm::ivec2 glyphOffset = textureOffset + glm::ivec2(1, 0);
 		glm::ivec2 intendedCorner = glyphOffset + glyphSize;
 		if(intendedCorner.y >= texture.getHeight()) {
@@ -161,7 +177,7 @@ void Font::insertCharacters(FT_Face fontface, const std::pair<char32_t, char32_t
 				glyphOffset = textureOffset + glm::ivec2(1, 0);
 			}
 		}
-		texture.blit(reinterpret_cast<PixelGreyscale_U8*>(fontface->glyph->bitmap.buffer),textureOffset,glyphSize);
+		texture.blit(reinterpret_cast<PixelGreyscale_U8*>(fontFace->glyph->bitmap.buffer),textureOffset,glyphSize);
 
 		Character character = {
 			.valid = true,
@@ -175,21 +191,77 @@ void Font::insertCharacters(FT_Face fontface, const std::pair<char32_t, char32_t
 	}
 }
 
-void Font::insertCharacters(FT_Face fontface)
+void Font::insertCharacters()
 {
-	insertCharacters(fontface,std::make_pair(0,255));
+	insertCharacters(std::make_pair(0,255));
 }
 
-Font::Font(const sFreeTypeSystem& fontSys, const sFreeTypeFace& fontface) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0), fontSys(fontSys), fontFace(fontface)
+bool Font::getIsItalic() const
 {
-	// Latin
-	insertCharacters(fontface.get(),std::make_pair(0x0000,0x024F));
+	return isItalic;
 }
 
-Font::Font(sFreeTypeSystem&& fontSys, sFreeTypeFace&& fontface) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0), fontSys(std::move(fontSys)), fontFace(std::move(fontface))
+bool Font::getIsBold() const
+{
+	return isBold;
+}
+
+Font::Font(const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold, bool italic) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
+	sys(system), fontFace(fontface), isBold(bold), isItalic(italic)
 {
 	// Latin
-	insertCharacters(fontFace.get(),std::make_pair(0x0000,0x024F));
+	insertCharacters(std::make_pair(0x0000,0x024F));
+}
+
+Font::Font(const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold, bool italic) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
+	sys(system), fontFace(std::move(fontface)), isBold(bold), isItalic(italic)
+{
+	insertCharacters(std::make_pair(0x0000,0x024F));
+}
+
+Font::Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold, bool italic) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
+	sys(std::move(system)), fontFace(std::move(fontface)), isBold(bold), isItalic(italic)
+{
+	// Latin
+	insertCharacters(std::make_pair(0x0000,0x024F));
+}
+
+/*
+	TexGreyscale_U8 texture;
+	glm::ivec2 textureOffset;
+	glm::ivec2 maxCharSizeSoFar;
+	std::map<char32_t,Character> characters;
+	sFreeTypeFace fontFace;
+*/
+
+Font::Font(Font&& mov)
+	: texture(std::move(mov.texture)),textureOffset(mov.textureOffset), maxCharSizeSoFar(mov.maxCharSizeSoFar), characters(std::move(mov.characters)),
+	  sys(std::move(sys)), fontFace(std::move(mov.fontFace)), isBold(mov.isBold), isItalic(mov.isItalic)
+{
+
+}
+
+Font& Font::operator=(Font&& mov)
+{
+	this->texture = std::move(mov.texture);
+	this->textureOffset = mov.textureOffset;
+	this->maxCharSizeSoFar = mov.maxCharSizeSoFar;
+	this->characters = std::move(mov.characters);
+	this->fontFace = std::move(mov.fontFace);
+	this->sys = std::move(mov.sys);
+	this->isBold = mov.isBold;
+	this->isItalic = mov.isItalic;
+	return *this;
+}
+
+void Font::addCharacterFromBlock(char32_t c)
+{
+	for(size_t i = 0; i < UNICODE_RANGE_COUNT; ++i) {
+		if(c >= UNICODE_RANGES[i].first && c <= UNICODE_RANGES[i].second) {
+			insertCharacters(UNICODE_RANGES[i]);
+			break;
+		}
+	}
 }
 
 void Font::renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing)
@@ -204,19 +276,14 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, const g
 	float y = offset.y;
 	float maxHeight = 0;
 	for(const auto c : text) {
-		if(c == '\n') {
+		if(c == '\n' || c == '\f') {
 			x = offset.x;
 			y += maxHeight + (reciprocalSize.y * static_cast<float>(spacing) * scale);
 			continue;
 		}
 		auto charIt = characters.find(c);
 		if(charIt == std::end(characters)) {
-			for(size_t i = 0; i < UNICODE_RANGE_COUNT; ++i) {
-				if(c >= UNICODE_RANGES[i].first && c <= UNICODE_RANGES[i].second) {
-					insertCharacters(fontFace.get(),UNICODE_RANGES[i]);
-					break;
-				}
-			}
+			addCharacterFromBlock(c);
 			charIt = characters.find(c);
 			if(charIt == std::end(characters)) continue;
 		}
@@ -229,6 +296,60 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, const g
 		const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * texture.getWidthR(), static_cast<float>(charIt->second.size.y) * texture.getHeightR());
 		renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, colour, texture );
 		x += (charIt->second.advance >> 6) * reciprocalSize.x * scale;
+		}
+	}
+}
+
+/*
+struct TextBlockUtf32 {
+	std::u32string text;
+	Font* font;
+	glm::vec4 colour;
+};
+*/
+
+void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing)
+{
+	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
+	std::vector<TextBlockUtf32> blks;
+	blks.reserve(textBlocks.size());
+	for(const auto& it : textBlocks) {
+		blks.push_back( { .text = convert.from_bytes(it.text), .font = it.font, .colour = it.colour } );
+	}
+	renderTextBlocks(renderer,blks,offset,reciprocalSize,scale,spacing);
+}
+
+void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing)
+{
+	float x = offset.x;
+	float y = offset.y;
+	float maxHeight = 0;
+	for(const auto& block : textBlocks) {
+		for(const auto c : block.text) {
+			if(c == '\n' || c == '\f') {
+				x = offset.x;
+				y += maxHeight + (reciprocalSize.y * static_cast<float>(spacing) * scale);
+				continue;
+			}
+			if(!block.font) continue;
+			auto charIt = block.font->characters.find(c);
+			if(charIt == std::end(block.font->characters)) {
+				block.font->addCharacterFromBlock(c);
+				charIt = block.font->characters.find(c);
+				if(charIt == std::end(block.font->characters)) continue;
+			}
+			if(charIt->second.valid) {
+			const glm::fvec2 pos = glm::fvec2(x + (charIt->second.bearing.x * reciprocalSize.x * scale),
+											  y + ((charIt->second.size.y - charIt->second.bearing.y) * reciprocalSize.y * scale));
+			const glm::fvec2 dim = glm::fvec2(charIt->second.size.x * scale,charIt->second.size.y * -scale) * reciprocalSize;
+			maxHeight = std::max(maxHeight,dim.y * -1.0f);
+			const glm::fvec2 texCoord0(static_cast<float>(charIt->second.offset.x) * block.font->texture.getWidthR(),
+									   static_cast<float>(charIt->second.offset.y) * block.font->texture.getHeightR());
+			const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * block.font->texture.getWidthR(),
+															   static_cast<float>(charIt->second.size.y) * block.font->texture.getHeightR());
+			renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, block.colour, block.font->texture );
+			x += (charIt->second.advance >> 6) * reciprocalSize.x * scale;
+			}
 		}
 	}
 }

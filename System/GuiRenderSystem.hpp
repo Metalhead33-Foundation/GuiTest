@@ -10,9 +10,10 @@
 #include "../Pipeline/ColouredTexturedPipeline.hpp"
 #include "../Util/ThreadsafeContainer.hpp"
 #include "../Widget/Cursor.hpp"
-#include "../Widget/Font.hpp"
+#include "../Widget/FontRepository.hpp"
 #include "FpsCounter.hpp"
 #include <vector>
+#include "../Widget/RichTextProcessor.hpp"
 
 class GuiRenderSystem : public AppSystem, public GuiRenderer
 {
@@ -26,7 +27,7 @@ protected:
 	TexturedPipeline tpipeline;
 	ColouredTexturedPipeline ctpipeline;
 	sCursor cursor;
-	sFont font;
+	sFontRepository font;
 	IWidget* currentWidget;
 	glm::mat4 projection;
 	glm::fvec2 sizeReciprocal;
@@ -37,6 +38,8 @@ protected:
 	bool fullscreen;
 	FpsCounter fpsCounter;
 	FunctionMap functionMap;
+	sRichTextProcessor richie;
+	std::vector<TextBlockUtf32> textToRender;
 	virtual void updateLogic() override;
 	virtual void render() override;
 	void onResolutionChange(int newWidth, int newHeight);
@@ -85,9 +88,9 @@ public:
 	const sCursor& getCursor() const;
 	void setCursor(const sCursor& newCursor);
 	void setCursor(sCursor&& newCursor);
-	const sFont& getFont() const;
-	void setFont(const sFont& newFont);
-	void setFont(sFont&& newFont);
+	const sFontRepository& getFont() const;
+	void setFont(const sFontRepository& newFont);
+	void setFont(sFontRepository&& newFont);
 	const FunctionMap& getFunctionMap() const;
 	FunctionMap& getFunctionMap();
 };

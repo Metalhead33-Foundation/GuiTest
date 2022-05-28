@@ -4,6 +4,7 @@
 #include "Util/TextureFromSurface.hpp"
 #include <thread>
 #include <SDL2/SDL_image.h>
+#include <sstream>
 
 /**static const int WIDTH = 640;
 static const int HEIGHT = 480;*/
@@ -30,31 +31,44 @@ int main()
 		app->setCursor(std::move(cursor));
 	});
 	app->getFunctionMap().insert_or_assign(SDLK_SPACE,[](GuiRenderSystem* sys) {
-		auto f = sys->getFont();
-		if(f) {
-			uSUrface s(SDL_CreateRGBSurfaceWithFormat(0,f->getTexture().getWidth(),f->getTexture().getHeight(),8,SDL_PIXELFORMAT_RGB332),SDL_FreeSurface);
-			memcpy(s->pixels,f->getTexture().getRawPixels(),s->w * s->h);
-			IMG_SavePNG(s.get(),"fontmap.png");
+		auto fontSys = sys->getFont();
+		if(fontSys) {
+			for(auto it = std::begin(fontSys->getFonts()); it != std::end(fontSys->getFonts());++it) {
+				for(size_t i = 0; i < it->second.size(); ++i) {
+					std::stringstream sstream;
+					sstream << it->first << '-' << i << std::endl;
+					auto str = sstream.str();
+					uSUrface s(SDL_CreateRGBSurfaceWithFormat(0,it->second[i]->getTexture().getWidth(),it->second[i]->getTexture().getHeight(),8,SDL_PIXELFORMAT_RGB332),SDL_FreeSurface);
+					memcpy(s->pixels,it->second[i]->getTexture().getRawPixels(),s->w * s->h);
+					IMG_SavePNG(s.get(),str.c_str());
+				}
+			}
 		}
 	});
-	auto fontAdderThread = std::thread([app]() {
+	/*auto fontAdderThread = std::thread([app]() {
 		FT_Library ft;
 		if (FT_Init_FreeType(&ft)) {
 			return;
 		}
 		sFreeTypeSystem sys(ft,FT_Done_FreeType);
-		FT_Face face;
-		if (FT_New_Face(ft, CJK, 0, &face)) {
-			return;
-		}
-		FT_Set_Pixel_Sizes(face, 0, 48);
-		sFreeTypeFace fac(face,FT_Done_Face);
 
-		auto font = std::make_shared<Font>( sys, std::move(fac) );
+		auto font = std::make_shared<FontRepository>( std::move(sys) );
+		font->initializeFont("Noto",CJK);
 		app->setFont(std::move(font));
-	});
+	});*/
+	{
+		FT_Library ft;
+		if (!FT_Init_FreeType(&ft)) {
+		} {
+		sFreeTypeSystem sys(ft,FT_Done_FreeType);
+
+		auto font = std::make_shared<FontRepository>( std::move(sys) );
+		font->initializeFont("Noto",CJK);
+		app->setFont(std::move(font));
+		}
+	}
 	app->run();
-	fontAdderThread.join();
+	//fontAdderThread.join();
 	delete app;
 	return 0;
 }

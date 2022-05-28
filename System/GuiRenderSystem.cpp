@@ -24,19 +24,23 @@ void GuiRenderSystem::setCursor(sCursor&& newCursor)
 	cursor = std::move(newCursor);
 }
 
-const sFont& GuiRenderSystem::getFont() const
+const sFontRepository& GuiRenderSystem::getFont() const
 {
 	return font;
 }
 
-void GuiRenderSystem::setFont(const sFont& newFont)
+void GuiRenderSystem::setFont(const sFontRepository& newFont)
 {
 	font = newFont;
+	richie = std::make_shared<RichTextProcessor>(std::ref(font));
+	//richie = sRichTextProcessor(new RichTextProcessor(font));
 }
 
-void GuiRenderSystem::setFont(sFont&& newFont)
+void GuiRenderSystem::setFont(sFontRepository&& newFont)
 {
 	font = std::move(newFont);
+	richie = std::make_shared<RichTextProcessor>(std::ref(font));
+	//richie = sRichTextProcessor(new RichTextProcessor(font));
 }
 
 static std::string txt = "Multi-line\ntext";
@@ -57,20 +61,41 @@ GuiRenderSystem::FunctionMap& GuiRenderSystem::getFunctionMap()
 
 void GuiRenderSystem::updateLogic()
 {
-	float fpsMin, fpsAvg, fpsMax;
-	fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
 	std::stringstream sstrm;
-#ifdef INSERT_HUNGARIAN
-	sstrm << "Magyarul írt szöveg." << std::endl;
-#endif
-#ifdef INSERT_RUSSIAN
-	sstrm << "Я люблю Нику." << std::endl;
-#endif
-#ifdef INSERT_JAPANESE
-	sstrm << "ニカが大好きです。" << std::endl;
-#endif
-	sstrm << "FPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << std::endl;
-	txt = sstrm.str();
+	if(richie && textToRender.empty()) {
+		float fpsMin, fpsAvg, fpsMax;
+		fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
+		//sstrm << "{\\rtf1\\ansi\\fnil\n";
+		//sstrm << "{\\cf2\\b\\ab\\rtlch \\ltrch\\loch\nMagyarul}{\\cf2\\rtlch \\ltrch\\loch\n \\uc2 \\u237\\\'c3\\\'adrt \\uc1 }{\\cf2\\i\\ai\\rtlch \\ltrch\\loch\nsz\\uc2 \\u246\\\'c3\\\'b6veg\\uc1 }{\\cf2\\rtlch \\ltrch\\loch\n.}\n\\par \\pard\\plain \\s20\\sb0\\sa0\\hich\\af7\\dbch\\af5\\afs20\\loch\\f5\\fs20\\li0\\ri0\\lin0\\rin0\\fi0\\sb0\\sa0{\\cf4\\rtlch \\ltrch\\loch\n\\uc2 \\u1071\\\'d0\\\'af \\uc1 }{\\cf4\\i\\ai\\rtlch \\ltrch\\loch\n\\uc2 \\u1083\\\'d0\\\'bb\\u1102\\\'d1\\\'8e\\u1073\\\'d0\\\'b1\\u1083\\\'d0\\\'bb\\u1102\\\'d1\\\'8e\\uc1 }{\\cf4\\rtlch \\ltrch\\loch\n }{\\cf4\\b\\ab\\rtlch \\ltrch\\loch\n\\uc2 \\u1053\\\'d0\\\'9d\\u1080\\\'d0\\\'b8\\u1082\\\'d0\\\'ba\\u1091\\\'d1\\\'83\\uc1 }{\\cf4\\rtlch \\ltrch\\loch\n.}\n\\par }";
+
+		/*sstrm << "{\\rtf1\\ansi \\deff \\fnil";
+	#ifdef INSERT_HUNGARIAN
+		sstrm << "Magyarul írt szöveg." << std::endl;
+	#endif
+	#ifdef INSERT_RUSSIAN
+		sstrm << "Я люблю Нику." << std::endl;
+	#endif
+	#ifdef INSERT_JAPANESE
+		sstrm << "ニカが大好きです。" << std::endl;
+	#endif
+		sstrm << "FPS min: " << fpsMin << "\nFPS avg: " << fpsAvg << "\nFPS max: " << fpsMax << '}';*/
+		std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
+		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("Magyarul "), .font = font->getFont("Noto",false,false).get(), .colour = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) } );
+		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("írt "), .font = font->getFont("Noto",true,false).get(), .colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f) } );
+		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("szöveg.\n"), .font = font->getFont("Noto",false,true).get(), .colour = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f) } );
+		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("Мне "), .font = font->getFont("Noto",true,true).get(), .colour = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) } );
+		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("нравится "), .font = font->getFont("Noto",true,true).get(), .colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f) } );
+		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("Нику.\n"), .font = font->getFont("Noto",true,true).get(), .colour = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f) } );
+		textToRender.push_back( TextBlockUtf32{ .text = convert.from_bytes("メグミンがすきです。"), .font = font->getFont("Noto",false,false).get(), .colour = glm::vec4(0.75f, 0.0f, 0.75f, 1.0f) } );
+
+		/*std::stringstream stream2(sstrm.str());
+		format::utils::stream_logger log ( std::cerr, true, true, true );
+		format::utils::stream_source src(stream2);
+		format::parsers::rtf parser(src,*richie,log);
+		richie->flush();
+		textToRender = richie->getBlocks();
+		richie->getBlocks().clear();*/
+	}
 }
 
 
@@ -80,7 +105,8 @@ void GuiRenderSystem::render()
 		framebuffer->clearToColour(glm::fvec4(0.0f,0.0f,0.0f,0.0f));
 		zbuffer->clear();
 		if(font) {
-			font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,0.5f,glm::fvec4(0.99f,0.35f,0.35f,1.0f),8);
+			//font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,0.5f,glm::fvec4(0.99f,0.35f,0.35f,1.0f),8);
+			Font::renderTextBlocks(*this,textToRender,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,0.5f,8);
 		}
 		widgets.access( [this](const std::vector<sWidget>& cntr) {
 			for(auto& it : cntr) {
@@ -120,7 +146,7 @@ static const glm::ivec2 virtualRes = glm::ivec2(320,240);
 
 GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags)
 	: AppSystem(title,offsetX,offsetY,width,height,flags), currentWidget(nullptr),
-	  strbuffer(""), fullscreen(false), mousePos(glm::fvec2(0.0,0.0f)), cursor(nullptr), font(nullptr)
+	  strbuffer(""), fullscreen(false), mousePos(glm::fvec2(0.0,0.0f)), cursor(nullptr), font(nullptr), richie(nullptr)
 {
 	bpipeline.uniform.blending = ALPHA_DITHERING;
 	bpipeline.vert = basicVertexShader;
