@@ -67,7 +67,40 @@ public:
 	{
 
 	}
-
+	bool resize(int newWidth, int newHeight) override {
+		const int rowsToRunThrough = std::min(this->height,newHeight);
+		const size_t bytesPerRow = std::min(this->width,newWidth) * sizeof(PixelType);
+		std::vector<PixelType> newPixels(newWidth * newHeight);
+		std::memset(newPixels.data(),0,sizeof(PixelType) * newPixels.size());
+		for(int y = 0; y < rowsToRunThrough; ++y) {
+			const PixelType* const originalRow = &pixels[y*width];
+			PixelType* const newRow = &newPixels[y*width];
+			memcpy(newRow,originalRow,bytesPerRow);
+		}
+		this->pixels = std::move(newPixels);
+		this->width = newWidth;
+		this->height = newHeight;
+		this->widthF = static_cast<float>(newWidth - 1);
+		this->heightF = static_cast<float>(newHeight - 1);
+		return true;
+	}
+	void blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
+		if(offset.x >= width || offset.y >= height) return;
+		const int rowsToCopy = std::min(dimensions.y,height - offset.y);
+		const int columnsToCopy = std::min(dimensions.x,width - offset.x);
+		const size_t bytesPerRow = columnsToCopy * sizeof(PixelType);
+		for(int y = 0; y < rowsToCopy; ++y) {
+			const PixelType* const originalRow = &pixels[y*width];
+			PixelType* const newRow = &cpy[y*width];
+			memcpy(newRow,originalRow,bytesPerRow);
+		}
+	}
+	void blit(const StandardTexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
+		blit(cpy.pixels,offset,dimensions);
+	}
+	void blit(const StandardTexture& cpy, const glm::ivec2 offset) {
+		blit(cpy.pixels,offset,glm::ivec2(cpy.width,cpy.height));
+	}
 	int getWidth() const override {
 		return width;
 	}
@@ -281,7 +314,28 @@ public:
 	{
 
 	}
-
+	bool resize(int newWidth, int newHeight) override {
+		(void)newWidth;
+		(void)newHeight;
+		return false;
+	}
+	void blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
+		if(offset.x >= width || offset.y >= height) return;
+		const int rowsToCopy = std::min(dimensions.y,height - offset.y);
+		const int columnsToCopy = std::min(dimensions.x,width - offset.x);
+		const size_t bytesPerRow = columnsToCopy * sizeof(PixelType);
+		for(int y = 0; y < rowsToCopy; ++y) {
+			const PixelType* const originalRow = &pixels[y*width];
+			PixelType* const newRow = &cpy[y*width];
+			memcpy(newRow,originalRow,bytesPerRow);
+		}
+	}
+	void blit(const ReferenceTexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
+		blit(cpy.pixels,offset,dimensions);
+	}
+	void blit(const ReferenceTexture& cpy, const glm::ivec2 offset) {
+		blit(cpy.pixels,offset,glm::ivec2(cpy.width,cpy.height));
+	}
 	int getWidth() const override {
 		return width;
 	}
