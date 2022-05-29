@@ -259,20 +259,19 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRen
 			const float ny = y + state.maxHeight;
 			// Strikethrough
 			if(state.attributes.isStrikethrough && !state.attributes.lastWasStrikethrough) {
-				const float middleY = (y+state.maxHeight*0.5f);
-				renderer.renderCLine(glm::fvec2(state.originalOffset.x,middleY),glm::fvec2(x,middleY),state.colour,2);
+				const float middleY = (y+state.maxHeight*0.4f);
+				renderer.renderCLine(glm::fvec2(state.currentOffset.x,middleY),glm::fvec2(x,middleY),state.colour,2);
 				state.attributes.lastWasStrikethrough = true;
 			}
 			// Underline
-			/*if(state.attributes.isUnderline && !state.attributes.lastWasStrikethrough) {
-				renderer.renderCLine(glm::fvec2(state.originalOffset.x,ny),glm::fvec2(x,ny),state.colour,2);
-				y = ny + (state.reciprocalSize.y * static_cast<float>(state.spacing << 2) * state.scale) + (state.reciprocalSize.y * 10.0f);
+			if(state.attributes.isUnderline && !state.attributes.lastWasStrikethrough) {
+				const float zy = y + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
+				renderer.renderCLine(glm::fvec2(state.currentOffset.x,zy),glm::fvec2(x,zy),state.colour,2);
+				y = ny + (2.0f * (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale));
 				state.attributes.isUnderline = true;
-			} else {*/
-				y = ny + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
-				//itunstrPrev.y = false;
-				//itunstrPrev.z = false;
-			//}
+			} else {
+			y = ny + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
+			}
 			state.attributes.lastWasNewline = true;
 			x = state.originalOffset.x;
 			continue;
@@ -298,21 +297,23 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRen
 		x += (charIt->second.advance >> 6) * state.reciprocalSize.x * state.scale;
 		}
 	}
+	const float blockWidth = x - state.originalOffset.x;
 	// Underline
-	/*if(state.attributes.isUnderline && !state.attributes.lastWasUnderline && !state.attributes.lastWasNewline && x != state.originalOffset.x) {
-		const float ny = y - state.maxHeight;
-		//y = ny + (state.reciprocalSize.y * static_cast<float>(state.spacing << 2) * state.scale) + (state.reciprocalSize.y * 10.0f);
-		renderer.renderCLine(glm::fvec2(state.originalOffset.x,ny),glm::fvec2(x,ny),state.colour,2);
-		state.attributes.isUnderline = true;
-		state.attributes.lastWasNewline = true;
-	}*/
-	// Strikethrough
-	if(state.attributes.isStrikethrough && !state.attributes.lastWasStrikethrough && x != state.originalOffset.x) {
-		const float middleY = (y-state.maxHeight*0.5f);
-		renderer.renderCLine(glm::fvec2(state.originalOffset.x,middleY),glm::fvec2(x,middleY),state.colour,2);
-		state.attributes.isStrikethrough = true;
-		state.attributes.lastWasNewline = true;
+	if(state.attributes.isUnderline && !state.attributes.lastWasUnderline && !state.attributes.lastWasNewline && blockWidth >= state.reciprocalSize.x) {
+		const float ny = y + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
+		renderer.renderCLine(glm::fvec2(state.currentOffset.x,ny),glm::fvec2(x,ny),state.colour,2);
+		//state.attributes.isUnderline = true;
+		//state.attributes.lastWasNewline = true;
 	}
+	// Strikethrough
+	if(state.attributes.isStrikethrough && !state.attributes.lastWasStrikethrough && blockWidth >= state.reciprocalSize.x) {
+		const float middleY = (y-state.maxHeight*0.4f);
+		renderer.renderCLine(glm::fvec2(state.currentOffset.x,middleY),glm::fvec2(x,middleY),state.colour,2);
+		//state.attributes.isStrikethrough = true;
+		//state.attributes.lastWasNewline = true;
+	}
+	state.attributes.isStrikethrough = false;
+	state.attributes.lastWasNewline = false;
 	state.currentOffset.x = x;
 	state.currentOffset.y = y;
 }
@@ -322,6 +323,7 @@ void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlo
 {
 	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
 	TextRenderState state;
+	std::memset(&state,0,sizeof(TextRenderState));
 	state.originalOffset = offset;
 	state.currentOffset = offset;
 	state.reciprocalSize = reciprocalSize;
@@ -340,6 +342,7 @@ void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlo
 							const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
 	TextRenderState state;
+	std::memset(&state,0,sizeof(TextRenderState));
 	state.originalOffset = offset;
 	state.currentOffset = offset;
 	state.reciprocalSize = reciprocalSize;
