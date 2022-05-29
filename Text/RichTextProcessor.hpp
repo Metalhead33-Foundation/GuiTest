@@ -1,5 +1,5 @@
-#ifndef RICHTEXTPROCESSOR_HPP
-#define RICHTEXTPROCESSOR_HPP
+#ifndef RICHTEXTPROCESSOR_H
+#define RICHTEXTPROCESSOR_H
 #include "FontRepository.hpp"
 #include <sstream>
 #include <locale>
@@ -80,4 +80,4 @@ public:
 };
 typedef std::shared_ptr<RichTextProcessor> sRichTextProcessor;
 
-#endif // RICHTEXTPROCESSOR_HPP
+#endif // RICHTEXTPROCESSOR_H

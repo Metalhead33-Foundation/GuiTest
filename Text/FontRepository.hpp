@@ -1,5 +1,5 @@
-#ifndef FONTREPOSITORY_HPP
-#define FONTREPOSITORY_HPP
+#ifndef FONTREPOSITORY_H
+#define FONTREPOSITORY_H
 #include "Font.hpp"
 #include <array>
 
@@ -22,4 +22,4 @@ public:
 };
 typedef std::shared_ptr<FontRepository> sFontRepository;
 
-#endif // FONTREPOSITORY_HPP
+#endif // FONTREPOSITORY_H

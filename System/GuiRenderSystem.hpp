@@ -10,10 +10,10 @@
 #include "../Pipeline/ColouredTexturedPipeline.hpp"
 #include "../Util/ThreadsafeContainer.hpp"
 #include "../Widget/Cursor.hpp"
-#include "../Widget/FontRepository.hpp"
+#include "../Text/FontRepository.hpp"
 #include "FpsCounter.hpp"
 #include <vector>
-#include "../Widget/RichTextProcessor.hpp"
+#include "../Text/RichTextProcessor.hpp"
 
 class GuiRenderSystem : public AppSystem, public GuiRenderer
 {

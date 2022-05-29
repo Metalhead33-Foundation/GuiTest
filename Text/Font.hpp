@@ -1,5 +1,5 @@
-#ifndef FONT_HPP
-#define FONT_HPP
+#ifndef FONT_H
+#define FONT_H
 #include <string>
 #include <memory>
 #include <map>
@@ -87,4 +87,4 @@ public:
 };
 typedef std::shared_ptr<Font> sFont;
 
-#endif // FONT_HPP
+#endif // FONT_H

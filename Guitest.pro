@@ -17,15 +17,15 @@ SOURCES += \
         System/AppSystem.cpp \
         System/FpsCounter.cpp \
         System/GuiRenderSystem.cpp \
+        Text/Font.cpp \
+        Text/FontRepository.cpp \
+        Text/RichTextProcessor.cpp \
         Texture/Texture.cpp \
         Util/TextureFromSurface.cpp \
         Util/TextureHelpers.cpp \
         Widget/BoxWidget.cpp \
         Widget/Cursor.cpp \
-        Widget/Font.cpp \
-        Widget/FontRepository.cpp \
         Widget/IWidget.cpp \
-        Widget/RichTextProcessor.cpp \
         Widget/SimpleWidget.cpp \
         Widget/TexturedWidget.cpp \
         Widget/TickboxWidget.cpp \
@@ -43,6 +43,9 @@ HEADERS += \
 	System/AppSystem.hpp \
 	System/FpsCounter.hpp \
 	System/GuiRenderSystem.hpp \
+	Text/Font.hpp \
+	Text/FontRepository.hpp \
+	Text/RichTextProcessor.hpp \
 	Texture/StandardTexture.hpp \
 	Texture/Texture.hpp \
 	Util/Dither.hpp \
@@ -54,10 +57,7 @@ HEADERS += \
 	Util/ThreadsafeContainer.hpp \
 	Widget/BoxWidget.hpp \
 	Widget/Cursor.hpp \
-	Widget/Font.hpp \
-	Widget/FontRepository.hpp \
 	Widget/IWidget.hpp \
-	Widget/RichTextProcessor.hpp \
 	Widget/SimpleWidget.hpp \
 	Widget/TexturedWidget.hpp \
 	Widget/TickboxWidget.hpp
