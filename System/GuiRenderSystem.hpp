@@ -73,8 +73,6 @@ protected:
 	void handleTextInputEvent(const SDL_TextInputEvent& event) override;
 	void handleUserEvent(const SDL_UserEvent& event) override;
 	void handleWindowEvent(const SDL_WindowEvent& event) override;
-
-	// GuiRenderer interface
 public:
 	void renderCLine(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour, int thickness = 1) override;
 	void renderCRect(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour) override;
@@ -93,6 +91,7 @@ public:
 	void setFont(sFontRepository&& newFont);
 	const FunctionMap& getFunctionMap() const;
 	FunctionMap& getFunctionMap();
+	void renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const Texture& tex) override;
 };
 
 #endif // GUIRENDERSYSTEM_H

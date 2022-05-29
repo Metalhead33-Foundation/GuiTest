@@ -7,7 +7,8 @@ void RichTextProcessor::flush()
 	if(!tmpStr.empty()) {
 		sstrm.str(std::string());
 		currentBlock.text = convert.from_bytes(tmpStr);
-		currentBlock.font = fontRepo->getFont(currentFontName,isBold,isItalic).get();
+		currentBlock.font = fontRepo->getFont(currentFontName,isBold).get();
+		currentBlock.isItalic = isItalic;
 		currentColour.toKernel(currentBlock.colour);
 		blocks.push_back(currentBlock);
 	}

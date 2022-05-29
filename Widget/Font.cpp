@@ -139,15 +139,6 @@ const TexGreyscale_U8& Font::getTexture() const
 
 void Font::insertCharacters(const std::pair<char32_t, char32_t>& range)
 {
-	FT_Matrix matrix;
-	if(isItalic) {
-		const float lean = 0.5f;
-		matrix.xx = 0x10000L;
-		matrix.xy = lean * 0x10000L;
-		matrix.yx = 0;
-		matrix.yy = 0x10000L;
-		FT_Set_Transform( fontFace.get(), &matrix, nullptr );
-	}
 	for (char32_t c = range.first; c <= range.second; c++) {
 
 		if (!FT_Get_Char_Index(fontFace.get(),c) || FT_Load_Char(fontFace.get(), c, FT_LOAD_RENDER))
@@ -196,47 +187,34 @@ void Font::insertCharacters()
 	insertCharacters(std::make_pair(0,255));
 }
 
-bool Font::getIsItalic() const
-{
-	return isItalic;
-}
-
 bool Font::getIsBold() const
 {
 	return isBold;
 }
 
-Font::Font(const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold, bool italic) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
-	sys(system), fontFace(fontface), isBold(bold), isItalic(italic)
+Font::Font(const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
+	sys(system), fontFace(fontface), isBold(bold)
 {
 	// Latin
 	insertCharacters(std::make_pair(0x0000,0x024F));
 }
 
-Font::Font(const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold, bool italic) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
-	sys(system), fontFace(std::move(fontface)), isBold(bold), isItalic(italic)
+Font::Font(const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
+	sys(system), fontFace(std::move(fontface)), isBold(bold)
 {
 	insertCharacters(std::make_pair(0x0000,0x024F));
 }
 
-Font::Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold, bool italic) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
-	sys(std::move(system)), fontFace(std::move(fontface)), isBold(bold), isItalic(italic)
+Font::Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
+	sys(std::move(system)), fontFace(std::move(fontface)), isBold(bold)
 {
 	// Latin
 	insertCharacters(std::make_pair(0x0000,0x024F));
 }
-
-/*
-	TexGreyscale_U8 texture;
-	glm::ivec2 textureOffset;
-	glm::ivec2 maxCharSizeSoFar;
-	std::map<char32_t,Character> characters;
-	sFreeTypeFace fontFace;
-*/
 
 Font::Font(Font&& mov)
 	: texture(std::move(mov.texture)),textureOffset(mov.textureOffset), maxCharSizeSoFar(mov.maxCharSizeSoFar), characters(std::move(mov.characters)),
-	  sys(std::move(sys)), fontFace(std::move(mov.fontFace)), isBold(mov.isBold), isItalic(mov.isItalic)
+	  sys(std::move(sys)), fontFace(std::move(mov.fontFace)), isBold(mov.isBold)
 {
 
 }
@@ -250,7 +228,6 @@ Font& Font::operator=(Font&& mov)
 	this->fontFace = std::move(mov.fontFace);
 	this->sys = std::move(mov.sys);
 	this->isBold = mov.isBold;
-	this->isItalic = mov.isItalic;
 	return *this;
 }
 
@@ -264,13 +241,15 @@ void Font::addCharacterFromBlock(char32_t c)
 	}
 }
 
-void Font::renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing)
+static const float italicMagicNumber = 0.5f;
+
+void Font::renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing, bool italic)
 {
 	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-	renderText(renderer,convert.from_bytes(text.c_str()),offset,reciprocalSize,scale,colour,spacing);
+	renderText(renderer,convert.from_bytes(text.c_str()),offset,reciprocalSize,scale,colour,spacing,italic);
 }
 
-void Font::renderText(GuiRenderer& renderer, const std::u32string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing)
+void Font::renderText(GuiRenderer& renderer, const std::u32string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing, bool italic)
 {
 	float x = offset.x;
 	float y = offset.y;
@@ -294,19 +273,12 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, const g
 		maxHeight = std::max(maxHeight,dim.y * -1.0f);
 		const glm::fvec2 texCoord0(static_cast<float>(charIt->second.offset.x) * texture.getWidthR(), static_cast<float>(charIt->second.offset.y) * texture.getHeightR());
 		const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * texture.getWidthR(), static_cast<float>(charIt->second.size.y) * texture.getHeightR());
-		renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, colour, texture );
+		if(italic) renderer.renderTiltedCTex( italicMagicNumber, pos, pos + dim, texCoord0, texCoord1, colour, texture );
+		else renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, colour, texture );
 		x += (charIt->second.advance >> 6) * reciprocalSize.x * scale;
 		}
 	}
 }
-
-/*
-struct TextBlockUtf32 {
-	std::u32string text;
-	Font* font;
-	glm::vec4 colour;
-};
-*/
 
 void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
@@ -314,7 +286,7 @@ void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlo
 	std::vector<TextBlockUtf32> blks;
 	blks.reserve(textBlocks.size());
 	for(const auto& it : textBlocks) {
-		blks.push_back( { .text = convert.from_bytes(it.text), .font = it.font, .colour = it.colour } );
+		blks.push_back( { .text = convert.from_bytes(it.text), .font = it.font, .colour = it.colour, .isItalic = it.isItalic } );
 	}
 	renderTextBlocks(renderer,blks,offset,reciprocalSize,scale,spacing);
 }
@@ -347,7 +319,8 @@ void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlo
 									   static_cast<float>(charIt->second.offset.y) * block.font->texture.getHeightR());
 			const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * block.font->texture.getWidthR(),
 															   static_cast<float>(charIt->second.size.y) * block.font->texture.getHeightR());
-			renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, block.colour, block.font->texture );
+			if(block.isItalic) renderer.renderTiltedCTex( italicMagicNumber, pos, pos + dim, texCoord0, texCoord1, block.colour, block.font->texture );
+			else renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, block.colour, block.font->texture );
 			x += (charIt->second.advance >> 6) * reciprocalSize.x * scale;
 			}
 		}

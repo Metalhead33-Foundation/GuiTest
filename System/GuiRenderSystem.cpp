@@ -61,17 +61,17 @@ GuiRenderSystem::FunctionMap& GuiRenderSystem::getFunctionMap()
 
 void GuiRenderSystem::updateLogic()
 {
-	std::stringstream sstrm;
 	if(richie) {
 		RichTextProcessor& RT = *richie;
 		float fpsMin, fpsAvg, fpsMax;
 		fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
 
 	#ifdef INSERT_HUNGARIAN
-		RT << RT.ChangeColour(255,0,0) << "Magyarul " << RT.ChangeColour(255,255,255) <<  "írt "<< RT.ChangeColour(0,255,0) << "szöveg." << std::endl;
+		RT << RT.EnableBold() << RT.ChangeColour(255,0,0) << "Magyarul " << RT.ChangeColour(255,255,255) << RT.DisableBold()
+		   << "írt "<< RT.EnableItalic() << RT.ChangeColour(0,255,0) << "szöveg." << RT.DisableItalic() << std::endl;
 	#endif
 	#ifdef INSERT_RUSSIAN
-		RT << RT.ChangeColour(255,255,255) << "Я " << RT.ChangeColour(0,0,255) << "люблю " << RT.ChangeColour(200,0,0) << "Нику." << std::endl;
+		RT << RT.EnableItalic() << RT.ChangeColour(255,255,255) << "Я " << RT.ChangeColour(0,0,255) << "люблю " << RT.ChangeColour(200,0,0) << "Нику." << RT.DisableItalic() << std::endl;
 	#endif
 	#ifdef INSERT_JAPANESE
 		RT << "ニカが大好きです。" << std::endl;
@@ -143,9 +143,9 @@ GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offs
 	tpipeline.uniform.samplerState.filtering = TextureFiltering::DITHERED;
 	tpipeline.vert = TexturedVertexShader;
 	tpipeline.frag = TexturedFragmentShader;
-	ctpipeline.uniform.blending = ALPHA_TESTING;
+	ctpipeline.uniform.blending = ALPHA_BLENDING;
 	ctpipeline.uniform.samplerState.wrap = Wrap::MIRRORED_REPEAT;
-	ctpipeline.uniform.samplerState.filtering = TextureFiltering::NEAREST_NEIGHBOUR;
+	ctpipeline.uniform.samplerState.filtering = TextureFiltering::BILINEAR;
 	ctpipeline.vert = ColouredTexturedVertexShader;
 	ctpipeline.frag = ColouredTexturedFragmentShader;
 	onResolutionChange(width,height);
@@ -434,4 +434,19 @@ void GuiRenderSystem::renderCTex(const glm::vec4& colour, const Texture& tex)
 				ColouredTexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f), .COLOUR = colour },
 				ColouredTexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f), .COLOUR = colour }
 				);
+}
+
+
+void GuiRenderSystem::renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const Texture& tex)
+{
+	const float xdiff = (std::max(p0.x,p1.x) - std::min(p0.x,p1.x)) * tilt;
+	ColouredTexturedVertexIn vertices[] = {
+		ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x)+xdiff,std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::min(t0.x,t1.x), std::min(t0.y,t1.y)) , .COLOUR = colour },
+		ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x)+xdiff,std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::max(t0.x,t1.x), std::min(t0.y,t1.y)) , .COLOUR = colour },
+		ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::min(t0.x,t1.x), std::max(t0.y,t1.y)) , .COLOUR = colour },
+		ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::max(t0.x,t1.x), std::max(t0.y,t1.y)) , .COLOUR = colour }
+	};
+	unsigned int indices[] = { 0, 1, 2, 1, 2, 3 };
+	ctpipeline.uniform.tex = &tex;
+	ctpipeline.renderTriangles(vertices,indices);
 }
