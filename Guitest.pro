@@ -20,6 +20,7 @@ SOURCES += \
         Text/Font.cpp \
         Text/FontRepository.cpp \
         Text/RichTextProcessor.cpp \
+        Text/RtProcessorStack.cpp \
         Texture/Texture.cpp \
         Util/TextureFromSurface.cpp \
         Util/TextureHelpers.cpp \
@@ -46,6 +47,7 @@ HEADERS += \
 	Text/Font.hpp \
 	Text/FontRepository.hpp \
 	Text/RichTextProcessor.hpp \
+	Text/RtProcessorStack.hpp \
 	Texture/StandardTexture.hpp \
 	Texture/Texture.hpp \
 	Util/Dither.hpp \

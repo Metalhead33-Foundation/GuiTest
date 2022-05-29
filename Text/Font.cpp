@@ -264,7 +264,7 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRen
 				state.attributes.lastWasStrikethrough = true;
 			}
 			// Underline
-			if(state.attributes.isUnderline && !state.attributes.lastWasStrikethrough) {
+			if(state.attributes.isUnderline && !state.attributes.lastWasUnderline) {
 				const float zy = y + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
 				renderer.renderCLine(glm::fvec2(state.currentOffset.x,zy),glm::fvec2(x,zy),state.colour,2);
 				y = ny + (2.0f * (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale));
