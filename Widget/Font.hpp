@@ -12,17 +12,40 @@
 typedef std::shared_ptr<FT_LibraryRec_> sFreeTypeSystem;
 typedef std::shared_ptr<FT_FaceRec> sFreeTypeFace;
 class Font;
+
+struct TextRenderState {
+	glm::fvec2 reciprocalSize;
+	glm::fvec2 currentOffset;
+	glm::fvec2 originalOffset;
+	float maxHeight;
+	float scale;
+	glm::fvec4 colour;
+	int spacing;
+	struct {
+		bool isItalic : 1;
+		bool isUnderline : 1;
+		bool isStrikethrough : 1;
+		bool lastWasUnderline : 1;
+		bool lastWasStrikethrough : 1;
+		bool lastWasNewline : 1;
+	} attributes;
+};
+
 struct TextBlockUtf8 {
 	std::string text;
 	Font* font;
 	glm::vec4 colour;
 	bool isItalic;
+	bool isUnderline;
+	bool isStrikethrough;
 };
 struct TextBlockUtf32 {
 	std::u32string text;
 	Font* font;
 	glm::vec4 colour;
 	bool isItalic;
+	bool isUnderline;
+	bool isStrikethrough;
 };
 
 class Font
@@ -54,10 +77,8 @@ public:
 	explicit Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold = false);
 	explicit Font(Font&& mov);
 	Font& operator=(Font&& mov);
-	glm::fvec3 renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec3& currentOffset, const glm::fvec2& originalOffset,
-						  const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing = 8, bool italic = false);
-	glm::fvec3 renderText(GuiRenderer& renderer, const std::u32string& text, const glm::fvec3& offset,  const glm::fvec2& originalOffset,
-						  const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing = 8, bool italic = false);
+	void renderText(GuiRenderer& renderer, const std::string& text, TextRenderState& state);
+	void renderText(GuiRenderer& renderer, const std::u32string& text, TextRenderState& state);
 	static void renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
 	static void renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
 	const TexGreyscale_U8& getTexture() const;

@@ -9,6 +9,8 @@ void RichTextProcessor::flush()
 		currentBlock.text = convert.from_bytes(tmpStr);
 		currentBlock.font = fontRepo->getFont(currentFontName,isBold).get();
 		currentBlock.isItalic = isItalic;
+		currentBlock.isUnderline = isUnderline;
+		currentBlock.isStrikethrough = isStrikethrough;
 		currentColour.toKernel(currentBlock.colour);
 		blocks.push_back(currentBlock);
 	}
@@ -56,6 +58,13 @@ RichTextProcessor::RichTextManipulator RichTextProcessor::EnableUnderline()
 		rtp.enableUnderline();
 	};
 }
+
+RichTextProcessor::RichTextManipulator RichTextProcessor::EnableStrikethrough()
+{
+	return [](RichTextProcessor& rtp) {
+		rtp.enableStrikethrough();
+	};
+}
 RichTextProcessor::RichTextManipulator RichTextProcessor::DisableItalic()
 {
 	return [](RichTextProcessor& rtp) {
@@ -72,6 +81,13 @@ RichTextProcessor::RichTextManipulator RichTextProcessor::DisableUnderline()
 {
 	return [](RichTextProcessor& rtp) {
 		rtp.disableUnderline();
+	};
+}
+
+RichTextProcessor::RichTextManipulator RichTextProcessor::DisableStrikethrough()
+{
+	return [](RichTextProcessor& rtp) {
+		rtp.disableStrikethrough();
 	};
 }
 
@@ -93,7 +109,18 @@ void RichTextProcessor::enableBold()
 
 void RichTextProcessor::enableUnderline()
 {
+	if(!isUnderline) {
+		flush();
+		isUnderline = true;
+	}
+}
 
+void RichTextProcessor::enableStrikethrough()
+{
+	if(!isStrikethrough) {
+		flush();
+		isStrikethrough = true;
+	}
 }
 
 void RichTextProcessor::disableItalic()
@@ -114,7 +141,18 @@ void RichTextProcessor::disableBold()
 
 void RichTextProcessor::disableUnderline()
 {
+	if(isUnderline) {
+		flush();
+		isUnderline = false;
+	}
+}
 
+void RichTextProcessor::disableStrikethrough()
+{
+	if(isStrikethrough) {
+		flush();
+		isStrikethrough = false;
+	}
 }
 
 void RichTextProcessor::setFontSize(int siz)
@@ -150,7 +188,8 @@ void RichTextProcessor::setFontColour(uint8_t r, uint8_t g, uint8_t b, uint8_t a
 */
 
 RichTextProcessor::RichTextProcessor(const sFontRepository& repo)
-	: fontRepo(repo), defaultSize(10), currentSize(10), currentColour{ .r = 255, .g = 255, .b = 255, .a = 255 }, currentFontName("Noto"), isBold(false), isItalic(false)
+	: fontRepo(repo), defaultSize(10), currentSize(10), currentColour{ .r = 255, .g = 255, .b = 255, .a = 255 },
+	  currentFontName("Noto"), isBold(false), isItalic(false), isUnderline(false), isStrikethrough(false)
 {
 	currentBlock.font = nullptr;
 	/*int num = 0;
@@ -160,7 +199,8 @@ RichTextProcessor::RichTextProcessor(const sFontRepository& repo)
 }
 
 RichTextProcessor::RichTextProcessor(sFontRepository&& repo)
-	: fontRepo(std::move(repo)), defaultSize(10), currentSize(10), currentColour{ .r = 255, .g = 255, .b = 255, .a = 255 }, currentFontName("Noto"), isBold(false), isItalic(false)
+	: fontRepo(std::move(repo)), defaultSize(10), currentSize(10), currentColour{ .r = 255, .g = 255, .b = 255, .a = 255 },
+	  currentFontName("Noto"), isBold(false), isItalic(false), isUnderline(false), isStrikethrough(false)
 {
 	currentBlock.font = nullptr;
 	/*int num = 0;

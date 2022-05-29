@@ -23,6 +23,8 @@ private:
 	sFontRepository fontRepo;
 	bool isBold;
 	bool isItalic;
+	bool isUnderline;
+	bool isStrikethrough;
 public:
 	void flush();
 	explicit RichTextProcessor(const sFontRepository& repo);
@@ -33,10 +35,12 @@ public:
 	void enableItalic();
 	void enableBold();
 	void enableUnderline();
+	void enableStrikethrough();
 	// Disable stuff
 	void disableItalic();
 	void disableBold();
 	void disableUnderline();
+	void disableStrikethrough();
 	// Set stuff
 	void setFontSize(int siz);
 	void setFontFace(const std::string& newfont);
@@ -47,9 +51,11 @@ public:
 	static RichTextManipulator EnableItalic();
 	static RichTextManipulator EnableBold();
 	static RichTextManipulator EnableUnderline();
+	static RichTextManipulator EnableStrikethrough();
 	static RichTextManipulator DisableItalic();
 	static RichTextManipulator DisableBold();
 	static RichTextManipulator DisableUnderline();
+	static RichTextManipulator DisableStrikethrough();
 	// Operators
 	RichTextProcessor& operator<<(bool val);
 	RichTextProcessor& operator<<(short val);

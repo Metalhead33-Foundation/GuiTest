@@ -243,23 +243,38 @@ void Font::addCharacterFromBlock(char32_t c)
 
 static const float italicMagicNumber = 0.5f;
 
-glm::fvec3 Font::renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec3& currentOffset, const glm::fvec2& originalOffset,
-							const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing, bool italic)
+void Font::renderText(GuiRenderer& renderer, const std::string& text, TextRenderState& state)
 {
 	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-	return renderText(renderer,convert.from_bytes(text.c_str()),currentOffset,originalOffset,reciprocalSize,scale,colour,spacing,italic);
+	renderText(renderer,convert.from_bytes(text.c_str()),state);
 }
 
-glm::fvec3 Font::renderText(GuiRenderer& renderer, const std::u32string& text, const glm::fvec3& currentOffset, const glm::fvec2& originalOffset,
-							const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing, bool italic)
+void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRenderState& state)
 {
-	float x = currentOffset.x;
-	float y = currentOffset.y;
-	float maxHeight = currentOffset.z;
+	float x = state.currentOffset.x;
+	float y = state.currentOffset.y;
 	for(const auto c : text) {
-		if(c == '\n' || c == '\f') {
-			x = originalOffset.x;
-			y += maxHeight + (reciprocalSize.y * static_cast<float>(spacing) * scale);
+		if(c == '\f') continue;
+		if(c == '\n') {
+			const float ny = y + state.maxHeight;
+			// Strikethrough
+			if(state.attributes.isStrikethrough && !state.attributes.lastWasStrikethrough) {
+				const float middleY = (y+state.maxHeight*0.5f);
+				renderer.renderCLine(glm::fvec2(state.originalOffset.x,middleY),glm::fvec2(x,middleY),state.colour,2);
+				state.attributes.lastWasStrikethrough = true;
+			}
+			// Underline
+			/*if(state.attributes.isUnderline && !state.attributes.lastWasStrikethrough) {
+				renderer.renderCLine(glm::fvec2(state.originalOffset.x,ny),glm::fvec2(x,ny),state.colour,2);
+				y = ny + (state.reciprocalSize.y * static_cast<float>(state.spacing << 2) * state.scale) + (state.reciprocalSize.y * 10.0f);
+				state.attributes.isUnderline = true;
+			} else {*/
+				y = ny + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
+				//itunstrPrev.y = false;
+				//itunstrPrev.z = false;
+			//}
+			state.attributes.lastWasNewline = true;
+			x = state.originalOffset.x;
 			continue;
 		}
 		auto charIt = characters.find(c);
@@ -269,33 +284,72 @@ glm::fvec3 Font::renderText(GuiRenderer& renderer, const std::u32string& text, c
 			if(charIt == std::end(characters)) continue;
 		}
 		if(charIt->second.valid) {
-		const glm::fvec2 pos = glm::fvec2(x + (charIt->second.bearing.x * reciprocalSize.x * scale),
-										  y + ((charIt->second.size.y - charIt->second.bearing.y) * reciprocalSize.y * scale));
-		const glm::fvec2 dim = glm::fvec2(charIt->second.size.x * scale,charIt->second.size.y * -scale) * reciprocalSize;
-		maxHeight = std::max(maxHeight,dim.y * -1.0f);
+		state.attributes.lastWasNewline = false;
+		state.attributes.lastWasStrikethrough = false;
+		state.attributes.lastWasUnderline = false;
+		const glm::fvec2 pos = glm::fvec2(x + (charIt->second.bearing.x * state.reciprocalSize.x * state.scale),
+										  y + ((charIt->second.size.y - charIt->second.bearing.y) * state.reciprocalSize.y * state.scale));
+		const glm::fvec2 dim = glm::fvec2(charIt->second.size.x * state.scale,charIt->second.size.y * -state.scale) * state.reciprocalSize;
+		state.maxHeight = std::max(state.maxHeight,dim.y * -1.0f);
 		const glm::fvec2 texCoord0(static_cast<float>(charIt->second.offset.x) * texture.getWidthR(), static_cast<float>(charIt->second.offset.y) * texture.getHeightR());
 		const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * texture.getWidthR(), static_cast<float>(charIt->second.size.y) * texture.getHeightR());
-		if(italic) renderer.renderTiltedCTex( italicMagicNumber, pos, pos + dim, texCoord0, texCoord1, colour, texture );
-		else renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, colour, texture );
-		x += (charIt->second.advance >> 6) * reciprocalSize.x * scale;
+		if(state.attributes.isItalic) renderer.renderTiltedCTex( italicMagicNumber, pos, pos + dim, texCoord0, texCoord1, state.colour, texture );
+		else renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, state.colour, texture );
+		x += (charIt->second.advance >> 6) * state.reciprocalSize.x * state.scale;
 		}
 	}
-	return glm::fvec3(x,y,maxHeight);
+	// Underline
+	/*if(state.attributes.isUnderline && !state.attributes.lastWasUnderline && !state.attributes.lastWasNewline && x != state.originalOffset.x) {
+		const float ny = y - state.maxHeight;
+		//y = ny + (state.reciprocalSize.y * static_cast<float>(state.spacing << 2) * state.scale) + (state.reciprocalSize.y * 10.0f);
+		renderer.renderCLine(glm::fvec2(state.originalOffset.x,ny),glm::fvec2(x,ny),state.colour,2);
+		state.attributes.isUnderline = true;
+		state.attributes.lastWasNewline = true;
+	}*/
+	// Strikethrough
+	if(state.attributes.isStrikethrough && !state.attributes.lastWasStrikethrough && x != state.originalOffset.x) {
+		const float middleY = (y-state.maxHeight*0.5f);
+		renderer.renderCLine(glm::fvec2(state.originalOffset.x,middleY),glm::fvec2(x,middleY),state.colour,2);
+		state.attributes.isStrikethrough = true;
+		state.attributes.lastWasNewline = true;
+	}
+	state.currentOffset.x = x;
+	state.currentOffset.y = y;
 }
 
-void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing)
+void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset,
+							const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
 	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-	glm::fvec3 currentOffset = glm::fvec3(offset,0.0f);
+	TextRenderState state;
+	state.originalOffset = offset;
+	state.currentOffset = offset;
+	state.reciprocalSize = reciprocalSize;
+	state.scale = scale;
+	state.spacing = spacing;
 	for(const auto& it : textBlocks) {
-		if(it.font) currentOffset = it.font->renderText(renderer,convert.from_bytes(it.text),currentOffset,offset,reciprocalSize,scale,it.colour,spacing,it.isItalic);
+		state.colour = it.colour;
+		state.attributes.isItalic = it.isItalic;
+		state.attributes.isStrikethrough = it.isStrikethrough;
+		state.attributes.isUnderline = it.isUnderline;
+		if(it.font) it.font->renderText(renderer,convert.from_bytes(it.text),state);
 	}
 }
 
-void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing)
+void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset,
+							const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
-	glm::fvec3 currentOffset = glm::fvec3(offset,0.0f);
+	TextRenderState state;
+	state.originalOffset = offset;
+	state.currentOffset = offset;
+	state.reciprocalSize = reciprocalSize;
+	state.scale = scale;
+	state.spacing = spacing;
 	for(const auto& block : textBlocks) {
-		if(block.font) currentOffset = block.font->renderText(renderer,block.text,currentOffset,offset,reciprocalSize,scale,block.colour,spacing,block.isItalic);
+		state.colour = block.colour;
+		state.attributes.isItalic = block.isItalic;
+		state.attributes.isStrikethrough = block.isStrikethrough;
+		state.attributes.isUnderline = block.isUnderline;
+		if(block.font) block.font->renderText(renderer,block.text,state);
 	}
 }

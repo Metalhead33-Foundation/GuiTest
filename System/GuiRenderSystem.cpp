@@ -67,16 +67,19 @@ void GuiRenderSystem::updateLogic()
 		fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
 
 	#ifdef INSERT_HUNGARIAN
-		RT << RT.EnableBold() << RT.ChangeColour(255,0,0) << "Magyarul " << RT.ChangeColour(255,255,255) << RT.DisableBold()
-		   << "írt "<< RT.EnableItalic() << RT.ChangeColour(0,255,0) << "szöveg." << RT.DisableItalic() << std::endl;
+		RT << RT.EnableUnderline() << RT.EnableBold() << RT.ChangeColour(255,0,0) << "Magyarul " << RT.ChangeColour(255,255,255) << RT.DisableBold()
+		   << "írt "<< RT.EnableItalic() << RT.ChangeColour(0,255,0) << "szöveg." << RT.DisableItalic() << RT.DisableUnderline() << std::endl;
 	#endif
 	#ifdef INSERT_RUSSIAN
-		RT << RT.EnableItalic() << RT.ChangeColour(255,255,255) << "Я " << RT.ChangeColour(0,0,255) << "люблю " << RT.ChangeColour(200,0,0) << "Нику." << RT.DisableItalic() << std::endl;
+		// Еби меня по-китайски
+		// Я люблю Нику.
+		RT << RT.EnableStrikethrough() << RT.EnableItalic() << RT.ChangeColour(255,255,255) << "Еби " << RT.ChangeColour(0,0,255) << "меня " <<
+			  RT.ChangeColour(200,0,0) << "по-китайски." << RT.DisableItalic() << RT.DisableStrikethrough() << std::endl;
 	#endif
 	#ifdef INSERT_JAPANESE
 		RT << "ニカが大好きです。" << std::endl;
 	#endif
-		RT << RT.ChangeColour(255,0,0) << RT.EnableBold() << "FPS min: " << RT.DisableBold() << fpsMin << std::endl;
+		RT << RT.EnableUnderline() << RT.ChangeColour(255,0,0) << RT.EnableBold() << "FPS min: " << RT.DisableBold() << fpsMin << std::endl;
 		RT << RT.ChangeColour(128,128,128) << RT.EnableBold() << "FPS avg: " << RT.DisableBold() << fpsAvg << std::endl;
 		RT << RT.ChangeColour(0,255,0) << RT.EnableBold() << "FPS max: " << RT.DisableBold() << fpsMax << std::endl;
 		richie->flush();
@@ -93,7 +96,7 @@ void GuiRenderSystem::render()
 		zbuffer->clear();
 		if(font) {
 			//font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,0.5f,glm::fvec4(0.99f,0.35f,0.35f,1.0f),8);
-			Font::renderTextBlocks(*this,textToRender,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,0.5f,8);
+			Font::renderTextBlocks(*this,textToRender,glm::fvec2(-0.9f,-0.9f),sizeReciprocal,0.5f,8);
 		}
 		widgets.access( [this](const std::vector<sWidget>& cntr) {
 			for(auto& it : cntr) {
