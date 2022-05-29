@@ -54,8 +54,10 @@ public:
 	explicit Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold = false);
 	explicit Font(Font&& mov);
 	Font& operator=(Font&& mov);
-	void renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing = 8, bool italic = false);
-	void renderText(GuiRenderer& renderer, const std::u32string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing = 8, bool italic = false);
+	glm::fvec3 renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec3& currentOffset, const glm::fvec2& originalOffset,
+						  const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing = 8, bool italic = false);
+	glm::fvec3 renderText(GuiRenderer& renderer, const std::u32string& text, const glm::fvec3& offset,  const glm::fvec2& originalOffset,
+						  const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing = 8, bool italic = false);
 	static void renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
 	static void renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
 	const TexGreyscale_U8& getTexture() const;

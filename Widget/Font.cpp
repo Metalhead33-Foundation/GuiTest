@@ -243,20 +243,22 @@ void Font::addCharacterFromBlock(char32_t c)
 
 static const float italicMagicNumber = 0.5f;
 
-void Font::renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing, bool italic)
+glm::fvec3 Font::renderText(GuiRenderer& renderer, const std::string& text, const glm::fvec3& currentOffset, const glm::fvec2& originalOffset,
+							const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing, bool italic)
 {
 	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-	renderText(renderer,convert.from_bytes(text.c_str()),offset,reciprocalSize,scale,colour,spacing,italic);
+	return renderText(renderer,convert.from_bytes(text.c_str()),currentOffset,originalOffset,reciprocalSize,scale,colour,spacing,italic);
 }
 
-void Font::renderText(GuiRenderer& renderer, const std::u32string& text, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing, bool italic)
+glm::fvec3 Font::renderText(GuiRenderer& renderer, const std::u32string& text, const glm::fvec3& currentOffset, const glm::fvec2& originalOffset,
+							const glm::fvec2& reciprocalSize, float scale, const glm::fvec4& colour, int spacing, bool italic)
 {
-	float x = offset.x;
-	float y = offset.y;
-	float maxHeight = 0;
+	float x = currentOffset.x;
+	float y = currentOffset.y;
+	float maxHeight = currentOffset.z;
 	for(const auto c : text) {
 		if(c == '\n' || c == '\f') {
-			x = offset.x;
+			x = originalOffset.x;
 			y += maxHeight + (reciprocalSize.y * static_cast<float>(spacing) * scale);
 			continue;
 		}
@@ -278,51 +280,22 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, const g
 		x += (charIt->second.advance >> 6) * reciprocalSize.x * scale;
 		}
 	}
+	return glm::fvec3(x,y,maxHeight);
 }
 
 void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
 	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-	std::vector<TextBlockUtf32> blks;
-	blks.reserve(textBlocks.size());
+	glm::fvec3 currentOffset = glm::fvec3(offset,0.0f);
 	for(const auto& it : textBlocks) {
-		blks.push_back( { .text = convert.from_bytes(it.text), .font = it.font, .colour = it.colour, .isItalic = it.isItalic } );
+		if(it.font) currentOffset = it.font->renderText(renderer,convert.from_bytes(it.text),currentOffset,offset,reciprocalSize,scale,it.colour,spacing,it.isItalic);
 	}
-	renderTextBlocks(renderer,blks,offset,reciprocalSize,scale,spacing);
 }
 
 void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
-	float x = offset.x;
-	float y = offset.y;
-	float maxHeight = 0;
+	glm::fvec3 currentOffset = glm::fvec3(offset,0.0f);
 	for(const auto& block : textBlocks) {
-		for(const auto c : block.text) {
-			if(c == '\n' || c == '\f') {
-				x = offset.x;
-				y += maxHeight + (reciprocalSize.y * static_cast<float>(spacing) * scale);
-				continue;
-			}
-			if(!block.font) continue;
-			auto charIt = block.font->characters.find(c);
-			if(charIt == std::end(block.font->characters)) {
-				block.font->addCharacterFromBlock(c);
-				charIt = block.font->characters.find(c);
-				if(charIt == std::end(block.font->characters)) continue;
-			}
-			if(charIt->second.valid) {
-			const glm::fvec2 pos = glm::fvec2(x + (charIt->second.bearing.x * reciprocalSize.x * scale),
-											  y + ((charIt->second.size.y - charIt->second.bearing.y) * reciprocalSize.y * scale));
-			const glm::fvec2 dim = glm::fvec2(charIt->second.size.x * scale,charIt->second.size.y * -scale) * reciprocalSize;
-			maxHeight = std::max(maxHeight,dim.y * -1.0f);
-			const glm::fvec2 texCoord0(static_cast<float>(charIt->second.offset.x) * block.font->texture.getWidthR(),
-									   static_cast<float>(charIt->second.offset.y) * block.font->texture.getHeightR());
-			const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * block.font->texture.getWidthR(),
-															   static_cast<float>(charIt->second.size.y) * block.font->texture.getHeightR());
-			if(block.isItalic) renderer.renderTiltedCTex( italicMagicNumber, pos, pos + dim, texCoord0, texCoord1, block.colour, block.font->texture );
-			else renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, block.colour, block.font->texture );
-			x += (charIt->second.advance >> 6) * reciprocalSize.x * scale;
-			}
-		}
+		if(block.font) currentOffset = block.font->renderText(renderer,block.text,currentOffset,offset,reciprocalSize,scale,block.colour,spacing,block.isItalic);
 	}
 }
