@@ -25,9 +25,6 @@ struct TextRenderState {
 		bool isItalic : 1;
 		bool isUnderline : 1;
 		bool isStrikethrough : 1;
-		bool lastWasUnderline : 1;
-		bool lastWasStrikethrough : 1;
-		bool lastWasNewline : 1;
 	} attributes;
 };
 

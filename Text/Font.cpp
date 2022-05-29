@@ -258,13 +258,12 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRen
 		if(c == '\n') {
 			const float ny = y + state.maxHeight;
 			// Strikethrough
-			if(state.attributes.isStrikethrough && !state.attributes.lastWasStrikethrough) {
+			if(state.attributes.isStrikethrough) {
 				const float middleY = (y+state.maxHeight*0.4f);
 				renderer.renderCLine(glm::fvec2(state.currentOffset.x,middleY),glm::fvec2(x,middleY),state.colour,2);
-				state.attributes.lastWasStrikethrough = true;
 			}
 			// Underline
-			if(state.attributes.isUnderline && !state.attributes.lastWasUnderline) {
+			if(state.attributes.isUnderline) {
 				const float zy = y + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
 				renderer.renderCLine(glm::fvec2(state.currentOffset.x,zy),glm::fvec2(x,zy),state.colour,2);
 				y = ny + (2.0f * (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale));
@@ -272,7 +271,6 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRen
 			} else {
 			y = ny + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
 			}
-			state.attributes.lastWasNewline = true;
 			x = state.originalOffset.x;
 			continue;
 		}
@@ -283,9 +281,6 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRen
 			if(charIt == std::end(characters)) continue;
 		}
 		if(charIt->second.valid) {
-		state.attributes.lastWasNewline = false;
-		state.attributes.lastWasStrikethrough = false;
-		state.attributes.lastWasUnderline = false;
 		const glm::fvec2 pos = glm::fvec2(x + (charIt->second.bearing.x * state.reciprocalSize.x * state.scale),
 										  y + ((charIt->second.size.y - charIt->second.bearing.y) * state.reciprocalSize.y * state.scale));
 		const glm::fvec2 dim = glm::fvec2(charIt->second.size.x * state.scale,charIt->second.size.y * -state.scale) * state.reciprocalSize;
@@ -299,21 +294,15 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRen
 	}
 	const float blockWidth = x - state.originalOffset.x;
 	// Underline
-	if(state.attributes.isUnderline && !state.attributes.lastWasUnderline && !state.attributes.lastWasNewline && blockWidth >= state.reciprocalSize.x) {
+	if(state.attributes.isUnderline && blockWidth >= state.reciprocalSize.x) {
 		const float ny = y + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
 		renderer.renderCLine(glm::fvec2(state.currentOffset.x,ny),glm::fvec2(x,ny),state.colour,2);
-		//state.attributes.isUnderline = true;
-		//state.attributes.lastWasNewline = true;
 	}
 	// Strikethrough
-	if(state.attributes.isStrikethrough && !state.attributes.lastWasStrikethrough && blockWidth >= state.reciprocalSize.x) {
+	if(state.attributes.isStrikethrough && blockWidth >= state.reciprocalSize.x) {
 		const float middleY = (y-state.maxHeight*0.4f);
 		renderer.renderCLine(glm::fvec2(state.currentOffset.x,middleY),glm::fvec2(x,middleY),state.colour,2);
-		//state.attributes.isStrikethrough = true;
-		//state.attributes.lastWasNewline = true;
 	}
-	state.attributes.isStrikethrough = false;
-	state.attributes.lastWasNewline = false;
 	state.currentOffset.x = x;
 	state.currentOffset.y = y;
 }
