@@ -1681,7 +1681,6 @@ BbcodeParser::BbcodeParser(RichTextProcessor* nRTP)
 void BbcodeParser::parse(char c)
 {
 	switch (c) {
-		case '\n': break;
 		case '<': isProcessingTag = true; break;
 		case '>': onTagEnd(); break;
 		case '[': isProcessingTag = true; break;
