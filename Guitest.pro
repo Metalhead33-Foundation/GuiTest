@@ -67,3 +67,7 @@ HEADERS += \
 	Widget/SimpleWidget.hpp \
 	Widget/TexturedWidget.hpp \
 	Widget/TickboxWidget.hpp
+
+DISTFILES += \
+	LICENSE \
+	README.md

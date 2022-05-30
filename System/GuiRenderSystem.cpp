@@ -58,7 +58,7 @@ GuiRenderSystem::FunctionMap& GuiRenderSystem::getFunctionMap()
 
 #define INSERT_HUNGARIAN
 #define INSERT_RUSSIAN
-//#define INSERT_JAPANESE
+#define INSERT_JAPANESE
 
 void GuiRenderSystem::updateLogic()
 {
@@ -79,7 +79,7 @@ void GuiRenderSystem::updateLogic()
 #endif
 		strm << "<colour=#FF0000>FPS min: "<< fpsMin << "</colour><br>";
 		strm << "<colour=#A0A0A0>FPS avg: "<< fpsAvg << "</colour><br>";
-		strm << "<colour=#00FF00>FPS avg: "<< fpsMax << "</colour><br>";
+		strm << "<colour=#00FF00>FPS max: "<< fpsMax << "</colour><br>";
 		parser.parse(strm.str());
 		richie->flush();
 		textToRender = richie->getBlocks();
