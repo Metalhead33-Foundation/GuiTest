@@ -7,6 +7,7 @@
 #include <string_view>
 #include "../Util/TextureHelpers.hpp"
 #include "../Util/TextureFromSurface.hpp"
+#include "../Text/BbcodeParser.hpp"
 #include <sstream>
 
 const sCursor& GuiRenderSystem::getCursor() const
@@ -65,8 +66,23 @@ void GuiRenderSystem::updateLogic()
 		RichTextProcessor& RT = *richie;
 		float fpsMin, fpsAvg, fpsMax;
 		fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
+		std::stringstream strm;
+		BbcodeParser parser(richie.get());
+#ifdef INSERT_HUNGARIAN
+		strm << "<colour=#FF0000><b>Magyar </b></colour><colour=#FFFFFF><u>nyelven </u></colour><colour=#00FF00><i>írtam.</i></colour><br>";
+#endif
+#ifdef INSERT_RUSSIAN
+		strm << "<colour=#FFFFFF><b>Я </b></colour><colour=#0000AA><u>люблю </u></colour><colour=#AA0000><i>Нику.</i></colour><br>";
+#endif
+#ifdef INSERT_JAPANESE
+		strm << "<colour=#AA00AA>ニカが大好きです。</colour><br>";
+#endif
+		strm << "<colour=#FF0000>FPS min: "<< fpsMin << "</colour><br>";
+		strm << "<colour=#A0A0A0>FPS avg: "<< fpsAvg << "</colour><br>";
+		strm << "<colour=#00FF00>FPS avg: "<< fpsMax << "</colour><br>";
+		parser.parse(strm.str());
 
-	#ifdef INSERT_HUNGARIAN
+	/*#ifdef INSERT_HUNGARIAN
 		RT << RT.EnableUnderline() << RT.EnableBold() << RT.ChangeColour(255,0,0) << "Magyarul " << RT.ChangeColour(255,255,255) << RT.DisableBold()
 		   << "írt "<< RT.EnableItalic() << RT.ChangeColour(0,255,0) << "szöveg." << RT.DisableItalic() << RT.DisableUnderline() << std::endl;
 	#endif
@@ -81,7 +97,7 @@ void GuiRenderSystem::updateLogic()
 	#endif
 		RT << RT.EnableUnderline() << RT.ChangeColour(255,0,0) << RT.EnableBold() << "FPS min: " << RT.DisableBold() << fpsMin << std::endl;
 		RT << RT.ChangeColour(128,128,128) << RT.EnableBold() << "FPS avg: " << RT.DisableBold() << fpsAvg << std::endl;
-		RT << RT.ChangeColour(0,255,0) << RT.EnableBold() << "FPS max: " << RT.DisableBold() << fpsMax << std::endl;
+		RT << RT.ChangeColour(0,255,0) << RT.EnableBold() << "FPS max: " << RT.DisableBold() << fpsMax << std::endl;*/
 		richie->flush();
 		textToRender = richie->getBlocks();
 		richie->getBlocks().clear();

@@ -2,8 +2,8 @@ TEMPLATE = app
 CONFIG += console c++2a
 CONFIG -= app_bundle
 CONFIG -= qt
-QMAKE_CFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
-QMAKE_CXXFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
+QMAKE_CFLAGS += -Os -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
+QMAKE_CXXFLAGS += -Os -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
 LIBS += -lSDL2 -lSDL2_image -lfreetype
 
 SOURCES += \
@@ -17,11 +17,13 @@ SOURCES += \
         System/AppSystem.cpp \
         System/FpsCounter.cpp \
         System/GuiRenderSystem.cpp \
+        Text/BbcodeParser.cpp \
         Text/Font.cpp \
         Text/FontRepository.cpp \
         Text/RichTextProcessor.cpp \
         Text/RtProcessorStack.cpp \
         Texture/Texture.cpp \
+        Util/ColourHelper.cpp \
         Util/TextureFromSurface.cpp \
         Util/TextureHelpers.cpp \
         Widget/BoxWidget.cpp \
@@ -44,12 +46,14 @@ HEADERS += \
 	System/AppSystem.hpp \
 	System/FpsCounter.hpp \
 	System/GuiRenderSystem.hpp \
+	Text/BbcodeParser.hpp \
 	Text/Font.hpp \
 	Text/FontRepository.hpp \
 	Text/RichTextProcessor.hpp \
 	Text/RtProcessorStack.hpp \
 	Texture/StandardTexture.hpp \
 	Texture/Texture.hpp \
+	Util/ColourHelper.hpp \
 	Util/Dither.hpp \
 	Util/ITextReceiver.hpp \
 	Util/NormDenorm.hpp \

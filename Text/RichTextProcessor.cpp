@@ -1,6 +1,71 @@
 #include "RichTextProcessor.hpp"
 #include "../Util/NormDenorm.hpp"
 
+int RichTextProcessor::getDefaultSize() const
+{
+	return defaultSize;
+}
+
+void RichTextProcessor::setDefaultSize(int newDefaultSize)
+{
+	defaultSize = newDefaultSize;
+}
+
+const std::string& RichTextProcessor::getDefaultFontName() const
+{
+	return defaultFontName;
+}
+
+void RichTextProcessor::setDefaultFontName(const std::string& newDefaultFontName)
+{
+	defaultFontName = newDefaultFontName;
+}
+
+const glm::fvec4& RichTextProcessor::getDefaultColour() const
+{
+	return defaultColour;
+}
+
+void RichTextProcessor::setDefaultColour(const glm::fvec4& newDefaultColour)
+{
+	defaultColour = newDefaultColour;
+}
+
+const glm::fvec4& RichTextProcessor::getCurrentColour() const
+{
+	return currentColour;
+}
+
+const std::string& RichTextProcessor::getCurrentFontName() const
+{
+	return currentFontName;
+}
+
+bool RichTextProcessor::getIsBold() const
+{
+	return isBold;
+}
+
+bool RichTextProcessor::getIsItalic() const
+{
+	return isItalic;
+}
+
+bool RichTextProcessor::getIsUnderline() const
+{
+	return isUnderline;
+}
+
+bool RichTextProcessor::getIsStrikethrough() const
+{
+	return isStrikethrough;
+}
+
+int RichTextProcessor::getCurrentSize() const
+{
+	return currentSize;
+}
+
 void RichTextProcessor::flush()
 {
 	auto tmpStr = sstrm.str();
@@ -11,7 +76,7 @@ void RichTextProcessor::flush()
 		currentBlock.isItalic = isItalic;
 		currentBlock.isUnderline = isUnderline;
 		currentBlock.isStrikethrough = isStrikethrough;
-		currentColour.toKernel(currentBlock.colour);
+		currentBlock.colour = currentColour;
 		blocks.push_back(currentBlock);
 	}
 }
@@ -29,14 +94,28 @@ std::vector<TextBlockUtf32>& RichTextProcessor::getBlocks()
 RichTextProcessor::RichTextManipulator RichTextProcessor::ChangeFont(const std::string& fontname)
 {
 	return [&fontname](RichTextProcessor& rtp) {
-		rtp.setFontFace(fontname);
+		rtp.setCurrentFontName(fontname);
+	};
+}
+
+RichTextProcessor::RichTextManipulator RichTextProcessor::ChangeColour(const glm::fvec4& rgba)
+{
+	return [rgba](RichTextProcessor& rtp) {
+		rtp.setCurrentColour(rgba);
+	};
+}
+
+RichTextProcessor::RichTextManipulator RichTextProcessor::ChangeColour(const glm::fvec3& rgb)
+{
+	return [rgb](RichTextProcessor& rtp) {
+		rtp.setCurrentColour(rgb);
 	};
 }
 
 RichTextProcessor::RichTextManipulator RichTextProcessor::ChangeColour(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
 	return [r,g,b,a](RichTextProcessor& rtp) {
-		rtp.setFontColour(r,g,b,a);
+		rtp.setCurrentColour(r,g,b,a);
 	};
 }
 
@@ -155,41 +234,57 @@ void RichTextProcessor::disableStrikethrough()
 	}
 }
 
-void RichTextProcessor::setFontSize(int siz)
+void RichTextProcessor::resetColour()
 {
-
+	flush();
+	currentColour = defaultColour;
 }
 
-void RichTextProcessor::setFontFace(const std::string& newfont)
+void RichTextProcessor::resetFont()
 {
-	if(currentFontName != newfont) {
-		flush();
-		currentFontName = newfont;
-	}
+	flush();
+	currentFontName = defaultFontName;
 }
 
-void RichTextProcessor::setFontColour(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+void RichTextProcessor::resetSize()
 {
-	if(currentColour.r != r || currentColour.g != g || currentColour.b != b || currentColour.a != a) {
-		flush();
-		currentColour.r = r;
-		currentColour.g = g;
-		currentColour.b = b;
-		currentColour.a = a;
-	}
+	flush();
+	currentSize = defaultSize;
 }
-/*
-	int defaultSize;
-	int currentSize;
-	int currentColour;
-	int currentFont;
-	bool isBold;
-	bool isItalic;
-*/
+
+void RichTextProcessor::setCurrentSize(int siz)
+{
+	currentSize = siz;
+}
+
+void RichTextProcessor::setCurrentFontName(const std::string& newfont)
+{
+	flush();
+	currentFontName = newfont;
+}
+
+void RichTextProcessor::setCurrentColour(const glm::fvec4& rgba)
+{
+	flush();
+	currentColour = rgba;
+}
+
+void RichTextProcessor::setCurrentColour(const glm::fvec3& rgb)
+{
+	flush();
+	currentColour = glm::fvec4(rgb,1.0f);
+}
+
+void RichTextProcessor::setCurrentColour(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+	PixelRGBA_U8 rgba8 = { .r = r, .g = g, .b = b, .a = a };
+	flush();
+	rgba8.toKernel(currentColour);
+}
 
 RichTextProcessor::RichTextProcessor(const sFontRepository& repo)
-	: fontRepo(repo), defaultSize(10), currentSize(10), currentColour{ .r = 255, .g = 255, .b = 255, .a = 255 },
-	  currentFontName("Noto"), isBold(false), isItalic(false), isUnderline(false), isStrikethrough(false)
+	: fontRepo(repo), defaultSize(10), currentSize(10), currentColour(0.0f, 0.0f, 0.0f, 1.0f),
+	  currentFontName("Noto"), defaultFontName("Noto"), isBold(false), isItalic(false), isUnderline(false), isStrikethrough(false)
 {
 	currentBlock.font = nullptr;
 	/*int num = 0;
@@ -199,8 +294,8 @@ RichTextProcessor::RichTextProcessor(const sFontRepository& repo)
 }
 
 RichTextProcessor::RichTextProcessor(sFontRepository&& repo)
-	: fontRepo(std::move(repo)), defaultSize(10), currentSize(10), currentColour{ .r = 255, .g = 255, .b = 255, .a = 255 },
-	  currentFontName("Noto"), isBold(false), isItalic(false), isUnderline(false), isStrikethrough(false)
+	: fontRepo(std::move(repo)), defaultSize(10), currentSize(10), currentColour(0.0f, 0.0f, 0.0f, 1.0f),
+	  currentFontName("Noto"), defaultFontName("Noto"), isBold(false), isItalic(false), isUnderline(false), isStrikethrough(false)
 {
 	currentBlock.font = nullptr;
 	/*int num = 0;
@@ -262,6 +357,10 @@ RichTextProcessor& RichTextProcessor::operator<<(unsigned char c) {
 }
 RichTextProcessor& RichTextProcessor::operator<<(const char* s) {
 	sstrm << s;
+	return *this;
+}
+RichTextProcessor& RichTextProcessor::operator<<(char32_t c) {
+	sstrm << convert.to_bytes(c);
 	return *this;
 }
 RichTextProcessor& RichTextProcessor::operator<<(const std::string& s) {
