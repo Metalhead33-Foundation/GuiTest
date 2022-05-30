@@ -19,7 +19,7 @@ static void bbcodeNoop(BbcodeParser& parser) {
 	(void)parser;
 }
 static void bbcodeBr(BbcodeParser& parser) {
-	*parser.getRTP() << '\n';
+	*parser.getRTP() << char('\n');
 }
 static void bbcodeBold(BbcodeParser& parser) {
 	parser.pushBold();
@@ -1689,12 +1689,12 @@ void BbcodeParser::parse(char c)
 		case '@': isProcessingEscape = true; break;
 		case ';': {
 			if(isProcessingEscape) onEscapeEnd();
-			else *RTP << char8_t(c);
+			else *RTP << char(c);
 			break;
 		}
 		default: {
 			if(isProcessingTag || isProcessingEscape) commandStream << c;
-			else *RTP << char8_t(c);
+			else *RTP << char(c);
 			break;
 		}
 	}

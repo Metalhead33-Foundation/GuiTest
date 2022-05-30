@@ -303,55 +303,7 @@ RichTextProcessor::RichTextProcessor(sFontRepository&& repo)
 		++num;
 	}*/
 }
-RichTextProcessor& RichTextProcessor::operator<<(bool val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(short val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(unsigned short val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(int val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(unsigned int val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(long val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(unsigned long val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(float val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(double val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(long double val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(void* val) {
-	sstrm << val;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(signed char c) {
-	sstrm << c;
-	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(unsigned char c) {
+RichTextProcessor& RichTextProcessor::operator<<(char c) {
 	sstrm << c;
 	return *this;
 }
@@ -378,9 +330,6 @@ RichTextProcessor& RichTextProcessor::operator<<(std::ios& (*pf)(std::ios&)) {
 RichTextProcessor& RichTextProcessor::operator<<(std::ios_base& (*pf)(std::ios_base&)) {
 	sstrm << pf;
 	return *this;
-}
-RichTextProcessor& RichTextProcessor::operator<<(RichTextProcessor& (*pf)(RichTextProcessor&)) {
-	return pf(*this);
 }
 RichTextProcessor& RichTextProcessor::operator<<(const RichTextManipulator& manipulator) {
 	manipulator(*this);

@@ -72,7 +72,7 @@ void GuiRenderSystem::updateLogic()
 		strm << "<colour=#FF0000><b>Magyar </b></colour><colour=#FFFFFF><u>nyelven </u></colour><colour=#00FF00><i>írtam.</i></colour><br>";
 #endif
 #ifdef INSERT_RUSSIAN
-		strm << "<colour=#FFFFFF><b>Я </b></colour><colour=#0000AA><u>люблю </u></colour><colour=#AA0000><i>Нику.</i></colour><br>";
+		strm << "<b><s><colour=#FFFFFF><b>Я </b></colour><colour=#0000AA><u>люблю </u></colour><colour=#AA0000><i>Нику.</i></colour><br></s></b>";
 #endif
 #ifdef INSERT_JAPANESE
 		strm << "<colour=#AA00AA>ニカが大好きです。</colour><br>";
@@ -81,23 +81,6 @@ void GuiRenderSystem::updateLogic()
 		strm << "<colour=#A0A0A0>FPS avg: "<< fpsAvg << "</colour><br>";
 		strm << "<colour=#00FF00>FPS avg: "<< fpsMax << "</colour><br>";
 		parser.parse(strm.str());
-
-	/*#ifdef INSERT_HUNGARIAN
-		RT << RT.EnableUnderline() << RT.EnableBold() << RT.ChangeColour(255,0,0) << "Magyarul " << RT.ChangeColour(255,255,255) << RT.DisableBold()
-		   << "írt "<< RT.EnableItalic() << RT.ChangeColour(0,255,0) << "szöveg." << RT.DisableItalic() << RT.DisableUnderline() << std::endl;
-	#endif
-	#ifdef INSERT_RUSSIAN
-		// Еби меня по-китайски
-		// Я люблю Нику.
-		RT << RT.EnableStrikethrough() << RT.EnableItalic() << RT.ChangeColour(255,255,255) << "Еби " << RT.ChangeColour(0,0,255) << "меня " <<
-			  RT.ChangeColour(200,0,0) << "по-китайски." << RT.DisableItalic() << RT.DisableStrikethrough() << std::endl;
-	#endif
-	#ifdef INSERT_JAPANESE
-		RT << "ニカが大好きです。" << std::endl;
-	#endif
-		RT << RT.EnableUnderline() << RT.ChangeColour(255,0,0) << RT.EnableBold() << "FPS min: " << RT.DisableBold() << fpsMin << std::endl;
-		RT << RT.ChangeColour(128,128,128) << RT.EnableBold() << "FPS avg: " << RT.DisableBold() << fpsAvg << std::endl;
-		RT << RT.ChangeColour(0,255,0) << RT.EnableBold() << "FPS max: " << RT.DisableBold() << fpsMax << std::endl;*/
 		richie->flush();
 		textToRender = richie->getBlocks();
 		richie->getBlocks().clear();

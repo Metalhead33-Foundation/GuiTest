@@ -79,26 +79,13 @@ public:
 	static RichTextManipulator DisableUnderline();
 	static RichTextManipulator DisableStrikethrough();
 	// Operators
-	RichTextProcessor& operator<<(signed char c);
-	RichTextProcessor& operator<<(unsigned char c);
+	RichTextProcessor& operator<<(char c);
 	RichTextProcessor& operator<<(char32_t c);
-	RichTextProcessor& operator<<(bool val);
-	RichTextProcessor& operator<<(short val);
-	RichTextProcessor& operator<<(unsigned short val);
-	RichTextProcessor& operator<<(int val);
-	RichTextProcessor& operator<<(unsigned int val);
-	RichTextProcessor& operator<<(long val);
-	RichTextProcessor& operator<<(unsigned long val);
-	RichTextProcessor& operator<<(float val);
-	RichTextProcessor& operator<<(double val);
-	RichTextProcessor& operator<<(long double val);
-	RichTextProcessor& operator<<(void* val);
 	RichTextProcessor& operator<<(const char* s);
 	RichTextProcessor& operator<<(const std::string& s);
 	RichTextProcessor& operator<<(std::ostream& (*pf)(std::ostream&));
 	RichTextProcessor& operator<<(std::ios& (*pf)(std::ios&));
 	RichTextProcessor& operator<<(std::ios_base& (*pf)(std::ios_base&));
-	RichTextProcessor& operator<<(RichTextProcessor& (*pf)(RichTextProcessor&));
 	RichTextProcessor& operator<<(const RichTextManipulator& manipulator);
 };
 typedef std::shared_ptr<RichTextProcessor> sRichTextProcessor;
