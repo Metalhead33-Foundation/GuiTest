@@ -17,9 +17,9 @@ SOURCES += \
         System/AppSystem.cpp \
         System/FpsCounter.cpp \
         System/GuiRenderSystem.cpp \
-        Text/BbcodeParser.cpp \
         Text/Font.cpp \
         Text/FontRepository.cpp \
+        Text/MmlParser.cpp \
         Text/RichTextProcessor.cpp \
         Text/RtProcessorStack.cpp \
         Texture/Texture.cpp \
@@ -46,9 +46,9 @@ HEADERS += \
 	System/AppSystem.hpp \
 	System/FpsCounter.hpp \
 	System/GuiRenderSystem.hpp \
-	Text/BbcodeParser.hpp \
 	Text/Font.hpp \
 	Text/FontRepository.hpp \
+	Text/MmlParser.hpp \
 	Text/RichTextProcessor.hpp \
 	Text/RtProcessorStack.hpp \
 	Texture/StandardTexture.hpp \
@@ -70,4 +70,5 @@ HEADERS += \
 
 DISTFILES += \
 	LICENSE \
-	README.md
+	README.md \
+	Text/MML.md

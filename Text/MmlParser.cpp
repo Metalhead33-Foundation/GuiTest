@@ -1,7 +1,7 @@
-#include "BbcodeParser.hpp"
+#include "MmlParser.hpp"
 #include "../Util/ColourHelper.hpp"
 
-void BbcodeParser::onTagEnd()
+void MmlParser::onTagEnd()
 {
 	if(!isProcessingTag) return;
 	std::string commandText = commandStream.str();
@@ -15,95 +15,95 @@ void BbcodeParser::onTagEnd()
 	processTag(commandText);
 }
 
-static void bbcodeNoop(BbcodeParser& parser) {
+static void mmlNoop(MmlParser& parser) {
 	(void)parser;
 }
-static void bbcodeBr(BbcodeParser& parser) {
+static void mmlBr(MmlParser& parser) {
 	*parser.getRTP() << char('\n');
 }
-static void bbcodeBold(BbcodeParser& parser) {
+static void mmlBold(MmlParser& parser) {
 	parser.pushBold();
 }
-static void bbcodeNBold(BbcodeParser& parser) {
+static void mmlNBold(MmlParser& parser) {
 	parser.popBold();
 }
-static void bbcodeItalic(BbcodeParser& parser) {
+static void mmlItalic(MmlParser& parser) {
 	parser.pushItalic();
 }
-static void bbcodeNItalic(BbcodeParser& parser) {
+static void mmlNItalic(MmlParser& parser) {
 	parser.popItalic();
 }
-static void bbcodeUnderline(BbcodeParser& parser) {
+static void mmlUnderline(MmlParser& parser) {
 	parser.pushUnderscore();
 }
-static void bbcodeNUnderline(BbcodeParser& parser) {
+static void mmlNUnderline(MmlParser& parser) {
 	parser.popUnderscore();
 }
-static void bbcodeStrikethrough(BbcodeParser& parser) {
+static void mmlStrikethrough(MmlParser& parser) {
 	parser.pushStrikethrough();
 }
-static void bbcodeNStrikethrough(BbcodeParser& parser) {
+static void mmlNStrikethrough(MmlParser& parser) {
 	parser.popStrikethrough();
 }
 
-static void bcodeFontFace(BbcodeParser& parser, const std::string& arg) {
+static void bcodeFontFace(MmlParser& parser, const std::string& arg) {
 	parser.pushFont(arg);
 }
-static void bcodeFFontFace(BbcodeParser& parser) {
+static void bcodeFFontFace(MmlParser& parser) {
 	parser.popFont();
 }
-static void bbcodeFontSize(BbcodeParser& parser, const std::string& arg) {
+static void mmlFontSize(MmlParser& parser, const std::string& arg) {
 	std::stringstream tmpStr(arg);
 	int num = 0;
 	tmpStr >> num;
 	parser.pushSize(num);
 }
-static void bbcodeNFontSize(BbcodeParser& parser) {
+static void mmlNFontSize(MmlParser& parser) {
 	parser.popSize();
 }
-static void bbcodeFontColour(BbcodeParser& parser, const std::string& arg) {
+static void mmlFontColour(MmlParser& parser, const std::string& arg) {
 	parser.pushColour(htmlColour(arg));
 }
-static void bbcodeNFontColour(BbcodeParser& parser) {
+static void mmlNFontColour(MmlParser& parser) {
 	parser.popColour();
 }
 
-static const std::map<std::string,std::function<void(BbcodeParser&)>> tags {
-	{ "b", bbcodeBold },
-	{ "/b", bbcodeNBold },
-	{ "strong", bbcodeBold },
-	{ "/strong", bbcodeNBold },
-	{ "br", bbcodeBr },
-	{ "/br", bbcodeBr },
-	{ "br/", bbcodeBr },
-	{ "p", bbcodeNoop },
-	{ "/p", bbcodeBr },
-	{ "strike", bbcodeStrikethrough },
-	{ "/strike", bbcodeNStrikethrough },
-	{ "s", bbcodeStrikethrough },
-	{ "/s", bbcodeNStrikethrough },
-	{ "del", bbcodeStrikethrough },
-	{ "/del", bbcodeNStrikethrough },
-	{ "i", bbcodeItalic },
-	{ "/i", bbcodeNItalic },
-	{ "em", bbcodeItalic },
-	{ "/em", bbcodeNItalic },
-	{ "u", bbcodeUnderline },
-	{ "/u", bbcodeNUnderline },
+static const std::map<std::string,std::function<void(MmlParser&)>> tags {
+	{ "b", mmlBold },
+	{ "/b", mmlNBold },
+	{ "strong", mmlBold },
+	{ "/strong", mmlNBold },
+	{ "br", mmlBr },
+	{ "/br", mmlBr },
+	{ "br/", mmlBr },
+	{ "p", mmlNoop },
+	{ "/p", mmlBr },
+	{ "strike", mmlStrikethrough },
+	{ "/strike", mmlNStrikethrough },
+	{ "s", mmlStrikethrough },
+	{ "/s", mmlNStrikethrough },
+	{ "del", mmlStrikethrough },
+	{ "/del", mmlNStrikethrough },
+	{ "i", mmlItalic },
+	{ "/i", mmlNItalic },
+	{ "em", mmlItalic },
+	{ "/em", mmlNItalic },
+	{ "u", mmlUnderline },
+	{ "/u", mmlNUnderline },
 	{ "/font", bcodeFFontFace },
-	{ "/size", bbcodeNFontSize },
-	{ "/color", bbcodeNFontColour },
-	{ "/colour", bbcodeNFontColour }
+	{ "/size", mmlNFontSize },
+	{ "/color", mmlNFontColour },
+	{ "/colour", mmlNFontColour }
 };
 
-static const std::map<std::string,std::function<void(BbcodeParser&,const std::string&)>> tagsP {
+static const std::map<std::string,std::function<void(MmlParser&,const std::string&)>> tagsP {
 	{ "font", bcodeFontFace },
-	{ "size", bbcodeFontSize },
-	{ "color", bbcodeFontColour },
-	{ "colour", bbcodeFontColour }
+	{ "size", mmlFontSize },
+	{ "color", mmlFontColour },
+	{ "colour", mmlFontColour }
 };
 
-void BbcodeParser::processTag(const std::string& tag)
+void MmlParser::processTag(const std::string& tag)
 {
 	if(tag.find('=') != std::string::npos) {
 		// Has arguments.
@@ -129,7 +129,7 @@ void BbcodeParser::processTag(const std::string& tag)
 	}
 }
 
-void BbcodeParser::onEscapeEnd()
+void MmlParser::onEscapeEnd()
 {
 	if(!isProcessingEscape) return;
 	std::string commandText = commandStream.str();
@@ -1652,7 +1652,7 @@ static const std::map<std::string,std::string> NamedEscapes = {
 	{"nparsl", "\u2ACB"}
 };
 
-void BbcodeParser::processEscape(const std::string& escape)
+void MmlParser::processEscape(const std::string& escape)
 {
 	if(escape.empty()) return;
 	if(escape[0] == '#') { // Hexadecimal numeric character reference
@@ -1667,18 +1667,18 @@ void BbcodeParser::processEscape(const std::string& escape)
 	}
 }
 
-BbcodeParser::BbcodeParser() : isProcessingTag(false), isProcessingEscape(false)
+MmlParser::MmlParser() : isProcessingTag(false), isProcessingEscape(false)
 {
 
 }
 
-BbcodeParser::BbcodeParser(RichTextProcessor* nRTP)
+MmlParser::MmlParser(RichTextProcessor* nRTP)
 	: RtProcessorStack(nRTP), isProcessingTag(false), isProcessingEscape(false)
 {
 
 }
 
-void BbcodeParser::parse(char c)
+void MmlParser::parse(char c)
 {
 	switch (c) {
 		case '<': isProcessingTag = true; break;
@@ -1699,14 +1699,14 @@ void BbcodeParser::parse(char c)
 	}
 }
 
-void BbcodeParser::parse(const char* cstr)
+void MmlParser::parse(const char* cstr)
 {
 	for(;*cstr;++cstr) {
 		parse(*cstr);
 	}
 }
 
-void BbcodeParser::parse(const std::string& str)
+void MmlParser::parse(const std::string& str)
 {
 	for(const auto c : str) {
 		parse(c);

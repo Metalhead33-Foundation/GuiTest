@@ -1,9 +1,9 @@
-#ifndef BBCODEPARSER_H
-#define BBCODEPARSER_H
+#ifndef MMLPARSER_H
+#define MMLPARSER_H
 #include "RtProcessorStack.hpp"
 #include <sstream>
 
-class BbcodeParser : public RtProcessorStack
+class MmlParser : public RtProcessorStack
 {
 private:
 	std::stringstream commandStream;
@@ -14,11 +14,11 @@ private:
 	bool isProcessingTag;
 	bool isProcessingEscape;
 public:
-	BbcodeParser();
-	BbcodeParser(RichTextProcessor* nRTP);
+	MmlParser();
+	MmlParser(RichTextProcessor* nRTP);
 	void parse(char c);
 	void parse(const char* cstr);
 	void parse(const std::string& str);
 };
 
-#endif // BBCODEPARSER_H
+#endif // MMLPARSER_H

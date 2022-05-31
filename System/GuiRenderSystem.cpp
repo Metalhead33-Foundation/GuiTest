@@ -7,7 +7,7 @@
 #include <string_view>
 #include "../Util/TextureHelpers.hpp"
 #include "../Util/TextureFromSurface.hpp"
-#include "../Text/BbcodeParser.hpp"
+#include "../Text/MmlParser.hpp"
 #include <sstream>
 
 const sCursor& GuiRenderSystem::getCursor() const
@@ -67,7 +67,7 @@ void GuiRenderSystem::updateLogic()
 		float fpsMin, fpsAvg, fpsMax;
 		fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
 		std::stringstream strm;
-		BbcodeParser parser(richie.get());
+		MmlParser parser(richie.get());
 #ifdef INSERT_HUNGARIAN
 		strm << "<colour=#FF0000><b>Magyar </b></colour><colour=#FFFFFF><u>nyelven </u></colour><colour=#00FF00><i>írtam.</i></colour><br>";
 #endif
