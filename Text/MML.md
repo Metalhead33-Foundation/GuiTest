@@ -11,6 +11,7 @@
 * [HTML escapes](https://en.wikipedia.org/wiki/List_of_XML_and_HTML_character_entity_references) are both supported and encouraged. In fact, they are mandatory for certain special characters, namely `<`, `>`, `[`, `]` and `&`. They are also encouraged for most non-ASCII characters.
 * [The full palette of both basic and extended web colours](https://en.wikipedia.org/wiki/Web_colors#HTML_color_names) are supported, as well as hexadecimal RGB(A) colour codes and normalized *(0.00 - 1.00)* decimal RGB(A).
     * Due to the case-insensitive nature of the parser, care must be taken in implementations to map the web colours to fully-lowercase names, as well as support the parsing of hexadecimal numbers with lowercase letters.
+    * An example to each usage would be `[color=blue]`, `[color=#00FF0000]` and `[color=1.0, 0.332, 0.75, 1.0]` respecitvely. For the latter two examples, the alpha-component is entirely optional, and defauls to fully opaque, if absent.
 
 ### Currently supported tags:
 
