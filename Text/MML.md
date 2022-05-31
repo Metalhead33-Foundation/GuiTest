@@ -3,7 +3,7 @@
 **MML** - short for **Metalhead33's Markup Language** - is a hybrid of [BBCode](https://en.wikipedia.org/wiki/BBCode) and [HTML](https://en.wikipedia.org/wiki/HTML), or more specifically, a union of a subset of each, with a few unique features.
 
 * Both the HTML/XML-style `<tag>` and BBCode-style `[tag]` are equally valid and accepted, being interchangeable in MML.
-    * In practice, `<tag]` and `[tag>` are also valid, but this usage is discouraged. The adoption is a consistent scheme is encouraged instead. Nevertheless, `<` is interchangeable with `[` and`>` is interchangeable with `]`.
+    * In practice, `<tag]` and `[tag>` are also valid, but this usage is discouraged. The adoption of a consistent scheme is encouraged instead. Nevertheless, `<` is interchangeable with `[` and`>` is interchangeable with `]`.
 * Any and all code within tags - including the name of the tag itself - is case-insensitive, meaning that `tag`, `TAG`, `tAg`, etc. are all equally valid and interchangeable. It is up to the parser to convert all non-lowercase alphabetic characters to their lowercase equivalents before further processing the tag.
     * This also applies to the arguments of tags, e.g. font names and colour names. Thus, care must be taken that all fonts within a font repository are mapped to fully-lowercase names.
 * During the parsing of tags, all whitespace is removed.
