@@ -1658,7 +1658,7 @@ void MmlParser::processEscape(const std::string& escape)
 	if(escape[0] == '#') { // Hexadecimal numeric character reference
 		uint32_t x = std::stoul(std::string(&escape[1],escape.length()-1), nullptr, 16);
 		*RTP << char32_t(x);
-	} else if(isxdigit(escape[0])) { // Decimal numeric character reference
+	} else if(isdigit(escape[0])) { // Decimal numeric character reference
 		uint32_t x = std::stoul(escape, nullptr, 10);
 		*RTP << char32_t(x);
 	} else { // Named character reference
@@ -1685,7 +1685,7 @@ void MmlParser::parse(char c)
 		case '>': onTagEnd(); break;
 		case '[': isProcessingTag = true; break;
 		case ']': onTagEnd(); break;
-		case '@': isProcessingEscape = true; break;
+		case '&': isProcessingEscape = true; break;
 		case ';': {
 			if(isProcessingEscape) onEscapeEnd();
 			else *RTP << char(c);

@@ -69,7 +69,7 @@ void GuiRenderSystem::updateLogic()
 		std::stringstream strm;
 		MmlParser parser(richie.get());
 #ifdef INSERT_HUNGARIAN
-		strm << "<colour=#FF0000><b>Magyar </b></colour><colour=#FFFFFF><u>nyelven </u></colour><colour=#00FF00><i>írtam.</i></colour><br>";
+		strm << "<colour=#FF0000><b>Magyar </b></colour><colour=#FFFFFF><u>nyelven &amp; </u></colour><colour=#00FF00><i>írtam.</i></colour><br>";
 #endif
 #ifdef INSERT_RUSSIAN
 		strm << "<b><s><colour=#FFFFFF><b>Я </b></colour><colour=#0000AA><u>люблю </u></colour><colour=#AA0000><i>Нику.</i></colour><br></s></b>";
