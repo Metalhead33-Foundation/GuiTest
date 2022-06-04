@@ -49,6 +49,8 @@ public:
 	virtual float getHeightR() const = 0;
 	// Pixel manipulation
 	virtual bool resize(int newWidth, int newHeight) = 0;
+	virtual void blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions);
+	virtual void blit(const Texture& cpy, const glm::ivec2 offset);
 	virtual void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap = REPEAT) const = 0;
 	inline glm::fvec4 getPixel(const glm::ivec2& pos, Wrap wrap = REPEAT) const {
 		glm::fvec4 tmp;

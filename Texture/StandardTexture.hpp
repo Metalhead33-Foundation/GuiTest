@@ -6,12 +6,16 @@
 #include <cstring>
 #include <span>
 
+template <typename PixelType> class StandardTexture;
+template <typename PixelType> class ReferenceTexture;
+
 template <typename PixelType> class StandardTexture : public Texture {
 private:
 	std::vector<PixelType> pixels;
 	int width,height,stride;
 	float widthF,heightF,widthR,heightR;
 public:
+	friend class ReferenceTexture<PixelType>;
 	StandardTexture(const StandardTexture& cpy);
 	StandardTexture(StandardTexture&& mov);
 	StandardTexture& operator=(const StandardTexture& cpy);
@@ -22,8 +26,8 @@ public:
 	StandardTexture(std::vector<PixelType>&& mov, int width, int height);
 	bool resize(int newWidth, int newHeight) override;
 	void blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions);
-	void blit(const StandardTexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions);
-	void blit(const StandardTexture& cpy, const glm::ivec2 offset);
+	void blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) override;
+	void blit(const Texture& cpy, const glm::ivec2 offset) override;
 	int getWidth() const override { return width; }
 	float getWidthF() const override { return widthF; }
 	float getWidthR() const override { return widthR; }
@@ -98,6 +102,7 @@ private:
 	int width,height,stride;
 	float widthF,heightF,widthR,heightR;
 public:
+	friend class StandardTexture<PixelType>;
 	ReferenceTexture(const ReferenceTexture& cpy);
 	ReferenceTexture& operator=(const ReferenceTexture& cpy);
 	ReferenceTexture(PixelType* pixelsPointing, int width, int height);
@@ -105,8 +110,8 @@ public:
 	ReferenceTexture(std::span<PixelType>&& mov, int width, int height);
 	bool resize(int newWidth, int newHeight) override;
 	void blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions);
-	void blit(const ReferenceTexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions);
-	void blit(const ReferenceTexture& cpy, const glm::ivec2 offset);
+	void blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) override;
+	void blit(const Texture& cpy, const glm::ivec2 offset) override;
 	int getWidth() const override { return width; }
 	float getWidthF() const override { return widthF; }
 	float getWidthR() const override { return widthR; }

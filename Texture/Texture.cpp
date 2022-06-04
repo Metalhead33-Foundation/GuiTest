@@ -2,6 +2,41 @@
 #include "../Util/Dither.hpp"
 #include <cmath>
 
+void Texture::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions)
+{
+	const int width = getWidth();
+	const int height = getHeight();
+
+	if(offset.x >= width || offset.y >= height) return;
+	const int rowsToCopy = std::min(dimensions.y,height - offset.y);
+	const int columnsToCopy = std::min(dimensions.x,width - offset.x);
+	glm::ivec2 position(0,0);
+	for(position.y = 0; position.y < rowsToCopy; ++position.y) {
+		for(position.x = 0; position.x < columnsToCopy; ++position.x) {
+			glm::fvec4 kernel = cpy.getPixel(position);
+			setPixel(position+offset,kernel);
+		}
+	}
+}
+
+void Texture::blit(const Texture& cpy, const glm::ivec2 offset)
+{
+	const int width = getWidth();
+	const int height = getHeight();
+	const glm::ivec2 dimensions(cpy.getWidth(),cpy.getHeight());
+
+	if(offset.x >= width || offset.y >= height) return;
+	const int rowsToCopy = std::min(dimensions.y,height - offset.y);
+	const int columnsToCopy = std::min(dimensions.x,width - offset.x);
+	glm::ivec2 position(0,0);
+	for(position.y = 0; position.y < rowsToCopy; ++position.y) {
+		for(position.x = 0; position.x < columnsToCopy; ++position.x) {
+			glm::fvec4 kernel = cpy.getPixel(position);
+			setPixel(position+offset,kernel);
+		}
+	}
+}
+
 bool Texture::setPixelWithBlending(const glm::ivec2 &pos, const glm::fvec4 &colourKernel, AlphaBlending blendingType)
 {
 	float a = colourKernel.w;

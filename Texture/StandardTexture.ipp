@@ -121,13 +121,25 @@ inline void StandardTexture<PixelType>::blit(const PixelType* cpy, const glm::iv
 }
 
 template<typename PixelType>
-inline void StandardTexture<PixelType>::blit(const StandardTexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
-	blit(cpy.pixels,offset,dimensions);
+inline void StandardTexture<PixelType>::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
+	const StandardTexture* standardTexture = dynamic_cast<const StandardTexture*>(&cpy);
+	if(standardTexture) blit(standardTexture->pixels.data(),offset,dimensions);
+	else {
+		const ReferenceTexture<PixelType>* referenceTexture = dynamic_cast<const ReferenceTexture<PixelType>*>(&cpy);
+		if(referenceTexture) blit(referenceTexture->pixels.data(),offset,dimensions);
+		else Texture::blit(cpy,offset,dimensions);
+	}
 }
 
 template<typename PixelType>
-inline void StandardTexture<PixelType>::blit(const StandardTexture& cpy, const glm::ivec2 offset) {
-	blit(cpy.pixels,offset,glm::ivec2(cpy.width,cpy.height));
+inline void StandardTexture<PixelType>::blit(const Texture& cpy, const glm::ivec2 offset) {
+	const StandardTexture* standardTexture = dynamic_cast<const StandardTexture*>(&cpy);
+	if(standardTexture) blit(standardTexture->pixels.data(),offset,glm::ivec2(standardTexture->width,standardTexture->height));
+	else {
+		const ReferenceTexture<PixelType>* referenceTexture = dynamic_cast<const ReferenceTexture<PixelType>*>(&cpy);
+		if(referenceTexture) blit(referenceTexture->pixels.data(),offset,glm::ivec2(referenceTexture->width,referenceTexture->height));
+		else Texture::blit(cpy,offset);
+	}
 }
 
 template<typename PixelType>
@@ -335,13 +347,25 @@ inline void ReferenceTexture<PixelType>::blit(const PixelType* cpy, const glm::i
 }
 
 template<typename PixelType>
-inline void ReferenceTexture<PixelType>::blit(const ReferenceTexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
-	blit(cpy.pixels,offset,dimensions);
+inline void ReferenceTexture<PixelType>::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
+	const ReferenceTexture* refTxt = dynamic_cast<const ReferenceTexture*>(&cpy);
+	if(refTxt) blit(refTxt->pixels.data(),offset,dimensions);
+	else {
+		const StandardTexture<PixelType>* standardTexture = dynamic_cast<const StandardTexture<PixelType>*>(&cpy);
+		if(standardTexture) blit(standardTexture->pixels.data(),offset,dimensions);
+		else Texture::blit(cpy,offset,dimensions);
+	}
 }
 
 template<typename PixelType>
-inline void ReferenceTexture<PixelType>::blit(const ReferenceTexture& cpy, const glm::ivec2 offset) {
-	blit(cpy.pixels,offset,glm::ivec2(cpy.width,cpy.height));
+inline void ReferenceTexture<PixelType>::blit(const Texture& cpy, const glm::ivec2 offset) {
+	const ReferenceTexture* refTxt = dynamic_cast<const ReferenceTexture*>(&cpy);
+	if(refTxt) blit(refTxt->pixels.data(),offset,glm::ivec2(refTxt->width,refTxt->height));
+	else {
+		const StandardTexture<PixelType>* standardTexture = dynamic_cast<const StandardTexture<PixelType>*>(&cpy);
+		if(standardTexture) blit(standardTexture->pixels.data(),offset,glm::ivec2(standardTexture->width,standardTexture->height));
+		else Texture::blit(cpy,offset);
+	}
 }
 
 template<typename PixelType>
