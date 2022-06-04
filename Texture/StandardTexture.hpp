@@ -24,6 +24,8 @@ public:
 	StandardTexture(const PixelType* pixelsToCopy, int width, int height);
 	StandardTexture(const std::span<PixelType> pixelsToCopy, int width, int height);
 	StandardTexture(std::vector<PixelType>&& mov, int width, int height);
+	StandardTexture(const ReferenceTexture<PixelType>& cpy);
+	StandardTexture& operator=(const ReferenceTexture<PixelType>& cpy);
 	bool resize(int newWidth, int newHeight) override;
 	void blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions);
 	void blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) override;
@@ -108,6 +110,8 @@ public:
 	ReferenceTexture(PixelType* pixelsPointing, int width, int height);
 	ReferenceTexture(const std::span<PixelType> pixelsToCopy, int width, int height);
 	ReferenceTexture(std::span<PixelType>&& mov, int width, int height);
+	ReferenceTexture(const StandardTexture<PixelType>& cpy);
+	ReferenceTexture& operator=(const StandardTexture<PixelType>& cpy);
 	bool resize(int newWidth, int newHeight) override;
 	void blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions);
 	void blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) override;

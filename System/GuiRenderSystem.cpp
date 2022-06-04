@@ -5,7 +5,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <string_view>
-#include "../Util/TextureHelpers.hpp"
 #include "../Util/TextureFromSurface.hpp"
 #include "../Text/MmlParser.hpp"
 #include <sstream>
@@ -59,6 +58,16 @@ GuiRenderSystem::FunctionMap& GuiRenderSystem::getFunctionMap()
 #define INSERT_HUNGARIAN
 #define INSERT_RUSSIAN
 #define INSERT_JAPANESE
+
+const threadsafe<std::vector<sWidget> >& GuiRenderSystem::getWidgets() const
+{
+	return widgets;
+}
+
+threadsafe<std::vector<sWidget> >& GuiRenderSystem::getWidgets()
+{
+	return widgets;
+}
 
 void GuiRenderSystem::updateLogic()
 {
@@ -128,9 +137,6 @@ void GuiRenderSystem::onResolutionChange(int newWidth, int newHeight)
 	ctpipeline.viewport = viewport;
 }
 
-static const int CIRCLE_W = 128;
-static const int CIRCLE_H = 128;
-
 static const glm::ivec2 virtualRes = glm::ivec2(320,240);
 
 GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags)
@@ -154,14 +160,6 @@ GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offs
 	SDL_ShowCursor(SDL_DISABLE);
 	//SDL_SetRelativeMouseMode(SDL_TRUE);
 	//SDL_StartTextInput();
-	std::vector<uint32_t> tex1,tex2,tex3;
-	createCircleTextures(tex1,tex2,tex3,CIRCLE_W,CIRCLE_H);
-	widgets.access( [&,this](std::vector<sWidget>& cntr) {
-		cntr.reserve(256);
-		cntr.push_back(std::make_shared<BoxWidget>(absToRel(glm::ivec2(25,25),virtualRes),absToRel(glm::ivec2(125,125),virtualRes)));
-		cntr.push_back(std::make_shared<TickboxWidget>(absToRel(glm::ivec2(100,100),virtualRes),absToRel(glm::ivec2(200,200),virtualRes),1));
-		cntr.push_back(std::make_shared<TexturedWidget>(absToRel(glm::ivec2(200,200),virtualRes),absToRel(glm::ivec2(200+CIRCLE_W,200+CIRCLE_H),virtualRes),CIRCLE_W,CIRCLE_H,tex1.data(),tex2.data(),tex3.data()));
-	});
 }
 
 glm::fvec2 GuiRenderSystem::absToRel(const glm::ivec2& abs) const

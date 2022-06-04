@@ -21,8 +21,10 @@ protected:
 		CLICKED
 	} state;
 public:
-	TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, int w, int h,
-				   const uint32_t* texdis, const uint32_t* textact, const uint32_t* textclick);
+	TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight,
+				   const sTexture& texdis, const sTexture& textact, const sTexture& textclick);
+	TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight,
+				   sTexture&& texdis, sTexture&& textact, sTexture&& textclick);
 	const glm::fvec2& getTopLeft() const override;
 	void setTopLeft(const glm::fvec2& newTopLeft);
 	const glm::fvec2& getBottomRight() const override;

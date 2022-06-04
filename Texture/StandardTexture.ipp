@@ -508,4 +508,49 @@ inline void ReferenceTexture<PixelType>::iterateOverPixels(const ColourIterator2
 	}
 }
 
+template<typename PixelType> StandardTexture<PixelType>::StandardTexture(const ReferenceTexture<PixelType>& cpy) {
+	this->pixels.resize(cpy.pixels.size());
+	std::memcpy(this->pixels.data(),cpy.pixels.data(),cpy.pixels.size() * sizeof(PixelType));
+	this->width = cpy.width;
+	this->height = cpy.height;
+	this->stride = cpy.stride;
+	this->widthF = cpy.widthF;
+	this->heightF = cpy.heightF;
+	this->widthR = cpy.widthR;
+	this->heightR = cpy.heightR;
+}
+template<typename PixelType> StandardTexture<PixelType>& StandardTexture<PixelType>::operator=(const ReferenceTexture<PixelType>& cpy) {
+	this->pixels.resize(cpy.pixels.size());
+	std::memcpy(this->pixels.data(),cpy.pixels.data(),cpy.pixels.size() * sizeof(PixelType));
+	this->width = cpy.width;
+	this->height = cpy.height;
+	this->stride = cpy.stride;
+	this->widthF = cpy.widthF;
+	this->heightF = cpy.heightF;
+	this->widthR = cpy.widthR;
+	this->heightR = cpy.heightR;
+	return *this;
+}
+template<typename PixelType> ReferenceTexture<PixelType>::ReferenceTexture(const StandardTexture<PixelType>& cpy) {
+	this->pixels = cpy.pixels;
+	this->width = cpy.width;
+	this->height = cpy.height;
+	this->stride = cpy.stride;
+	this->widthF = cpy.widthF;
+	this->heightF = cpy.heightF;
+	this->widthR = cpy.widthR;
+	this->heightR = cpy.heightR;
+}
+template<typename PixelType> ReferenceTexture<PixelType>& ReferenceTexture<PixelType>::operator=(const StandardTexture<PixelType>& cpy) {
+	this->pixels = cpy.pixels;
+	this->width = cpy.width;
+	this->height = cpy.height;
+	this->stride = cpy.stride;
+	this->widthF = cpy.widthF;
+	this->heightF = cpy.heightF;
+	this->widthR = cpy.widthR;
+	this->heightR = cpy.heightR;
+	return *this;
+}
+
 #endif // STANDARDTEXTURE_IPP

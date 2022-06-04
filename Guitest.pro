@@ -23,6 +23,7 @@ SOURCES += \
         Text/RichTextProcessor.cpp \
         Text/RtProcessorStack.cpp \
         Texture/Texture.cpp \
+        Texture/TextureAtlas.cpp \
         Util/ColourHelper.cpp \
         Util/TextureFromSurface.cpp \
         Util/TextureHelpers.cpp \
@@ -54,6 +55,7 @@ HEADERS += \
 	Texture/StandardTexture.hpp \
 	Texture/StandardTexture.ipp \
 	Texture/Texture.hpp \
+	Texture/TextureAtlas.hpp \
 	Util/ColourHelper.hpp \
 	Util/Dither.hpp \
 	Util/ITextReceiver.hpp \

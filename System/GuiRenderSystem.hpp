@@ -92,6 +92,8 @@ public:
 	const FunctionMap& getFunctionMap() const;
 	FunctionMap& getFunctionMap();
 	void renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const Texture& tex) override;
+	const threadsafe<std::vector<sWidget> >& getWidgets() const;
+	threadsafe<std::vector<sWidget> >& getWidgets();
 };
 
 #endif // GUIRENDERSYSTEM_H

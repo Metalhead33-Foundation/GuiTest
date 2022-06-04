@@ -2,18 +2,31 @@
 #include "../Texture/StandardTexture.hpp"
 #include <SDL2/SDL.h>
 
-TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, int w, int h, const uint32_t* texdis,
-							   const uint32_t* textact, const uint32_t* textclick)
-	: topLeft(topLeft), bottomRight(bottomRight), w(w),h(h), wf(static_cast<float>(w-1)), hf(static_cast<float>(h-1)),alpha(w*h),
-	  textureDistact(std::make_shared<TexARGB8888>(reinterpret_cast<const PixelARGB8888*>(texdis),w,h)),
-	  textureActive(std::make_shared<TexARGB8888>(reinterpret_cast<const PixelARGB8888*>(textact),w,h)),
-	  textureClicked(std::make_shared<TexARGB8888>(reinterpret_cast<const PixelARGB8888*>(textclick),w,h)),
+TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, const sTexture& texdis,
+							   const sTexture& textact, const sTexture& textclick)
+	: topLeft(topLeft), bottomRight(bottomRight), w(textact->getWidth()),h(textact->getHeight()), wf(textact->getWidthF()), hf(textact->getHeightF()),
+	  alpha(textact->getHeight() * textact->getWidth()),
+	  textureDistact(texdis),
+	  textureActive(textact),
+	  textureClicked(textclick),
 	  state(OUT_OF_FOCUS)
 {
-	const int totalsize = w * h;
-	for(int i = 0; i < totalsize; ++i) {
-		alpha[i] = ((texdis[i] & 0xFF000000) != 0);
-	}
+	textureDistact->iterateOverPixels(Texture::ColourIterator([this](const glm::ivec2& pos, const glm::fvec4& kernel) {
+		alpha[(pos.y*this->w)+pos.x] = kernel.w >= 0.007843137254902f;
+	}));
+}
+
+TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, sTexture&& texdis, sTexture&& textact, sTexture&& textclick)
+	: topLeft(topLeft), bottomRight(bottomRight), w(textact->getWidth()),h(textact->getHeight()), wf(textact->getWidthF()), hf(textact->getHeightF()),
+	  alpha(textact->getHeight() * textact->getWidth()),
+	  textureDistact(std::move(texdis)),
+	  textureActive(std::move(textact)),
+	  textureClicked(std::move(textclick)),
+	  state(OUT_OF_FOCUS)
+{
+	textureDistact->iterateOverPixels(Texture::ColourIterator([this](const glm::ivec2& pos, const glm::fvec4& kernel) {
+		alpha[(pos.y*this->w)+pos.x] = kernel.w >= 0.007843137254902f;
+	}));
 }
 
 const glm::fvec2& TexturedWidget::getTopLeft() const
