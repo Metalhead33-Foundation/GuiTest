@@ -2,8 +2,8 @@ TEMPLATE = app
 CONFIG += console c++2a
 CONFIG -= app_bundle
 CONFIG -= qt
-QMAKE_CFLAGS += -Os -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
-QMAKE_CXXFLAGS += -Os -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
+QMAKE_CFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
+QMAKE_CXXFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
 LIBS += -lSDL2 -lSDL2_image -lfreetype
 
 SOURCES += \
@@ -52,6 +52,7 @@ HEADERS += \
 	Text/RichTextProcessor.hpp \
 	Text/RtProcessorStack.hpp \
 	Texture/StandardTexture.hpp \
+	Texture/StandardTexture.ipp \
 	Texture/Texture.hpp \
 	Util/ColourHelper.hpp \
 	Util/Dither.hpp \
