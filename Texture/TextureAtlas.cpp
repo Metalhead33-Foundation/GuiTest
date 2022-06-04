@@ -80,7 +80,7 @@ glm::ivec2 TextureAtlas::findFirstFreeBlock(const glm::ivec2& blockToAllocate)
 			// We gotta skip the line altogether if there is not enough space from this offset
 			const glm::ivec2 topLeft(x,y);
 			const glm::ivec2 bottomRight = topLeft + blockToAllocate;
-			if(bottomRight.x >= blockCount.x || bottomRight.y >= blockCount.y) break;
+			if(bottomRight.x > blockCount.x || bottomRight.y > blockCount.y) break;
 			// Okay, now we iterate through to see if there is a continuous free block
 			bool freeBlock = true;
 			for(int y2 = 0; y2 < blockToAllocate.y; ++y2) {
