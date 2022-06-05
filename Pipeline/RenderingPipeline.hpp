@@ -31,6 +31,7 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 		const int ymax = static_cast<int>(std::round(std::max(v0.POS.y,v1.POS.y)));
 		if(std::abs(xdiff) > std::abs(ydiff)) {
 			const float slope = ydiff / xdiff;
+#pragma omp parallel for
 			for(int x = xmin; x <= xmax; ++x) {
 				const int y = static_cast<int>(std::round(v0.POS.y + ((static_cast<float>(x) - v0.POS.x) * slope)));
 				const float w1 = (static_cast<float>(x - xmin) / xdiff);
@@ -38,10 +39,12 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 				const int tymin = std::clamp(y+offsetMin,viewport.y,viewport.w);
 				const int tymax = std::clamp(y+offsetMax,viewport.y,viewport.w);
 				const auto pixdata = VertexOutType::interpolate(v0,v1,w0,w1,false);
+#pragma omp parallel for
 				for(int ty = tymin; ty < tymax; ++ty) frag(*framebuffer,glm::ivec2(x,ty),uniform, pixdata);
 			}
 		} else {
 			const float slope = xdiff / ydiff;
+#pragma omp parallel for
 			for(int y = ymin; y <= ymax; ++y) {
 				const int x = static_cast<int>(std::round(v0.POS.x + ((static_cast<float>(y) - v0.POS.y) * slope)));
 				const float w1 = (static_cast<float>(y - ymin) / ydiff);
@@ -49,6 +52,7 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 				const int txmin = std::clamp(x+offsetMin,viewport.x,viewport.z);
 				const int txmax = std::clamp(x+offsetMax,viewport.x,viewport.z);
 				const auto pixdata = VertexOutType::interpolate(v0,v1,w0,w1,false);
+#pragma omp parallel for
 				for(int tx = txmin; tx < txmax; ++tx) frag(*framebuffer,glm::ivec2(tx,y),uniform, pixdata);
 			}
 		}
@@ -77,8 +81,10 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 		if(bottomRight.x >= viewport.z) endX -= bottomRight.x - viewport.z;
 		if(bottomRight.y >= viewport.w) endY -= bottomRight.y - viewport.w;
 
+#pragma omp parallel for
 		for(int y = startY; y < endY; ++y) {
 			const float rowWeight = static_cast<float>(y) * diffRecp.y;
+#pragma omp parallel for
 			for(int x = startX; x < endX; ++x) {
 				const float columnWeight = static_cast<float>(x) * diffRecp.x;
 				frag(*framebuffer,topLeft + glm::ivec2(x,y),uniform, VertexOutType::interpolate2D(v0,v1,rowWeight,columnWeight,false));
@@ -90,6 +96,7 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 		const float invslope2 = float(v2.POS.x - v0.POS.x) / float(v2.POS.y - v0.POS.y);
 		const int minY = std::clamp(int(std::trunc(v0.POS.y)),viewport[1],viewport[3]);
 		const int maxY = std::clamp(int(std::trunc(v1.POS.y)),viewport[1],viewport[3]);
+#pragma omp parallel for
 		for(int i = minY; i < maxY;++i) {
 			const float dy = float(i) - v0.POS.y;
 			const float curx1 = v0.POS.x + (invslope1 * dy);
@@ -102,6 +109,7 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 		const float invslope2 = float(v2.POS.x - v1.POS.x) / float(v2.POS.y - v1.POS.y);
 		const int minY = std::clamp(int(std::trunc(v0.POS.y)),viewport[1],viewport[3]);
 		const int maxY = std::clamp(int(std::trunc(v2.POS.y)),viewport[1],viewport[3]);
+#pragma omp parallel for
 		for(int i = minY; i < maxY;++i) {
 			const float dy = float(i) - v2.POS.y;
 			const float curx1 = v2.POS.x + (invslope1 * dy);
@@ -114,6 +122,7 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 		minX = std::max(minX,viewport[0]);
 		maxX = std::min(maxX,viewport[2]);
 		// Okay, let's render!
+#pragma omp parallel for
 		for(int x = minX; x < maxX; ++x) {
 			const glm::fvec2 p = glm::fvec2(float(x)+0.5f,float(y)+0.5f);
 			const float w0 = edgeFunction(v1.POS, v2.POS, p) * areaReciprocal;

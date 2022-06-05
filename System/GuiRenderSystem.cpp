@@ -8,6 +8,7 @@
 #include "../Util/TextureFromSurface.hpp"
 #include "../Text/MmlParser.hpp"
 #include <sstream>
+#include <omp.h>
 
 const sCursor& GuiRenderSystem::getCursor() const
 {
@@ -57,7 +58,7 @@ GuiRenderSystem::FunctionMap& GuiRenderSystem::getFunctionMap()
 
 #define INSERT_HUNGARIAN
 #define INSERT_RUSSIAN
-#define INSERT_JAPANESE
+//#define INSERT_JAPANESE
 
 const threadsafe<std::vector<sWidget> >& GuiRenderSystem::getWidgets() const
 {
@@ -71,7 +72,7 @@ threadsafe<std::vector<sWidget> >& GuiRenderSystem::getWidgets()
 
 void GuiRenderSystem::updateLogic()
 {
-	if(richie) {
+	if(richie && logicTicks > 10) {
 		RichTextProcessor& RT = *richie;
 		float fpsMin, fpsAvg, fpsMax;
 		fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
@@ -93,7 +94,8 @@ void GuiRenderSystem::updateLogic()
 		richie->flush();
 		textToRender = richie->getBlocks();
 		richie->getBlocks().clear();
-	}
+		logicTicks = 0;
+	} else ++logicTicks;
 }
 
 
@@ -141,7 +143,7 @@ static const glm::ivec2 virtualRes = glm::ivec2(320,240);
 
 GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags)
 	: AppSystem(title,offsetX,offsetY,width,height,flags), currentWidget(nullptr),
-	  strbuffer(""), fullscreen(false), mousePos(glm::fvec2(0.0,0.0f)), cursor(nullptr), font(nullptr), richie(nullptr)
+	  strbuffer(""), fullscreen(false), mousePos(glm::fvec2(0.0,0.0f)), cursor(nullptr), font(nullptr), richie(nullptr), logicTicks(0)
 {
 	bpipeline.uniform.blending = ALPHA_DITHERING;
 	bpipeline.vert = basicVertexShader;

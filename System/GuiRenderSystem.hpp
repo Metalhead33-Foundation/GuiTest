@@ -40,6 +40,7 @@ protected:
 	FunctionMap functionMap;
 	sRichTextProcessor richie;
 	std::vector<TextBlockUtf32> textToRender;
+	int logicTicks;
 	virtual void updateLogic() override;
 	virtual void render() override;
 	void onResolutionChange(int newWidth, int newHeight);

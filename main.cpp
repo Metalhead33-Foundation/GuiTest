@@ -1,3 +1,4 @@
+#include <omp.h>
 #include <iostream>
 #include "System/GuiRenderSystem.hpp"
 #include "Util/PixelFormat.hpp"
@@ -113,6 +114,7 @@ int main()
 		app->setFont(std::move(font));
 		}
 	}
+	omp_set_dynamic(1);     // Explicitly enable dynamic teams
 	app->run();
 	//fontAdderThread.join();
 	delete app;

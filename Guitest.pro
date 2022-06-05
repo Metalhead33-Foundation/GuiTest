@@ -2,9 +2,9 @@ TEMPLATE = app
 CONFIG += console c++2a
 CONFIG -= app_bundle
 CONFIG -= qt
-QMAKE_CFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
-QMAKE_CXXFLAGS += -O3 -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
-LIBS += -lSDL2 -lSDL2_image -lfreetype
+QMAKE_CFLAGS += -O3 -fopenmp -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
+QMAKE_CXXFLAGS += -O3 -fopenmp -ffast-math -I/usr/include/freetype2 -I/usr/include/harfbuzz
+LIBS += -lSDL2 -lSDL2_image -lfreetype -fopenmp
 
 SOURCES += \
         Pipeline/BasicPipeline.cpp \
