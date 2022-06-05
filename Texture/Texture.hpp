@@ -7,6 +7,7 @@
 enum TextureFiltering {
 	NEAREST_NEIGHBOUR,
 	DITHERED,
+	THREE_POINT,
 	BILINEAR
 };
 enum AlphaBlending {

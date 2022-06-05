@@ -64,7 +64,7 @@ int main()
 			cntr.reserve(256);
 			cntr.push_back(std::make_shared<BoxWidget>(absToRel(glm::ivec2(25,25),virtualRes),absToRel(glm::ivec2(125,125),virtualRes)));
 			cntr.push_back(std::make_shared<TickboxWidget>(absToRel(glm::ivec2(100,100),virtualRes),absToRel(glm::ivec2(200,200),virtualRes),1));
-			cntr.push_back(std::make_shared<TexturedWidget>(absToRel(glm::ivec2(200,200),virtualRes),absToRel(glm::ivec2(200+CIRCLE_W,200+CIRCLE_H),virtualRes),
+			cntr.push_back(std::make_shared<TexturedWidget>(absToRel(glm::ivec2(200,200),virtualRes),absToRel(glm::ivec2(200+CIRCLE_W*2,200+CIRCLE_H*2),virtualRes),
 															atatex1,
 															atatex2,
 															atatex3));

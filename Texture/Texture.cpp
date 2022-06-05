@@ -1,5 +1,6 @@
 #include "Texture.hpp"
 #include "../Util/Dither.hpp"
+#include "../Pipeline/EdgeFunction.hpp"
 #include <cmath>
 
 void Texture::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions)
@@ -95,10 +96,46 @@ void Texture::sample(const glm::fvec2 &pos, const glm::ivec2 &screenpos, glm::fv
 		getPixel(glm::ivec2( static_cast<int>(std::round(texelCoords.x))%getWidth(),static_cast<int>(std::round(texelCoords.y))%getHeight() ),colourKernel, wrap);
 		break;
 		}
+	case THREE_POINT: {
+		const glm::fvec2 tmp = glm::fvec2(pos.x * getWidthF(),pos.y * getHeightF() );
+		const glm::fvec2 coordEdgeTopLeft( std::floor(tmp[0]), std::floor(tmp[1]) );
+		const glm::fvec2 coordEdgeTopRight( std::ceil(tmp[0]), std::floor(tmp[1]) );
+		const glm::fvec2 coordEdgeBottomLeft( std::floor(tmp[0]), std::ceil(tmp[1]) );
+		const glm::fvec2 coordEdgeBottomRight( std::ceil(tmp[0]), std::ceil(tmp[1]) );
+		const bool bottomRightIsUsed = ((tmp.y - coordEdgeTopLeft.y) * (tmp.x - coordEdgeTopLeft.x)) >= 0.25f;
+		const glm::fvec2& thirdPosition = bottomRightIsUsed ? coordEdgeBottomRight : coordEdgeTopLeft;
+		glm::fvec4 colourEdgeTopRight, colourEdgeBottomLeft, thirdColour;
+		getPixel(glm::ivec2( static_cast<int>(coordEdgeTopRight[0]) ,static_cast<int>(coordEdgeTopRight[1]) ),colourEdgeTopRight,wrap );
+		getPixel(glm::ivec2( static_cast<int>(coordEdgeBottomLeft[0]) ,static_cast<int>(coordEdgeBottomLeft[1]) ),colourEdgeBottomLeft,wrap );
+		getPixel(glm::ivec2( static_cast<int>(thirdPosition[0]) ,static_cast<int>(thirdPosition[1]) ),thirdColour,wrap );
+		/*
+			const float w0 = edgeFunction(v1, v2, tmp);
+			const float w1 = edgeFunction(v2, v0, tmp);
+			const float w2 = edgeFunction(v0, v1, tmp);
+			If we have flat-bottom:
+			V0 - TopRight
+			V1 - BottomLeft
+			V2 - BottomRight = thirdPosition
+			If we have flat-top:
+			V0 = Top-Left = ThirdPosition
+			V1 - Top-Right
+			V2 - Bottom-Left
+*/
+		if(bottomRightIsUsed) {
+			const float w0 = edgeFunction(coordEdgeBottomLeft, thirdPosition, tmp);
+			const float w1 = edgeFunction(thirdPosition, coordEdgeTopRight, tmp);
+			const float w2 = edgeFunction(coordEdgeTopRight, coordEdgeBottomLeft, tmp);
+			colourKernel = (colourEdgeTopRight * w0) + (colourEdgeBottomLeft * w1) + (thirdColour * w2);
+		} else {
+			const float w0 = edgeFunction(coordEdgeBottomLeft, coordEdgeTopRight, tmp);
+			const float w1 = edgeFunction(coordEdgeTopRight, thirdPosition, tmp);
+			const float w2 = edgeFunction(thirdPosition, coordEdgeBottomLeft, tmp);
+			colourKernel = (thirdColour * w0) + (colourEdgeBottomLeft * w1) + (colourEdgeTopRight * w2);
+		}
+		break;
+	}
 	case BILINEAR:
 		{
-		const int w = getWidth();
-		const int h = getHeight();
 		const glm::fvec2 tmp = glm::fvec2(pos.x * getWidthF(),pos.y * getHeightF() );
 		const glm::fvec2 coordEdgeTopLeft( std::floor(tmp[0]), std::floor(tmp[1]) );
 		const glm::fvec2 coordEdgeTopRight( std::ceil(tmp[0]), std::floor(tmp[1]) );
@@ -106,10 +143,10 @@ void Texture::sample(const glm::fvec2 &pos, const glm::ivec2 &screenpos, glm::fv
 		const glm::fvec2 coordEdgeBottomRight( std::ceil(tmp[0]), std::ceil(tmp[1]) );
 		const glm::fvec2 weight = tmp - coordEdgeTopLeft;
 		glm::fvec4 colourTopLeft, colourTopRight, colourBottomLeft, colourBottomRight;
-		getPixel(glm::ivec2( static_cast<int>(coordEdgeTopLeft[0]) % w,static_cast<int>(coordEdgeTopLeft[1]) % h ),colourTopLeft,wrap );
-		getPixel(glm::ivec2( static_cast<int>(coordEdgeTopRight[0]) % w,static_cast<int>(coordEdgeTopRight[1]) % h ),colourTopRight,wrap );
-		getPixel(glm::ivec2( static_cast<int>(coordEdgeBottomLeft[0]) % w,static_cast<int>(coordEdgeBottomLeft[1]) % h ),colourBottomLeft,wrap );
-		getPixel(glm::ivec2( static_cast<int>(coordEdgeBottomRight[0]) % w,static_cast<int>(coordEdgeBottomRight[1]) % h ),colourBottomRight,wrap );
+		getPixel(glm::ivec2( static_cast<int>(coordEdgeTopLeft[0]) ,static_cast<int>(coordEdgeTopLeft[1]) ),colourTopLeft,wrap );
+		getPixel(glm::ivec2( static_cast<int>(coordEdgeTopRight[0]) ,static_cast<int>(coordEdgeTopRight[1]) ),colourTopRight,wrap );
+		getPixel(glm::ivec2( static_cast<int>(coordEdgeBottomLeft[0]) ,static_cast<int>(coordEdgeBottomLeft[1]) ),colourBottomLeft,wrap );
+		getPixel(glm::ivec2( static_cast<int>(coordEdgeBottomRight[0]) ,static_cast<int>(coordEdgeBottomRight[1]) ),colourBottomRight,wrap );
 		colourTopLeft *= ((1.0f-weight[0]) * (1.0f-weight[1]));
 		colourTopRight *= (weight[0] * (1.0f-weight[1]));
 		colourBottomLeft *= ((1.0f-weight[0]) * weight[1]);
