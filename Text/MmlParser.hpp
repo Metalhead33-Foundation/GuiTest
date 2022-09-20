@@ -3,6 +3,7 @@
 #include "RtProcessorStack.hpp"
 #include <sstream>
 
+namespace TXT {
 class MmlParser : public RtProcessorStack
 {
 private:
@@ -20,5 +21,5 @@ public:
 	void parse(const char* cstr);
 	void parse(const std::string& str);
 };
-
+}
 #endif // MMLPARSER_H

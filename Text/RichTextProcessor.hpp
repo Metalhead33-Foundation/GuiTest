@@ -7,6 +7,7 @@
 #include <cuchar>
 #include <ostream>
 
+namespace TXT {
 class RichTextProcessor
 {
 public:
@@ -89,5 +90,5 @@ public:
 	RichTextProcessor& operator<<(const RichTextManipulator& manipulator);
 };
 typedef std::shared_ptr<RichTextProcessor> sRichTextProcessor;
-
+}
 #endif // RICHTEXTPROCESSOR_H

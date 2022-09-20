@@ -1,5 +1,6 @@
 #include "FontRepository.hpp"
 
+namespace TXT {
 const FontRepository::NamedFontMap& FontRepository::getFonts() const
 {
 	return fonts;
@@ -45,4 +46,5 @@ sFont FontRepository::getFont(const std::string& fontName, uint8_t flags) const
 sFont FontRepository::getFont(const std::string& fontName, bool isBold) const
 {
 	return getFont(fontName,static_cast<uint8_t>( uint8_t(isBold)  ) );
+}
 }

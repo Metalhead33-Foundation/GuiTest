@@ -1,31 +1,26 @@
-#ifndef GUIRENDERSYSTEM_H
-#define GUIRENDERSYSTEM_H
+#ifndef ACCELERATEDGUIRENDERSYSTEM_HPP
+#define ACCELERATEDGUIRENDERSYSTEM_HPP
 #include "AppSystem.hpp"
-#include "../Texture/Texture.hpp"
-#include "../SoftPipeline/ZBuffer.hpp"
 #include "../Widget/IWidget.hpp"
 #include "../Pipeline/GuiRenderer.hpp"
-#include "../SoftPipeline/BasicPipeline.hpp"
-#include "../SoftPipeline/TexturedPipeline.hpp"
-#include "../SoftPipeline/ColouredTexturedPipeline.hpp"
 #include "../Util/ThreadsafeContainer.hpp"
 #include "../Widget/Cursor.hpp"
 #include "../Text/FontRepository.hpp"
 #include "FpsCounter.hpp"
 #include <vector>
 #include "../Text/RichTextProcessor.hpp"
+#include <EGL/EglContext.hpp>
+#include <GL/GlGui.hpp>
 
-class GuiRenderSystem : public AppSystem, public GuiRenderer
+class AcceleratedGuiRenderSystem : public AppSystem
 {
 public:
-	typedef std::function<void(GuiRenderSystem*)> KeyFunction;
+	typedef std::function<void(AcceleratedGuiRenderSystem*)> KeyFunction;
 	typedef std::map<SDL_Keycode,KeyFunction> FunctionMap;
 protected:
-	sTexture framebuffer;
-	std::shared_ptr<ZBuffer> zbuffer;
-	BasicPipeline bpipeline;
-	TexturedPipeline tpipeline;
-	ColouredTexturedPipeline ctpipeline;
+	SDL_SysWMinfo sysinfo;
+	std::unique_ptr<EGL::Context> context;
+	std::unique_ptr<GL::Gui> guiRenderer;
 	sCursor cursor;
 	TXT::sFontRepository font;
 	IWidget* currentWidget;
@@ -45,7 +40,7 @@ protected:
 	virtual void render() override;
 	void onResolutionChange(int newWidth, int newHeight);
 public:
-	GuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags);
+	AcceleratedGuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags);
 	glm::fvec2 absToRel(const glm::ivec2& abs) const;
 	glm::fvec2 absToRel(const glm::ivec2& abs, const glm::ivec2& customRes) const;
 	glm::ivec2 relToAbs(const glm::fvec2& rel) const;
@@ -75,15 +70,6 @@ protected:
 	void handleUserEvent(const SDL_UserEvent& event) override;
 	void handleWindowEvent(const SDL_WindowEvent& event) override;
 public:
-	void renderCLine(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour, int thickness = 1) override;
-	void renderCRect(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour) override;
-	void renderCTriang(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2& p2, const glm::fvec4& colour) override;
-	void renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const ITexture& tex) override;
-	void renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const ITexture& tex) override;
-	void renderTex(const ITexture& tex) override;
-	void renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const ITexture& tex) override;
-	void renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::vec4& colour, const ITexture& tex) override;
-	void renderCTex(const glm::vec4& colour, const ITexture& tex) override;
 	const sCursor& getCursor() const;
 	void setCursor(const sCursor& newCursor);
 	void setCursor(sCursor&& newCursor);
@@ -92,9 +78,8 @@ public:
 	void setFont(TXT::sFontRepository&& newFont);
 	const FunctionMap& getFunctionMap() const;
 	FunctionMap& getFunctionMap();
-	void renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const ITexture& tex) override;
 	const threadsafe<std::vector<sWidget> >& getWidgets() const;
 	threadsafe<std::vector<sWidget> >& getWidgets();
 };
 
-#endif // GUIRENDERSYSTEM_H
+#endif // ACCELERATEDGUIRENDERSYSTEM_HPP

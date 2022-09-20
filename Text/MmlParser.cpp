@@ -1,6 +1,7 @@
 #include "MmlParser.hpp"
 #include "../Util/ColourHelper.hpp"
 
+namespace TXT {
 void MmlParser::onTagEnd()
 {
 	if(!isProcessingTag) return;
@@ -1711,4 +1712,5 @@ void MmlParser::parse(const std::string& str)
 	for(const auto c : str) {
 		parse(c);
 	}
+}
 }

@@ -1,6 +1,6 @@
 #include "Texture.hpp"
 #include "../Util/Dither.hpp"
-#include "../Pipeline/EdgeFunction.hpp"
+#include "../SoftPipeline/EdgeFunction.hpp"
 #include <cmath>
 
 void Texture::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions)

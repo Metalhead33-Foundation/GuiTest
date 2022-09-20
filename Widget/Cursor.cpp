@@ -3,17 +3,17 @@
 
 static const float magicAlpha = 0.995f;
 
-float Cursor::getMouseScale() const
+float TCursor::getMouseScale() const
 {
 	return mouseScale;
 }
 
-void Cursor::setMouseScale(float newMouseScale)
+void TCursor::setMouseScale(float newMouseScale)
 {
 	mouseScale = newMouseScale;
 }
 
-void Cursor::init()
+void TCursor::init()
 {
 	dimensions = glm::ivec2(texture->getWidth(),texture->getHeight());
 	const int maxCrawl = std::min(dimensions.x,dimensions.y);
@@ -43,19 +43,19 @@ void Cursor::init()
 	}
 }
 
-Cursor::Cursor(const sTexture& tex, float mouseScale)
+TCursor::TCursor(const sTexture& tex, float mouseScale)
 	: texture(tex), topLeft(-1,-1), mouseScale(mouseScale)
 {
 	init();
 }
 
-Cursor::Cursor(sTexture&& tex, float mouseScale)
+TCursor::TCursor(sTexture&& tex, float mouseScale)
 	: texture(std::move(tex)), topLeft(-1,-1), mouseScale(mouseScale)
 {
 	init();
 }
 
-void Cursor::render(GuiRenderer& renderer, const glm::fvec2& mousePos, const glm::fvec2& screenReciprocal)
+void TCursor::render(GuiRenderer& renderer, const glm::fvec2& mousePos, const glm::fvec2& screenReciprocal)
 {
 	const glm::fvec2 cursorTopLeft = mousePos - (glm::fvec2(static_cast<float>(topLeft.x) * screenReciprocal.x,static_cast<float>(topLeft.y) * screenReciprocal.y) * mouseScale);
 	const glm::fvec2 cursorBottomRight = cursorTopLeft + (glm::fvec2(static_cast<float>(dimensions.x)*screenReciprocal.x,static_cast<float>(dimensions.y) * screenReciprocal.y) * mouseScale);

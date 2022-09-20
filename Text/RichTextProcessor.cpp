@@ -1,6 +1,7 @@
 #include "RichTextProcessor.hpp"
 #include "../Util/NormDenorm.hpp"
 
+namespace TXT {
 int RichTextProcessor::getDefaultSize() const
 {
 	return defaultSize;
@@ -334,4 +335,5 @@ RichTextProcessor& RichTextProcessor::operator<<(std::ios_base& (*pf)(std::ios_b
 RichTextProcessor& RichTextProcessor::operator<<(const RichTextManipulator& manipulator) {
 	manipulator(*this);
 	return *this;
+}
 }

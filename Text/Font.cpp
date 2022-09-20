@@ -6,6 +6,7 @@ extern "C" {
 #include <freetype/ftbitmap.h>
 }
 
+namespace TXT {
 static const std::pair<char32_t,char32_t> UNICODE_RANGES[] = {
 	{ 0x0020, 0x007F}, // Basic Latin
 	{ 0x00A0, 0x00FF}, // Latin-1 Supplement
@@ -344,4 +345,5 @@ void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlo
 		state.attributes.isUnderline = block.isUnderline;
 		if(block.font) block.font->renderText(renderer,block.text,state);
 	}
+}
 }

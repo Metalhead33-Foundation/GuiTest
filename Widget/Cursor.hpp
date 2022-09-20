@@ -3,7 +3,7 @@
 #include "../Texture/Texture.hpp"
 #include "../Pipeline/GuiRenderer.hpp"
 
-class Cursor
+class TCursor
 {
 private:
 	sTexture texture;
@@ -12,12 +12,12 @@ private:
 	float mouseScale;
 	void init();
 public:
-	explicit Cursor(const sTexture& tex, float mouseScale = 1.0f);
-	explicit Cursor(sTexture&& tex, float mouseScale = 1.0f);
+	explicit TCursor(const sTexture& tex, float mouseScale = 1.0f);
+	explicit TCursor(sTexture&& tex, float mouseScale = 1.0f);
 	void render(GuiRenderer& renderer, const glm::fvec2& mousePos, const glm::fvec2& screenReciprocal);
 	float getMouseScale() const;
 	void setMouseScale(float newMouseScale);
 };
-typedef std::shared_ptr<Cursor> sCursor;
+typedef std::shared_ptr<TCursor> sCursor;
 
 #endif // CURSOR_HPP

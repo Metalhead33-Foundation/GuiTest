@@ -3,6 +3,7 @@
 #include "RichTextProcessor.hpp"
 #include <stack>
 
+namespace TXT {
 class RtProcessorStack
 {
 private:
@@ -39,5 +40,5 @@ public:
 	void popItalic();
 	void popStrikethrough();
 };
-
+}
 #endif // RTPROCESSORSTACK_HPP

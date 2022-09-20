@@ -1,6 +1,7 @@
 #include <omp.h>
 #include <iostream>
 #include "System/GuiRenderSystem.hpp"
+#include "System/AcceleratedGuiRenderSystem.hpp"
 #include "Util/PixelFormat.hpp"
 #include "Util/TextureFromSurface.hpp"
 #include <thread>
@@ -35,14 +36,17 @@ static glm::fvec2 absToRel(const glm::ivec2& abs, const glm::ivec2& customRes)
 
 typedef std::unique_ptr<SDL_Surface,decltype(&SDL_FreeSurface)> uSUrface;
 
+typedef AcceleratedGuiRenderSystem GUISYS;
+//typedef GuiRenderSystem GUISYS;
 int main()
 {
+	gladLoaderLoadEGL(nullptr);
 	TextureAtlas atlas([](const glm::ivec2& size) {
 		return new StandardTexture<PixelARGB8888>(size.x,size.y);
 	},glm::ivec2(32,32),glm::ivec2(12,12));
 	SDL_Init(SDL_INIT_VIDEO);
 	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS,"1");
-	GuiRenderSystem* app = new GuiRenderSystem("GUI Render Demo",0,0,WIDTH,HEIGHT,0);
+	GUISYS* app = new GUISYS("GUI Render Demo",0,0,WIDTH,HEIGHT,0);
 	auto cursorAdderThread = std::thread([app,&atlas]() {
 		// textureFromSurfaceCopy
 		std::unique_ptr<SDL_Surface,decltype(&SDL_FreeSurface)> surfacePtr(IMG_Load("wodmouse.png"),SDL_FreeSurface);
@@ -57,7 +61,7 @@ int main()
 		sTexture atatex3(atlas.allocateBlocks(atex3));
 		sTexture atatex4(atlas.allocateBlocks(*tex));
 
-		sCursor cursor = std::make_shared<Cursor>(std::move(atatex4));
+		sCursor cursor = std::make_shared<TCursor>(std::move(atatex4));
 		app->setCursor(std::move(cursor));
 
 		app->getWidgets().access( [&](std::vector<sWidget>& cntr) {
@@ -71,7 +75,7 @@ int main()
 		});
 
 	});
-	app->getFunctionMap().insert_or_assign(SDLK_SPACE,[](GuiRenderSystem* sys) {
+	app->getFunctionMap().insert_or_assign(SDLK_SPACE,[](GUISYS* sys) {
 		auto fontSys = sys->getFont();
 		if(fontSys) {
 			for(auto it = std::begin(fontSys->getFonts()); it != std::end(fontSys->getFonts());++it) {
@@ -87,7 +91,7 @@ int main()
 			}
 		}
 	});
-	app->getFunctionMap().insert_or_assign(SDLK_TAB,[&atlas](GuiRenderSystem* sys) {
+	app->getFunctionMap().insert_or_assign(SDLK_TAB,[&atlas](GUISYS* sys) {
 		uSUrface s(SDL_CreateRGBSurfaceWithFormat(0,atlas.getTexture()->getWidth(),atlas.getTexture()->getHeight(),8,SDL_PIXELFORMAT_ARGB8888),SDL_FreeSurface);
 		memcpy(s->pixels,atlas.getTexture()->getRawPixels(),s->w * s->h * 4);
 		IMG_SavePNG(s.get(),"textureAtlas.png");
@@ -107,9 +111,9 @@ int main()
 		FT_Library ft;
 		if (!FT_Init_FreeType(&ft)) {
 		} {
-		sFreeTypeSystem sys(ft,FT_Done_FreeType);
+		TXT::sFreeTypeSystem sys(ft,FT_Done_FreeType);
 
-		auto font = std::make_shared<FontRepository>( std::move(sys) );
+		auto font = std::make_shared<TXT::FontRepository>( std::move(sys) );
 		font->initializeFont("Noto",CJK);
 		app->setFont(std::move(font));
 		}

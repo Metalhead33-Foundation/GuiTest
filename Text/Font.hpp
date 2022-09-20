@@ -9,6 +9,8 @@
 #include FT_FREETYPE_H
 #include "../Pipeline/GuiRenderer.hpp"
 
+namespace TXT {
+
 typedef std::shared_ptr<FT_LibraryRec_> sFreeTypeSystem;
 typedef std::shared_ptr<FT_FaceRec> sFreeTypeFace;
 class Font;
@@ -83,5 +85,7 @@ public:
 	bool getIsItalic() const;
 };
 typedef std::shared_ptr<Font> sFont;
+
+}
 
 #endif // FONT_H

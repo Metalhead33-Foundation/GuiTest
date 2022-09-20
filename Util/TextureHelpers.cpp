@@ -1,7 +1,6 @@
 #include "TextureHelpers.hpp"
 #include <cmath>
-
-
+#include <algorithm>
 
 uint32_t argb32(const float alpha)
 {

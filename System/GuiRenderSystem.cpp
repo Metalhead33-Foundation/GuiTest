@@ -25,22 +25,22 @@ void GuiRenderSystem::setCursor(sCursor&& newCursor)
 	cursor = std::move(newCursor);
 }
 
-const sFontRepository& GuiRenderSystem::getFont() const
+const TXT::sFontRepository& GuiRenderSystem::getFont() const
 {
 	return font;
 }
 
-void GuiRenderSystem::setFont(const sFontRepository& newFont)
+void GuiRenderSystem::setFont(const TXT::sFontRepository& newFont)
 {
 	font = newFont;
-	richie = std::make_shared<RichTextProcessor>(std::ref(font));
+	richie = std::make_shared<TXT::RichTextProcessor>(std::ref(font));
 	//richie = sRichTextProcessor(new RichTextProcessor(font));
 }
 
-void GuiRenderSystem::setFont(sFontRepository&& newFont)
+void GuiRenderSystem::setFont(TXT::sFontRepository&& newFont)
 {
 	font = std::move(newFont);
-	richie = std::make_shared<RichTextProcessor>(std::ref(font));
+	richie = std::make_shared<TXT::RichTextProcessor>(std::ref(font));
 	//richie = sRichTextProcessor(new RichTextProcessor(font));
 }
 
@@ -73,11 +73,11 @@ threadsafe<std::vector<sWidget> >& GuiRenderSystem::getWidgets()
 void GuiRenderSystem::updateLogic()
 {
 	if(richie && logicTicks > 10) {
-		RichTextProcessor& RT = *richie;
+		TXT::RichTextProcessor& RT = *richie;
 		float fpsMin, fpsAvg, fpsMax;
 		fpsCounter.queryData(fpsMin,fpsAvg,fpsMax);
 		std::stringstream strm;
-		MmlParser parser(richie.get());
+		TXT::MmlParser parser(richie.get());
 #ifdef INSERT_HUNGARIAN
 		strm << "<colour=#FF0000><b>Magyar </b></colour><colour=#FFFFFF><u>nyelven &amp; </u></colour><colour=#00FF00><i>írtam.</i></colour><br>";
 #endif
@@ -106,7 +106,7 @@ void GuiRenderSystem::render()
 		zbuffer->clear();
 		if(font) {
 			//font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,0.5f,glm::fvec4(0.99f,0.35f,0.35f,1.0f),8);
-			Font::renderTextBlocks(*this,textToRender,glm::fvec2(-0.9f,-0.9f),sizeReciprocal,0.5f,8);
+			TXT::Font::renderTextBlocks(*this,textToRender,glm::fvec2(-0.9f,-0.9f),sizeReciprocal,0.5f,8);
 		}
 		widgets.access( [this](const std::vector<sWidget>& cntr) {
 			for(auto& it : cntr) {
@@ -383,27 +383,27 @@ void GuiRenderSystem::renderCTriang(const glm::fvec2& p0, const glm::fvec2& p1, 
 	bpipeline.renderTriangles(vertices);
 }
 
-void GuiRenderSystem::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const Texture& tex)
+void GuiRenderSystem::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const ITexture& tex)
 {
-	tpipeline.uniform.tex = &tex;
+	tpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
 	tpipeline.renderRectangle(
 				TexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = t0 },
 				TexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = t1 }
 				);
 }
 
-void GuiRenderSystem::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const Texture& tex)
+void GuiRenderSystem::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const ITexture& tex)
 {
-	tpipeline.uniform.tex = &tex;
+	tpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
 	tpipeline.renderRectangle(
 				TexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
 				TexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }
 				);
 }
 
-void GuiRenderSystem::renderTex(const Texture& tex)
+void GuiRenderSystem::renderTex(const ITexture& tex)
 {
-	tpipeline.uniform.tex = &tex;
+	tpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
 	tpipeline.renderRectangle(
 				TexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
 				TexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }
@@ -411,27 +411,27 @@ void GuiRenderSystem::renderTex(const Texture& tex)
 }
 
 
-void GuiRenderSystem::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const Texture& tex)
+void GuiRenderSystem::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const ITexture& tex)
 {
-	ctpipeline.uniform.tex = &tex;
+	ctpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
 	ctpipeline.renderRectangle(
 				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = t0, .COLOUR = colour },
 				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = t1, .COLOUR = colour }
 				);
 }
 
-void GuiRenderSystem::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::vec4& colour, const Texture& tex)
+void GuiRenderSystem::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::vec4& colour, const ITexture& tex)
 {
-	ctpipeline.uniform.tex = &tex;
+	ctpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);;
 	ctpipeline.renderRectangle(
 				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(0.0f, 0.0f), .COLOUR = colour },
 				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(1.0f, 1.0f), .COLOUR = colour }
 				);
 }
 
-void GuiRenderSystem::renderCTex(const glm::vec4& colour, const Texture& tex)
+void GuiRenderSystem::renderCTex(const glm::vec4& colour, const ITexture& tex)
 {
-	ctpipeline.uniform.tex = &tex;
+	ctpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
 	ctpipeline.renderRectangle(
 				ColouredTexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f), .COLOUR = colour },
 				ColouredTexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f), .COLOUR = colour }
@@ -439,7 +439,7 @@ void GuiRenderSystem::renderCTex(const glm::vec4& colour, const Texture& tex)
 }
 
 
-void GuiRenderSystem::renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const Texture& tex)
+void GuiRenderSystem::renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const ITexture& tex)
 {
 	const float xdiff = (std::max(p0.x,p1.x) - std::min(p0.x,p1.x)) * tilt;
 	ColouredTexturedVertexIn vertices[] = {
@@ -449,6 +449,6 @@ void GuiRenderSystem::renderTiltedCTex(float tilt, const glm::fvec2& p0, const g
 		ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::max(t0.x,t1.x), std::max(t0.y,t1.y)) , .COLOUR = colour }
 	};
 	unsigned int indices[] = { 0, 1, 2, 1, 2, 3 };
-	ctpipeline.uniform.tex = &tex;
+	ctpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
 	ctpipeline.renderTriangles(vertices,indices);
 }

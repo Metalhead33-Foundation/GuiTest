@@ -1,5 +1,6 @@
 #include "RtProcessorStack.hpp"
 
+namespace TXT {
 RichTextProcessor* RtProcessorStack::getRTP() const
 {
 	return RTP;
@@ -136,4 +137,5 @@ RtProcessorStack::RtProcessorStack(RichTextProcessor* nRTP) : colourStack(),
 	RTP(nRTP)
 {
 	if(RTP) colourStack.push(RTP->getDefaultColour());
+}
 }

@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <functional>
 #include <memory>
+#include <Pipeline/ITexture.hpp>
 
 enum TextureFiltering {
 	NEAREST_NEIGHBOUR,
@@ -28,7 +29,7 @@ struct Sampler {
 	TextureFiltering filtering;
 };
 
-class Texture
+class Texture : public ITexture
 {
 public:
 	// Colour programmes

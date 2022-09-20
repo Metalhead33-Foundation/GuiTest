@@ -3,6 +3,7 @@
 #include "Font.hpp"
 #include <array>
 
+namespace TXT {
 class FontRepository
 {
 public:
@@ -21,5 +22,5 @@ public:
 	NamedFontMap& getFonts();
 };
 typedef std::shared_ptr<FontRepository> sFontRepository;
-
+}
 #endif // FONTREPOSITORY_H

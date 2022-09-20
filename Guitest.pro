@@ -8,13 +8,27 @@ QMAKE_CXXFLAGS += -O3 -fopenmp -ffast-math -I/usr/include/freetype2 -I/usr/inclu
 LIBS += -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl
 
 SOURCES += \
-        Pipeline/BasicPipeline.cpp \
-        Pipeline/ColouredTexturedPipeline.cpp \
-        Pipeline/EdgeFunction.cpp \
-        Pipeline/GuiRenderer.cpp \
-        Pipeline/ModelPipeline.cpp \
-        Pipeline/TexturedPipeline.cpp \
-        Pipeline/ZBuffer.cpp \
+        EGL/EglContext.cpp \
+        EGL/EglDisplay.cpp \
+        EGL/egl.c \
+        GL/GlBuffer.cpp \
+        GL/GlFramebuffer.cpp \
+	GL/GlGui.cpp \
+        GL/GlRenderbuffer.cpp \
+        GL/GlSampler.cpp \
+        GL/GlShader.cpp \
+        GL/GlShaderProgram.cpp \
+        GL/GlTexture.cpp \
+        GL/GlVAO.cpp \
+        GL/gles2.c \
+	Pipeline/GuiRenderer.cpp \
+	SoftPipeline/BasicPipeline.cpp \
+	SoftPipeline/ColouredTexturedPipeline.cpp \
+	SoftPipeline/EdgeFunction.cpp \
+	SoftPipeline/ModelPipeline.cpp \
+	SoftPipeline/TexturedPipeline.cpp \
+	SoftPipeline/ZBuffer.cpp \
+	System/AcceleratedGuiRenderSystem.cpp \
         System/AppSystem.cpp \
         System/FpsCounter.cpp \
         System/GuiRenderSystem.cpp \
@@ -37,14 +51,37 @@ SOURCES += \
         main.cpp
 
 HEADERS += \
-	Pipeline/BasicPipeline.hpp \
-	Pipeline/ColouredTexturedPipeline.hpp \
-	Pipeline/EdgeFunction.hpp \
+	EGL/EglContext.hpp \
+	EGL/EglDisplay.hpp \
+	EGL/egl.h \
+	EGL/eglplatform.h \
+	GL/GlBuffer.hpp \
+	GL/GlBufferArray.hpp \
+	GL/GlFramebuffer.hpp \
+	GL/GlFramebufferArray.hpp \
+	GL/GlGui.hpp \
+	GL/GlRenderbuffer.hpp \
+	GL/GlRenderbufferArray.hpp \
+	GL/GlSampler.hpp \
+	GL/GlSamplerArray.hpp \
+	GL/GlShader.hpp \
+	GL/GlShaderProgram.hpp \
+	GL/GlTexture.hpp \
+	GL/GlTextureArray.hpp \
+	GL/GlVAO.hpp \
+	GL/GlVaoArray.hpp \
+	GL/gles2.h \
+	GL/khrplatform.h \
 	Pipeline/GuiRenderer.hpp \
-	Pipeline/ModelPipeline.hpp \
-	Pipeline/RenderingPipeline.hpp \
-	Pipeline/TexturedPipeline.hpp \
-	Pipeline/ZBuffer.hpp \
+	Pipeline/ITexture.hpp \
+	SoftPipeline/BasicPipeline.hpp \
+	SoftPipeline/ColouredTexturedPipeline.hpp \
+	SoftPipeline/EdgeFunction.hpp \
+	SoftPipeline/ModelPipeline.hpp \
+	SoftPipeline/RenderingPipeline.hpp \
+	SoftPipeline/TexturedPipeline.hpp \
+	SoftPipeline/ZBuffer.hpp \
+	System/AcceleratedGuiRenderSystem.hpp \
 	System/AppSystem.hpp \
 	System/FpsCounter.hpp \
 	System/GuiRenderSystem.hpp \
@@ -65,6 +102,7 @@ HEADERS += \
 	Util/TextureFromSurface.hpp \
 	Util/TextureHelpers.hpp \
 	Util/ThreadsafeContainer.hpp \
+	VertexFormat.hpp \
 	Widget/BoxWidget.hpp \
 	Widget/Cursor.hpp \
 	Widget/IWidget.hpp \
