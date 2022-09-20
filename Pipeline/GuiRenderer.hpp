@@ -5,6 +5,7 @@
 #include <span>
 #include <memory>
 
+namespace SYS {
 class GuiRenderer {
 public:
 	virtual ~GuiRenderer() = default;
@@ -20,5 +21,6 @@ public:
 	virtual void renderCTex(const glm::vec4& colour, const ITexture& tex) = 0;
 	virtual void renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const ITexture& tex) = 0;
 };
+}
 
 #endif // GUIRENDERER_H

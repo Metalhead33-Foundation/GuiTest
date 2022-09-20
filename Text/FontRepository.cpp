@@ -11,12 +11,17 @@ FontRepository::NamedFontMap& FontRepository::getFonts()
 	return fonts;
 }
 
-FontRepository::FontRepository(const sFreeTypeSystem& bsys) : sys(bsys)
+bool FontRepository::getIsAccelerated() const
+{
+	return isAccelerated;
+}
+
+FontRepository::FontRepository(const sFreeTypeSystem& bsys, bool accelerated) : sys(bsys), isAccelerated(accelerated)
 {
 
 }
 
-FontRepository::FontRepository(sFreeTypeSystem&& bsys) : sys(std::move(bsys))
+FontRepository::FontRepository(sFreeTypeSystem&& bsys, bool accelerated) : sys(std::move(bsys)), isAccelerated(accelerated)
 {
 
 }
@@ -31,7 +36,7 @@ void FontRepository::initializeFont(const std::string& fontName, const std::stri
 		}
 		FT_Set_Pixel_Sizes(face, 0, 48);
 		sFreeTypeFace fac(face,FT_Done_Face);
-		fmap[flags] = std::make_shared<Font>(sys,fac, flags & 0x01);
+		fmap[flags] = std::make_shared<Font>(sys,fac, flags & 0x01, isAccelerated);
 	}
 	fonts.insert_or_assign(fontName,fmap);
 }

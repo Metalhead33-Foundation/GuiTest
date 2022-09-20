@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 
+namespace SYS {
 class FpsCounter
 {
 private:
@@ -17,5 +18,6 @@ public:
 	void singleTick(const std::function<void()>& toDo);
 	void queryData(float& minFps, float& avgFps, float& maxFps);
 };
+}
 
 #endif // FPSCOUNTER_HPP

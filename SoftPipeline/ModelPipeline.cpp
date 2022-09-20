@@ -1,6 +1,7 @@
 #include "ModelPipeline.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 
+namespace SoftwareRenderer {
 ModelVertexOut ModelVertexShader(const ModelUniform &uniform, const ModelVertexIn &vertex)
 {
 	glm::fvec4 tmp = glm::fvec4(vertex.POS,1.0f);
@@ -20,4 +21,5 @@ void ModelFragmentShader(Texture &framebuffer, const glm::ivec2 &point, const Mo
 		glm::fvec4 colourKernel = uniform.tex->sample(v0.TEXCOORD,point,uniform.samplerState) * v0.COLOUR;
 		if(framebuffer.setPixelWithBlending(point,colourKernel,uniform.blending)) zbuffpoint = v0.POS.z;
 		}
+}
 }

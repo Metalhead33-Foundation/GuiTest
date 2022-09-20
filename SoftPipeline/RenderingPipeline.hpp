@@ -6,6 +6,7 @@
 #include "EdgeFunction.hpp"
 #include <span>
 
+namespace SoftwareRenderer {
 constexpr int getMiddle(int number) {
 	return (number & 1) ? ((number/2)+1) : (number/2);
 }
@@ -224,5 +225,5 @@ template<typename VertexInType, typename VertexOutType, typename UniformType> st
 		fillLine(o0,o1,thickness);
 	}
 };
-
+}
 #endif // RENDERINGPIPELINE_HPP

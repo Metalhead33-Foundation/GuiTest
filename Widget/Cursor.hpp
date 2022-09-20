@@ -3,6 +3,7 @@
 #include "../Texture/Texture.hpp"
 #include "../Pipeline/GuiRenderer.hpp"
 
+namespace SYS {
 class TCursor
 {
 private:
@@ -19,5 +20,6 @@ public:
 	void setMouseScale(float newMouseScale);
 };
 typedef std::shared_ptr<TCursor> sCursor;
+}
 
 #endif // CURSOR_HPP

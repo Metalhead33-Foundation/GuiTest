@@ -1,5 +1,6 @@
 #include "TickboxWidget.hpp"
 
+namespace SYS {
 int TickboxWidget::getThickness() const
 {
 	return thickness;
@@ -51,4 +52,5 @@ void TickboxWidget::render(GuiRenderer& renderer)
 	renderer.renderCLines(points,clr,thickness);
 	}
 
+}
 }

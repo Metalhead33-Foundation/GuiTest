@@ -2,6 +2,7 @@
 #define TEXTUREATLAS_HPP
 #include "Texture.hpp"
 
+namespace SoftwareRenderer {
 class TextureAtlas;
 
 class TextureAtlasSubsection : public Texture {
@@ -65,5 +66,6 @@ public:
 	TextureAtlasSubsection* allocateBlocks(const Texture& textureToInsert);
 	Texture* getTexture() const;
 };
+}
 
 #endif // TEXTUREATLAS_HPP

@@ -1,5 +1,6 @@
 #include "GlGui.hpp"
 #include <glm/glm.hpp>
+#include "GlTexture2D.hpp"
 
 namespace GL {
 
@@ -74,7 +75,9 @@ static const std::string clrPTexFragmentShader = "#version 100\n"
 												 "uniform vec4 colour;\n"
 												 "void main()\n"
 												 "{\n"
-												 "    gl_FragColor = colour*texture2D(texture_sampler, interpolated_texture_coordinates);\n"
+												 "    //gl_FragColor = colour*texture2D(texture_sampler, interpolated_texture_coordinates);\n"
+												 "    vec4 texclr = texture2D(texture_sampler, interpolated_texture_coordinates);\n"
+												 "    gl_FragColor = vec4(colour.rgb,texclr.a);\n"
 												 "}\n";
 /*
 	Buffer quad;
@@ -211,8 +214,10 @@ void Gui::renderCTriang(const glm::fvec2& p0, const glm::fvec2& p1, const glm::f
 	triangVao.draw(GL_TRIANGLES,0,3);
 }
 
-void Gui::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const ITexture& tex)
+void Gui::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const SYS::ITexture& tex)
 {
+	const AcceleratedTexture* accelTex = dynamic_cast<const AcceleratedTexture*>(&tex);
+	if(!accelTex) return;
 	const CVertTex tmpVert[4] = {
 		{ glm::fvec2(std::min(p0.x,p1.x),-1.0f * std::min(p0.y,p1.y)), glm::fvec2(std::min(t0.x,t1.x),std::min(t0.y,t1.y)) },
 		{ glm::fvec2(std::max(p0.x,p1.x),-1.0f * std::min(p0.y,p1.y)), glm::fvec2(std::max(t0.x,t1.x),std::min(t0.y,t1.y)) },
@@ -221,11 +226,17 @@ void Gui::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2
 	};
 	quadTex.bufferSubData(0,tmpVert,sizeof(tmpVert));
 	justTex.bind();
+	accelTex->getTex().activate(GL_TEXTURE0);
+	accelTex->getTex().bind();
+	clrPTex.uniform1i(clrPTexAttribTex,0);
+	quadTexVao.bind();
 	quadTexI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
 
-void Gui::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const ITexture& tex)
+void Gui::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const SYS::ITexture& tex)
 {
+	const AcceleratedTexture* accelTex = dynamic_cast<const AcceleratedTexture*>(&tex);
+	if(!accelTex) return;
 	const CVertTex tmpVert[4] = {
 		{ glm::fvec2(std::min(p0.x,p1.x),-1.0f * std::min(p0.y,p1.y)), glm::fvec2(0.0f, 0.0f) },
 		{ glm::fvec2(std::max(p0.x,p1.x),-1.0f * std::min(p0.y,p1.y)), glm::fvec2(1.0f, 0.0f) },
@@ -234,11 +245,17 @@ void Gui::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const ITexture& 
 	};
 	quadTex.bufferSubData(0,tmpVert,sizeof(tmpVert));
 	justTex.bind();
+	accelTex->getTex().activate(GL_TEXTURE0);
+	accelTex->getTex().bind();
+	clrPTex.uniform1i(clrPTexAttribTex,0);
+	quadTexVao.bind();
 	quadTexI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
 
-void Gui::renderTex(const ITexture&)
+void Gui::renderTex(const SYS::ITexture& tex)
 {
+	const AcceleratedTexture* accelTex = dynamic_cast<const AcceleratedTexture*>(&tex);
+	if(!accelTex) return;
 	const CVertTex tmpVert[4] = {
 		{ glm::fvec2(-1.0f, -1.0f), glm::fvec2(0.0f, 0.0f) },
 		{ glm::fvec2(1.0f, -1.0f), glm::fvec2(1.0f, 0.0f) },
@@ -247,11 +264,17 @@ void Gui::renderTex(const ITexture&)
 	};
 	quadTex.bufferSubData(0,tmpVert,sizeof(tmpVert));
 	justTex.bind();
+	accelTex->getTex().activate(GL_TEXTURE0);
+	accelTex->getTex().bind();
+	clrPTex.uniform1i(clrPTexAttribTex,0);
+	quadTexVao.bind();
 	quadTexI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
 
-void Gui::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const ITexture& tex)
+void Gui::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const SYS::ITexture& tex)
 {
+	const AcceleratedTexture* accelTex = dynamic_cast<const AcceleratedTexture*>(&tex);
+	if(!accelTex) return;
 	const CVertTex tmpVert[4] = {
 		{ glm::fvec2(std::min(p0.x,p1.x),-1.0f * std::min(p0.y,p1.y)), glm::fvec2(std::min(t0.x,t1.x),std::min(t0.y,t1.y)) },
 		{ glm::fvec2(std::max(p0.x,p1.x),-1.0f * std::min(p0.y,p1.y)), glm::fvec2(std::max(t0.x,t1.x),std::min(t0.y,t1.y)) },
@@ -260,12 +283,18 @@ void Gui::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec
 	};
 	quadTex.bufferSubData(0,tmpVert,sizeof(tmpVert));
 	clrPTex.bind();
-	clrPTex.uniform4f(justColourAttrib,colour);
+	clrPTex.uniform4f(clrPTexAttribColour,colour);
+	accelTex->getTex().activate(GL_TEXTURE0);
+	accelTex->getTex().bind();
+	clrPTex.uniform1i(clrPTexAttribTex,0);
+	quadTexVao.bind();
 	quadTexI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
 
-void Gui::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::vec4& colour, const ITexture& tex)
+void Gui::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::vec4& colour, const SYS::ITexture& tex)
 {
+	const AcceleratedTexture* accelTex = dynamic_cast<const AcceleratedTexture*>(&tex);
+	if(!accelTex) return;
 	const CVertTex tmpVert[4] = {
 		{ glm::fvec2(std::min(p0.x,p1.x),-1.0f * std::min(p0.y,p1.y)), glm::fvec2(0.0f, 0.0f) },
 		{ glm::fvec2(std::max(p0.x,p1.x),-1.0f * std::min(p0.y,p1.y)), glm::fvec2(1.0f, 0.0f) },
@@ -274,12 +303,18 @@ void Gui::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::vec4
 	};
 	quadTex.bufferSubData(0,tmpVert,sizeof(tmpVert));
 	clrPTex.bind();
-	clrPTex.uniform4f(justColourAttrib,colour);
+	clrPTex.uniform4f(clrPTexAttribColour,colour);
+	accelTex->getTex().activate(GL_TEXTURE0);
+	accelTex->getTex().bind();
+	clrPTex.uniform1i(clrPTexAttribTex,0);
+	quadTexVao.bind();
 	quadTexI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
 
-void Gui::renderCTex(const glm::vec4& colour, const ITexture& tex)
+void Gui::renderCTex(const glm::vec4& colour, const SYS::ITexture& tex)
 {
+	const AcceleratedTexture* accelTex = dynamic_cast<const AcceleratedTexture*>(&tex);
+	if(!accelTex) return;
 	const CVertTex tmpVert[4] = {
 		{ glm::fvec2(-1.0f, -1.0f), glm::fvec2(0.0f, 0.0f) },
 		{ glm::fvec2(1.0f, -1.0f), glm::fvec2(1.0f, 0.0f) },
@@ -288,12 +323,18 @@ void Gui::renderCTex(const glm::vec4& colour, const ITexture& tex)
 	};
 	quadTex.bufferSubData(0,tmpVert,sizeof(tmpVert));
 	clrPTex.bind();
-	clrPTex.uniform4f(justColourAttrib,colour);
+	clrPTex.uniform4f(clrPTexAttribColour,colour);
+	accelTex->getTex().activate(GL_TEXTURE0);
+	accelTex->getTex().bind();
+	clrPTex.uniform1i(clrPTexAttribTex,0);
+	quadTexVao.bind();
 	quadTexI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
 
-void Gui::renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const ITexture& tex)
+void Gui::renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const SYS::ITexture& tex)
 {
+	const AcceleratedTexture* accelTex = dynamic_cast<const AcceleratedTexture*>(&tex);
+	if(!accelTex) return;
 	const float xdiff = std::abs(std::max(p0.y,p1.y) - std::min(p0.y,p1.y)) * 0.5f;
 	const CVert tmpVert[4] = {
 		{ glm::fvec2(std::min(p0.x,p1.x)+xdiff,-1.0f * std::min(p0.y,p1.y)) },
@@ -303,7 +344,11 @@ void Gui::renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p
 	};
 	quadTex.bufferSubData(0,tmpVert,sizeof(tmpVert));
 	clrPTex.bind();
-	clrPTex.uniform4f(justColourAttrib,colour);
+	clrPTex.uniform4f(clrPTexAttribColour,colour);
+	accelTex->getTex().activate(GL_TEXTURE0);
+	accelTex->getTex().bind();
+	clrPTex.uniform1i(clrPTexAttribTex,0);
+	quadTexVao.bind();
 	quadTexI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
 

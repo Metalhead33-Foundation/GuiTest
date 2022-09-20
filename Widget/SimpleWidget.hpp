@@ -3,6 +3,7 @@
 
 #include "IWidget.hpp"
 
+namespace SYS {
 class SimpleWidget : public IWidget
 {
 protected:
@@ -28,5 +29,6 @@ public:
 	const glm::ivec2& getSize() const;
 	const glm::ivec2& getCenter() const;
 };
+}
 
 #endif // SIMPLEWIDGET_H

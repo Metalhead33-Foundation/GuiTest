@@ -10,6 +10,7 @@
 #include <sstream>
 #include <omp.h>
 
+namespace SYS {
 const sCursor& GuiRenderSystem::getCursor() const
 {
 	return cursor;
@@ -102,7 +103,7 @@ void GuiRenderSystem::updateLogic()
 void GuiRenderSystem::render()
 {
 	fpsCounter.singleTick([this]() {
-		framebuffer->clearToColour(glm::fvec4(0.0f,0.0f,0.0f,0.0f));
+		ctpipeline.framebuffer->clearToColour(glm::fvec4(0.0f,0.0f,0.0f,0.0f));
 		zbuffer->clear();
 		if(font) {
 			//font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,0.5f,glm::fvec4(0.99f,0.35f,0.35f,1.0f),8);
@@ -129,11 +130,11 @@ void GuiRenderSystem::onResolutionChange(int newWidth, int newHeight)
 	viewport = glm::ivec4(0,0,newWidth,newHeight);
 	projection = glm::ortho(0,newWidth,0,newHeight);
 	sizeReciprocal = glm::fvec2(2.0f/static_cast<float>(newWidth),2.0f/static_cast<float>(newHeight));
-	framebuffer = textureFromSurface(*window_surface);
-	zbuffer = std::make_shared<ZBuffer>(newWidth,newHeight);
-	bpipeline.framebuffer = framebuffer.get();
-	tpipeline.framebuffer = framebuffer.get();
-	ctpipeline.framebuffer = framebuffer.get();
+	framebuffer = SoftwareRenderer::textureFromSurface(*window_surface);
+	zbuffer = std::make_shared<SoftwareRenderer::ZBuffer>(newWidth,newHeight);
+	bpipeline.framebuffer = dynamic_cast<SoftwareRenderer::Texture*>(framebuffer.get());
+	tpipeline.framebuffer = dynamic_cast<SoftwareRenderer::Texture*>(framebuffer.get());
+	ctpipeline.framebuffer = dynamic_cast<SoftwareRenderer::Texture*>(framebuffer.get());
 	bpipeline.viewport = viewport;
 	tpipeline.viewport = viewport;
 	ctpipeline.viewport = viewport;
@@ -145,19 +146,19 @@ GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offs
 	: AppSystem(title,offsetX,offsetY,width,height,flags), currentWidget(nullptr),
 	  strbuffer(""), fullscreen(false), mousePos(glm::fvec2(0.0,0.0f)), cursor(nullptr), font(nullptr), richie(nullptr), logicTicks(0)
 {
-	bpipeline.uniform.blending = ALPHA_DITHERING;
-	bpipeline.vert = basicVertexShader;
-	bpipeline.frag = basicFragmentShader;
-	tpipeline.uniform.blending = ALPHA_BLENDING;
-	tpipeline.uniform.samplerState.wrap = Wrap::MIRRORED_REPEAT;
-	tpipeline.uniform.samplerState.filtering = TextureFiltering::DITHERED;
-	tpipeline.vert = TexturedVertexShader;
-	tpipeline.frag = TexturedFragmentShader;
-	ctpipeline.uniform.blending = ALPHA_BLENDING;
-	ctpipeline.uniform.samplerState.wrap = Wrap::MIRRORED_REPEAT;
-	ctpipeline.uniform.samplerState.filtering = TextureFiltering::BILINEAR;
-	ctpipeline.vert = ColouredTexturedVertexShader;
-	ctpipeline.frag = ColouredTexturedFragmentShader;
+	bpipeline.uniform.blending = SoftwareRenderer::ALPHA_DITHERING;
+	bpipeline.vert = SoftwareRenderer::basicVertexShader;
+	bpipeline.frag = SoftwareRenderer::basicFragmentShader;
+	tpipeline.uniform.blending = SoftwareRenderer::ALPHA_BLENDING;
+	tpipeline.uniform.samplerState.wrap = SoftwareRenderer::Wrap::MIRRORED_REPEAT;
+	tpipeline.uniform.samplerState.filtering = SoftwareRenderer::TextureFiltering::DITHERED;
+	tpipeline.vert = SoftwareRenderer::TexturedVertexShader;
+	tpipeline.frag = SoftwareRenderer::TexturedFragmentShader;
+	ctpipeline.uniform.blending = SoftwareRenderer::ALPHA_BLENDING;
+	ctpipeline.uniform.samplerState.wrap = SoftwareRenderer::Wrap::MIRRORED_REPEAT;
+	ctpipeline.uniform.samplerState.filtering = SoftwareRenderer::TextureFiltering::BILINEAR;
+	ctpipeline.vert = SoftwareRenderer::ColouredTexturedVertexShader;
+	ctpipeline.frag = SoftwareRenderer::ColouredTexturedFragmentShader;
 	onResolutionChange(width,height);
 	SDL_ShowCursor(SDL_DISABLE);
 	//SDL_SetRelativeMouseMode(SDL_TRUE);
@@ -361,80 +362,80 @@ void GuiRenderSystem::handleWindowEvent(const SDL_WindowEvent& event)
 void GuiRenderSystem::renderCLine(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour, int thickness)
 {
 	bpipeline.renderLine(
-				BasicVertexIn{ .POS = p0, .COLOUR = colour },
-				BasicVertexIn{ .POS = p1, .COLOUR = colour },
+				SoftwareRenderer::BasicVertexIn{ .POS = p0, .COLOUR = colour },
+				SoftwareRenderer::BasicVertexIn{ .POS = p1, .COLOUR = colour },
 				thickness);
 }
 
 void GuiRenderSystem::renderCRect(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec4& colour)
 {
 	bpipeline.renderRectangle(
-				BasicVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .COLOUR = colour },
-				BasicVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .COLOUR = colour }
+				SoftwareRenderer::BasicVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .COLOUR = colour },
+				SoftwareRenderer::BasicVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .COLOUR = colour }
 				);
 }
 
 void GuiRenderSystem::renderCTriang(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2& p2, const glm::fvec4& colour)
 {
-	BasicVertexIn vertices[] = { BasicVertexIn{ .POS = p0, .COLOUR = colour },
-	BasicVertexIn{ .POS = p1, .COLOUR = colour },
-	BasicVertexIn{ .POS = p2, .COLOUR = colour }
+	SoftwareRenderer::BasicVertexIn vertices[] = { SoftwareRenderer::BasicVertexIn{ .POS = p0, .COLOUR = colour },
+	SoftwareRenderer::BasicVertexIn{ .POS = p1, .COLOUR = colour },
+	SoftwareRenderer::BasicVertexIn{ .POS = p2, .COLOUR = colour }
 	};
 	bpipeline.renderTriangles(vertices);
 }
 
 void GuiRenderSystem::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const ITexture& tex)
 {
-	tpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
+	tpipeline.uniform.tex = dynamic_cast<const SoftwareRenderer::Texture*>(&tex);
 	tpipeline.renderRectangle(
-				TexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = t0 },
-				TexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = t1 }
+				SoftwareRenderer::TexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = t0 },
+				SoftwareRenderer::TexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = t1 }
 				);
 }
 
 void GuiRenderSystem::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const ITexture& tex)
 {
-	tpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
+	tpipeline.uniform.tex = dynamic_cast<const SoftwareRenderer::Texture*>(&tex);
 	tpipeline.renderRectangle(
-				TexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
-				TexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }
+				SoftwareRenderer::TexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
+				SoftwareRenderer::TexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }
 				);
 }
 
 void GuiRenderSystem::renderTex(const ITexture& tex)
 {
-	tpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
+	tpipeline.uniform.tex = dynamic_cast<const SoftwareRenderer::Texture*>(&tex);
 	tpipeline.renderRectangle(
-				TexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
-				TexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }
+				SoftwareRenderer::TexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f) },
+				SoftwareRenderer::TexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f) }
 				);
 }
 
 
 void GuiRenderSystem::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const ITexture& tex)
 {
-	ctpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
+	ctpipeline.uniform.tex = dynamic_cast<const SoftwareRenderer::Texture*>(&tex);
 	ctpipeline.renderRectangle(
-				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = t0, .COLOUR = colour },
-				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = t1, .COLOUR = colour }
+				SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = t0, .COLOUR = colour },
+				SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = t1, .COLOUR = colour }
 				);
 }
 
 void GuiRenderSystem::renderCTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::vec4& colour, const ITexture& tex)
 {
-	ctpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);;
+	ctpipeline.uniform.tex = dynamic_cast<const SoftwareRenderer::Texture*>(&tex);;
 	ctpipeline.renderRectangle(
-				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(0.0f, 0.0f), .COLOUR = colour },
-				ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(1.0f, 1.0f), .COLOUR = colour }
+				SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(0.0f, 0.0f), .COLOUR = colour },
+				SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(1.0f, 1.0f), .COLOUR = colour }
 				);
 }
 
 void GuiRenderSystem::renderCTex(const glm::vec4& colour, const ITexture& tex)
 {
-	ctpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
+	ctpipeline.uniform.tex = dynamic_cast<const SoftwareRenderer::Texture*>(&tex);
 	ctpipeline.renderRectangle(
-				ColouredTexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f), .COLOUR = colour },
-				ColouredTexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f), .COLOUR = colour }
+				SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(-1.0f,-1.0f), .TEXCOORD = glm::fvec2(0.0f, 0.0f), .COLOUR = colour },
+				SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(1.0f,1.0f), .TEXCOORD = glm::fvec2(1.0f, 1.0f), .COLOUR = colour }
 				);
 }
 
@@ -442,13 +443,14 @@ void GuiRenderSystem::renderCTex(const glm::vec4& colour, const ITexture& tex)
 void GuiRenderSystem::renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const ITexture& tex)
 {
 	const float xdiff = (std::max(p0.x,p1.x) - std::min(p0.x,p1.x)) * tilt;
-	ColouredTexturedVertexIn vertices[] = {
-		ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x)+xdiff,std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::min(t0.x,t1.x), std::min(t0.y,t1.y)) , .COLOUR = colour },
-		ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x)+xdiff,std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::max(t0.x,t1.x), std::min(t0.y,t1.y)) , .COLOUR = colour },
-		ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::min(t0.x,t1.x), std::max(t0.y,t1.y)) , .COLOUR = colour },
-		ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::max(t0.x,t1.x), std::max(t0.y,t1.y)) , .COLOUR = colour }
+	SoftwareRenderer::ColouredTexturedVertexIn vertices[] = {
+		SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x)+xdiff,std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::min(t0.x,t1.x), std::min(t0.y,t1.y)) , .COLOUR = colour },
+		SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x)+xdiff,std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::max(t0.x,t1.x), std::min(t0.y,t1.y)) , .COLOUR = colour },
+		SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::min(t0.x,t1.x), std::max(t0.y,t1.y)) , .COLOUR = colour },
+		SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x),std::max(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::max(t0.x,t1.x), std::max(t0.y,t1.y)) , .COLOUR = colour }
 	};
 	unsigned int indices[] = { 0, 1, 2, 1, 2, 3 };
-	ctpipeline.uniform.tex = dynamic_cast<const Texture*>(&tex);
+	ctpipeline.uniform.tex = dynamic_cast<const SoftwareRenderer::Texture*>(&tex);
 	ctpipeline.renderTriangles(vertices,indices);
+}
 }

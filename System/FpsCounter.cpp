@@ -3,6 +3,7 @@
 #include <limits>
 #include <cstring>
 
+namespace SYS {
 FpsCounter::FpsCounter()
 	: minTime(std::numeric_limits<uint_fast32_t>::max()), maxTime(std::numeric_limits<uint_fast32_t>::min()), tickIndex(0), ticksRecorded(0)
 {
@@ -38,4 +39,5 @@ void FpsCounter::queryData(float& minFps, float& avgFps, float& maxFps)
 		}
 		avgFps /= static_cast<float>(recordedTicks.size());
 	}
+}
 }

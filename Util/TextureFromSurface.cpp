@@ -2,6 +2,7 @@
 #include "../Texture/StandardTexture.hpp"
 #include <stdexcept>
 
+namespace SoftwareRenderer {
 sTexture textureFromSurface(SDL_Surface& surface)
 {
 	switch (surface.format->format) {
@@ -66,4 +67,5 @@ sTexture textureFromSurfaceCopy(SDL_Surface& surface)
 	default: throw std::runtime_error("Invalid texture format!");
 	}
 	return nullptr;
+}
 }

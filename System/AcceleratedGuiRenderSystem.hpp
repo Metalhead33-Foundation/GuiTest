@@ -10,8 +10,9 @@
 #include <vector>
 #include "../Text/RichTextProcessor.hpp"
 #include <EGL/EglContext.hpp>
-#include <GL/GlGui.hpp>
+#include <AGL/GlGui.hpp>
 
+namespace SYS {
 class AcceleratedGuiRenderSystem : public AppSystem
 {
 public:
@@ -81,5 +82,6 @@ public:
 	const threadsafe<std::vector<sWidget> >& getWidgets() const;
 	threadsafe<std::vector<sWidget> >& getWidgets();
 };
+}
 
 #endif // ACCELERATEDGUIRENDERSYSTEM_HPP

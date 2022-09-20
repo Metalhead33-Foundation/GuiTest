@@ -12,6 +12,12 @@ void TextureEssentials::ensureBound(GLuint id, GLenum target)
 	}
 }
 
+void TextureEssentials::forceBound(GLuint id, GLenum target)
+{
+	glBindTexture(target,id);
+	lastBound = id;
+}
+
 void TextureEssentials::activate(GLuint texnum)
 {
 	glActiveTexture(GL_TEXTURE0 + texnum);
@@ -116,16 +122,16 @@ void GL::ITexture::activate(GLuint index)
 	glActiveTexture(GL_TEXTURE0 + index);
 }
 
-void ITexture::bind()
+void ITexture::bind() const
 {
 	RecursiveLock lock(TextureEssentials::texturemutex);
-	TextureEssentials::ensureBound(getTexId(),getTarget());
+	TextureEssentials::forceBound(getTexId(),getTarget());
 }
 
-void ITexture::bind(GLenum target)
+void ITexture::bind(GLenum target) const
 {
 	RecursiveLock lock(TextureEssentials::texturemutex);
-	TextureEssentials::ensureBound(getTexId(),target);
+	TextureEssentials::forceBound(getTexId(),target);
 
 }
 

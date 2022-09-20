@@ -5,6 +5,7 @@
 #include "RenderingPipeline.hpp"
 #include <memory>
 
+namespace SoftwareRenderer {
 struct TexturedUniform {
 	const Texture* tex;
 	Sampler samplerState;
@@ -88,5 +89,5 @@ typedef RenderingPipeline<TexturedVertexIn,TexturedVertexOut,TexturedUniform> Te
 TexturedVertexOut TexturedVertexShader(const TexturedUniform& uniform, const TexturedVertexIn& vertex);
 void TexturedFragmentShader(Texture& framebuffer, const glm::ivec2& point, const TexturedUniform& uniform,
 						 const TexturedVertexOut& v0);
-
+}
 #endif // TEXTUREDPIPELINE_HPP

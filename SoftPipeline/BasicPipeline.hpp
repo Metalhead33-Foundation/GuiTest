@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 #include "../Texture/Texture.hpp"
 #include "RenderingPipeline.hpp"
-
+namespace SoftwareRenderer {
 struct BasicUniform {
 	AlphaBlending blending;
 };
@@ -92,6 +92,6 @@ struct BasicVertexOut {
 typedef RenderingPipeline<BasicVertexIn,BasicVertexOut,BasicUniform> BasicPipeline;
 BasicVertexOut basicVertexShader(const BasicUniform& uniform, const BasicVertexIn& vertex);
 void basicFragmentShader(Texture& framebuffer, const glm::ivec2& point, const BasicUniform& uniform, const BasicVertexOut& v0);
-
+}
 
 #endif // BASICPIPELINE_HPP

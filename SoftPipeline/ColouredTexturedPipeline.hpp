@@ -5,6 +5,7 @@
 #include "RenderingPipeline.hpp"
 #include <memory>
 
+namespace SoftwareRenderer {
 struct ColouredTexturedUniform {
 	const Texture* tex;
 	Sampler samplerState;
@@ -115,4 +116,5 @@ ColouredTexturedVertexOut ColouredTexturedVertexShader(const ColouredTexturedUni
 void ColouredTexturedFragmentShader(Texture& framebuffer, const glm::ivec2& point, const ColouredTexturedUniform& uniform,
 						 const ColouredTexturedVertexOut& v0);
 
+}
 #endif // COLOUREDTEXTUREDPIPELINE_HPP

@@ -2,6 +2,7 @@
 #include "../Texture/StandardTexture.hpp"
 #include <SDL2/SDL.h>
 
+namespace SYS {
 TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, const sTexture& texdis,
 							   const sTexture& textact, const sTexture& textclick)
 	: topLeft(topLeft), bottomRight(bottomRight), w(textact->getWidth()),h(textact->getHeight()), wf(textact->getWidthF()), hf(textact->getHeightF()),
@@ -11,7 +12,7 @@ TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bott
 	  textureClicked(textclick),
 	  state(OUT_OF_FOCUS)
 {
-	textureDistact->iterateOverPixels(Texture::ColourIterator([this](const glm::ivec2& pos, const glm::fvec4& kernel) {
+	textureDistact->iterateOverPixels(ITexture::ColourIterator([this](const glm::ivec2& pos, const glm::fvec4& kernel) {
 		alpha[(pos.y*this->w)+pos.x] = kernel.w >= 0.007843137254902f;
 	}));
 }
@@ -24,7 +25,7 @@ TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bott
 	  textureClicked(std::move(textclick)),
 	  state(OUT_OF_FOCUS)
 {
-	textureDistact->iterateOverPixels(Texture::ColourIterator([this](const glm::ivec2& pos, const glm::fvec4& kernel) {
+	textureDistact->iterateOverPixels(ITexture::ColourIterator([this](const glm::ivec2& pos, const glm::fvec4& kernel) {
 		alpha[(pos.y*this->w)+pos.x] = kernel.w >= 0.007843137254902f;
 	}));
 }
@@ -102,4 +103,5 @@ bool TexturedWidget::onHover(const glm::fvec2& offset, const glm::fvec2& relativ
 void TexturedWidget::onOutOfFocus()
 {
 	state = OUT_OF_FOCUS;
+}
 }

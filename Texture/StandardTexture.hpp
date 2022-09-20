@@ -6,6 +6,7 @@
 #include <cstring>
 #include <span>
 
+namespace SoftwareRenderer {
 template <typename PixelType> class StandardTexture;
 template <typename PixelType> class ReferenceTexture;
 
@@ -185,5 +186,6 @@ typedef ReferenceTexture<PixelABGR8888> RefTexABGR8888;
 typedef ReferenceTexture<PixelBGRA8888> RefTexBGRA8888;
 
 #include "StandardTexture.ipp"
+}
 
 #endif // STANDARDTEXTURE_HPP

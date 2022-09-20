@@ -1,5 +1,6 @@
 #include "TextureAtlas.hpp"
 
+namespace SoftwareRenderer {
 Texture*TextureAtlas::getTexture() const
 {
 	return texture.get();
@@ -278,4 +279,5 @@ void TextureAtlasSubsection::iterateOverPixels(const ColourIterator2& program) c
 			program(glm::fvec2(static_cast<float>(x)*widthR,static_cast<float>(y)*heightR),kernel);
 		}
 	}
+}
 }

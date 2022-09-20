@@ -2,6 +2,7 @@
 #include <limits>
 #include <cstring>
 
+namespace SoftwareRenderer {
 ZBuffer::ZBuffer() : w(0), h(0)
 {
 
@@ -74,4 +75,5 @@ ZBuffer &ZBuffer::operator=(ZBuffer &&mov)
 	mov.w = 0;
 	mov.h = 0;
 	return *this;
+}
 }

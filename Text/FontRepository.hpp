@@ -12,14 +12,16 @@ public:
 private:
 	NamedFontMap fonts;
 	sFreeTypeSystem sys;
+	bool isAccelerated;
 public:
-	FontRepository(const sFreeTypeSystem& bsys);
-	FontRepository(sFreeTypeSystem&& bsys);
+	FontRepository(const sFreeTypeSystem& bsys, bool accelerated = false);
+	FontRepository(sFreeTypeSystem&& bsys, bool accelerated = false);
 	void initializeFont(const std::string& fontName, const std::string& path);
 	sFont getFont(const std::string& fontName, uint8_t flags) const;
 	sFont getFont(const std::string& fontName, bool isBold = false) const;
 	const NamedFontMap& getFonts() const;
 	NamedFontMap& getFonts();
+	bool getIsAccelerated() const;
 };
 typedef std::shared_ptr<FontRepository> sFontRepository;
 }

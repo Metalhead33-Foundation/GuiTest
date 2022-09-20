@@ -3,6 +3,7 @@
 
 #include "SimpleWidget.hpp"
 
+namespace SYS {
 class TickboxWidget : public SimpleWidget
 {
 private:
@@ -13,5 +14,6 @@ public:
 	int getThickness() const;
 	void setThickness(int newThickness);
 };
+}
 
 #endif // TICKBOXWIDGET_H

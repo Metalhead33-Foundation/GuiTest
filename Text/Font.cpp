@@ -133,9 +133,9 @@ static const std::pair<char32_t,char32_t> UNICODE_RANGES[] = {
 };
 static constexpr const size_t UNICODE_RANGE_COUNT = sizeof(UNICODE_RANGES) / sizeof(std::pair<char32_t,char32_t>);
 
-const TexGreyscale_U8& Font::getTexture() const
+const SYS::ITexture& Font::getTexture() const
 {
-	return texture;
+	return *texture;
 }
 
 void Font::insertCharacters(const std::pair<char32_t, char32_t>& range)
@@ -157,19 +157,21 @@ void Font::insertCharacters(const std::pair<char32_t, char32_t>& range)
 		const unsigned int glyphAdvance = static_cast<unsigned int>(fontFace->glyph->advance.x);
 		glm::ivec2 glyphOffset = textureOffset + glm::ivec2(1, 0);
 		glm::ivec2 intendedCorner = glyphOffset + glyphSize;
-		if(intendedCorner.y >= texture.getHeight()) {
-			texture.resize(texture.getWidth(),texture.getHeight() * 2);
+		if(intendedCorner.y >= texture->getHeight()) {
+			texture->resize(texture->getWidth(),texture->getHeight() * 2);
 		}
-		if((glyphOffset.x >= texture.getWidth() || intendedCorner.x >= texture.getWidth())) {
-			if(texture.getWidth() < 8192) {
-				texture.resize(texture.getWidth() * 2, texture.getHeight());
+		if((glyphOffset.x >= texture->getWidth() || intendedCorner.x >= texture->getWidth())) {
+			if(texture->getWidth() < 8192) {
+				texture->resize(texture->getWidth() * 2, texture->getHeight());
 			} else {
 				textureOffset.x = 1;
 				textureOffset.y += maxCharSizeSoFar.y + 1;
 				glyphOffset = textureOffset + glm::ivec2(1, 0);
 			}
 		}
-		texture.blit(reinterpret_cast<PixelGreyscale_U8*>(fontFace->glyph->bitmap.buffer),textureOffset,glyphSize);
+		SoftwareRenderer::RefTexGreyscale_U8 texref(reinterpret_cast<PixelGreyscale_U8*>(fontFace->glyph->bitmap.buffer),glyphSize.x,glyphSize.y);
+		texture->blit(texref,textureOffset,glyphSize);
+		texture->update();
 
 		Character character = {
 			.valid = true,
@@ -193,20 +195,20 @@ bool Font::getIsBold() const
 	return isBold;
 }
 
-Font::Font(const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
+Font::Font(const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold, bool accelerated) : texture(SYS::createFontTexture(accelerated)), textureOffset(0,1), maxCharSizeSoFar(0,0),
 	sys(system), fontFace(fontface), isBold(bold)
 {
 	// Latin
 	insertCharacters(std::make_pair(0x0000,0x024F));
 }
 
-Font::Font(const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
+Font::Font(const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold, bool accelerated) : texture(SYS::createFontTexture(accelerated)), textureOffset(0,1), maxCharSizeSoFar(0,0),
 	sys(system), fontFace(std::move(fontface)), isBold(bold)
 {
 	insertCharacters(std::make_pair(0x0000,0x024F));
 }
 
-Font::Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold) : texture(256,256), textureOffset(0,1), maxCharSizeSoFar(0,0),
+Font::Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold, bool accelerated) : texture(SYS::createFontTexture(accelerated)), textureOffset(0,1), maxCharSizeSoFar(0,0),
 	sys(std::move(system)), fontFace(std::move(fontface)), isBold(bold)
 {
 	// Latin
@@ -244,13 +246,13 @@ void Font::addCharacterFromBlock(char32_t c)
 
 static const float italicMagicNumber = 0.5f;
 
-void Font::renderText(GuiRenderer& renderer, const std::string& text, TextRenderState& state)
+void Font::renderText(SYS::GuiRenderer& renderer, const std::string& text, TextRenderState& state)
 {
 	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
 	renderText(renderer,convert.from_bytes(text.c_str()),state);
 }
 
-void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRenderState& state)
+void Font::renderText(SYS::GuiRenderer& renderer, const std::u32string& text, TextRenderState& state)
 {
 	float x = state.currentOffset.x;
 	float y = state.currentOffset.y;
@@ -286,10 +288,10 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRen
 										  y + ((charIt->second.size.y - charIt->second.bearing.y) * state.reciprocalSize.y * state.scale));
 		const glm::fvec2 dim = glm::fvec2(charIt->second.size.x * state.scale,charIt->second.size.y * -state.scale) * state.reciprocalSize;
 		state.maxHeight = std::max(state.maxHeight,dim.y * -1.0f);
-		const glm::fvec2 texCoord0(static_cast<float>(charIt->second.offset.x) * texture.getWidthR(), static_cast<float>(charIt->second.offset.y) * texture.getHeightR());
-		const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * texture.getWidthR(), static_cast<float>(charIt->second.size.y) * texture.getHeightR());
-		if(state.attributes.isItalic) renderer.renderTiltedCTex( italicMagicNumber, pos, pos + dim, texCoord0, texCoord1, state.colour, texture );
-		else renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, state.colour, texture );
+		const glm::fvec2 texCoord0(static_cast<float>(charIt->second.offset.x) * texture->getWidthR(), static_cast<float>(charIt->second.offset.y) * texture->getHeightR());
+		const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * texture->getWidthR(), static_cast<float>(charIt->second.size.y) * texture->getHeightR());
+		if(state.attributes.isItalic) renderer.renderTiltedCTex( italicMagicNumber, pos, pos + dim, texCoord0, texCoord1, state.colour, *texture );
+		else renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, state.colour, *texture );
 		x += (charIt->second.advance >> 6) * state.reciprocalSize.x * state.scale;
 		}
 	}
@@ -308,7 +310,7 @@ void Font::renderText(GuiRenderer& renderer, const std::u32string& text, TextRen
 	state.currentOffset.y = y;
 }
 
-void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset,
+void Font::renderTextBlocks(SYS::GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset,
 							const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
 	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
@@ -328,7 +330,7 @@ void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlo
 	}
 }
 
-void Font::renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset,
+void Font::renderTextBlocks(SYS::GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset,
 							const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
 	TextRenderState state;

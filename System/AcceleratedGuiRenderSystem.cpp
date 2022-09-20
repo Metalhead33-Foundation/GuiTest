@@ -9,6 +9,7 @@
 #include "../Text/MmlParser.hpp"
 #include <sstream>
 
+namespace SYS {
 const sCursor& AcceleratedGuiRenderSystem::getCursor() const
 {
 	return cursor;
@@ -143,6 +144,8 @@ AcceleratedGuiRenderSystem::AcceleratedGuiRenderSystem(const std::string& title,
 	context->makeCurrent();
 	gladLoaderLoadGLES2();
 	guiRenderer = std::make_unique<GL::Gui>();
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	//SDL_SetRelativeMouseMode(SDL_TRUE);
 	//SDL_StartTextInput();
 }
@@ -339,4 +342,5 @@ void AcceleratedGuiRenderSystem::handleWindowEvent(const SDL_WindowEvent& event)
 		case SDL_WINDOWEVENT_SIZE_CHANGED: onResolutionChange(event.data1,event.data2); break;
 		default: break;
 	}
+}
 }

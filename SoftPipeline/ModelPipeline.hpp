@@ -6,6 +6,7 @@
 #include <memory>
 #include "ZBuffer.hpp"
 
+namespace SoftwareRenderer {
 struct ModelUniform {
 	ZBuffer* zbuff;
 	const Texture* tex;
@@ -131,5 +132,5 @@ typedef RenderingPipeline<ModelVertexIn,ModelVertexOut,ModelUniform> ModelPipeli
 ModelVertexOut ModelVertexShader(const ModelUniform& uniform, const ModelVertexIn& vertex);
 void ModelFragmentShader(Texture& framebuffer, const glm::ivec2& point, const ModelUniform& uniform,
 						 const ModelVertexOut& v0);
-
+}
 #endif // MODELPIPELINE_HPP

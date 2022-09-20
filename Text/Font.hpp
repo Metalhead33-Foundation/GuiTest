@@ -5,6 +5,7 @@
 #include <map>
 #include <glm/glm.hpp>
 #include "../Texture/StandardTexture.hpp"
+#include <Pipeline/IFontTexture.hpp>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include "../Pipeline/GuiRenderer.hpp"
@@ -58,7 +59,7 @@ public:
 		unsigned int advance;    // Offset to advance to next glyph
 	};
 private:
-	TexGreyscale_U8 texture;
+	std::unique_ptr<SYS::ITexture> texture;
 	glm::ivec2 textureOffset;
 	glm::ivec2 maxCharSizeSoFar;
 	std::map<char32_t,Character> characters;
@@ -71,16 +72,16 @@ private:
 	Font& operator=(const Font& cpy) = delete;
 	void addCharacterFromBlock(char32_t c);
 public:
-	explicit Font(const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold = false);
-	explicit Font(const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold = false);
-	explicit Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold = false);
+	explicit Font(const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold = false, bool accelerated = false);
+	explicit Font(const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold = false, bool accelerated = false);
+	explicit Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold = false, bool accelerated = false);
 	explicit Font(Font&& mov);
 	Font& operator=(Font&& mov);
-	void renderText(GuiRenderer& renderer, const std::string& text, TextRenderState& state);
-	void renderText(GuiRenderer& renderer, const std::u32string& text, TextRenderState& state);
-	static void renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
-	static void renderTextBlocks(GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
-	const TexGreyscale_U8& getTexture() const;
+	void renderText(SYS::GuiRenderer& renderer, const std::string& text, TextRenderState& state);
+	void renderText(SYS::GuiRenderer& renderer, const std::u32string& text, TextRenderState& state);
+	static void renderTextBlocks(SYS::GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
+	static void renderTextBlocks(SYS::GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
+	const SYS::ITexture& getTexture() const;
 	bool getIsBold() const;
 	bool getIsItalic() const;
 };

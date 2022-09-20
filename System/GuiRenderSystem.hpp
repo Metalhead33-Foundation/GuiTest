@@ -15,6 +15,7 @@
 #include <vector>
 #include "../Text/RichTextProcessor.hpp"
 
+namespace SYS {
 class GuiRenderSystem : public AppSystem, public GuiRenderer
 {
 public:
@@ -22,10 +23,10 @@ public:
 	typedef std::map<SDL_Keycode,KeyFunction> FunctionMap;
 protected:
 	sTexture framebuffer;
-	std::shared_ptr<ZBuffer> zbuffer;
-	BasicPipeline bpipeline;
-	TexturedPipeline tpipeline;
-	ColouredTexturedPipeline ctpipeline;
+	std::shared_ptr<SoftwareRenderer::ZBuffer> zbuffer;
+	SoftwareRenderer::BasicPipeline bpipeline;
+	SoftwareRenderer::TexturedPipeline tpipeline;
+	SoftwareRenderer::ColouredTexturedPipeline ctpipeline;
 	sCursor cursor;
 	TXT::sFontRepository font;
 	IWidget* currentWidget;
@@ -96,5 +97,6 @@ public:
 	const threadsafe<std::vector<sWidget> >& getWidgets() const;
 	threadsafe<std::vector<sWidget> >& getWidgets();
 };
+}
 
 #endif // GUIRENDERSYSTEM_H

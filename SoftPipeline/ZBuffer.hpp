@@ -2,6 +2,7 @@
 #define ZBUFFER_HPP
 #include <vector>
 
+namespace SoftwareRenderer {
 class ZBuffer
 {
 private:
@@ -22,5 +23,5 @@ public:
 	float* operator[](unsigned y);
 	const float* operator[](unsigned y) const;
 };
-
+}
 #endif // ZBUFFER_HPP

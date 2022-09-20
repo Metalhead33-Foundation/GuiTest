@@ -1,6 +1,7 @@
 #include "Cursor.hpp"
 #include <limits>
 
+namespace SYS {
 static const float magicAlpha = 0.995f;
 
 float TCursor::getMouseScale() const
@@ -60,4 +61,5 @@ void TCursor::render(GuiRenderer& renderer, const glm::fvec2& mousePos, const gl
 	const glm::fvec2 cursorTopLeft = mousePos - (glm::fvec2(static_cast<float>(topLeft.x) * screenReciprocal.x,static_cast<float>(topLeft.y) * screenReciprocal.y) * mouseScale);
 	const glm::fvec2 cursorBottomRight = cursorTopLeft + (glm::fvec2(static_cast<float>(dimensions.x)*screenReciprocal.x,static_cast<float>(dimensions.y) * screenReciprocal.y) * mouseScale);
 	renderer.renderTex(cursorTopLeft,cursorBottomRight,*texture);
+}
 }

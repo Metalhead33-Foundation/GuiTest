@@ -8,12 +8,13 @@ QMAKE_CXXFLAGS += -O3 -fopenmp -ffast-math -I/usr/include/freetype2 -I/usr/inclu
 LIBS += -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl
 
 SOURCES += \
+	AGL/GlGui.cpp \
+	AGL/GlTexture2D.cpp \
         EGL/EglContext.cpp \
         EGL/EglDisplay.cpp \
         EGL/egl.c \
         GL/GlBuffer.cpp \
         GL/GlFramebuffer.cpp \
-	GL/GlGui.cpp \
         GL/GlRenderbuffer.cpp \
         GL/GlSampler.cpp \
         GL/GlShader.cpp \
@@ -22,6 +23,7 @@ SOURCES += \
         GL/GlVAO.cpp \
         GL/gles2.c \
 	Pipeline/GuiRenderer.cpp \
+	Pipeline/IFontTexture.cpp \
 	SoftPipeline/BasicPipeline.cpp \
 	SoftPipeline/ColouredTexturedPipeline.cpp \
 	SoftPipeline/EdgeFunction.cpp \
@@ -51,6 +53,8 @@ SOURCES += \
         main.cpp
 
 HEADERS += \
+	AGL/GlGui.hpp \
+	AGL/GlTexture2D.hpp \
 	EGL/EglContext.hpp \
 	EGL/EglDisplay.hpp \
 	EGL/egl.h \
@@ -59,7 +63,6 @@ HEADERS += \
 	GL/GlBufferArray.hpp \
 	GL/GlFramebuffer.hpp \
 	GL/GlFramebufferArray.hpp \
-	GL/GlGui.hpp \
 	GL/GlRenderbuffer.hpp \
 	GL/GlRenderbufferArray.hpp \
 	GL/GlSampler.hpp \
@@ -73,7 +76,9 @@ HEADERS += \
 	GL/gles2.h \
 	GL/khrplatform.h \
 	Pipeline/GuiRenderer.hpp \
+	Pipeline/IFontTexture.hpp \
 	Pipeline/ITexture.hpp \
+	Pipeline/ITextureAtlas.hpp \
 	SoftPipeline/BasicPipeline.hpp \
 	SoftPipeline/ColouredTexturedPipeline.hpp \
 	SoftPipeline/EdgeFunction.hpp \

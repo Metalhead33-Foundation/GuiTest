@@ -1,10 +1,11 @@
-#ifndef TEXTURE_HPP
-#define TEXTURE_HPP
+#ifndef SOFT_TEXTURE_HPP
+#define SOFT_TEXTURE_HPP
 #include <glm/glm.hpp>
 #include <functional>
 #include <memory>
 #include <Pipeline/ITexture.hpp>
 
+namespace SoftwareRenderer {
 enum TextureFiltering {
 	NEAREST_NEIGHBOUR,
 	DITHERED,
@@ -29,17 +30,9 @@ struct Sampler {
 	TextureFiltering filtering;
 };
 
-class Texture : public ITexture
+class Texture : public SYS::ITexture
 {
 public:
-	// Colour programmes
-	typedef std::function<glm::fvec4(const glm::ivec2&)> ColourProgrammer;
-	typedef std::function<glm::fvec4(const glm::ivec2&, const glm::fvec4&)> ColourProgrammer2;
-	typedef std::function<glm::fvec4(const glm::fvec2&)> ColourProgrammer3;
-	typedef std::function<glm::fvec4(const glm::fvec2&, const glm::fvec4&)> ColourProgrammer4;
-	// Colour iterators
-	typedef std::function<void(const glm::ivec2&, const glm::fvec4&)> ColourIterator;
-	typedef std::function<void(const glm::fvec2&, const glm::fvec4&)> ColourIterator2;
 	virtual ~Texture() = default;
 	// Data getters
 	virtual int getWidth() const = 0;
@@ -53,7 +46,20 @@ public:
 	virtual bool resize(int newWidth, int newHeight) = 0;
 	virtual void blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions);
 	virtual void blit(const Texture& cpy, const glm::ivec2 offset);
-	virtual void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap = REPEAT) const = 0;
+	void blit(const ITexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) override
+	{
+		const Texture* tex = dynamic_cast<const Texture*>(&cpy);
+		if(tex) blit(*tex,offset,dimensions);
+	}
+	void blit(const ITexture& cpy, const glm::ivec2 offset) override
+	{
+		const Texture* tex = dynamic_cast<const Texture*>(&cpy);
+		if(tex) blit(*tex,offset);
+	}
+	virtual void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap) const = 0;
+	void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel) const {
+		getPixel(pos,colourKernel,REPEAT);
+	}
 	inline glm::fvec4 getPixel(const glm::ivec2& pos, Wrap wrap = REPEAT) const {
 		glm::fvec4 tmp;
 		getPixel(pos,tmp,wrap);
@@ -84,9 +90,9 @@ public:
 	virtual void clearToColour(const ColourProgrammer2& program) = 0;
 	virtual void clearToColour(const ColourProgrammer3& program) = 0;
 	virtual void clearToColour(const ColourProgrammer4& program) = 0;
-	virtual void iterateOverPixels(const ColourIterator& program) const = 0;
-	virtual void iterateOverPixels(const ColourIterator2& program) const = 0;
+	void update();
 };
 typedef std::shared_ptr<Texture> sTexture;
+}
 
-#endif // TEXTURE_HPP
+#endif // SOFT_TEXTURE_HPP

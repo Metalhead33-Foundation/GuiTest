@@ -12,6 +12,7 @@ struct TextureEssentials {
 	static std::recursive_mutex texturemutex;
 	static GLuint lastBound;
 	static void ensureBound(GLuint id, GLenum target);
+	static void forceBound(GLuint id, GLenum target);
 	static void activate(GLuint texnum);
 };
 
@@ -34,8 +35,8 @@ public:
 	virtual GLenum getTarget() const = 0;
 	// Bind
 	static void activate(GLuint index);
-	void bind();
-	void bind(GLenum target);
+	void bind() const;
+	void bind(GLenum target) const;
 	void doActions(const TextureAccessor& fun);
 	void doActions(const TextureConstAccessor& fun) const;
 	void doActions(const TextureIdAccessor1& fun) const;

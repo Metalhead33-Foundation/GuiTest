@@ -3,6 +3,7 @@
 #include "../SoftPipeline/EdgeFunction.hpp"
 #include <cmath>
 
+namespace SoftwareRenderer {
 void Texture::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions)
 {
 	const int width = getWidth();
@@ -157,4 +158,10 @@ void Texture::sample(const glm::fvec2 &pos, const glm::ivec2 &screenpos, glm::fv
 	default:
 		break;
 	}
+}
+
+void Texture::update()
+{
+
+}
 }

@@ -4,6 +4,7 @@
 #include <string>
 #include <SDL2/SDL.h>
 
+namespace SYS {
 class AppSystem
 {
 public:
@@ -47,5 +48,6 @@ public:
 	AppSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags);
 	void run();
 };
+}
 
 #endif // APPSYSTEM_H

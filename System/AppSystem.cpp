@@ -1,5 +1,6 @@
 #include "AppSystem.hpp"
 
+namespace SYS {
 AppSystem::AppSystem(const char *title, int offsetX, int offsetY, int width, int height, Uint32 flags)
 	: window(SDL_CreateWindow(title,offsetX,offsetY,width,height,flags),SDL_DestroyWindow)
 {
@@ -61,4 +62,5 @@ void AppSystem::run()
 		updateLogic();
 		render();
 	} while(!isInterrupted);
+}
 }

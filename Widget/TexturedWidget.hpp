@@ -5,10 +5,11 @@
 #include "../Texture/Texture.hpp"
 #include <vector>
 
+namespace SYS {
 class TexturedWidget : public IWidget
 {
 public:
-	typedef std::shared_ptr<Texture> sTexture;
+	typedef std::shared_ptr<ITexture> sTexture;
 protected:
 	const int w,h;
 	float wf,hf;
@@ -38,5 +39,6 @@ public:
 	bool onHover(const glm::fvec2& offset, const glm::fvec2& relativePosToLast) override;
 	void onOutOfFocus() override;
 };
+}
 
 #endif // TEXTUREDWIDGET_H

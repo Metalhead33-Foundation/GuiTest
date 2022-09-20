@@ -1,6 +1,7 @@
 #include "SimpleWidget.hpp"
 #include <iostream>
 
+namespace SYS {
 const glm::fvec2& SimpleWidget::getTopLeft() const
 {
 	return topLeft;
@@ -86,4 +87,5 @@ SimpleWidget::SimpleWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRi
 	: topLeft(topLeft), bottomRight(bottomRight), lastClick(SDL_GetTicks()), isActive(false)
 {
 
+}
 }
