@@ -150,12 +150,12 @@ GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offs
 	bpipeline.frag = basicFragmentShader;
 	tpipeline.uniform.blending = ALPHA_BLENDING;
 	tpipeline.uniform.samplerState.wrap = Wrap::MIRRORED_REPEAT;
-	tpipeline.uniform.samplerState.filtering = TextureFiltering::THREE_POINT;
+	tpipeline.uniform.samplerState.filtering = TextureFiltering::DITHERED;
 	tpipeline.vert = TexturedVertexShader;
 	tpipeline.frag = TexturedFragmentShader;
 	ctpipeline.uniform.blending = ALPHA_BLENDING;
 	ctpipeline.uniform.samplerState.wrap = Wrap::MIRRORED_REPEAT;
-	ctpipeline.uniform.samplerState.filtering = TextureFiltering::THREE_POINT;
+	ctpipeline.uniform.samplerState.filtering = TextureFiltering::BILINEAR;
 	ctpipeline.vert = ColouredTexturedVertexShader;
 	ctpipeline.frag = ColouredTexturedFragmentShader;
 	onResolutionChange(width,height);
