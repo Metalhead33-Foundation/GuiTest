@@ -9,9 +9,11 @@ const Texture& AcceleratedTexture::getTex() const
 
 void AcceleratedTexture::update()
 {
-	GL::Texture ntex(GL_TEXTURE_2D);
-	ntex.image2D(0,internalFormat,softTex->getWidth(),softTex->getHeight(),0,format,type, softTex->getRawPixels());
-	this->tex = std::move(ntex);
+	tex.image2D(0,internalFormat,softTex->getWidth(),softTex->getHeight(),0,format,type, softTex->getRawPixels());
+	tex.setWrapS(GL_MIRRORED_REPEAT);
+	tex.setWrapT(GL_MIRRORED_REPEAT);
+	tex.setMinFilter(GL_NEAREST);
+	tex.setMagFilter(GL_LINEAR);
 }
 
 GLint AcceleratedTexture::getInternalFormat() const
@@ -43,6 +45,10 @@ AcceleratedTexture::AcceleratedTexture(std::unique_ptr<SoftwareRenderer::Texture
 	: softTex(std::move(mov)), tex(GL_TEXTURE_2D), internalFormat(internalFormat), format(format), type(type)
 {
 	tex.image2D(0,internalFormat,softTex->getWidth(),softTex->getHeight(),0,format,type, softTex->getRawPixels());
+	tex.setWrapS(GL_MIRRORED_REPEAT);
+	tex.setWrapT(GL_MIRRORED_REPEAT);
+	tex.setMinFilter(GL_NEAREST);
+	tex.setMagFilter(GL_LINEAR);
 }
 
 int AcceleratedTexture::getWidth() const
