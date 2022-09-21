@@ -93,6 +93,7 @@ public:
 	void update();
 };
 typedef std::shared_ptr<Texture> sTexture;
+typedef std::unique_ptr<Texture> uTexture;
 }
 
 #endif // SOFT_TEXTURE_HPP

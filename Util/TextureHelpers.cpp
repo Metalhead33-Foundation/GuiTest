@@ -13,7 +13,7 @@ uint32_t argb32(const glm::fvec3& rgbF)
 	const uint32_t r = static_cast<uint32_t>(std::round(rgbF.r * 255.0f));
 	const uint32_t g = static_cast<uint32_t>(std::round(rgbF.g * 255.0f));
 	const uint32_t b = static_cast<uint32_t>(std::round(rgbF.b * 255.0f));
-	return (a << 24u) | (r << 16u) << (g << 8u) << b;
+	return (a << 24u) | (r << 16u) << (g << 8u) | b;
 }
 
 uint32_t argb32(const glm::fvec4& rgbaF)
@@ -22,8 +22,32 @@ uint32_t argb32(const glm::fvec4& rgbaF)
 	const uint32_t r = static_cast<uint32_t>(std::round(rgbaF.r * 255.0f));
 	const uint32_t g = static_cast<uint32_t>(std::round(rgbaF.g * 255.0f));
 	const uint32_t b = static_cast<uint32_t>(std::round(rgbaF.b * 255.0f));
-	return (a << 24u) | (r << 16u) << (g << 8u) << b;
+	return (a << 24u) | (r << 16u) << (g << 8u) | b;
 }
+
+uint32_t rgba32(const float alpha)
+{
+	return static_cast<uint32_t>(std::round(alpha*255.0f));
+}
+
+uint32_t rgba32(const glm::fvec3& rgbF)
+{
+	const uint32_t a = 255;
+	const uint32_t r = static_cast<uint32_t>(std::round(rgbF.r * 255.0f));
+	const uint32_t g = static_cast<uint32_t>(std::round(rgbF.g * 255.0f));
+	const uint32_t b = static_cast<uint32_t>(std::round(rgbF.b * 255.0f));
+	return (r << 24u) | (g << 16u) << (b << 8u) | a;
+}
+
+uint32_t rgba32(const glm::fvec4& rgbaF)
+{
+	const uint32_t a = static_cast<uint32_t>(std::round(rgbaF.a * 255.0f));
+	const uint32_t r = static_cast<uint32_t>(std::round(rgbaF.r * 255.0f));
+	const uint32_t g = static_cast<uint32_t>(std::round(rgbaF.g * 255.0f));
+	const uint32_t b = static_cast<uint32_t>(std::round(rgbaF.b * 255.0f));
+	return (r << 24u) | (g << 16u) << (b << 8u) | a;
+}
+
 
 void createButtons(ButtonTextureCollection& buttons, int width, int height, const glm::fvec3& baseColour, const glm::fvec3& borderColour)
 {
@@ -71,7 +95,7 @@ void createButtons(ButtonTextureCollection& buttons, int width, int height, cons
 	}
 }
 
-void createCircleTextures(std::vector<uint32_t>& redCircle, std::vector<uint32_t>& greenCircle, std::vector<uint32_t>& blueCircle, int CIRCLE_W, int CIRCLE_H)
+void createCircleTextures(std::vector<uint32_t>& redCircle, std::vector<uint32_t>& greenCircle, std::vector<uint32_t>& blueCircle, int CIRCLE_W, int CIRCLE_H, bool argb)
 {
 	const int CIRCLE_SIZE = CIRCLE_W * CIRCLE_H;
 	const int CIRCLE_ORIGO_X = CIRCLE_W / 2;
@@ -97,15 +121,21 @@ void createCircleTextures(std::vector<uint32_t>& redCircle, std::vector<uint32_t
 				const float intens_base2 = std::clamp((intens_base - 0.33f) * 2.0f ,0.0f,1.0f);
 				const uint32_t intensity = static_cast<uint32_t>( ((intens_base >= 0.5f) ? 1.0f : intens_base * 2.0f) * 255.0f);
 				const uint32_t intensity2 = static_cast<uint32_t>(intens_base2 * 255.0f);
-				line1[x] = (intensity << 24u) | (intensity2 << 16u) | (intensity2 << 8u) |  255u;
-				line2[x] = (intensity << 24u) | (intensity2 << 16u) | (255u << 8u) | intensity2;
-				line3[x] = (intensity << 24u) | (255u << 16u) | (intensity2 << 8u) | intensity2;
+				if(argb) {
+					line1[x] = (intensity << 24u) | (intensity2 << 16u) | (intensity2 << 8u) |  255u;
+					line2[x] = (intensity << 24u) | (intensity2 << 16u) | (255u << 8u) | intensity2;
+					line3[x] = (intensity << 24u) | (255u << 16u) | (intensity2 << 8u) | intensity2;
+				} else {
+					line1[x] = (intensity2 << 24u) | (intensity2 << 16u) |  (255u << 8u) | (intensity);
+					line2[x] = (intensity2 << 24u) | (255u << 16u) | (intensity2 << 8u) | (intensity);
+					line3[x] = (255u << 24u) | (intensity2 << 16u) | (intensity2 << 8u) | (intensity);
+				}
 			}
 		}
 	}
 }
 
-void createCircleTexture(std::vector<uint32_t>& output, const glm::fvec3& colour, int CIRCLE_W, int CIRCLE_H)
+void createCircleTexture(std::vector<uint32_t>& output, const glm::fvec3& colour, int CIRCLE_W, int CIRCLE_H, bool argb)
 {
 	const int CIRCLE_SIZE = CIRCLE_W * CIRCLE_H;
 	const int CIRCLE_ORIGO_X = CIRCLE_W / 2;
@@ -123,12 +153,18 @@ void createCircleTexture(std::vector<uint32_t>& output, const glm::fvec3& colour
 			} else {
 				const float intens_base = 1.0f - (distance / CIRCLE_RADIUS);
 				const float intens_base2 = std::clamp((intens_base - 0.33f) * 2.0f ,0.0f,1.0f);
-				line[x] = argb32(glm::fvec4(
+				if(argb) line[x] = argb32(glm::fvec4(
 							((intens_base >= 0.5f) ? 1.0f : intens_base * 2.0f),
 							std::max(colour.r,intens_base2),
 							std::max(colour.g,intens_base2),
 							std::max(colour.b,intens_base2)
 							));
+				else  line[x] = rgba32(glm::fvec4(
+										   ((intens_base >= 0.5f) ? 1.0f : intens_base * 2.0f),
+										   std::max(colour.r,intens_base2),
+										   std::max(colour.g,intens_base2),
+										   std::max(colour.b,intens_base2)
+										   ));
 			}
 		}
 	}

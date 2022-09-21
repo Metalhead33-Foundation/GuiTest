@@ -171,7 +171,6 @@ void Font::insertCharacters(const std::pair<char32_t, char32_t>& range)
 		}
 		SoftwareRenderer::RefTexGreyscale_U8 texref(reinterpret_cast<PixelGreyscale_U8*>(fontFace->glyph->bitmap.buffer),glyphSize.x,glyphSize.y);
 		texture->blit(texref,textureOffset,glyphSize);
-		texture->update();
 
 		Character character = {
 			.valid = true,
@@ -183,6 +182,7 @@ void Font::insertCharacters(const std::pair<char32_t, char32_t>& range)
 		characters.insert(std::pair<char32_t, Character>(c, character));
 		textureOffset.x += 1 + glyphSize.x;
 	}
+	texture->update();
 }
 
 void Font::insertCharacters()

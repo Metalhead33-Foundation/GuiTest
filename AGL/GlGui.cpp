@@ -1,6 +1,7 @@
 #include "GlGui.hpp"
 #include <glm/glm.hpp>
 #include "GlTexture2D.hpp"
+#include <GL/GlValidate.hpp>
 
 namespace GL {
 
@@ -44,7 +45,12 @@ static const std::string justColourFragmentShader = "#version 100\n"
 													"uniform vec4 colour;\n"
 													"void main()\n"
 													"{\n"
-													"    gl_FragColor = colour;\n"
+													"    //gl_FragColor = colour;\n"
+													"if(colour.a <= 0.004)\n"
+													"{\n"
+													"	discard;\n"
+													"}\n"
+													"gl_FragColor = colour;\n"
 													"}\n";
 
 static const std::string justTexVertexShader = "#version 100\n"
@@ -64,7 +70,12 @@ static const std::string justTexFragmentShader = "#version 100\n"
 												 "uniform sampler2D texture_sampler;\n"
 												 "void main()\n"
 												 "{\n"
-												 "    gl_FragColor = texture2D(texture_sampler, interpolated_texture_coordinates);\n"
+												 "vec4 texClr = texture2D(texture_sampler, interpolated_texture_coordinates);"
+												 "if(texClr.a <= 0.004)\n"
+												 "{\n"
+												 "	discard;\n"
+												 "}\n"
+												 "gl_FragColor = texClr;\n"
 												 "}\n";
 
 static const std::string clrPTexVertexShader = justTexVertexShader;
@@ -128,6 +139,7 @@ Gui::Gui()
 	justColour.attachShader(justColourVert);
 	justColour.attachShader(justColourFrag);
 	justColour.link();
+	GL::Validate();
 	justColourAttrib = justColour.getUniformLocation("colour");
 	justTexVert.source(justTexVertexShader);
 	justTexVert.compile();
@@ -136,6 +148,7 @@ Gui::Gui()
 	justTex.attachShader(justTexVert);
 	justTex.attachShader(justTexFrag);
 	justTex.link();
+	GL::Validate();
 	justTexAttrib = justTex.getUniformLocation("texture_sampler");
 	clrPTexVert.source(clrPTexVertexShader);
 	clrPTexVert.compile();
@@ -144,6 +157,7 @@ Gui::Gui()
 	clrPTex.attachShader(clrPTexVert);
 	clrPTex.attachShader(clrPTexFrag);
 	clrPTex.link();
+	GL::Validate();
 	clrPTexAttribTex = clrPTex.getUniformLocation("texture_sampler");
 	clrPTexAttribColour = clrPTex.getUniformLocation("colour");
 	// Regular quad
@@ -153,6 +167,7 @@ Gui::Gui()
 	quadI.bufferData(quadIds,sizeof(quadIds));
 	quadVao.bind();
 	quadVao.enableAttributes(CVert::descriptor);
+	GL::Validate();
 	// Textured quad
 	quadTex.bind();
 	quadTex.bufferData(nullptr,sizeof(CVertTex)*4);
@@ -160,16 +175,19 @@ Gui::Gui()
 	quadTexI.bufferData(quadIds,sizeof(quadIds));
 	quadTexVao.bind();
 	quadTexVao.enableAttributes(CVertTex::descriptor);
+	GL::Validate();
 	// Triang
 	triang.bind();
 	triang.bufferData(nullptr,sizeof(CVert)*3);
 	triangVao.bind();
 	triangVao.enableAttributes(CVert::descriptor);
+	GL::Validate();
 	// Line
 	line.bind();
 	line.bufferData(nullptr,sizeof(CVert)*2);
 	lineVao.bind();
 	lineVao.enableAttributes(CVert::descriptor);
+	GL::Validate();
 }
 
 Gui::~Gui()
@@ -228,7 +246,7 @@ void Gui::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2
 	justTex.bind();
 	accelTex->getTex().activate(GL_TEXTURE0);
 	accelTex->getTex().bind();
-	clrPTex.uniform1i(clrPTexAttribTex,0);
+	justTex.uniform1i(justTexAttrib,0);
 	quadTexVao.bind();
 	quadTexI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
@@ -247,7 +265,7 @@ void Gui::renderTex(const glm::fvec2& p0, const glm::fvec2& p1, const SYS::IText
 	justTex.bind();
 	accelTex->getTex().activate(GL_TEXTURE0);
 	accelTex->getTex().bind();
-	clrPTex.uniform1i(clrPTexAttribTex,0);
+	justTex.uniform1i(justTexAttrib,0);
 	quadTexVao.bind();
 	quadTexI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
@@ -266,7 +284,7 @@ void Gui::renderTex(const SYS::ITexture& tex)
 	justTex.bind();
 	accelTex->getTex().activate(GL_TEXTURE0);
 	accelTex->getTex().bind();
-	clrPTex.uniform1i(clrPTexAttribTex,0);
+	justTex.uniform1i(justTexAttrib,0);
 	quadTexVao.bind();
 	quadTexI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
@@ -335,7 +353,7 @@ void Gui::renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p
 {
 	const AcceleratedTexture* accelTex = dynamic_cast<const AcceleratedTexture*>(&tex);
 	if(!accelTex) return;
-	const float xdiff = std::abs(std::max(p0.y,p1.y) - std::min(p0.y,p1.y)) * 0.5f;
+	const float xdiff = std::abs(std::max(p0.x,p1.x) - std::min(p0.x,p1.x)) * tilt;
 	const CVert tmpVert[4] = {
 		{ glm::fvec2(std::min(p0.x,p1.x)+xdiff,-1.0f * std::min(p0.y,p1.y)) },
 		{ glm::fvec2(std::max(p0.x,p1.x)+xdiff,-1.0f * std::min(p0.y,p1.y)) },

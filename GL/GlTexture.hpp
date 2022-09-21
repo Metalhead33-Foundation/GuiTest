@@ -73,6 +73,7 @@ public:
 	GLenum getCompareFunc() const; // GL_TEXTURE_COMPARE_FUNC
 	void setCompareFunc(GLenum mode); // GL_TEXTURE_COMPARE_FUNC
 
+	void pixelStorei(GLenum pname, GLint param);
 	// Storage - 2D
 	void storage2D(GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
 	void image2D(GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * data);

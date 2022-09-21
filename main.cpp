@@ -2,6 +2,7 @@
 #include <iostream>
 #include "System/GuiRenderSystem.hpp"
 #include "System/AcceleratedGuiRenderSystem.hpp"
+#include <AGL/GlTexture2D.hpp>
 #include "Util/PixelFormat.hpp"
 #include "Util/TextureFromSurface.hpp"
 #include <thread>
@@ -36,8 +37,14 @@ static glm::fvec2 absToRel(const glm::ivec2& abs, const glm::ivec2& customRes)
 
 typedef std::unique_ptr<SDL_Surface,decltype(&SDL_FreeSurface)> uSUrface;
 
+#define ACCELERATED
+#ifdef ACCELERATED
 typedef SYS::AcceleratedGuiRenderSystem GUISYS;
-//typedef SYS::GuiRenderSystem GUISYS;
+static const bool isAccelerated = true;
+#else
+typedef SYS::GuiRenderSystem GUISYS;
+static const bool isAccelerated = false;
+#endif
 int main()
 {
 	gladLoaderLoadEGL(nullptr);
@@ -48,34 +55,58 @@ int main()
 	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS,"1");
 	GUISYS* app = new GUISYS("GUI Render Demo",0,0,WIDTH,HEIGHT,0);
 	//auto cursorAdderThread = std::thread([app,&atlas]() {
-	auto cursorAdderThread = std::thread([app]() {
-		// textureFromSurfaceCopy
-		std::unique_ptr<SDL_Surface,decltype(&SDL_FreeSurface)> surfacePtr(IMG_Load("wodmouse.png"),SDL_FreeSurface);
-		//auto tex = textureFromSurfaceCopy(*surfacePtr);
-		std::vector<uint32_t> tex1,tex2,tex3;
-		createCircleTextures(tex1,tex2,tex3,CIRCLE_W,CIRCLE_H);
-		/*TexARGB8888 atex1(reinterpret_cast<PixelARGB8888*>(tex1.data()),CIRCLE_W,CIRCLE_H);
-		TexARGB8888 atex2(reinterpret_cast<PixelARGB8888*>(tex2.data()),CIRCLE_W,CIRCLE_H);
-		TexARGB8888 atex3(reinterpret_cast<PixelARGB8888*>(tex3.data()),CIRCLE_W,CIRCLE_H);
-		sTexture atatex1(atlas.allocateBlocks(atex1));
-		sTexture atatex2(atlas.allocateBlocks(atex2));
-		sTexture atatex3(atlas.allocateBlocks(atex3));
-		sTexture atatex4(atlas.allocateBlocks(*tex));
+	// textureFromSurfaceCopy
+	std::unique_ptr<SDL_Surface,decltype(&SDL_FreeSurface)> surfacePtr(IMG_Load("wodmouse.png"),SDL_FreeSurface);
+	auto tex = SoftwareRenderer::textureFromSurfaceCopySA(*surfacePtr,isAccelerated);
+		if(isAccelerated)
+		{
+			std::vector<uint32_t> tex1,tex2,tex3;
+			createCircleTextures(tex1,tex2,tex3,CIRCLE_W,CIRCLE_H,false);
+			SoftwareRenderer::uTexture atex1 = std::make_unique<SoftwareRenderer::TexRGBA8888>(reinterpret_cast<PixelRGBA8888*>(tex1.data()),CIRCLE_W,CIRCLE_H);
+			SoftwareRenderer::uTexture atex2 = std::make_unique<SoftwareRenderer::TexRGBA8888>(reinterpret_cast<PixelRGBA8888*>(tex2.data()),CIRCLE_W,CIRCLE_H);
+			SoftwareRenderer::uTexture atex3 = std::make_unique<SoftwareRenderer::TexRGBA8888>(reinterpret_cast<PixelRGBA8888*>(tex3.data()),CIRCLE_W,CIRCLE_H);
+			auto atatex1 = std::make_shared<GL::AcceleratedTexture>(std::move(atex1),GL_RGBA,GL_RGBA,GL_UNSIGNED_BYTE);
+			auto atatex2 = std::make_shared<GL::AcceleratedTexture>(std::move(atex2),GL_RGBA,GL_RGBA,GL_UNSIGNED_BYTE);
+			auto atatex3 = std::make_shared<GL::AcceleratedTexture>(std::move(atex3),GL_RGBA,GL_RGBA,GL_UNSIGNED_BYTE);
+			SYS::sCursor cursor = std::make_shared<SYS::TCursor>(std::move(tex));
+			app->setCursor(std::move(cursor));
 
-		sCursor cursor = std::make_shared<TCursor>(std::move(atatex4));
-		app->setCursor(std::move(cursor));*/
-
-		app->getWidgets().access( [&](std::vector<SYS::sWidget>& cntr) {
+			app->getWidgets().access( [&](std::vector<SYS::sWidget>& cntr) {
+				cntr.reserve(256);
+				cntr.push_back(std::make_shared<SYS::BoxWidget>(absToRel(glm::ivec2(25,25),virtualRes),absToRel(glm::ivec2(125,125),virtualRes)));
+				cntr.push_back(std::make_shared<SYS::TickboxWidget>(absToRel(glm::ivec2(100,100),virtualRes),absToRel(glm::ivec2(200,200),virtualRes),1));
+				cntr.push_back(std::make_shared<SYS::TexturedWidget>(absToRel(glm::ivec2(200,200),virtualRes),absToRel(glm::ivec2(200+CIRCLE_W*2,200+CIRCLE_H*2),virtualRes),
+																atatex1,
+																atatex2,
+																atatex3));
+			});
+		} else {
+			std::vector<uint32_t> tex1,tex2,tex3;
+			createCircleTextures(tex1,tex2,tex3,CIRCLE_W,CIRCLE_H,true);
+			auto tex = SoftwareRenderer::textureFromSurfaceCopy(*surfacePtr);
+			SoftwareRenderer::sTexture atex1 = std::make_shared<SoftwareRenderer::TexARGB8888>(reinterpret_cast<PixelARGB8888*>(tex1.data()),CIRCLE_W,CIRCLE_H);
+			SoftwareRenderer::sTexture atex2 = std::make_shared<SoftwareRenderer::TexARGB8888>(reinterpret_cast<PixelARGB8888*>(tex2.data()),CIRCLE_W,CIRCLE_H);
+			SoftwareRenderer::sTexture atex3 = std::make_shared<SoftwareRenderer::TexARGB8888>(reinterpret_cast<PixelARGB8888*>(tex3.data()),CIRCLE_W,CIRCLE_H);
+			SYS::sCursor cursor = std::make_shared<SYS::TCursor>(std::move(tex));
+			app->setCursor(std::move(cursor));
+			app->getWidgets().access( [&](std::vector<SYS::sWidget>& cntr) {
 			cntr.reserve(256);
 			cntr.push_back(std::make_shared<SYS::BoxWidget>(absToRel(glm::ivec2(25,25),virtualRes),absToRel(glm::ivec2(125,125),virtualRes)));
 			cntr.push_back(std::make_shared<SYS::TickboxWidget>(absToRel(glm::ivec2(100,100),virtualRes),absToRel(glm::ivec2(200,200),virtualRes),1));
-			/*cntr.push_back(std::make_shared<SYS::TexturedWidget>(absToRel(glm::ivec2(200,200),virtualRes),absToRel(glm::ivec2(200+CIRCLE_W*2,200+CIRCLE_H*2),virtualRes),
-															atatex1,
-															atatex2,
-															atatex3));*/
-		});
-
-	});
+			cntr.push_back(std::make_shared<SYS::TexturedWidget>(absToRel(glm::ivec2(200,200),virtualRes),absToRel(glm::ivec2(200+CIRCLE_W*2,200+CIRCLE_H*2),virtualRes),
+															atex1,
+															atex2,
+															atex3));
+			});
+		}
+		FT_Library ft;
+		if (FT_Init_FreeType(&ft)) {
+			return -1;
+		}
+		TXT::sFreeTypeSystem sys(ft,FT_Done_FreeType);
+				auto font = std::make_shared<TXT::FontRepository>( std::move(sys), isAccelerated );
+		font->initializeFont("Noto",CJK);
+		app->setFont(std::move(font));
 	/*app->getFunctionMap().insert_or_assign(SDLK_SPACE,[](GUISYS* sys) {
 		auto fontSys = sys->getFont();
 		if(fontSys) {
@@ -91,23 +122,12 @@ int main()
 				}
 			}
 		}
-	})*/;
+	})*/
 	/*app->getFunctionMap().insert_or_assign(SDLK_TAB,[&atlas](GUISYS* sys) {
 		uSUrface s(SDL_CreateRGBSurfaceWithFormat(0,atlas.getTexture()->getWidth(),atlas.getTexture()->getHeight(),8,SDL_PIXELFORMAT_ARGB8888),SDL_FreeSurface);
 		memcpy(s->pixels,atlas.getTexture()->getRawPixels(),s->w * s->h * 4);
 		IMG_SavePNG(s.get(),"textureAtlas.png");
 	});*/
-	auto fontAdderThread = std::thread([app]() {
-		FT_Library ft;
-		if (FT_Init_FreeType(&ft)) {
-			return;
-		}
-		TXT::sFreeTypeSystem sys(ft,FT_Done_FreeType);
-
-		auto font = std::make_shared<TXT::FontRepository>( std::move(sys), true );
-		font->initializeFont("Noto",CJK);
-		app->setFont(std::move(font));
-	});
 	/*{
 		FT_Library ft;
 		if (!FT_Init_FreeType(&ft)) {

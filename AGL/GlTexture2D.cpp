@@ -1,4 +1,5 @@
 #include "GlTexture2D.hpp"
+#include <GL/GlValidate.hpp>
 
 namespace GL {
 
@@ -9,6 +10,10 @@ const Texture& AcceleratedTexture::getTex() const
 
 void AcceleratedTexture::update()
 {
+	glGetError();
+	tex.bind();
+	tex.pixelStorei(GL_UNPACK_ALIGNMENT,1);
+	tex.pixelStorei(GL_PACK_ALIGNMENT,1);
 	tex.image2D(0,internalFormat,softTex->getWidth(),softTex->getHeight(),0,format,type, softTex->getRawPixels());
 	tex.setWrapS(GL_MIRRORED_REPEAT);
 	tex.setWrapT(GL_MIRRORED_REPEAT);
@@ -44,11 +49,16 @@ void AcceleratedTexture::blit(const ITexture& cpy, const glm::ivec2 offset)
 AcceleratedTexture::AcceleratedTexture(std::unique_ptr<SoftwareRenderer::Texture>&& mov, GLint internalFormat, GLenum format, GLenum type)
 	: softTex(std::move(mov)), tex(GL_TEXTURE_2D), internalFormat(internalFormat), format(format), type(type)
 {
+	glGetError();
+	tex.bind();
+	tex.pixelStorei(GL_UNPACK_ALIGNMENT,1);
+	tex.pixelStorei(GL_PACK_ALIGNMENT,1);
 	tex.image2D(0,internalFormat,softTex->getWidth(),softTex->getHeight(),0,format,type, softTex->getRawPixels());
 	tex.setWrapS(GL_MIRRORED_REPEAT);
 	tex.setWrapT(GL_MIRRORED_REPEAT);
 	tex.setMinFilter(GL_NEAREST);
 	tex.setMagFilter(GL_LINEAR);
+	Validate::validate();
 }
 
 int AcceleratedTexture::getWidth() const

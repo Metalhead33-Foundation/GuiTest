@@ -21,6 +21,7 @@ SOURCES += \
         GL/GlShaderProgram.cpp \
         GL/GlTexture.cpp \
         GL/GlVAO.cpp \
+	GL/GlValidate.cpp \
         GL/gles2.c \
 	Pipeline/GuiRenderer.cpp \
 	Pipeline/IFontTexture.cpp \
@@ -72,6 +73,7 @@ HEADERS += \
 	GL/GlTexture.hpp \
 	GL/GlTextureArray.hpp \
 	GL/GlVAO.hpp \
+	GL/GlValidate.hpp \
 	GL/GlVaoArray.hpp \
 	GL/gles2.h \
 	GL/khrplatform.h \

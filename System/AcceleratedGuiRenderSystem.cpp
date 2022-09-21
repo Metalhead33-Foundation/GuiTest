@@ -102,7 +102,7 @@ void AcceleratedGuiRenderSystem::updateLogic()
 void AcceleratedGuiRenderSystem::render()
 {
 	fpsCounter.singleTick([this]() {
-		glClearColor(0.0f,0.0f,0.0f,1.0f);
+		glClearColor(0.2f,0.2f,0.2f,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		if(font) {
 			//font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,0.5f,glm::fvec4(0.99f,0.35f,0.35f,1.0f),8);
@@ -144,6 +144,7 @@ AcceleratedGuiRenderSystem::AcceleratedGuiRenderSystem(const std::string& title,
 	context->makeCurrent();
 	gladLoaderLoadGLES2();
 	guiRenderer = std::make_unique<GL::Gui>();
+	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	//SDL_SetRelativeMouseMode(SDL_TRUE);
