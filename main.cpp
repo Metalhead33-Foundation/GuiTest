@@ -58,16 +58,18 @@ int main()
 	// textureFromSurfaceCopy
 	std::unique_ptr<SDL_Surface,decltype(&SDL_FreeSurface)> surfacePtr(IMG_Load("wodmouse.png"),SDL_FreeSurface);
 	auto tex = SoftwareRenderer::textureFromSurfaceCopySA(*surfacePtr,isAccelerated);
+	uSUrface tex1(SDL_CreateRGBSurfaceWithFormat(0,CIRCLE_W,CIRCLE_H,0,SDL_PIXELFORMAT_ARGB8888),SDL_FreeSurface);
+	uSUrface tex2(SDL_CreateRGBSurfaceWithFormat(0,CIRCLE_W,CIRCLE_H,0,SDL_PIXELFORMAT_ARGB8888),SDL_FreeSurface);
+	uSUrface tex3(SDL_CreateRGBSurfaceWithFormat(0,CIRCLE_W,CIRCLE_H,0,SDL_PIXELFORMAT_ARGB8888),SDL_FreeSurface);
+	auto span1 = std::span<uint32_t>(static_cast<uint32_t*>(tex1->pixels),CIRCLE_H*CIRCLE_W);
+	auto span2 = std::span<uint32_t>(static_cast<uint32_t*>(tex2->pixels),CIRCLE_H*CIRCLE_W);
+	auto span3 = std::span<uint32_t>(static_cast<uint32_t*>(tex3->pixels),CIRCLE_H*CIRCLE_W);
+	createCircleTextures(span1, span2, span3, CIRCLE_W,CIRCLE_H,true);
+	auto atatex1 = SoftwareRenderer::textureFromSurfaceCopySA(*tex1,isAccelerated);
+	auto atatex2 = SoftwareRenderer::textureFromSurfaceCopySA(*tex2,isAccelerated);
+	auto atatex3 = SoftwareRenderer::textureFromSurfaceCopySA(*tex3,isAccelerated);
 		if(isAccelerated)
 		{
-			std::vector<uint32_t> tex1,tex2,tex3;
-			createCircleTextures(tex1,tex2,tex3,CIRCLE_W,CIRCLE_H,false);
-			SoftwareRenderer::uTexture atex1 = std::make_unique<SoftwareRenderer::TexRGBA8888>(reinterpret_cast<PixelRGBA8888*>(tex1.data()),CIRCLE_W,CIRCLE_H);
-			SoftwareRenderer::uTexture atex2 = std::make_unique<SoftwareRenderer::TexRGBA8888>(reinterpret_cast<PixelRGBA8888*>(tex2.data()),CIRCLE_W,CIRCLE_H);
-			SoftwareRenderer::uTexture atex3 = std::make_unique<SoftwareRenderer::TexRGBA8888>(reinterpret_cast<PixelRGBA8888*>(tex3.data()),CIRCLE_W,CIRCLE_H);
-			auto atatex1 = std::make_shared<GL::AcceleratedTexture>(std::move(atex1),GL_RGBA,GL_RGBA,GL_UNSIGNED_BYTE);
-			auto atatex2 = std::make_shared<GL::AcceleratedTexture>(std::move(atex2),GL_RGBA,GL_RGBA,GL_UNSIGNED_BYTE);
-			auto atatex3 = std::make_shared<GL::AcceleratedTexture>(std::move(atex3),GL_RGBA,GL_RGBA,GL_UNSIGNED_BYTE);
 			SYS::sCursor cursor = std::make_shared<SYS::TCursor>(std::move(tex));
 			app->setCursor(std::move(cursor));
 
@@ -81,12 +83,7 @@ int main()
 																atatex3));
 			});
 		} else {
-			std::vector<uint32_t> tex1,tex2,tex3;
-			createCircleTextures(tex1,tex2,tex3,CIRCLE_W,CIRCLE_H,true);
 			auto tex = SoftwareRenderer::textureFromSurfaceCopy(*surfacePtr);
-			SoftwareRenderer::sTexture atex1 = std::make_shared<SoftwareRenderer::TexARGB8888>(reinterpret_cast<PixelARGB8888*>(tex1.data()),CIRCLE_W,CIRCLE_H);
-			SoftwareRenderer::sTexture atex2 = std::make_shared<SoftwareRenderer::TexARGB8888>(reinterpret_cast<PixelARGB8888*>(tex2.data()),CIRCLE_W,CIRCLE_H);
-			SoftwareRenderer::sTexture atex3 = std::make_shared<SoftwareRenderer::TexARGB8888>(reinterpret_cast<PixelARGB8888*>(tex3.data()),CIRCLE_W,CIRCLE_H);
 			SYS::sCursor cursor = std::make_shared<SYS::TCursor>(std::move(tex));
 			app->setCursor(std::move(cursor));
 			app->getWidgets().access( [&](std::vector<SYS::sWidget>& cntr) {
@@ -94,9 +91,9 @@ int main()
 			cntr.push_back(std::make_shared<SYS::BoxWidget>(absToRel(glm::ivec2(25,25),virtualRes),absToRel(glm::ivec2(125,125),virtualRes)));
 			cntr.push_back(std::make_shared<SYS::TickboxWidget>(absToRel(glm::ivec2(100,100),virtualRes),absToRel(glm::ivec2(200,200),virtualRes),1));
 			cntr.push_back(std::make_shared<SYS::TexturedWidget>(absToRel(glm::ivec2(200,200),virtualRes),absToRel(glm::ivec2(200+CIRCLE_W*2,200+CIRCLE_H*2),virtualRes),
-															atex1,
-															atex2,
-															atex3));
+															atatex1,
+															atatex2,
+															atatex3));
 			});
 		}
 		FT_Library ft;

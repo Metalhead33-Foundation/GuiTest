@@ -95,15 +95,15 @@ void createButtons(ButtonTextureCollection& buttons, int width, int height, cons
 	}
 }
 
-void createCircleTextures(std::vector<uint32_t>& redCircle, std::vector<uint32_t>& greenCircle, std::vector<uint32_t>& blueCircle, int CIRCLE_W, int CIRCLE_H, bool argb)
+void createCircleTextures(std::span<uint32_t>& redCircle, std::span<uint32_t>& greenCircle, std::span<uint32_t>& blueCircle, int CIRCLE_W, int CIRCLE_H, bool argb)
 {
 	const int CIRCLE_SIZE = CIRCLE_W * CIRCLE_H;
 	const int CIRCLE_ORIGO_X = CIRCLE_W / 2;
 	const int CIRCLE_ORIGO_Y = CIRCLE_H / 2;
 	const float CIRCLE_RADIUS = static_cast<float>(std::min(CIRCLE_ORIGO_X,CIRCLE_ORIGO_Y));
-	redCircle.resize(CIRCLE_SIZE);
-	greenCircle.resize(CIRCLE_SIZE);
-	blueCircle.resize(CIRCLE_SIZE);
+	//redCircle.resize(CIRCLE_SIZE);
+	//greenCircle.resize(CIRCLE_SIZE);
+	//blueCircle.resize(CIRCLE_SIZE);
 	for(int y = 0; y < CIRCLE_H; ++y) {
 		uint32_t * const line1 = &blueCircle[y*CIRCLE_W];
 		uint32_t * const line2 = &greenCircle[y*CIRCLE_W];
@@ -135,13 +135,13 @@ void createCircleTextures(std::vector<uint32_t>& redCircle, std::vector<uint32_t
 	}
 }
 
-void createCircleTexture(std::vector<uint32_t>& output, const glm::fvec3& colour, int CIRCLE_W, int CIRCLE_H, bool argb)
+void createCircleTexture(std::span<uint32_t>& output, const glm::fvec3& colour, int CIRCLE_W, int CIRCLE_H, bool argb)
 {
 	const int CIRCLE_SIZE = CIRCLE_W * CIRCLE_H;
 	const int CIRCLE_ORIGO_X = CIRCLE_W / 2;
 	const int CIRCLE_ORIGO_Y = CIRCLE_H / 2;
 	const float CIRCLE_RADIUS = static_cast<float>(std::min(CIRCLE_ORIGO_X,CIRCLE_ORIGO_Y));
-	output.resize(CIRCLE_SIZE);
+	//output.resize(CIRCLE_SIZE);
 	for(int y = 0; y < CIRCLE_H; ++y) {
 		const float distanceY = std::abs(static_cast<float>(y) - static_cast<float>(CIRCLE_ORIGO_Y));
 		uint32_t * const line = &output[y*CIRCLE_W];

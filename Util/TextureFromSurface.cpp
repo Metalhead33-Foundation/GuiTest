@@ -239,14 +239,47 @@ std::shared_ptr<SYS::ITexture> textureFromSurfaceCopySA(SDL_Surface& surface, bo
 {
 	if(accelerated)
 	{
-		std::unique_ptr<SDL_PixelFormat,decltype(&SDL_FreeFormat)> frm(SDL_AllocFormat(SDL_PIXELFORMAT_BGRA8888),SDL_FreeFormat);
-		std::unique_ptr<SDL_Surface,decltype (&SDL_FreeSurface)> surorg(SDL_ConvertSurface(&surface,frm.get(),0),SDL_FreeSurface);
-		auto sur = textureFromSurfaceCopyU(*surorg);
-		return std::make_unique<GL::AcceleratedTexture>(std::move(sur),GL_RGBA,GL_RGBA,GL_UNSIGNED_BYTE);
-		/*std::unique_ptr<SDL_PixelFormat,decltype(&SDL_FreeFormat)> frm(SDL_AllocFormat(SDL_PIXELFORMAT_RGB565),SDL_FreeFormat);
-		std::unique_ptr<SDL_Surface,decltype (&SDL_FreeSurface)> surorg(SDL_ConvertSurface(&surface,frm.get(),0),SDL_FreeSurface);
-		auto sur = textureFromSurfaceCopyU(*surorg);
-		return std::make_unique<GL::AcceleratedTexture>(std::move(sur),GL_RGB,GL_RGB,GL_UNSIGNED_SHORT_5_6_5);*/
+		bool hasAlpha = false;
+		switch (surface.format->format) {
+		case SDL_PIXELFORMAT_INDEX8: // Break through
+		case SDL_PIXELFORMAT_RGB332: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_RGB444: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_RGB555: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_BGR555: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_ARGB4444: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_RGBA4444: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_ABGR4444: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_BGRA4444: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_ARGB1555: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_RGBA5551: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_ABGR1555: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_BGRA5551: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_RGB565: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_BGR565: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_RGB24: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_BGR24: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_RGB888: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_RGBX8888: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_BGR888: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_BGRX8888: hasAlpha = false; break;
+		case SDL_PIXELFORMAT_ARGB8888: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_RGBA8888: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_ABGR8888: hasAlpha = true; break;
+		case SDL_PIXELFORMAT_BGRA8888: hasAlpha = true; break;
+		}
+		if(hasAlpha)
+		{
+			std::unique_ptr<SDL_PixelFormat,decltype(&SDL_FreeFormat)> frm(SDL_AllocFormat(SDL_PIXELFORMAT_ABGR8888),SDL_FreeFormat);
+			std::unique_ptr<SDL_Surface,decltype (&SDL_FreeSurface)> surorg(SDL_ConvertSurface(&surface,frm.get(),0),SDL_FreeSurface);
+			auto sur = textureFromSurfaceCopyU(*surorg);
+			return std::make_unique<GL::AcceleratedTexture>(std::move(sur),GL_RGBA,GL_RGBA,GL_UNSIGNED_BYTE);
+		}
+		else {
+			std::unique_ptr<SDL_PixelFormat,decltype(&SDL_FreeFormat)> frm(SDL_AllocFormat(SDL_PIXELFORMAT_RGB565),SDL_FreeFormat);
+			std::unique_ptr<SDL_Surface,decltype (&SDL_FreeSurface)> surorg(SDL_ConvertSurface(&surface,frm.get(),0),SDL_FreeSurface);
+			auto sur = textureFromSurfaceCopyU(*surorg);
+			return std::make_unique<GL::AcceleratedTexture>(std::move(sur),GL_RGB,GL_RGB,GL_UNSIGNED_SHORT_5_6_5);
+		}
 	} else return textureFromSurfaceCopy(surface);
 }
 
