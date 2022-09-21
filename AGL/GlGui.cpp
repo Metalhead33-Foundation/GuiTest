@@ -216,6 +216,7 @@ void Gui::renderCRect(const glm::fvec2& p0, const glm::fvec2& p1, const glm::fve
 	quad.bufferSubData(0,tmpVert,sizeof(tmpVert));
 	justColour.bind();
 	justColour.uniform4f(justColourAttrib,colour);
+	quadVao.bind();
 	quadI.draw(GL_TRIANGLES,6,GL_UNSIGNED_INT,nullptr);
 }
 
