@@ -353,12 +353,12 @@ void Gui::renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p
 {
 	const AcceleratedTexture* accelTex = dynamic_cast<const AcceleratedTexture*>(&tex);
 	if(!accelTex) return;
-	const float xdiff = std::abs(std::max(p0.x,p1.x) - std::min(p0.x,p1.x)) * tilt;
-	const CVert tmpVert[4] = {
-		{ glm::fvec2(std::min(p0.x,p1.x)+xdiff,-1.0f * std::min(p0.y,p1.y)) },
-		{ glm::fvec2(std::max(p0.x,p1.x)+xdiff,-1.0f * std::min(p0.y,p1.y)) },
-		{ glm::fvec2(std::min(p0.x,p1.x),-1.0f * std::max(p0.y,p1.y)) },
-		{ glm::fvec2(std::max(p0.x,p1.x),-1.0f * std::max(p0.y,p1.y)) }
+	const float xdiff = std::abs(std::max(p0.y,p1.y) - std::min(p0.y,p1.y)) * tilt;
+	const CVertTex tmpVert[4] = {
+		{ glm::fvec2(std::min(p0.x,p1.x)+xdiff,-1.0f * std::min(p0.y,p1.y)), glm::fvec2(std::min(t0.x,t1.x),std::min(t0.y,t1.y))  },
+		{ glm::fvec2(std::max(p0.x,p1.x)+xdiff,-1.0f * std::min(p0.y,p1.y)), glm::fvec2(std::max(t0.x,t1.x),std::min(t0.y,t1.y))  },
+		{ glm::fvec2(std::min(p0.x,p1.x),-1.0f * std::max(p0.y,p1.y)), glm::fvec2(std::min(t0.x,t1.x),std::max(t0.y,t1.y))  },
+		{ glm::fvec2(std::max(p0.x,p1.x),-1.0f * std::max(p0.y,p1.y)), glm::fvec2(std::max(t0.x,t1.x),std::max(t0.y,t1.y))  }
 	};
 	quadTex.bufferSubData(0,tmpVert,sizeof(tmpVert));
 	clrPTex.bind();

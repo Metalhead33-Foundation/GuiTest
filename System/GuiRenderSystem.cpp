@@ -442,7 +442,7 @@ void GuiRenderSystem::renderCTex(const glm::vec4& colour, const ITexture& tex)
 
 void GuiRenderSystem::renderTiltedCTex(float tilt, const glm::fvec2& p0, const glm::fvec2& p1, const glm::fvec2 t0, const glm::fvec2& t1, const glm::vec4& colour, const ITexture& tex)
 {
-	const float xdiff = (std::max(p0.x,p1.x) - std::min(p0.x,p1.x)) * tilt;
+	const float xdiff = std::abs(std::max(p0.y,p1.y) - std::min(p0.y,p1.y)) * tilt;
 	SoftwareRenderer::ColouredTexturedVertexIn vertices[] = {
 		SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(std::min(p0.x,p1.x)+xdiff,std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::min(t0.x,t1.x), std::min(t0.y,t1.y)) , .COLOUR = colour },
 		SoftwareRenderer::ColouredTexturedVertexIn{ .POS = glm::fvec2(std::max(p0.x,p1.x)+xdiff,std::min(p0.y,p1.y)), .TEXCOORD = glm::fvec2(std::max(t0.x,t1.x), std::min(t0.y,t1.y)) , .COLOUR = colour },
