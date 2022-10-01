@@ -149,12 +149,12 @@ GuiRenderSystem::GuiRenderSystem(const std::string& title, int offsetX, int offs
 	bpipeline.uniform.blending = SoftwareRenderer::ALPHA_DITHERING;
 	bpipeline.vert = SoftwareRenderer::basicVertexShader;
 	bpipeline.frag = SoftwareRenderer::basicFragmentShader;
-	tpipeline.uniform.blending = SoftwareRenderer::ALPHA_BLENDING;
+	tpipeline.uniform.blending = SoftwareRenderer::ALPHA_DITHERING;
 	tpipeline.uniform.samplerState.wrap = SoftwareRenderer::Wrap::MIRRORED_REPEAT;
 	tpipeline.uniform.samplerState.filtering = SoftwareRenderer::TextureFiltering::DITHERED;
 	tpipeline.vert = SoftwareRenderer::TexturedVertexShader;
 	tpipeline.frag = SoftwareRenderer::TexturedFragmentShader;
-	ctpipeline.uniform.blending = SoftwareRenderer::ALPHA_BLENDING;
+	ctpipeline.uniform.blending = SoftwareRenderer::ALPHA_DITHERING;
 	ctpipeline.uniform.samplerState.wrap = SoftwareRenderer::Wrap::MIRRORED_REPEAT;
 	ctpipeline.uniform.samplerState.filtering = SoftwareRenderer::TextureFiltering::BILINEAR;
 	ctpipeline.vert = SoftwareRenderer::ColouredTexturedVertexShader;

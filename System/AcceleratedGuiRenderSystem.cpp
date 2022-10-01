@@ -90,6 +90,7 @@ void AcceleratedGuiRenderSystem::updateLogic()
 		strm << "<colour=#FF0000>FPS min: "<< fpsMin << "</colour><br>";
 		strm << "<colour=#A0A0A0>FPS avg: "<< fpsAvg << "</colour><br>";
 		strm << "<colour=#00FF00>FPS max: "<< fpsMax << "</colour><br>";
+		strm << "<colour=#11AA11>I was too tired to update this renderer today.</colour><br>";
 		parser.parse(strm.str());
 		richie->flush();
 		textToRender = richie->getBlocks();
@@ -102,7 +103,7 @@ void AcceleratedGuiRenderSystem::updateLogic()
 void AcceleratedGuiRenderSystem::render()
 {
 	fpsCounter.singleTick([this]() {
-		glClearColor(0.2f,0.2f,0.2f,1.0f);
+		glClearColor(0.0f,0.0f,0.0f,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		if(font) {
 			//font->renderText(*this,txt,glm::fvec2(-0.75f,-0.75f),sizeReciprocal,0.5f,glm::fvec4(0.99f,0.35f,0.35f,1.0f),8);
@@ -125,6 +126,7 @@ void AcceleratedGuiRenderSystem::render()
 
 void AcceleratedGuiRenderSystem::onResolutionChange(int newWidth, int newHeight)
 {
+	if(guiRenderer) guiRenderer->setScreensize(glm::vec2(newWidth,newHeight));
 	viewport = glm::ivec4(0,0,newWidth,newHeight);
 	projection = glm::ortho(0,newWidth,0,newHeight);
 	sizeReciprocal = glm::fvec2(2.0f/static_cast<float>(newWidth),2.0f/static_cast<float>(newHeight));
@@ -133,7 +135,7 @@ void AcceleratedGuiRenderSystem::onResolutionChange(int newWidth, int newHeight)
 static const glm::ivec2 virtualRes = glm::ivec2(320,240);
 
 AcceleratedGuiRenderSystem::AcceleratedGuiRenderSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags)
-	: AppSystem(title,offsetX,offsetY,width,height,flags), currentWidget(nullptr),
+	: AppSystem(title,offsetX,offsetY,width,height,flags), currentWidget(nullptr), guiRenderer(nullptr),
 	  strbuffer(""), fullscreen(false), mousePos(glm::fvec2(0.0,0.0f)), cursor(nullptr), font(nullptr), richie(nullptr), logicTicks(0)
 {
 	onResolutionChange(width,height);
@@ -143,7 +145,7 @@ AcceleratedGuiRenderSystem::AcceleratedGuiRenderSystem(const std::string& title,
 	context = std::make_unique<EGL::Context>(sysinfo.info.x11.display,sysinfo.info.x11.window);
 	context->makeCurrent();
 	gladLoaderLoadGLES2();
-	guiRenderer = std::make_unique<GL::Gui>();
+	guiRenderer = std::make_unique<GL::Gui>(glm::vec2(width,height));
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

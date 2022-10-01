@@ -127,12 +127,14 @@ float ITexture::getLevelValueF(GLenum pname, GLint level) const
 void GL::ITexture::activate(GLuint index)
 {
 	glActiveTexture(GL_TEXTURE0 + index);
+	Validate::validate();
 }
 
 void ITexture::bind() const
 {
 	RecursiveLock lock(TextureEssentials::texturemutex);
 	TextureEssentials::forceBound(getTexId(),getTarget());
+	Validate::validate();
 }
 
 void ITexture::bind(GLenum target) const
