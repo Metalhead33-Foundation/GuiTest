@@ -3,15 +3,18 @@
 #include "System/GuiRenderSystem.hpp"
 #include "System/AcceleratedGuiRenderSystem.hpp"
 #include <AGL/GlTexture2D.hpp>
-#include "Util/PixelFormat.hpp"
-#include "Util/TextureFromSurface.hpp"
+#include <MhLib/Util/PixelFormat.hpp>
+#include <MhLib/Util/TextureFromSurface.hpp>
 #include <thread>
 #include <SDL2/SDL_image.h>
 #include <sstream>
-#include "Util/TextureHelpers.hpp"
+#include "MhLib/Util/TextureHelpers.hpp"
 #include "Widget/BoxWidget.hpp"
 #include "Widget/TickboxWidget.hpp"
 #include "Widget/TexturedWidget.hpp"
+#include "System/AudioSDL.hpp"
+#include "MhLib/Io/MhFile.hpp"
+#include "MhLib/Media/AdvancedAudio/MhModulePlayer.hpp"
 //#include "Texture/TextureAtlas.hpp"
 
 /**static const int WIDTH = 640;
@@ -48,14 +51,15 @@ static const bool isAccelerated = false;
 int main()
 {
 	gladLoaderLoadEGL(nullptr);
-	/*TextureAtlas atlas([](const glm::ivec2& size) {
-		return new StandardTexture<PixelARGB8888>(size.x,size.y);
-	},glm::ivec2(32,32),glm::ivec2(12,12));*/
-	SDL_Init(SDL_INIT_VIDEO);
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS,"1");
+	Driver::SDL SDL_AudioSystem(48000,2,4096);
+	MH33::Io::sDevice musicfile = std::make_shared<MH33::Io::File>("/home/legacy/zene/GameMusic/Unreal Tournament/mod/09 - Lock.it",MH33::Io::Mode::READ);
+	auto musicplayer = std::make_shared<MH33::Audio::ModulePlayer>(musicfile);
+	SDL_AudioSystem.setPlayable(musicplayer);
+	musicplayer->setState(MH33::Audio::PlayStatus::PLAYING);
+	SDL_AudioSystem.pause(false);
 	GUISYS* app = new GUISYS("GUI Render Demo",0,0,WIDTH,HEIGHT,0);
-	//auto cursorAdderThread = std::thread([app,&atlas]() {
-	// textureFromSurfaceCopy
 	std::unique_ptr<SDL_Surface,decltype(&SDL_FreeSurface)> surfacePtr(IMG_Load("wodmouse.png"),SDL_FreeSurface);
 	auto tex = SoftwareRenderer::textureFromSurfaceCopySA(*surfacePtr,isAccelerated);
 	uSUrface tex1(SDL_CreateRGBSurfaceWithFormat(0,CIRCLE_W,CIRCLE_H,0,SDL_PIXELFORMAT_ARGB8888),SDL_FreeSurface);
@@ -104,38 +108,6 @@ int main()
 				auto font = std::make_shared<TXT::FontRepository>( std::move(sys), isAccelerated );
 		font->initializeFont("Noto",CJK);
 		app->setFont(std::move(font));
-	/*app->getFunctionMap().insert_or_assign(SDLK_SPACE,[](GUISYS* sys) {
-		auto fontSys = sys->getFont();
-		if(fontSys) {
-			for(auto it = std::begin(fontSys->getFonts()); it != std::end(fontSys->getFonts());++it) {
-				for(size_t i = 0; i < it->second.size(); ++i) {
-					std::stringstream sstream;
-					sstream << it->first << '-' << i << std::endl;
-					auto str = sstream.str();
-					uSUrface s(SDL_CreateRGBSurfaceWithFormat(0,it->second[i]->getTexture().getWidth(),it->second[i]->getTexture().getHeight(),8,SDL_PIXELFORMAT_RGB332),SDL_FreeSurface);
-					memcpy(s->pixels,it->second[i]->getTexture().getRawPixels(),s->w * s->h);
-					IMG_SavePNG(s.get(),str.c_str());
-					SDL_Delay(30000);
-				}
-			}
-		}
-	})*/
-	/*app->getFunctionMap().insert_or_assign(SDLK_TAB,[&atlas](GUISYS* sys) {
-		uSUrface s(SDL_CreateRGBSurfaceWithFormat(0,atlas.getTexture()->getWidth(),atlas.getTexture()->getHeight(),8,SDL_PIXELFORMAT_ARGB8888),SDL_FreeSurface);
-		memcpy(s->pixels,atlas.getTexture()->getRawPixels(),s->w * s->h * 4);
-		IMG_SavePNG(s.get(),"textureAtlas.png");
-	});*/
-	/*{
-		FT_Library ft;
-		if (!FT_Init_FreeType(&ft)) {
-		} {
-		TXT::sFreeTypeSystem sys(ft,FT_Done_FreeType);
-
-		auto font = std::make_shared<TXT::FontRepository>( std::move(sys), true );
-		font->initializeFont("Noto",CJK);
-		app->setFont(std::move(font));
-		}
-	}*/
 	omp_set_dynamic(1);     // Explicitly enable dynamic teams
 	app->run();
 	//fontAdderThread.join();

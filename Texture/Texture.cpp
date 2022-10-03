@@ -1,5 +1,5 @@
 #include "Texture.hpp"
-#include "../Util/Dither.hpp"
+#include "../MhLib/Util/Dither.hpp"
 #include "../SoftPipeline/EdgeFunction.hpp"
 #include <cmath>
 

@@ -2,8 +2,8 @@
 #include <glm/glm.hpp>
 #include "GlTexture2D.hpp"
 #include <GL/GlValidate.hpp>
-#include <Util/Dither.hpp>
-#include <Util/NormDenorm.hpp>
+#include <MhLib/Util/Dither.hpp>
+#include <MhLib/Util/NormDenorm.hpp>
 
 namespace GL {
 
@@ -54,7 +54,7 @@ static const std::string justColourFragmentShader = "#version 300 es\n"
 													"{\n"
 													"ivec2 wincoords = ivec2( floor( mod(screen_coord,vec2(4.0)) ) );\n"
 													"vec4 threshold = texelFetch(threshold_texture, wincoords, 0)\n;"
-													"if(colour.a < threshold.r)\n"
+													"if(colour.a < threshold.a)\n"
 													"{\n"
 													"discard;\n"
 													"}\n"
@@ -88,7 +88,7 @@ static const std::string justTexFragmentShader = "#version 300 es\n"
 												 "vec4 texClr = texture2D(texture_sampler, interpolated_texture_coordinates);"
 												 "ivec2 wincoords = ivec2( floor( mod(screen_coord,vec2(4.0)) ) );\n"
 												 "vec4 threshold = texelFetch(threshold_texture, wincoords, 0);\n"
-												 "if(texClr.a < threshold.r)\n"
+												 "if(texClr.a < threshold.a)\n"
 												 "{\n"
 												 "discard;\n"
 												 "}\n"
@@ -109,7 +109,7 @@ static const std::string clrPTexFragmentShader = "#version 300 es\n"
 												 "ivec2 wincoords = ivec2( floor( mod(screen_coord,vec2(4.0)) ) );\n"
 												 "vec4 threshold = texelFetch(threshold_texture, wincoords, 0);\n"
 												 "vec4 texclr = texture2D(texture_sampler, interpolated_texture_coordinates);\n"
-												 "if(texclr.a < threshold.r)\n"
+												 "if(texclr.a < threshold.a)\n"
 												 "{\n"
 												 "discard;\n"
 												 "}\n"
@@ -170,20 +170,20 @@ Gui::Gui(glm::vec2 screensize)
 {
 	// Threshold
 	{
-		/*std::vector<uint8_t> thresholdVector;
+		std::vector<uint8_t> thresholdVector;
 		thresholdVector.reserve(16);
 		for(int x = 0; x < 4; ++x)
 		{
 			for(int y = 0; y < 4; ++y)
 			{
-				thresholdVector.push_back(denormalize<half>(thresholdMatrix[x][y]));
+				thresholdVector.push_back(denormalize<uint8_t>(thresholdMatrix[x][y]));
 			}
-		}*/
+		}
 		threshold.bind();
 		threshold.pixelStorei(GL_UNPACK_ALIGNMENT,1);
 		threshold.pixelStorei(GL_PACK_ALIGNMENT,1);
-		threshold.image2D(0, GL_RED,4,4,0, GL_RED, GL_FLOAT,&thresholdMatrix);
-		//threshold.image2D(0, GL_ALPHA,4,4,0, GL_ALPHA, GL_UNSIGNED_BYTE,thresholdVector.data());
+		//threshold.image2D(0, GL_RED,4,4,0, GL_RED, GL_FLOAT,&thresholdMatrix);
+		threshold.image2D(0, GL_ALPHA,4,4,0, GL_ALPHA, GL_UNSIGNED_BYTE,thresholdVector.data());
 		threshold.setWrapS(GL_REPEAT);
 		threshold.setWrapT(GL_REPEAT);
 		threshold.setMinFilter(GL_NEAREST);

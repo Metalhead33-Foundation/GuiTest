@@ -1,7 +1,7 @@
 #ifndef STANDARDTEXTURE_HPP
 #define STANDARDTEXTURE_HPP
 #include "Texture.hpp"
-#include "../Util/PixelFormat.hpp"
+#include <MhLib/Util/PixelFormat.hpp>
 #include <vector>
 #include <cstring>
 #include <span>

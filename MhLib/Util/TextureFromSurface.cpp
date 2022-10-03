@@ -1,5 +1,5 @@
 #include "TextureFromSurface.hpp"
-#include "../Texture/StandardTexture.hpp"
+#include "../../Texture/StandardTexture.hpp"
 #include <stdexcept>
 #include <AGL/GlTexture2D.hpp>
 

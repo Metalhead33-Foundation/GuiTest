@@ -5,7 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <string_view>
-#include "../Util/TextureFromSurface.hpp"
+#include "../MhLib/Util/TextureFromSurface.hpp"
 #include "../Text/MmlParser.hpp"
 #include <sstream>
 #include <omp.h>

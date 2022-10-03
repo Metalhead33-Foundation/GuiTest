@@ -1,5 +1,5 @@
 #include "MmlParser.hpp"
-#include "../Util/ColourHelper.hpp"
+#include "../MhLib/Util/ColourHelper.hpp"
 
 namespace TXT {
 void MmlParser::onTagEnd()
