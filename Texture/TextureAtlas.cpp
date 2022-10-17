@@ -280,4 +280,25 @@ void TextureAtlasSubsection::iterateOverPixels(const ColourIterator2& program) c
 		}
 	}
 }
+
+MH33::GFX::TextureFormat SoftwareRenderer::TextureAtlasSubsection::getFormat() const
+{
+	return atlas->getTexture()->getFormat();
+}
+
+void TextureAtlasSubsection::getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel) const
+{
+	atlas->getTexture()->getPixel(pos + topLeft,colourKernel);
+}
+
+void TextureAtlasSubsection::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions)
+{
+	atlas->getTexture()->blit(cpy,offset + topLeft, dimensions);
+}
+
+void TextureAtlasSubsection::blit(const Texture& cpy, const glm::ivec2 offset)
+{
+	atlas->getTexture()->blit(cpy,offset + topLeft, bottomRight - topLeft);
+}
+
 }

@@ -40,6 +40,18 @@ public:
 	void clearToColour(const ColourProgrammer4& program) override;
 	void iterateOverPixels(const ColourIterator& program) const override;
 	void iterateOverPixels(const ColourIterator2& program) const override;
+
+	// Texture2D interface
+public:
+	MH33::GFX::TextureFormat getFormat() const override;
+
+	// WriteableTexture2D interface
+public:
+	void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel) const override;
+	// Texture interface
+public:
+	void blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) override;
+	void blit(const Texture& cpy, const glm::ivec2 offset) override;
 };
 
 class TextureAtlas

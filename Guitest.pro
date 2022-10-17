@@ -204,19 +204,9 @@ HEADERS += \
 	MhLib/Media/Audio/MhModuleRenderer.hpp \
 	MhLib/Media/Audio/MhResampler.hpp \
 	MhLib/Media/Audio/MhSoundFile.hpp \
-	MhLib/Media/GFX/MhCubemap.hpp \
 	MhLib/Media/GFX/MhGFX.hpp \
 	MhLib/Media/GFX/MhGFXHandle.hpp \
-	MhLib/Media/GFX/MhIndexedMesh.hpp \
-	MhLib/Media/GFX/MhPipeline.hpp \
-	MhLib/Media/GFX/MhShaderModule.hpp \
-	MhLib/Media/GFX/MhTexture1D.hpp \
-	MhLib/Media/GFX/MhTexture2D.hpp \
-	MhLib/Media/GFX/MhTexture3D.hpp \
-	MhLib/Media/GFX/MhTextureArray1D.hpp \
-	MhLib/Media/GFX/MhTextureArray2D.hpp \
-	MhLib/Media/GFX/MhUnindexedMesh.hpp \
-	MhLib/Media/GFX/MhVertexSignature.hpp \
+	MhLib/Media/GFX/MhTexture.hpp \
 	MhLib/Media/Image/MhDDS.hpp \
 	MhLib/Media/Image/MhDecodeTarget.hpp \
 	MhLib/Media/Image/MhGIF.hpp \

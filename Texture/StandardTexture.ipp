@@ -1,15 +1,15 @@
 #ifndef STANDARDTEXTURE_IPP
 #define STANDARDTEXTURE_IPP
 
-template<typename PixelType>
-inline StandardTexture<PixelType>::StandardTexture(const StandardTexture& cpy)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline StandardTexture<PixelType,fmt>::StandardTexture(const StandardTexture& cpy)
 	: pixels(cpy.pixels), width(cpy.width), height(cpy.height), stride(cpy.stride),
 	  widthF(cpy.widthF), heightF(cpy.heightF), widthR(cpy.widthR), heightR(cpy.heightR) {
 
 }
 
-template<typename PixelType>
-inline StandardTexture<PixelType>::StandardTexture(StandardTexture&& mov)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline StandardTexture<PixelType,fmt>::StandardTexture(StandardTexture&& mov)
 	: pixels(std::move(mov.pixels)), width(mov.width), height(mov.height), stride(mov.stride),
 	  widthF(mov.widthF), heightF(mov.heightF), widthR(mov.widthR), heightR(mov.heightR) {
 	mov.width = 0;
@@ -21,8 +21,8 @@ inline StandardTexture<PixelType>::StandardTexture(StandardTexture&& mov)
 	mov.heightR = 0.0f;
 }
 
-template<typename PixelType>
-inline StandardTexture<PixelType>& StandardTexture<PixelType>::operator=(const StandardTexture& cpy) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline StandardTexture<PixelType,fmt>& StandardTexture<PixelType,fmt>::operator=(const StandardTexture& cpy) {
 	this->pixels = cpy.pixels;
 	this->width = cpy.width;
 	this->height = cpy.height;
@@ -34,8 +34,8 @@ inline StandardTexture<PixelType>& StandardTexture<PixelType>::operator=(const S
 	return *this;
 }
 
-template<typename PixelType>
-inline StandardTexture<PixelType>& StandardTexture<PixelType>::operator=(StandardTexture&& mov) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline StandardTexture<PixelType,fmt>& StandardTexture<PixelType,fmt>::operator=(StandardTexture&& mov) {
 	this->pixels = std::move(mov.pixels);
 	this->width = mov.width;
 	this->height = mov.height;
@@ -54,40 +54,40 @@ inline StandardTexture<PixelType>& StandardTexture<PixelType>::operator=(Standar
 	return *this;
 }
 
-template<typename PixelType>
-inline StandardTexture<PixelType>::StandardTexture(int width, int height)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline StandardTexture<PixelType,fmt>::StandardTexture(int width, int height)
 	: pixels(width*height), width(width), height(height), stride(width*sizeof(PixelType)),
 	  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 {
 	std::memset(pixels.data(),0,sizeof(PixelType)*pixels.size());
 }
 
-template<typename PixelType>
-inline StandardTexture<PixelType>::StandardTexture(const PixelType* pixelsToCopy, int width, int height)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline StandardTexture<PixelType,fmt>::StandardTexture(const PixelType* pixelsToCopy, int width, int height)
 	: pixels(width*height), width(width), height(height), stride(width*sizeof(PixelType)),
 	  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 {
 	std::memcpy(pixels.data(),pixelsToCopy,sizeof(PixelType)*pixels.size());
 }
 
-template<typename PixelType>
-inline StandardTexture<PixelType>::StandardTexture(const std::span<PixelType> pixelsToCopy, int width, int height)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline StandardTexture<PixelType,fmt>::StandardTexture(const std::span<PixelType> pixelsToCopy, int width, int height)
 	: pixels(width*height), width(width), height(height), stride(width*sizeof(PixelType)),
 	  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 {
 	std::memcpy(pixels.data(),pixelsToCopy.data(),sizeof(PixelType)*pixels.size());
 }
 
-template<typename PixelType>
-inline StandardTexture<PixelType>::StandardTexture(std::vector<PixelType>&& mov, int width, int height)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline StandardTexture<PixelType,fmt>::StandardTexture(std::vector<PixelType>&& mov, int width, int height)
 	: pixels(std::move(mov)), width(width), height(height), stride(width*sizeof(PixelType)),
 	  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 {
 
 }
 
-template<typename PixelType>
-inline bool StandardTexture<PixelType>::resize(int newWidth, int newHeight) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline bool StandardTexture<PixelType,fmt>::resize(int newWidth, int newHeight) {
 	const int rowsToRunThrough = std::min(this->height,newHeight);
 	const size_t bytesPerRow = std::min(this->width,newWidth) * sizeof(PixelType);
 	std::vector<PixelType> newPixels(newWidth * newHeight);
@@ -107,8 +107,8 @@ inline bool StandardTexture<PixelType>::resize(int newWidth, int newHeight) {
 	return true;
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
 	if(offset.x >= width || offset.y >= height) return;
 	const int rowsToCopy = std::min(dimensions.y,height - offset.y);
 	const int columnsToCopy = std::min(dimensions.x,width - offset.x);
@@ -120,30 +120,30 @@ inline void StandardTexture<PixelType>::blit(const PixelType* cpy, const glm::iv
 	}
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
 	const StandardTexture* standardTexture = dynamic_cast<const StandardTexture*>(&cpy);
 	if(standardTexture) blit(standardTexture->pixels.data(),offset,dimensions);
 	else {
-		const ReferenceTexture<PixelType>* referenceTexture = dynamic_cast<const ReferenceTexture<PixelType>*>(&cpy);
+		const ReferenceTexture<PixelType,fmt>* referenceTexture = dynamic_cast<const ReferenceTexture<PixelType,fmt>*>(&cpy);
 		if(referenceTexture) blit(referenceTexture->pixels.data(),offset,dimensions);
 		else Texture::blit(cpy,offset,dimensions);
 	}
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::blit(const Texture& cpy, const glm::ivec2 offset) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::blit(const Texture& cpy, const glm::ivec2 offset) {
 	const StandardTexture* standardTexture = dynamic_cast<const StandardTexture*>(&cpy);
 	if(standardTexture) blit(standardTexture->pixels.data(),offset,glm::ivec2(standardTexture->width,standardTexture->height));
 	else {
-		const ReferenceTexture<PixelType>* referenceTexture = dynamic_cast<const ReferenceTexture<PixelType>*>(&cpy);
+		const ReferenceTexture<PixelType,fmt>* referenceTexture = dynamic_cast<const ReferenceTexture<PixelType,fmt>*>(&cpy);
 		if(referenceTexture) blit(referenceTexture->pixels.data(),offset,glm::ivec2(referenceTexture->width,referenceTexture->height));
 		else Texture::blit(cpy,offset);
 	}
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
 	int x;
 	int y;
 	switch (wrap) {
@@ -167,28 +167,28 @@ inline void StandardTexture<PixelType>::getPixel(const glm::ivec2& pos, glm::fve
 	pixels[ (y * width) + x ].toKernel(colourKernel);
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::setPixel(const glm::ivec2& pos, const glm::fvec4& colourKernel) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::setPixel(const glm::ivec2& pos, const glm::fvec4& colourKernel) {
 	pixels[ (pos.y * width) + pos.x ].fromKernel(colourKernel);
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::setPixelDithered(const glm::ivec2& pos, const glm::fvec4& colourKernel) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::setPixelDithered(const glm::ivec2& pos, const glm::fvec4& colourKernel) {
 	pixels[ (pos.y * width) + pos.x ].fromKernelDithered(colourKernel,pos);
 }
 
-template<typename PixelType>
-inline void* StandardTexture<PixelType>::getRawPixels() {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void* StandardTexture<PixelType,fmt>::getRawPixels() {
 	return pixels.data();
 }
 
-template<typename PixelType>
-inline const void* StandardTexture<PixelType>::getRawPixels() const {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline const void* StandardTexture<PixelType,fmt>::getRawPixels() const {
 	return pixels.data();
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::clearToColour(const glm::fvec4& colourKernel) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::clearToColour(const glm::fvec4& colourKernel) {
 	PixelType p;
 	p.fromKernel(colourKernel);
 	for(int y = 0; y < height; ++y) {
@@ -199,8 +199,8 @@ inline void StandardTexture<PixelType>::clearToColour(const glm::fvec4& colourKe
 	}
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::clearToColour(const ColourProgrammer& program) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::clearToColour(const ColourProgrammer& program) {
 	for(int y = 0; y < height; ++y) {
 		PixelType* const scanline = &pixels[y*width];
 		for(int x = 0; x < width; ++x) {
@@ -210,8 +210,8 @@ inline void StandardTexture<PixelType>::clearToColour(const ColourProgrammer& pr
 	}
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::clearToColour(const ColourProgrammer2& program) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::clearToColour(const ColourProgrammer2& program) {
 	for(int y = 0; y < height; ++y) {
 		PixelType* const scanline = &pixels[y*width];
 		for(int x = 0; x < width; ++x) {
@@ -223,8 +223,8 @@ inline void StandardTexture<PixelType>::clearToColour(const ColourProgrammer2& p
 	}
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::clearToColour(const ColourProgrammer3& program)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::clearToColour(const ColourProgrammer3& program)
 {
 	const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
 	for(int y = 0; y < height; ++y) {
@@ -237,8 +237,8 @@ inline void StandardTexture<PixelType>::clearToColour(const ColourProgrammer3& p
 	}
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::clearToColour(const ColourProgrammer4& program)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::clearToColour(const ColourProgrammer4& program)
 {
 	const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
 	for(int y = 0; y < height; ++y) {
@@ -253,8 +253,8 @@ inline void StandardTexture<PixelType>::clearToColour(const ColourProgrammer4& p
 	}
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::iterateOverPixels(const ColourIterator& program) const
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::iterateOverPixels(const ColourIterator& program) const
 {
 	for(int y = 0; y < height; ++y) {
 		const PixelType* const scanline = &pixels[y*width];
@@ -267,8 +267,8 @@ inline void StandardTexture<PixelType>::iterateOverPixels(const ColourIterator& 
 	}
 }
 
-template<typename PixelType>
-inline void StandardTexture<PixelType>::iterateOverPixels(const ColourIterator2& program) const
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void StandardTexture<PixelType,fmt>::iterateOverPixels(const ColourIterator2& program) const
 {
 	const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
 	for(int y = 0; y < height; ++y) {
@@ -282,15 +282,15 @@ inline void StandardTexture<PixelType>::iterateOverPixels(const ColourIterator2&
 	}
 }
 
-template<typename PixelType>
-inline ReferenceTexture<PixelType>::ReferenceTexture(const ReferenceTexture& cpy)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline ReferenceTexture<PixelType,fmt>::ReferenceTexture(const ReferenceTexture& cpy)
 	: pixels(cpy.pixels), width(cpy.width), height(cpy.height), stride(cpy.stride),
 	  widthF(cpy.widthF), heightF(cpy.heightF), widthR(cpy.widthR), heightR(cpy.heightR)  {
 
 }
 
-template<typename PixelType>
-inline ReferenceTexture<PixelType>& ReferenceTexture<PixelType>::operator=(const ReferenceTexture& cpy) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline ReferenceTexture<PixelType,fmt>& ReferenceTexture<PixelType,fmt>::operator=(const ReferenceTexture& cpy) {
 	this->pixels = cpy.pixels;
 	this->width = cpy.width;
 	this->height = cpy.height;
@@ -302,39 +302,39 @@ inline ReferenceTexture<PixelType>& ReferenceTexture<PixelType>::operator=(const
 	return *this;
 }
 
-template<typename PixelType>
-inline ReferenceTexture<PixelType>::ReferenceTexture(PixelType* pixelsPointing, int width, int height)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline ReferenceTexture<PixelType,fmt>::ReferenceTexture(PixelType* pixelsPointing, int width, int height)
 	: pixels(pixelsPointing,width*height), width(width), height(height), stride(width*sizeof(PixelType)),
 	  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 {
 
 }
 
-template<typename PixelType>
-inline ReferenceTexture<PixelType>::ReferenceTexture(const std::span<PixelType> pixelsToCopy, int width, int height)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline ReferenceTexture<PixelType,fmt>::ReferenceTexture(const std::span<PixelType> pixelsToCopy, int width, int height)
 	: pixels(pixelsToCopy), width(width), height(height), stride(width*sizeof(PixelType)),
 	  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 {
 
 }
 
-template<typename PixelType>
-inline ReferenceTexture<PixelType>::ReferenceTexture(std::span<PixelType>&& mov, int width, int height)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline ReferenceTexture<PixelType,fmt>::ReferenceTexture(std::span<PixelType>&& mov, int width, int height)
 	: pixels(std::move(mov)), width(width), height(height), stride(width*sizeof(PixelType)),
 	  widthF(width-1), heightF(height-1), widthR(1.0f / static_cast<float>(width)), heightR(1.0f / static_cast<float>(height))
 {
 
 }
 
-template<typename PixelType>
-inline bool ReferenceTexture<PixelType>::resize(int newWidth, int newHeight) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline bool ReferenceTexture<PixelType,fmt>::resize(int newWidth, int newHeight) {
 	(void)newWidth;
 	(void)newHeight;
 	return false;
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::blit(const PixelType* cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
 	if(offset.x >= width || offset.y >= height) return;
 	const int rowsToCopy = std::min(dimensions.y,height - offset.y);
 	const int columnsToCopy = std::min(dimensions.x,width - offset.x);
@@ -346,30 +346,30 @@ inline void ReferenceTexture<PixelType>::blit(const PixelType* cpy, const glm::i
 	}
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::blit(const Texture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) {
 	const ReferenceTexture* refTxt = dynamic_cast<const ReferenceTexture*>(&cpy);
 	if(refTxt) blit(refTxt->pixels.data(),offset,dimensions);
 	else {
-		const StandardTexture<PixelType>* standardTexture = dynamic_cast<const StandardTexture<PixelType>*>(&cpy);
+		const StandardTexture<PixelType,fmt>* standardTexture = dynamic_cast<const StandardTexture<PixelType,fmt>*>(&cpy);
 		if(standardTexture) blit(standardTexture->pixels.data(),offset,dimensions);
 		else Texture::blit(cpy,offset,dimensions);
 	}
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::blit(const Texture& cpy, const glm::ivec2 offset) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::blit(const Texture& cpy, const glm::ivec2 offset) {
 	const ReferenceTexture* refTxt = dynamic_cast<const ReferenceTexture*>(&cpy);
 	if(refTxt) blit(refTxt->pixels.data(),offset,glm::ivec2(refTxt->width,refTxt->height));
 	else {
-		const StandardTexture<PixelType>* standardTexture = dynamic_cast<const StandardTexture<PixelType>*>(&cpy);
+		const StandardTexture<PixelType,fmt>* standardTexture = dynamic_cast<const StandardTexture<PixelType,fmt>*>(&cpy);
 		if(standardTexture) blit(standardTexture->pixels.data(),offset,glm::ivec2(standardTexture->width,standardTexture->height));
 		else Texture::blit(cpy,offset);
 	}
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
 	int x;
 	int y;
 	switch (wrap) {
@@ -393,28 +393,28 @@ inline void ReferenceTexture<PixelType>::getPixel(const glm::ivec2& pos, glm::fv
 	pixels[ (y * width) + x ].toKernel(colourKernel);
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::setPixel(const glm::ivec2& pos, const glm::fvec4& colourKernel) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::setPixel(const glm::ivec2& pos, const glm::fvec4& colourKernel) {
 	pixels[ (pos.y * width) + pos.x ].fromKernel(colourKernel);
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::setPixelDithered(const glm::ivec2& pos, const glm::fvec4& colourKernel) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::setPixelDithered(const glm::ivec2& pos, const glm::fvec4& colourKernel) {
 	pixels[ (pos.y * width) + pos.x ].fromKernelDithered(colourKernel,pos);
 }
 
-template<typename PixelType>
-inline void* ReferenceTexture<PixelType>::getRawPixels() {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void* ReferenceTexture<PixelType,fmt>::getRawPixels() {
 	return pixels.data();
 }
 
-template<typename PixelType>
-inline const void* ReferenceTexture<PixelType>::getRawPixels() const {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline const void* ReferenceTexture<PixelType,fmt>::getRawPixels() const {
 	return pixels.data();
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::clearToColour(const glm::fvec4& colourKernel) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::clearToColour(const glm::fvec4& colourKernel) {
 	PixelType p;
 	p.fromKernel(colourKernel);
 	for(int y = 0; y < height; ++y) {
@@ -425,8 +425,8 @@ inline void ReferenceTexture<PixelType>::clearToColour(const glm::fvec4& colourK
 	}
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::clearToColour(const ColourProgrammer& program) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::clearToColour(const ColourProgrammer& program) {
 	for(int y = 0; y < height; ++y) {
 		PixelType* const scanline = &pixels[y*width];
 		for(int x = 0; x < width; ++x) {
@@ -436,8 +436,8 @@ inline void ReferenceTexture<PixelType>::clearToColour(const ColourProgrammer& p
 	}
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::clearToColour(const ColourProgrammer2& program) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::clearToColour(const ColourProgrammer2& program) {
 	for(int y = 0; y < height; ++y) {
 		PixelType* const scanline = &pixels[y*width];
 		for(int x = 0; x < width; ++x) {
@@ -449,8 +449,8 @@ inline void ReferenceTexture<PixelType>::clearToColour(const ColourProgrammer2& 
 	}
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::clearToColour(const ColourProgrammer3& program)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::clearToColour(const ColourProgrammer3& program)
 {
 	const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
 	for(int y = 0; y < height; ++y) {
@@ -463,8 +463,8 @@ inline void ReferenceTexture<PixelType>::clearToColour(const ColourProgrammer3& 
 	}
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::clearToColour(const ColourProgrammer4& program)
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::clearToColour(const ColourProgrammer4& program)
 {
 	const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
 	for(int y = 0; y < height; ++y) {
@@ -479,8 +479,8 @@ inline void ReferenceTexture<PixelType>::clearToColour(const ColourProgrammer4& 
 	}
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::iterateOverPixels(const ColourIterator& program) const
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::iterateOverPixels(const ColourIterator& program) const
 {
 	for(int y = 0; y < height; ++y) {
 		const PixelType* const scanline = &pixels[y*width];
@@ -493,8 +493,8 @@ inline void ReferenceTexture<PixelType>::iterateOverPixels(const ColourIterator&
 	}
 }
 
-template<typename PixelType>
-inline void ReferenceTexture<PixelType>::iterateOverPixels(const ColourIterator2& program) const
+template <typename PixelType, MH33::GFX::TextureFormat fmt>
+inline void ReferenceTexture<PixelType,fmt>::iterateOverPixels(const ColourIterator2& program) const
 {
 	const glm::fvec2 reciprocal = glm::fvec2( 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height) );
 	for(int y = 0; y < height; ++y) {
@@ -508,7 +508,7 @@ inline void ReferenceTexture<PixelType>::iterateOverPixels(const ColourIterator2
 	}
 }
 
-template<typename PixelType> StandardTexture<PixelType>::StandardTexture(const ReferenceTexture<PixelType>& cpy) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt> StandardTexture<PixelType,fmt>::StandardTexture(const ReferenceTexture<PixelType,fmt>& cpy) {
 	this->pixels.resize(cpy.pixels.size());
 	std::memcpy(this->pixels.data(),cpy.pixels.data(),cpy.pixels.size() * sizeof(PixelType));
 	this->width = cpy.width;
@@ -519,7 +519,7 @@ template<typename PixelType> StandardTexture<PixelType>::StandardTexture(const R
 	this->widthR = cpy.widthR;
 	this->heightR = cpy.heightR;
 }
-template<typename PixelType> StandardTexture<PixelType>& StandardTexture<PixelType>::operator=(const ReferenceTexture<PixelType>& cpy) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt> StandardTexture<PixelType,fmt>& StandardTexture<PixelType,fmt>::operator=(const ReferenceTexture<PixelType,fmt>& cpy) {
 	this->pixels.resize(cpy.pixels.size());
 	std::memcpy(this->pixels.data(),cpy.pixels.data(),cpy.pixels.size() * sizeof(PixelType));
 	this->width = cpy.width;
@@ -531,7 +531,7 @@ template<typename PixelType> StandardTexture<PixelType>& StandardTexture<PixelTy
 	this->heightR = cpy.heightR;
 	return *this;
 }
-template<typename PixelType> ReferenceTexture<PixelType>::ReferenceTexture(const StandardTexture<PixelType>& cpy) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt> ReferenceTexture<PixelType,fmt>::ReferenceTexture(const StandardTexture<PixelType,fmt>& cpy) {
 	this->pixels = cpy.pixels;
 	this->width = cpy.width;
 	this->height = cpy.height;
@@ -541,7 +541,7 @@ template<typename PixelType> ReferenceTexture<PixelType>::ReferenceTexture(const
 	this->widthR = cpy.widthR;
 	this->heightR = cpy.heightR;
 }
-template<typename PixelType> ReferenceTexture<PixelType>& ReferenceTexture<PixelType>::operator=(const StandardTexture<PixelType>& cpy) {
+template <typename PixelType, MH33::GFX::TextureFormat fmt> ReferenceTexture<PixelType,fmt>& ReferenceTexture<PixelType,fmt>::operator=(const StandardTexture<PixelType,fmt>& cpy) {
 	this->pixels = cpy.pixels;
 	this->width = cpy.width;
 	this->height = cpy.height;

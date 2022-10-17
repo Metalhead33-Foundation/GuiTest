@@ -30,6 +30,7 @@ struct Sampler {
 	TextureFiltering filtering;
 };
 
+typedef SYS::ITexture ITexture;
 class Texture : public SYS::ITexture
 {
 public:
@@ -91,6 +92,10 @@ public:
 	virtual void clearToColour(const ColourProgrammer3& program) = 0;
 	virtual void clearToColour(const ColourProgrammer4& program) = 0;
 	void update();
+	virtual MH33::GFX::TextureFormat getFormat() const = 0;
+
+	// Texture2D interface
+	MH33::GFX::Handle getNativeHandle() override { return { .ptr = static_cast<void*>(this) }; }
 };
 typedef std::shared_ptr<Texture> sTexture;
 typedef std::unique_ptr<Texture> uTexture;

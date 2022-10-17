@@ -28,13 +28,15 @@ public:
 	const Texture& getTex() const;
 	void update();
 	GLint getInternalFormat() const;
-	GLenum getFormat() const;
+	GLenum getGlFormat() const;
 	GLenum getType() const;
-	void blit(const ITexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) override;
-	void blit(const ITexture& cpy, const glm::ivec2 offset) override;
+	void blit(const SYS::ITexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) override;
+	void blit(const SYS::ITexture& cpy, const glm::ivec2 offset) override;
 	void iterateOverPixels(const ColourIterator& program) const override;
 	void iterateOverPixels(const ColourIterator2& program) const override;
 	void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel) const override;
+	MH33::GFX::Handle getNativeHandle() override;
+	MH33::GFX::TextureFormat getFormat() const override;
 };
 
 }

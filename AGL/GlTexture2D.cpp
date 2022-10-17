@@ -26,7 +26,7 @@ GLint AcceleratedTexture::getInternalFormat() const
 	return internalFormat;
 }
 
-GLenum AcceleratedTexture::getFormat() const
+GLenum AcceleratedTexture::getGlFormat() const
 {
 	return format;
 }
@@ -36,12 +36,12 @@ GLenum AcceleratedTexture::getType() const
 	return type;
 }
 
-void AcceleratedTexture::blit(const ITexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions)
+void AcceleratedTexture::blit(const SYS::ITexture& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions)
 {
 	softTex->blit(cpy,offset,dimensions);
 }
 
-void AcceleratedTexture::blit(const ITexture& cpy, const glm::ivec2 offset)
+void AcceleratedTexture::blit(const SYS::ITexture& cpy, const glm::ivec2 offset)
 {
 	softTex->blit(cpy,offset);
 }
@@ -120,4 +120,14 @@ void AcceleratedTexture::iterateOverPixels(const ColourIterator2& program) const
 void GL::AcceleratedTexture::getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel) const
 {
 	softTex->getPixel(pos,colourKernel);
+}
+
+MH33::GFX::Handle GL::AcceleratedTexture::getNativeHandle()
+{
+	return { .oglUint = tex.getTexId() };
+}
+
+MH33::GFX::TextureFormat GL::AcceleratedTexture::getFormat() const
+{
+	return softTex->getFormat();
 }
