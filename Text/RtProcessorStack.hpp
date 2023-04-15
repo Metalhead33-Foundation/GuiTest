@@ -4,6 +4,7 @@
 #include <stack>
 
 namespace TXT {
+DEFINE_CLASS(RtProcessorStack)
 class RtProcessorStack
 {
 private:

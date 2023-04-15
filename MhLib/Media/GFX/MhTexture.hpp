@@ -5,15 +5,18 @@
 #include <glm/glm.hpp>
 #include <memory>
 #include <functional>
+#include <span>
 
 namespace MH33 {
 namespace GFX {
 typedef Image::Format TextureFormat;
 
+DEFINE_CLASS(Texture2D)
 class Texture2D {
 public:
 	virtual ~Texture2D() = default;
 	virtual Handle getNativeHandle() = 0;
+	virtual ConstHandle getNativeHandle() const = 0;
 	virtual TextureFormat getFormat() const = 0;
 	/// Data getters
 	// Width
@@ -27,12 +30,18 @@ public:
 	// Stride
 	virtual int getStride() const = 0;
 };
-typedef std::shared_ptr<Texture2D> sTexture2D;
-typedef std::weak_ptr<Texture2D> wTexture2D;
-typedef std::unique_ptr<Texture2D> uTexture2D;
 
+DEFINE_CLASS(WriteableTexture2D)
 class WriteableTexture2D : public Texture2D {
 public:
+	virtual ~WriteableTexture2D() override = default;
+	virtual bool resize(int newWidth, int newHeight) = 0;
+	virtual void blit(const WriteableTexture2D& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
+	virtual void blit(const WriteableTexture2D& cpy, const glm::ivec2 offset) = 0;
+	virtual void blit(const std::span<const std::byte>& data, TextureFormat format, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
+	virtual void update() = 0;
+	/*
+	virtual void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel) const = 0;
 	// Colour programmes
 	typedef std::function<glm::fvec4(const glm::ivec2&)> ColourProgrammer;
 	typedef std::function<glm::fvec4(const glm::ivec2&, const glm::fvec4&)> ColourProgrammer2;
@@ -41,23 +50,16 @@ public:
 	// Colour iterators
 	typedef std::function<void(const glm::ivec2&, const glm::fvec4&)> ColourIterator;
 	typedef std::function<void(const glm::fvec2&, const glm::fvec4&)> ColourIterator2;
-	virtual ~WriteableTexture2D() = default;
-	virtual bool resize(int newWidth, int newHeight) = 0;
-	virtual void blit(const WriteableTexture2D& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
-	virtual void blit(const WriteableTexture2D& cpy, const glm::ivec2 offset) = 0;
-	virtual void update() = 0;
 	virtual void iterateOverPixels(const ColourIterator& program) const = 0;
-	virtual void iterateOverPixels(const ColourIterator2& program) const = 0;
-	virtual void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel) const = 0;
+	virtual void iterateOverPixels(const ColourIterator2& program) const = 0;*/
 };
-typedef std::shared_ptr<WriteableTexture2D> sWriteableTexture2D;
-typedef std::weak_ptr<WriteableTexture2D> wWriteableTexture2D;
-typedef std::unique_ptr<WriteableTexture2D> uWriteableTexture2D;
 
+DEFINE_CLASS(ArrayTexture2D)
 class ArrayTexture2D {
 public:
 	virtual ~ArrayTexture2D() = default;
 	virtual Handle getNativeHandle() = 0;
+	virtual ConstHandle getNativeHandle() const = 0;
 	virtual TextureFormat getFormat() const = 0;
 	/// Data getters
 	// Width
@@ -75,13 +77,13 @@ public:
 	// Stride
 	virtual int getStride() const = 0;
 };
-typedef std::shared_ptr<ArrayTexture2D> sTArrayTexture2D;
-typedef std::weak_ptr<ArrayTexture2D> wArrayTexture2D;
-typedef std::unique_ptr<ArrayTexture2D> uArrayTexture2D;
+
+DEFINE_CLASS(Texture3D)
 class Texture3D {
 public:
 	virtual ~Texture3D() = default;
 	virtual Handle getNativeHandle() = 0;
+	virtual ConstHandle getNativeHandle() const = 0;
 	virtual TextureFormat getFormat() const = 0;
 	/// Data getters
 	// Width
@@ -99,9 +101,6 @@ public:
 	// Stride
 	virtual int getStride() const = 0;
 };
-typedef std::shared_ptr<Texture3D> sTexture3D;
-typedef std::weak_ptr<Texture3D> wTexture3D;
-typedef std::unique_ptr<Texture3D> uTexture3D;
 
 }
 }

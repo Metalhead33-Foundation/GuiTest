@@ -3,6 +3,8 @@
 #include <memory>
 #include <string>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_syswm.h>
+#include <glm/glm.hpp>
 
 namespace SYS {
 class AppSystem
@@ -16,6 +18,7 @@ private:
 	AppSystem& operator=(const AppSystem& cpy) = delete; // Disable copy assignment operator
 protected:
 	uWindow window;
+	SDL_SysWMinfo windowInfo;
 	virtual void updateLogic() = 0;
 	virtual void render() = 0;
 	// SDL event handlers
@@ -47,6 +50,8 @@ public:
 	AppSystem(const char *title, int offsetX, int offsetY, int width, int height, Uint32 flags);
 	AppSystem(const std::string& title, int offsetX, int offsetY, int width, int height, Uint32 flags);
 	void run();
+	const int width, height;
+	const glm::fvec2 sizeReciprocal;
 };
 }
 

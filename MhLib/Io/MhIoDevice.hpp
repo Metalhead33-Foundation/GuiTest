@@ -25,6 +25,7 @@ enum class Mode {
 	READ_APPEND = (READ | APPEND)
 };
 
+DEFINE_CLASS(Device)
 class Device {
 public:
 	virtual ~Device() = default;
@@ -73,7 +74,6 @@ public:
 		return write(src.data(),src.size());
 	}
 };
-typedef std::shared_ptr<Device> sDevice;
 typedef std::function<Device*(Mode)> DeviceCreator;
 
 }

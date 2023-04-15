@@ -1,6 +1,5 @@
 #ifndef SIMPLEWIDGET_H
 #define SIMPLEWIDGET_H
-
 #include "IWidget.hpp"
 
 namespace SYS {

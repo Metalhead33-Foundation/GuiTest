@@ -4,6 +4,7 @@
 #include <array>
 
 namespace TXT {
+DEFINE_CLASS(FontRepository)
 class FontRepository
 {
 public:
@@ -12,17 +13,16 @@ public:
 private:
 	NamedFontMap fonts;
 	sFreeTypeSystem sys;
-	bool isAccelerated;
+	MH33::GFX::sResourceFactory factory;
 public:
-	FontRepository(const sFreeTypeSystem& bsys, bool accelerated = false);
-	FontRepository(sFreeTypeSystem&& bsys, bool accelerated = false);
+	FontRepository(const sFreeTypeSystem& bsys, const MH33::GFX::sResourceFactory& factory);
+	FontRepository(sFreeTypeSystem&& bsys, const MH33::GFX::sResourceFactory& factory);
 	void initializeFont(const std::string& fontName, const std::string& path);
 	sFont getFont(const std::string& fontName, uint8_t flags) const;
 	sFont getFont(const std::string& fontName, bool isBold = false) const;
 	const NamedFontMap& getFonts() const;
 	NamedFontMap& getFonts();
-	bool getIsAccelerated() const;
+	const MH33::GFX::sResourceFactory& getFactory() const;
 };
-typedef std::shared_ptr<FontRepository> sFontRepository;
 }
 #endif // FONTREPOSITORY_H

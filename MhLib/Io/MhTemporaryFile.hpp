@@ -4,6 +4,7 @@
 #include <cstdio>
 namespace MH33 {
 namespace Io {
+DEFINE_CLASS(TemporaryFile)
 class MH_IO_API TemporaryFile : public Device
 {
 private:

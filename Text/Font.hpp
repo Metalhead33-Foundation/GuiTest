@@ -4,11 +4,10 @@
 #include <memory>
 #include <map>
 #include <glm/glm.hpp>
-#include "../Texture/StandardTexture.hpp"
-#include <Pipeline/IFontTexture.hpp>
+#include <MhLib/Media/GFX/MhGFXResourceFactory.hpp>
+#include <Renderer/Shared/GuiRenderer.hpp>
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include "../Pipeline/GuiRenderer.hpp"
 
 namespace TXT {
 
@@ -16,6 +15,7 @@ typedef std::shared_ptr<FT_LibraryRec_> sFreeTypeSystem;
 typedef std::shared_ptr<FT_FaceRec> sFreeTypeFace;
 class Font;
 
+DEFINE_STRUCT(TextRenderState)
 struct TextRenderState {
 	glm::fvec2 reciprocalSize;
 	glm::fvec2 currentOffset;
@@ -31,6 +31,19 @@ struct TextRenderState {
 	} attributes;
 };
 
+DEFINE_STRUCT(TextRenderingContext)
+struct TextRenderingContext {
+	MH33::GFX::ColouredTexturedGuiTechnique textPipeline;
+	MH33::GFX::ColouredGuiTechnique linePipeline;
+	MH33::GFX::sIndexedMesh textMesh;
+	MH33::GFX::sUnindexedMesh lineMesh;
+	std::vector<Renderer::ColouredWidgetVert> lineCache;
+	std::vector<Renderer::TexturedWidgetVert> textCache;
+	std::vector<uint32_t> indexCache;
+	TextRenderingContext(MH33::GFX::ResourceFactory& factory);
+};
+
+DEFINE_STRUCT(TextBlockUtf8)
 struct TextBlockUtf8 {
 	std::string text;
 	Font* font;
@@ -39,6 +52,7 @@ struct TextBlockUtf8 {
 	bool isUnderline;
 	bool isStrikethrough;
 };
+DEFINE_STRUCT(TextBlockUtf32)
 struct TextBlockUtf32 {
 	std::u32string text;
 	Font* font;
@@ -48,6 +62,7 @@ struct TextBlockUtf32 {
 	bool isStrikethrough;
 };
 
+DEFINE_CLASS(Font)
 class Font
 {
 public:
@@ -59,7 +74,7 @@ public:
 		unsigned int advance;    // Offset to advance to next glyph
 	};
 private:
-	std::unique_ptr<SYS::ITexture> texture;
+	MH33::GFX::sWriteableTexture2D texture;
 	glm::ivec2 textureOffset;
 	glm::ivec2 maxCharSizeSoFar;
 	std::map<char32_t,Character> characters;
@@ -72,16 +87,16 @@ private:
 	Font& operator=(const Font& cpy) = delete;
 	void addCharacterFromBlock(char32_t c);
 public:
-	explicit Font(const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold = false, bool accelerated = false);
-	explicit Font(const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold = false, bool accelerated = false);
-	explicit Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold = false, bool accelerated = false);
+	explicit Font(MH33::GFX::ResourceFactory& factory, const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold = false);
+	explicit Font(MH33::GFX::ResourceFactory& factory, const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold = false);
+	explicit Font(MH33::GFX::ResourceFactory& factory, sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold = false);
 	explicit Font(Font&& mov);
 	Font& operator=(Font&& mov);
-	void renderText(SYS::GuiRenderer& renderer, const std::string& text, TextRenderState& state);
-	void renderText(SYS::GuiRenderer& renderer, const std::u32string& text, TextRenderState& state);
-	static void renderTextBlocks(SYS::GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
-	static void renderTextBlocks(SYS::GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
-	const SYS::ITexture& getTexture() const;
+	const MH33::GFX::sWriteableTexture2D& getTexture() const;
+	void renderText(TextRenderingContext& renderingContext, const std::string& text, TextRenderState& state);
+	void renderText(TextRenderingContext& renderingContext, const std::u32string& text, TextRenderState& state);
+	static void renderTextBlocks(TextRenderingContext& renderingContext, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
+	static void renderTextBlocks(TextRenderingContext& renderingContext, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing = 8);
 	bool getIsBold() const;
 	bool getIsItalic() const;
 };

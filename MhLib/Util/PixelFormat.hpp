@@ -1,5 +1,6 @@
 #ifndef PIXELFORMAT_HPP
 #define PIXELFORMAT_HPP
+#include <MhLib/Util/half.hpp>
 #include <glm/glm.hpp>
 #include "NormDenorm.hpp"
 #include "Dither.hpp"
@@ -32,6 +33,14 @@ template <typename T> struct PixelGreyscale {
 typedef PixelGreyscale<uint8_t> PixelGreyscale_U8;
 typedef PixelGreyscale<uint16_t> PixelGreyscale_U16;
 typedef PixelGreyscale<uint32_t> PixelGreyscale_U32;
+typedef PixelGreyscale<uint64_t> PixelGreyscale_U64;
+typedef PixelGreyscale<int8_t> PixelGreyscale_S8;
+typedef PixelGreyscale<int16_t> PixelGreyscale_S16;
+typedef PixelGreyscale<int32_t> PixelGreyscale_S32;
+typedef PixelGreyscale<int64_t> PixelGreyscale_S64;
+typedef PixelGreyscale<half_float::half> PixelGreyscale_F16;
+typedef PixelGreyscale<float> PixelGreyscale_F32;
+typedef PixelGreyscale<double> PixelGreyscale_F64;
 
 template <typename T> struct PixelRG {
 	T r,g;

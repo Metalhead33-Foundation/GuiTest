@@ -133,11 +133,6 @@ static const std::pair<char32_t,char32_t> UNICODE_RANGES[] = {
 };
 static constexpr const size_t UNICODE_RANGE_COUNT = sizeof(UNICODE_RANGES) / sizeof(std::pair<char32_t,char32_t>);
 
-const SYS::ITexture& Font::getTexture() const
-{
-	return *texture;
-}
-
 void Font::insertCharacters(const std::pair<char32_t, char32_t>& range)
 {
 	for (char32_t c = range.first; c <= range.second; c++) {
@@ -169,8 +164,8 @@ void Font::insertCharacters(const std::pair<char32_t, char32_t>& range)
 				glyphOffset = textureOffset + glm::ivec2(1, 0);
 			}
 		}
-		SoftwareRenderer::RefTexGreyscale_U8 texref(reinterpret_cast<PixelGreyscale_U8*>(fontFace->glyph->bitmap.buffer),glyphSize.x,glyphSize.y);
-		texture->blit(texref,textureOffset,glyphSize);
+		texture->blit(std::span<std::byte>(reinterpret_cast<std::byte*>(fontFace->glyph->bitmap.buffer),glyphSize.x * glyphSize.y),
+					  MH33::GFX::TextureFormat::R8U,textureOffset,glyphSize);
 
 		Character character = {
 			.valid = true,
@@ -195,20 +190,22 @@ bool Font::getIsBold() const
 	return isBold;
 }
 
-Font::Font(const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold, bool accelerated) : texture(SYS::createFontTexture(accelerated)), textureOffset(0,1), maxCharSizeSoFar(0,0),
+Font::Font(MH33::GFX::ResourceFactory& factory, const sFreeTypeSystem& system, const sFreeTypeFace& fontface, bool bold)
+	: texture(factory.createWriteableTexture2D(MH33::GFX::TextureFormat::R8U,glm::ivec2(256,256))), textureOffset(0,1), maxCharSizeSoFar(0,0),
 	sys(system), fontFace(fontface), isBold(bold)
 {
 	// Latin
 	insertCharacters(std::make_pair(0x0000,0x024F));
 }
 
-Font::Font(const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold, bool accelerated) : texture(SYS::createFontTexture(accelerated)), textureOffset(0,1), maxCharSizeSoFar(0,0),
+Font::Font(MH33::GFX::ResourceFactory& factory, const sFreeTypeSystem& system, sFreeTypeFace&& fontface, bool bold)
+	: texture(factory.createWriteableTexture2D(MH33::GFX::TextureFormat::R8U,glm::ivec2(256,256))), textureOffset(0,1), maxCharSizeSoFar(0,0),
 	sys(system), fontFace(std::move(fontface)), isBold(bold)
 {
 	insertCharacters(std::make_pair(0x0000,0x024F));
 }
 
-Font::Font(sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold, bool accelerated) : texture(SYS::createFontTexture(accelerated)), textureOffset(0,1), maxCharSizeSoFar(0,0),
+Font::Font(MH33::GFX::ResourceFactory& factory, sFreeTypeSystem&& system, sFreeTypeFace&& fontface, bool bold) : texture(factory.createWriteableTexture2D(MH33::GFX::TextureFormat::R8U,glm::ivec2(256,256))), textureOffset(0,1), maxCharSizeSoFar(0,0),
 	sys(std::move(system)), fontFace(std::move(fontface)), isBold(bold)
 {
 	// Latin
@@ -234,6 +231,11 @@ Font& Font::operator=(Font&& mov)
 	return *this;
 }
 
+const MH33::GFX::sWriteableTexture2D& Font::getTexture() const
+{
+	return texture;
+}
+
 void Font::addCharacterFromBlock(char32_t c)
 {
 	for(size_t i = 0; i < UNICODE_RANGE_COUNT; ++i) {
@@ -246,14 +248,33 @@ void Font::addCharacterFromBlock(char32_t c)
 
 static const float italicMagicNumber = 0.5f;
 
-void Font::renderText(SYS::GuiRenderer& renderer, const std::string& text, TextRenderState& state)
+/*
+	MH33::GFX::ColouredTexturedGuiTechnique textPipeline;
+	MH33::GFX::ColouredGuiTechnique linePipeline;
+	MH33::GFX::sUnindexedMesh textMesh;
+	MH33::GFX::sUnindexedMesh lineMesh;
+*/
+
+TextRenderingContext::TextRenderingContext(MH33::GFX::ResourceFactory& factory)
+	: textPipeline(factory,true), linePipeline(factory),
+	  textMesh(factory.createIndexedMesh(&Renderer::TexturedWidgetVert::DESCRIPTOR)),
+	  lineMesh(factory.createUnindexedMesh(&Renderer::ColouredWidgetVert::DESCRIPTOR))
 {
-	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-	renderText(renderer,convert.from_bytes(text.c_str()),state);
+
 }
 
-void Font::renderText(SYS::GuiRenderer& renderer, const std::u32string& text, TextRenderState& state)
+void Font::renderText(TextRenderingContext& renderingContext, const std::string& text, TextRenderState& state)
 {
+	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
+	renderText(renderingContext,convert.from_bytes(text.c_str()),state);
+}
+static const unsigned quadIds[] = { 0, 1, 2, 1, 2, 3 };
+void Font::renderText(TextRenderingContext& renderingContext, const std::u32string& text, TextRenderState& state)
+{
+	renderingContext.lineCache.clear();
+	renderingContext.textCache.clear();
+	renderingContext.indexCache.clear();
+	uint32_t maxIndex = 0;
 	float x = state.currentOffset.x;
 	float y = state.currentOffset.y;
 	for(const auto c : text) {
@@ -263,12 +284,14 @@ void Font::renderText(SYS::GuiRenderer& renderer, const std::u32string& text, Te
 			// Strikethrough
 			if(state.attributes.isStrikethrough) {
 				const float middleY = (y+state.maxHeight*0.4f);
-				renderer.renderCLine(glm::fvec2(state.currentOffset.x,middleY),glm::fvec2(x,middleY),state.colour,2);
+				renderingContext.lineCache.push_back( Renderer::ColouredWidgetVert{ .POS = glm::fvec2(state.currentOffset.x,-1.0f * middleY) } );
+				renderingContext.lineCache.push_back( Renderer::ColouredWidgetVert{ .POS = glm::fvec2(x,-1.0f * middleY) } );
 			}
 			// Underline
 			if(state.attributes.isUnderline) {
 				const float zy = y + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
-				renderer.renderCLine(glm::fvec2(state.currentOffset.x,zy),glm::fvec2(x,zy),state.colour,2);
+				renderingContext.lineCache.push_back( Renderer::ColouredWidgetVert{ .POS = glm::fvec2(state.currentOffset.x,-1.0f * zy) } );
+				renderingContext.lineCache.push_back( Renderer::ColouredWidgetVert{ .POS = glm::fvec2(x,-1.0f * zy) } );
 				y = ny + (2.0f * (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale));
 				state.attributes.isUnderline = true;
 			} else {
@@ -288,10 +311,35 @@ void Font::renderText(SYS::GuiRenderer& renderer, const std::u32string& text, Te
 										  y + ((charIt->second.size.y - charIt->second.bearing.y) * state.reciprocalSize.y * state.scale));
 		const glm::fvec2 dim = glm::fvec2(charIt->second.size.x * state.scale,charIt->second.size.y * -state.scale) * state.reciprocalSize;
 		state.maxHeight = std::max(state.maxHeight,dim.y * -1.0f);
-		const glm::fvec2 texCoord0(static_cast<float>(charIt->second.offset.x) * texture->getWidthR(), static_cast<float>(charIt->second.offset.y) * texture->getHeightR());
-		const glm::fvec2 texCoord1 = texCoord0 + glm::vec2(static_cast<float>(charIt->second.size.x) * texture->getWidthR(), static_cast<float>(charIt->second.size.y) * texture->getHeightR());
-		if(state.attributes.isItalic) renderer.renderTiltedCTex( italicMagicNumber, pos, pos + dim, texCoord0, texCoord1, state.colour, *texture );
-		else renderer.renderCTex( pos, pos + dim, texCoord0, texCoord1, state.colour, *texture );
+		const glm::fvec2 tc0(static_cast<float>(charIt->second.offset.x) * texture->getWidthR(), static_cast<float>(charIt->second.offset.y) * texture->getHeightR());
+		const glm::fvec2 tc1 = tc0 + glm::vec2(static_cast<float>(charIt->second.size.x) * texture->getWidthR(), static_cast<float>(charIt->second.size.y) * texture->getHeightR());
+		if(state.attributes.isItalic) {
+			const glm::fvec2 pos2 = pos + dim;
+			const float xdiff = std::abs(std::max(pos.y,pos2.y) - std::min(pos.y,pos2.y)) * italicMagicNumber;
+			renderingContext.textCache.push_back(Renderer::TexturedWidgetVert{ .POS = glm::fvec2(std::min(pos.x,pos2.x)+xdiff,-1.0f * std::min(pos.y,pos2.y)),
+																			   .TEXCOORD = glm::fvec2(std::min(tc0.x,tc1.x),std::min(tc0.y,tc1.y))  });
+			renderingContext.textCache.push_back(Renderer::TexturedWidgetVert{ .POS = glm::fvec2(std::max(pos.x,pos2.x)+xdiff,-1.0f * std::min(pos.y,pos2.y)),
+																			   .TEXCOORD = glm::fvec2(std::max(tc0.x,tc1.x),std::min(tc0.y,tc1.y))  });
+			renderingContext.textCache.push_back(Renderer::TexturedWidgetVert{ .POS = glm::fvec2(std::min(pos.x,pos2.x),-1.0f * std::max(pos.y,pos2.y)),
+																			   .TEXCOORD = glm::fvec2(std::min(tc0.x,tc1.x),std::max(tc0.y,tc1.y))  });
+			renderingContext.textCache.push_back(Renderer::TexturedWidgetVert{ .POS = glm::fvec2(std::max(pos.x,pos2.x),-1.0f * std::max(pos.y,pos2.y)),
+																			   .TEXCOORD = glm::fvec2(std::max(tc0.x,tc1.x),std::max(tc0.y,tc1.y))  });
+		}
+		else {
+			const glm::fvec2 pos2 = pos + dim;
+			renderingContext.textCache.push_back(Renderer::TexturedWidgetVert{ .POS = glm::fvec2(std::min(pos.x,pos2.x),-1.0f * std::min(pos.y,pos2.y)),
+																			   .TEXCOORD = glm::fvec2(std::min(tc0.x,tc1.x),std::min(tc0.y,tc1.y)) });
+			renderingContext.textCache.push_back(Renderer::TexturedWidgetVert{ .POS = glm::fvec2(std::max(pos.x,pos2.x),-1.0f * std::min(pos.y,pos2.y)),
+																			   .TEXCOORD = glm::fvec2(std::max(tc0.x,tc1.x),std::min(tc0.y,tc1.y)) });
+			renderingContext.textCache.push_back(Renderer::TexturedWidgetVert{ .POS = glm::fvec2(std::min(pos.x,pos2.x),-1.0f * std::max(pos.y,pos2.y)),
+																			   .TEXCOORD = glm::fvec2(std::min(tc0.x,tc1.x),std::max(tc0.y,tc1.y)) });
+			renderingContext.textCache.push_back(Renderer::TexturedWidgetVert{ .POS = glm::fvec2(std::max(pos.x,pos2.x),-1.0f * std::max(pos.y,pos2.y)),
+																			   .TEXCOORD = glm::fvec2(std::max(tc0.x,tc1.x),std::max(tc0.y,tc1.y)) });
+		}
+		for(const auto& it : quadIds) {
+			renderingContext.indexCache.push_back(maxIndex + it);
+		}
+		maxIndex += 4;
 		x += (charIt->second.advance >> 6) * state.reciprocalSize.x * state.scale;
 		}
 	}
@@ -299,18 +347,40 @@ void Font::renderText(SYS::GuiRenderer& renderer, const std::u32string& text, Te
 	// Underline
 	if(state.attributes.isUnderline && blockWidth >= state.reciprocalSize.x) {
 		const float ny = y + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
-		renderer.renderCLine(glm::fvec2(state.currentOffset.x,ny),glm::fvec2(x,ny),state.colour,2);
+		renderingContext.lineCache.push_back( Renderer::ColouredWidgetVert{ .POS = glm::fvec2(state.currentOffset.x,-1.0f *ny) } );
+		renderingContext.lineCache.push_back( Renderer::ColouredWidgetVert{ .POS = glm::fvec2(x,-1.0f *ny) } );
 	}
 	// Strikethrough
 	if(state.attributes.isStrikethrough && blockWidth >= state.reciprocalSize.x) {
 		const float middleY = (y-state.maxHeight*0.4f);
-		renderer.renderCLine(glm::fvec2(state.currentOffset.x,middleY),glm::fvec2(x,middleY),state.colour,2);
+		renderingContext.lineCache.push_back( Renderer::ColouredWidgetVert{ .POS = glm::fvec2(state.currentOffset.x,-1.0f *middleY) } );
+		renderingContext.lineCache.push_back( Renderer::ColouredWidgetVert{ .POS = glm::fvec2(x,-1.0f *middleY) } );
+	}
+	if(renderingContext.textCache.size()) {
+		renderingContext.textMesh->ensureIndexCount(renderingContext.indexCache.size());
+		renderingContext.textMesh->ensureVertexCount(renderingContext.textCache.size());
+		renderingContext.textMesh->accessIndices([&renderingContext] (std::span<uint32_t>& span) {
+			std::copy(renderingContext.indexCache.begin(),renderingContext.indexCache.end(),span.begin());
+		});
+		renderingContext.textMesh->accessVertices([&renderingContext](void* dst, size_t s) {
+			std::span<Renderer::TexturedWidgetVert> span(static_cast<Renderer::TexturedWidgetVert*>(dst),s);
+			std::copy(renderingContext.textCache.begin(),renderingContext.textCache.end(),span.begin());
+		});
+		renderingContext.textPipeline.renderTriangles(*renderingContext.textMesh,state.colour,*texture);
+	}
+	if(renderingContext.lineCache.size()) {
+		renderingContext.lineMesh->ensureSize(renderingContext.lineCache.size());
+		renderingContext.lineMesh->access([&renderingContext](void* dst, size_t s) {
+			std::span<Renderer::ColouredWidgetVert> span(static_cast<Renderer::ColouredWidgetVert*>(dst),s);
+			std::copy(renderingContext.lineCache.begin(),renderingContext.lineCache.end(),span.begin());
+		});
+		renderingContext.linePipeline.renderLines(*renderingContext.lineMesh,state.colour,2.0f);
 	}
 	state.currentOffset.x = x;
 	state.currentOffset.y = y;
 }
 
-void Font::renderTextBlocks(SYS::GuiRenderer& renderer, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset,
+void Font::renderTextBlocks(TextRenderingContext& renderingContext, const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset,
 							const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
 	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
@@ -326,11 +396,12 @@ void Font::renderTextBlocks(SYS::GuiRenderer& renderer, const std::span<const Te
 		state.attributes.isItalic = it.isItalic;
 		state.attributes.isStrikethrough = it.isStrikethrough;
 		state.attributes.isUnderline = it.isUnderline;
-		if(it.font) it.font->renderText(renderer,convert.from_bytes(it.text),state);
+		if(it.font) it.font->renderText(renderingContext,convert.from_bytes(it.text),state);
 	}
 }
 
-void Font::renderTextBlocks(SYS::GuiRenderer& renderer, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset,
+
+void Font::renderTextBlocks(TextRenderingContext& renderingContext, const std::span<const TextBlockUtf32> textBlocks, const glm::fvec2& offset,
 							const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
 	TextRenderState state;
@@ -345,7 +416,8 @@ void Font::renderTextBlocks(SYS::GuiRenderer& renderer, const std::span<const Te
 		state.attributes.isItalic = block.isItalic;
 		state.attributes.isStrikethrough = block.isStrikethrough;
 		state.attributes.isUnderline = block.isUnderline;
-		if(block.font) block.font->renderText(renderer,block.text,state);
+		if(block.font) block.font->renderText(renderingContext,block.text,state);
 	}
 }
+
 }

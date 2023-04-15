@@ -6,7 +6,7 @@
 #include <vector>
 #include <functional>
 #include <cstdint>
-#include <VertexFormat.hpp>
+#include <MhLib/Media/GFX/MhVertexFormat.hpp>
 
 namespace GL {
 
@@ -27,8 +27,8 @@ public:
 	void bind();
 	void enableVertexAttribArray(GLuint index);
 	void vertexAttribPointer(GLuint index, GLint size, GLenum type, bool normalized, GLsizei stride, uintptr_t offset);
-	void vertexAttribPointer(GLuint index, PrimitiveType type, GLsizei stride, uintptr_t offset);
-	void enableAttributes(const VertexDescriptor& descriptor);
+	void vertexAttribPointer(GLuint index, MH33::GFX::PrimitiveType type, GLsizei stride, uintptr_t offset);
+	void enableAttributes(const MH33::GFX::VertexDescriptor& descriptor);
 	void doActions(const VaoAccessor& fun);
 	void doActions(const VaoConstAccessor& fun) const;
 	void doActions(const VaoIdAccessor& fun) const;

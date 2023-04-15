@@ -17,7 +17,22 @@ TickboxWidget::TickboxWidget(const glm::fvec2& topLeft, const glm::fvec2& bottom
 
 }
 
-void TickboxWidget::render(GuiRenderer& renderer)
+void TickboxWidget::assignPoints(MH33::GFX::GuiRenderingContext& renderer, const std::span<const glm::fvec2>& points)
+{
+	renderer.colouredUMesh->ensureSize((points.size() - 1) * 2);
+	renderer.colouredUMesh->access( [&points](void* dst, size_t s) {
+		std::span<Renderer::ColouredWidgetVert> span(static_cast<Renderer::ColouredWidgetVert*>(dst),s);
+		uint32_t z = 0;
+		for(size_t i = 1; i < points.size(); ++i) {
+			span[z].POS = points[i-1];
+			++z;
+			span[z].POS = points[i];
+			++z;
+		}
+	});
+}
+
+void TickboxWidget::render(MH33::GFX::GuiRenderingContext& renderer)
 {
 	const bool isClicked = this->getIsClicked() || getTimeSinceLastClick() <= 250;
 
@@ -40,17 +55,20 @@ void TickboxWidget::render(GuiRenderer& renderer)
 			glm::fvec2( topLeft.x, topLeft.y ),
 			glm::fvec2( bottomRight.x, topLeft.y )
 		};
-		renderer.renderCLines(points,clr,thickness);
+		assignPoints(renderer,points);
+
 	} else {
-	glm::fvec2 points[] = {
-		glm::fvec2( topLeft.x, topLeft.y ),
-		glm::fvec2( bottomRight.x, topLeft.y ),
-		glm::fvec2( bottomRight.x, bottomRight.y ),
-		glm::fvec2( topLeft.x, bottomRight.y ),
-		glm::fvec2( topLeft.x, topLeft.y )
-	};
-	renderer.renderCLines(points,clr,thickness);
+		glm::fvec2 points[] = {
+			glm::fvec2( topLeft.x, topLeft.y ),
+			glm::fvec2( bottomRight.x, topLeft.y ),
+			glm::fvec2( bottomRight.x, bottomRight.y ),
+			glm::fvec2( topLeft.x, bottomRight.y ),
+			glm::fvec2( topLeft.x, topLeft.y )
+		};
+		assignPoints(renderer,points);
 	}
+	renderer.colouredPipeline.renderLines(*renderer.colouredUMesh,clr,thickness);
 
 }
 }
+

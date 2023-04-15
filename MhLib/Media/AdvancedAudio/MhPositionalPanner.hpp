@@ -6,6 +6,7 @@
 namespace MH33 {
 namespace Audio {
 
+DEFINE_CLASS(PositionalPanner)
 class MH_ADV_AUDIO_API PositionalPanner : public Playable
 {
 public:

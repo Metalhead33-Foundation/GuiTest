@@ -7,6 +7,7 @@
 namespace MH33 {
 namespace Io {
 
+DEFINE_CLASS(File)
 class MH_IO_API File : public Device
 {
 private:

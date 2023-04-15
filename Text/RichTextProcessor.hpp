@@ -8,6 +8,7 @@
 #include <ostream>
 
 namespace TXT {
+DEFINE_CLASS(RichTextProcessor)
 class RichTextProcessor
 {
 public:
@@ -89,6 +90,5 @@ public:
 	RichTextProcessor& operator<<(std::ios_base& (*pf)(std::ios_base&));
 	RichTextProcessor& operator<<(const RichTextManipulator& manipulator);
 };
-typedef std::shared_ptr<RichTextProcessor> sRichTextProcessor;
 }
 #endif // RICHTEXTPROCESSOR_H

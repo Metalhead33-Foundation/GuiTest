@@ -11,8 +11,6 @@ INCLUDEPATH += $$PWD
 LIBS += -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 -lgif -lturbojpeg -lsndfile -lsamplerate -lopenmpt -lwebp -lwebpdecoder -lwebpdemux  -lwebpmux -lzstd -lsnappy -lphysfs -lssl -lcrypto
 
 SOURCES += main.cpp \
-	AGL/GlGui.cpp \
-	AGL/GlTexture2D.cpp \
 	EGL/EglContext.cpp \
 	EGL/EglDisplay.cpp \
 	EGL/egl.c \
@@ -83,28 +81,25 @@ SOURCES += main.cpp \
 	MhLib/Util/MhDynamicLib.cpp \
 	MhLib/Util/MhRNG.cpp \
 	MhLib/Util/MhUUID.cpp \
-	MhLib/Util/TextureFromSurface.cpp \
 	MhLib/Util/TextureHelpers.cpp \
-	Pipeline/GuiRenderer.cpp \
-	Pipeline/IFontTexture.cpp \
-	SoftPipeline/BasicPipeline.cpp \
-	SoftPipeline/ColouredTexturedPipeline.cpp \
-	SoftPipeline/EdgeFunction.cpp \
-	SoftPipeline/ModelPipeline.cpp \
-	SoftPipeline/TexturedPipeline.cpp \
-	SoftPipeline/ZBuffer.cpp \
-	System/AcceleratedGuiRenderSystem.cpp \
+	Renderer/Shared/GuiRenderer.cpp \
+	Renderer/Shared/GuiVertexTypes.cpp \
+	Renderer/Software/EdgeFunction.cpp \
+	Renderer/Software/SoftGuiPipeline.cpp \
+	Renderer/Software/SoftMesh.cpp \
+	Renderer/Software/SoftTexture.cpp \
+	Renderer/Software/SoftUniformBuffer.cpp \
+	Renderer/Software/SoftwareRenderer.cpp \
 	System/AppSystem.cpp \
 	System/AudioSDL.cpp \
 	System/FpsCounter.cpp \
-	System/GuiRenderSystem.cpp \
+	System/GameSystem.cpp \
+	System/SystemConfiguration.cpp \
 	Text/Font.cpp \
 	Text/FontRepository.cpp \
 	Text/MmlParser.cpp \
 	Text/RichTextProcessor.cpp \
 	Text/RtProcessorStack.cpp \
-	Texture/Texture.cpp \
-	Texture/TextureAtlas.cpp \
 	Widget/BoxWidget.cpp \
 	Widget/Cursor.cpp \
 	Widget/IWidget.cpp \
@@ -122,8 +117,6 @@ DISTFILES += \
 	Text/MML.md
 
 HEADERS += \
-	AGL/GlGui.hpp \
-	AGL/GlTexture2D.hpp \
 	EGL/EglContext.hpp \
 	EGL/EglDisplay.hpp \
 	EGL/egl.h \
@@ -206,7 +199,12 @@ HEADERS += \
 	MhLib/Media/Audio/MhSoundFile.hpp \
 	MhLib/Media/GFX/MhGFX.hpp \
 	MhLib/Media/GFX/MhGFXHandle.hpp \
+	MhLib/Media/GFX/MhGFXResourceFactory.hpp \
+	MhLib/Media/GFX/MhMesh.hpp \
+	MhLib/Media/GFX/MhPipeline.hpp \
 	MhLib/Media/GFX/MhTexture.hpp \
+	MhLib/Media/GFX/MhUniformBuffer.hpp \
+	MhLib/Media/GFX/MhVertexFormat.hpp \
 	MhLib/Media/Image/MhDDS.hpp \
 	MhLib/Media/Image/MhDecodeTarget.hpp \
 	MhLib/Media/Image/MhGIF.hpp \
@@ -238,36 +236,29 @@ HEADERS += \
 	MhLib/Util/MhUUID.hpp \
 	MhLib/Util/NormDenorm.hpp \
 	MhLib/Util/PixelFormat.hpp \
-	MhLib/Util/TextureFromSurface.hpp \
 	MhLib/Util/TextureHelpers.hpp \
 	MhLib/Util/ThreadsafeContainer.hpp \
 	MhLib/Util/half.hpp \
-	Pipeline/GuiRenderer.hpp \
-	Pipeline/IFontTexture.hpp \
-	Pipeline/ITexture.hpp \
-	Pipeline/ITextureAtlas.hpp \
-	SoftPipeline/BasicPipeline.hpp \
-	SoftPipeline/ColouredTexturedPipeline.hpp \
-	SoftPipeline/EdgeFunction.hpp \
-	SoftPipeline/ModelPipeline.hpp \
-	SoftPipeline/RenderingPipeline.hpp \
-	SoftPipeline/TexturedPipeline.hpp \
-	SoftPipeline/ZBuffer.hpp \
-	System/AcceleratedGuiRenderSystem.hpp \
+	Renderer/Shared/GuiRenderer.hpp \
+	Renderer/Shared/GuiVertexTypes.hpp \
+	Renderer/Software/EdgeFunction.hpp \
+	Renderer/Software/RenderingPipeline.hpp \
+	Renderer/Software/SoftGuiPipeline.hpp \
+	Renderer/Software/SoftMesh.hpp \
+	Renderer/Software/SoftStandardTexture.hpp \
+	Renderer/Software/SoftTexture.hpp \
+	Renderer/Software/SoftUniformBuffer.hpp \
+	Renderer/Software/SoftwareRenderer.hpp \
 	System/AppSystem.hpp \
 	System/AudioSDL.hpp \
 	System/FpsCounter.hpp \
-	System/GuiRenderSystem.hpp \
+	System/GameSystem.hpp \
+	System/SystemConfiguration.hpp \
 	Text/Font.hpp \
 	Text/FontRepository.hpp \
 	Text/MmlParser.hpp \
 	Text/RichTextProcessor.hpp \
 	Text/RtProcessorStack.hpp \
-	Texture/StandardTexture.hpp \
-	Texture/StandardTexture.ipp \
-	Texture/Texture.hpp \
-	Texture/TextureAtlas.hpp \
-	VertexFormat.hpp \
 	Widget/BoxWidget.hpp \
 	Widget/Cursor.hpp \
 	Widget/IWidget.hpp \

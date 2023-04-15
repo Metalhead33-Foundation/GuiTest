@@ -5,6 +5,7 @@
 namespace MH33 {
 namespace Io {
 
+DEFINE_CLASS(BufferWrapper)
 class MH_IO_API BufferWrapper : public Device
 {
 private:

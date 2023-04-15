@@ -1,33 +1,28 @@
 #include "TexturedWidget.hpp"
-#include "../Texture/StandardTexture.hpp"
 #include <SDL2/SDL.h>
 
 namespace SYS {
-TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, const sTexture& texdis,
-							   const sTexture& textact, const sTexture& textclick)
-	: topLeft(topLeft), bottomRight(bottomRight), w(textact->getWidth()),h(textact->getHeight()), wf(textact->getWidthF()), hf(textact->getHeightF()),
-	  alpha(textact->getHeight() * textact->getWidth()),
+
+TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, const sTexture& texdis, const sTexture& textact, const sTexture& textclick, const std::vector<bool>& alphabitmap)
+	: topLeft(topLeft), bottomRight(bottomRight), w(texdis->getWidth()), h(texdis->getHeight()), wf(texdis->getWidthF()), hf(texdis->getHeightF()),
+	  alpha(std::move(alphabitmap)),
 	  textureDistact(texdis),
 	  textureActive(textact),
 	  textureClicked(textclick),
 	  state(OUT_OF_FOCUS)
 {
-	textureDistact->iterateOverPixels(ITexture::ColourIterator([this](const glm::ivec2& pos, const glm::fvec4& kernel) {
-		alpha[(pos.y*this->w)+pos.x] = kernel.w >= 0.007843137254902f;
-	}));
+
 }
 
-TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, sTexture&& texdis, sTexture&& textact, sTexture&& textclick)
-	: topLeft(topLeft), bottomRight(bottomRight), w(textact->getWidth()),h(textact->getHeight()), wf(textact->getWidthF()), hf(textact->getHeightF()),
-	  alpha(textact->getHeight() * textact->getWidth()),
+TexturedWidget::TexturedWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight, sTexture&& texdis, sTexture&& textact, sTexture&& textclick, std::vector<bool>&& alphabitmap)
+	: topLeft(topLeft), bottomRight(bottomRight), w(texdis->getWidth()), h(texdis->getHeight()), wf(texdis->getWidthF()), hf(texdis->getHeightF()),
+	  alpha(std::move(alphabitmap)),
 	  textureDistact(std::move(texdis)),
 	  textureActive(std::move(textact)),
 	  textureClicked(std::move(textclick)),
 	  state(OUT_OF_FOCUS)
 {
-	textureDistact->iterateOverPixels(ITexture::ColourIterator([this](const glm::ivec2& pos, const glm::fvec4& kernel) {
-		alpha[(pos.y*this->w)+pos.x] = kernel.w >= 0.007843137254902f;
-	}));
+
 }
 
 const glm::fvec2& TexturedWidget::getTopLeft() const
@@ -56,18 +51,39 @@ glm::ivec2 TexturedWidget::translateOffset(const glm::fvec2& offset) const
 	return glm::ivec2(static_cast<int>(std::round(offset.x * wf)),static_cast<int>(std::round(offset.y * hf)));
 }
 
+void TexturedWidget::render(MH33::GFX::GuiRenderingContext& renderer)
+{
+	renderer.texturedIMesh->ensureVertexCount(4);
+	renderer.texturedIMesh->accessVertices([this](void* dst, size_t s) {
+		std::span<Renderer::TexturedWidgetVert> span(static_cast<Renderer::TexturedWidgetVert*>(dst),s);
+		span[0].POS = glm::fvec2(std::min(topLeft.x,bottomRight.x),-1.0f * std::min(topLeft.y,bottomRight.y));
+		span[0].TEXCOORD = glm::fvec2(0.0f, 0.0f);
+		span[1].POS = glm::fvec2(std::max(topLeft.x,bottomRight.x),-1.0f * std::min(topLeft.y,bottomRight.y));
+		span[1].TEXCOORD = glm::fvec2(1.0f, 0.0f);
+		span[2].POS = glm::fvec2(std::min(topLeft.x,bottomRight.x),-1.0f * std::max(topLeft.y,bottomRight.y));
+		span[2].TEXCOORD = glm::fvec2(0.0f, 1.0f);
+		span[3].POS = glm::fvec2(std::max(topLeft.x,bottomRight.x),-1.0f * std::max(topLeft.y,bottomRight.y));
+		span[3].TEXCOORD = glm::fvec2(1.0f, 1.0f);
+	});
+	/*renderer.texturedIMesh->ensureIndexCount(6);
+	renderer.texturedIMesh->accessIndices([](std::span<uint32_t>& indices) {
+		indices[0] = 0;
+		indices[1] = 1;
+		indices[2] = 2;
+		indices[3] = 1;
+		indices[4] = 2;
+		indices[5] = 3;
+	});*/
+	switch (state) {
+		case OUT_OF_FOCUS: renderer.texturedPipeline.renderTriangles(*renderer.texturedIMesh,*textureDistact); break;
+		case IN_FOCUS: renderer.texturedPipeline.renderTriangles(*renderer.texturedIMesh,*textureActive); break;
+		case CLICKED: renderer.texturedPipeline.renderTriangles(*renderer.texturedIMesh,*textureClicked); break;
+	}
+}
+
 void TexturedWidget::setBottomRight(const glm::fvec2& newBottomRight)
 {
 	bottomRight = newBottomRight;
-}
-
-void TexturedWidget::render(GuiRenderer& renderer)
-{
-	switch (state) {
-		case OUT_OF_FOCUS: renderer.renderTex(topLeft,bottomRight,*textureDistact); break;
-		case IN_FOCUS: renderer.renderTex(topLeft,bottomRight,*textureActive); break;
-		case CLICKED: renderer.renderTex(topLeft,bottomRight,*textureClicked); break;
-	}
 }
 
 bool TexturedWidget::onClick(const glm::fvec2& offset, uint8_t button, uint8_t mousestate, uint8_t clicks)
@@ -104,4 +120,15 @@ void TexturedWidget::onOutOfFocus()
 {
 	state = OUT_OF_FOCUS;
 }
+}
+
+
+bool SYS::TexturedWidget::getIsActive() const
+{
+	return state != OUT_OF_FOCUS;
+}
+
+bool SYS::TexturedWidget::getIsClicked() const
+{
+	return state == CLICKED;
 }

@@ -1,4 +1,5 @@
 #include "RtProcessorStack.hpp"
+#include <MhLib/Util/PixelFormat.hpp>
 
 namespace TXT {
 RichTextProcessor* RtProcessorStack::getRTP() const

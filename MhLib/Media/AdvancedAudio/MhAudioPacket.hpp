@@ -1,5 +1,6 @@
 #ifndef MHAUDIOPACKET_HPP
 #define MHAUDIOPACKET_HPP
+#include <MhLib/Util/MhGlobals.hpp>
 #include <MhLib/Media/Audio/MhAudioIterator.hpp>
 namespace MH33 {
 namespace Audio {

@@ -2,11 +2,11 @@
 #define TEXTUREHELPERS_H
 #include <cstdint>
 #include <span>
-#include <vector>
+#include <MhLib/Media/Image/MhDecodeTarget.hpp>
 #include <glm/glm.hpp>
 
 struct ButtonTextureCollection {
-	std::vector<uint32_t> ENABLED_NORMAL, ENABLED_CLICKED, DISABLED_NORMAL, DISABLED_CLICEKD;
+	MH33::Image::DecodeTarget ENABLED_NORMAL, ENABLED_CLICKED, DISABLED_NORMAL, DISABLED_CLICEKD;
 };
 
 uint32_t argb32(const float alpha);
@@ -16,7 +16,7 @@ uint32_t rgba32(const float alpha);
 uint32_t rgba32(const glm::fvec3& rgbF);
 uint32_t rgba32(const glm::fvec4& rgbaF);
 void createButtons(ButtonTextureCollection& buttons, int width, int height, const glm::fvec3& baseColour, const glm::fvec3& borderColour);
-void createCircleTexture(std::span<uint32_t>& output, const glm::fvec3& colour, int CIRCLE_W, int CIRCLE_H, bool argb = true);
-void createCircleTextures(std::span<uint32_t>& redCircle, std::span<uint32_t>& greenCircle, std::span<uint32_t>& blueCircle, int CIRCLE_W, int CIRCLE_H, bool argb = true);
+void createCircleTexture(MH33::Image::DecodeTarget& output, const glm::fvec3& colour, int CIRCLE_W, int CIRCLE_H, bool argb = true);
+void createCircleTextures(MH33::Image::DecodeTarget& redCircle, MH33::Image::DecodeTarget& greenCircle, MH33::Image::DecodeTarget& blueCircle, int CIRCLE_W, int CIRCLE_H, bool argb = true);
 
 #endif // TEXTUREHELPERS_H

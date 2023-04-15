@@ -68,10 +68,6 @@ uint32_t SimpleWidget::getTimeSinceLastClick() const
 	return SDL_GetTicks() - lastClick;
 }
 
-/*
-	uint32_t lastClick;
-	bool isActive;
-*/
 
 bool SimpleWidget::getIsActive() const
 {
@@ -89,3 +85,4 @@ SimpleWidget::SimpleWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRi
 
 }
 }
+

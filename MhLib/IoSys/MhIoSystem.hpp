@@ -6,6 +6,7 @@
 namespace MH33 {
 namespace Io {
 
+DEFINE_CLASS(System)
 class System {
 public:
 	typedef std::function<void(const char*)> FilenameCallback;

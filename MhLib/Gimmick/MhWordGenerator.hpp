@@ -12,6 +12,7 @@ enum class CapitalizationPolicy {
 	START
 };
 
+DEFINE_CLASS(WordGenerator)
 class MH_GIMMICK_API WordGenerator
 {
 private:

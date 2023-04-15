@@ -1,5 +1,6 @@
 #ifndef MHGLOBALS_HPP
 #define MHGLOBALS_HPP
+#include <memory>
 
 /*#ifdef _WIN32
 #define MH33_API_EXPORT __declspec(dllexport)
@@ -19,5 +20,19 @@
 #else
 #define MH_UTIL_API MH33_API_IMPORT
 #endif
+
+#define DEFINE_PTR( a )                                                        \
+	typedef a *p##a;                                                           \
+	typedef std::shared_ptr< a > s##a;                                         \
+	typedef std::weak_ptr< a > w##a;                                           \
+	typedef std::unique_ptr< a > u##a;
+
+#define DEFINE_CLASS( klass )                                                  \
+	class klass;                                                               \
+	DEFINE_PTR( klass )
+
+#define DEFINE_STRUCT( klass )                                                 \
+	struct klass;                                                              \
+	DEFINE_PTR( klass )
 
 #endif // MHGLOBALS_HPP

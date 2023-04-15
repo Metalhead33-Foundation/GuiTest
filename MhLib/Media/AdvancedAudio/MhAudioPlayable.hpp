@@ -5,8 +5,7 @@
 namespace MH33 {
 namespace Audio {
 
-class Playable;
-typedef std::shared_ptr<Playable> sPlayable;
+DEFINE_CLASS(Playable)
 class Playable {
 public:
 	virtual ~Playable() = default;

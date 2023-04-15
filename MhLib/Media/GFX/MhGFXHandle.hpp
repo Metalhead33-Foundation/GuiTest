@@ -8,6 +8,8 @@ namespace GFX {
 
 typedef void* NativePointer;
 typedef void* D3dHandle;
+typedef const void* ConstNativePointer;
+typedef const void* ConstD3dHandle;
 typedef int32_t OpenGLint;
 typedef uint32_t OpenGLUint;
 typedef void* VulkanHandle;
@@ -20,6 +22,14 @@ typedef uint64_t VulkanNonDispatchableHandle;
 union Handle {
 	NativePointer ptr;
 	D3dHandle d3dHandle;
+	OpenGLint oglInt;
+	OpenGLUint oglUint;
+	VulkanHandle vkHndl;
+	VulkanNonDispatchableHandle vkNdHndl;
+};
+union ConstHandle {
+	ConstNativePointer ptr;
+	ConstD3dHandle d3dHandle;
 	OpenGLint oglInt;
 	OpenGLUint oglUint;
 	VulkanHandle vkHndl;

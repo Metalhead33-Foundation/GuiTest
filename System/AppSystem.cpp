@@ -2,15 +2,15 @@
 
 namespace SYS {
 AppSystem::AppSystem(const char *title, int offsetX, int offsetY, int width, int height, Uint32 flags)
-	: window(SDL_CreateWindow(title,offsetX,offsetY,width,height,flags),SDL_DestroyWindow)
+	: window(SDL_CreateWindow(title,offsetX,offsetY,width,height,flags),SDL_DestroyWindow), width(width), height(height), sizeReciprocal(2.0f/static_cast<float>(width),2.0f/static_cast<float>(height))
 {
-
+	SDL_GetWindowWMInfo(window.get(),&windowInfo);
 }
 
 AppSystem::AppSystem(const std::string &title, int offsetX, int offsetY, int width, int height, Uint32 flags)
-	: window(SDL_CreateWindow(title.c_str(),offsetX,offsetY,width,height,flags),SDL_DestroyWindow)
+	: window(SDL_CreateWindow(title.c_str(),offsetX,offsetY,width,height,flags),SDL_DestroyWindow), width(width), height(height), sizeReciprocal(2.0f/static_cast<float>(width),2.0f/static_cast<float>(height))
 {
-
+	SDL_GetWindowWMInfo(window.get(),&windowInfo);
 }
 
 void AppSystem::run()

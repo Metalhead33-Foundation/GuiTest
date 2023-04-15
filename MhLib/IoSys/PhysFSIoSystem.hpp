@@ -3,6 +3,7 @@
 #include <MhLib/IoSys/MhIoSystem.hpp>
 namespace PhysFS {
 
+DEFINE_CLASS(IoSystem)
 class MH_IO_API IoSystem : public MH33::Io::System
 {
 public:

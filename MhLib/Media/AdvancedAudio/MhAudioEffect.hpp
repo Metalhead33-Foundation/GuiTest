@@ -5,8 +5,7 @@
 namespace MH33 {
 namespace Audio {
 
-class Effect;
-typedef std::shared_ptr<Effect> sEffect;
+DEFINE_CLASS(Effect)
 class Effect {
 public:
 	virtual ~Effect() = default;

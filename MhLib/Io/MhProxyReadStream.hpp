@@ -6,6 +6,7 @@
 namespace MH33 {
 namespace Io {
 
+DEFINE_CLASS(ProxyReadStream)
 class MH_IO_API ProxyReadStream : public Device
 {
 private:

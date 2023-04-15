@@ -6,6 +6,7 @@
 namespace MH33 {
 namespace Io {
 
+DEFINE_CLASS(Stdin)
 class MH_IO_API Stdin : public Device
 {
 public:

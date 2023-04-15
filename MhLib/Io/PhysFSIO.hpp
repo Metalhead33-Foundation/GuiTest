@@ -4,6 +4,7 @@
 #include <string>
 namespace PhysFS {
 
+DEFINE_CLASS(IO)
 class MH_IO_API IO : public MH33::Io::Device
 {
 	void* handle;

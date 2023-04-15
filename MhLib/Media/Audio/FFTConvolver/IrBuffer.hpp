@@ -4,9 +4,7 @@
 #include <vector>
 namespace fftconvolver
 {
-class IrBuffer;
-typedef std::shared_ptr<IrBuffer> sIrBuffer;
-
+DEFINE_CLASS(IrBuffer)
 class IrBuffer
 {
 private:

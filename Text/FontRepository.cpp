@@ -11,17 +11,17 @@ FontRepository::NamedFontMap& FontRepository::getFonts()
 	return fonts;
 }
 
-bool FontRepository::getIsAccelerated() const
+const MH33::GFX::sResourceFactory& FontRepository::getFactory() const
 {
-	return isAccelerated;
+	return factory;
 }
 
-FontRepository::FontRepository(const sFreeTypeSystem& bsys, bool accelerated) : sys(bsys), isAccelerated(accelerated)
+FontRepository::FontRepository(const sFreeTypeSystem& bsys, const MH33::GFX::sResourceFactory& factory) : sys(bsys), factory(factory)
 {
 
 }
 
-FontRepository::FontRepository(sFreeTypeSystem&& bsys, bool accelerated) : sys(std::move(bsys)), isAccelerated(accelerated)
+FontRepository::FontRepository(sFreeTypeSystem&& bsys, const MH33::GFX::sResourceFactory& factory) : sys(std::move(bsys)), factory(factory)
 {
 
 }
@@ -31,12 +31,10 @@ void FontRepository::initializeFont(const std::string& fontName, const std::stri
 	AttributedFontMap fmap;
 	for(uint8_t flags = 0; flags < 2; ++flags) {
 		FT_Face face;
-		if (FT_New_Face(sys.get(), path.c_str(), 0, &face)) {
-			return;
-		}
+		FT_New_Face(sys.get(), path.c_str(), 0, &face);
 		FT_Set_Pixel_Sizes(face, 0, 48);
 		sFreeTypeFace fac(face,FT_Done_Face);
-		fmap[flags] = std::make_shared<Font>(sys,fac, flags & 0x01, isAccelerated);
+		fmap[flags] = std::make_shared<Font>(*factory,sys,fac, flags & 0x01);
 	}
 	fonts.insert_or_assign(fontName,fmap);
 }

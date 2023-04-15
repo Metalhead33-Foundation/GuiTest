@@ -1,4 +1,5 @@
 #include "IWidget.hpp"
+
 namespace SYS {
 SDL_Rect IWidget::posToSCreenspaceRect(const glm::fvec2& topLeft, const glm::fvec2 bottomRight, const glm::ivec4& viewport) {
 	const auto topLeftI = glm::ivec2(
@@ -35,3 +36,4 @@ glm::ivec2 IWidget::getAbsolutePositionFromRel(const glm::fvec2& pos, const glm:
 				);
 }
 }
+

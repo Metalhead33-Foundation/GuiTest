@@ -4,6 +4,7 @@
 
 namespace MH33 {
 namespace Io {
+DEFINE_CLASS(SnappyCompressor)
 class MH_IO_API SnappyCompressor : public ProxyWriteStream
 {
 private:

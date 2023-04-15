@@ -4,6 +4,7 @@
 
 namespace MH33 {
 namespace Io {
+DEFINE_CLASS(ZstdCompressor)
 class MH_IO_API ZstdCompressor : public ProxyWriteStream
 {
 private:

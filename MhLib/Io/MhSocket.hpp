@@ -40,6 +40,7 @@ enum class SocketType {
 	UDP
 };
 
+DEFINE_CLASS(Socket)
 class MH_IO_API Socket : public Device
 {
 private:

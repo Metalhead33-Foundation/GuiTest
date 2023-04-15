@@ -4,6 +4,7 @@
 
 namespace MH33 {
 namespace Io {
+DEFINE_CLASS(SslDecryptor)
 class MH_IO_API SslDecryptor : public ProxyReadStream
 {
 private:

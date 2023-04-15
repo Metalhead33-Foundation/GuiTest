@@ -104,7 +104,7 @@ void ITexture::setValueF(GLenum pname, float value)
 	Validate::validate();
 }
 
-GLint ITexture::getLevelValueI(GLenum pname, GLint level) const
+/*GLint ITexture::getLevelValueI(GLenum pname, GLint level) const
 {
 	GLint toReturn;
 	RecursiveLock lock(TextureEssentials::texturemutex);
@@ -122,7 +122,7 @@ float ITexture::getLevelValueF(GLenum pname, GLint level) const
 	glGetTexLevelParameterfv(getTarget(),level,pname,&toReturn);
 	Validate::validate();
 	return toReturn;
-}
+}*/
 
 void GL::ITexture::activate(GLuint index)
 {
@@ -209,7 +209,7 @@ void ITexture::setBaseLevel(GLint level)
 	setValueI(GL_TEXTURE_BASE_LEVEL,level);
 }
 
-GLenum ITexture::getDepthStencilTextureMode() const
+/*GLenum ITexture::getDepthStencilTextureMode() const
 {
 	return static_cast<GLenum>(getValueI(GL_DEPTH_STENCIL_TEXTURE_MODE));
 }
@@ -217,7 +217,7 @@ GLenum ITexture::getDepthStencilTextureMode() const
 void ITexture::setDepthStencilTextureMode(GLenum mode)
 {
 	setValueI(GL_DEPTH_STENCIL_TEXTURE_MODE,static_cast<GLint>(mode));
-}
+}*/
 
 GLenum ITexture::getMagFilter() const
 {
@@ -288,7 +288,7 @@ void ITexture::setWrapR(GLenum mode)
 {
 	setValueI(GL_TEXTURE_WRAP_R,static_cast<GLint>(mode));
 }
-
+/*
 GLint ITexture::getWidth(GLint level) const
 {
 	return getLevelValueI(GL_TEXTURE_WIDTH,level);
@@ -303,7 +303,7 @@ GLint ITexture::getDepth(GLint level) const
 {
 	return getLevelValueI(GL_TEXTURE_DEPTH,level);
 }
-
+*/
 void ITexture::storage2D(GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height)
 {
 	RecursiveLock lock(TextureEssentials::texturemutex);

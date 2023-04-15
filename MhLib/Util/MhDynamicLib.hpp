@@ -13,6 +13,7 @@
 namespace MH33 {
 namespace Util {
 
+DEFINE_CLASS(DynamicLibrary)
 class MH_UTIL_API DynamicLibrary
 {
 private:

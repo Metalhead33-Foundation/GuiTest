@@ -1,5 +1,6 @@
 #include "RichTextProcessor.hpp"
 #include "../MhLib/Util/NormDenorm.hpp"
+#include <MhLib/Util/PixelFormat.hpp>
 
 namespace TXT {
 int RichTextProcessor::getDefaultSize() const

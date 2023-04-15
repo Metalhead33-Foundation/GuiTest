@@ -6,6 +6,7 @@
 namespace MH33 {
 namespace Io {
 
+DEFINE_CLASS(Stderr)
 class MH_IO_API Stderr : public Device
 {
 public:

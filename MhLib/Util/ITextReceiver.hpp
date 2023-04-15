@@ -2,7 +2,9 @@
 #define ITEXTRECEIVER_H
 #include <string>
 #include <string_view>
+#include <MhLib/Util/MhGlobals.hpp>
 
+DEFINE_CLASS(ITextReceiver)
 class ITextReceiver {
 public:
 	virtual ~ITextReceiver() = default;

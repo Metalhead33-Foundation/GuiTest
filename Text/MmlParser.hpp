@@ -4,6 +4,7 @@
 #include <sstream>
 
 namespace TXT {
+DEFINE_CLASS(MmlParser)
 class MmlParser : public RtProcessorStack
 {
 private:

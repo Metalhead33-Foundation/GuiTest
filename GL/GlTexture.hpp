@@ -23,8 +23,8 @@ private:
 	void setValueI(GLenum pname, GLint value);
 	float getValueF(GLenum pname) const;
 	void setValueF(GLenum pname, float value);
-	GLint getLevelValueI(GLenum pname, GLint level) const;
-	float getLevelValueF(GLenum pname, GLint level) const;
+	//GLint getLevelValueI(GLenum pname, GLint level) const;
+	//float getLevelValueF(GLenum pname, GLint level) const;
 public:
 	typedef std::function<void(ITexture&)> TextureAccessor;
 	typedef std::function<void(const ITexture&)> TextureConstAccessor;
@@ -45,8 +45,9 @@ public:
 	GLint getBaseLevel() const; // GL_TEXTURE_BASE_LEVEL
 	void setBaseLevel(GLint level); // GL_TEXTURE_BASE_LEVEL
 
-	GLenum getDepthStencilTextureMode() const; // GL_DEPTH_STENCIL_TEXTURE_MODE
-	void setDepthStencilTextureMode(GLenum mode); // GL_DEPTH_STENCIL_TEXTURE_MODE
+	//GLenum getDepthStencilTextureMode() const; // GL_DEPTH_STENCIL_TEXTURE_MODE
+	//void setDepthStencilTextureMode(GLenum mode); // GL_DEPTH_STENCIL_TEXTURE_MODE
+
 	GLenum getMagFilter() const; // GL_TEXTURE_MAG_FILTER
 	void setMagFilter(GLenum mode); // GL_TEXTURE_MAG_FILTER
 	GLenum getMinFilter() const; // GL_TEXTURE_MIN_FILTER
@@ -63,11 +64,11 @@ public:
 	void setWrapT(GLenum mode); // GL_TEXTURE_WRAP_T
 	GLenum getWrapR() const; // GL_TEXTURE_WRAP_R
 	void setWrapR(GLenum mode); // GL_TEXTURE_WRAP_R
-
+/*
 	GLint getWidth(GLint level = 0) const; // GL_TEXTURE_WIDTH
 	GLint getHeight(GLint level = 0) const; // GL_TEXTURE_HEIGHT
 	GLint getDepth(GLint level = 0) const; // GL_TEXTURE_DEPTH
-
+*/
 	GLenum getCompareMode() const; // GL_TEXTURE_COMPARE_MODE
 	void setCompareMode(GLenum mode); // GL_TEXTURE_COMPARE_MODE
 	GLenum getCompareFunc() const; // GL_TEXTURE_COMPARE_FUNC

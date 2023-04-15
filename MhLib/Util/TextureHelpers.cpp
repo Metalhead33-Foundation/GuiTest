@@ -60,15 +60,53 @@ void createButtons(ButtonTextureCollection& buttons, int width, int height, cons
 	const auto borderB = argb32( 0.75f * 0.5f );
 	const auto borderC = argb32( 0.75f * 0.25f );
 
-	buttons.ENABLED_NORMAL.resize(size);
-	buttons.ENABLED_CLICKED.resize(size);
-	buttons.DISABLED_NORMAL.resize(size);
-	buttons.DISABLED_CLICEKD.resize(size);
+	buttons.ENABLED_NORMAL.format = MH33::Image::Format::ARGB8U;
+	buttons.ENABLED_NORMAL.isAnimated = false;
+	buttons.ENABLED_CLICKED.format = MH33::Image::Format::ARGB8U;
+	buttons.ENABLED_CLICKED.isAnimated = false;
+	buttons.DISABLED_NORMAL.format = MH33::Image::Format::ARGB8U;
+	buttons.DISABLED_NORMAL.isAnimated = false;
+	buttons.DISABLED_CLICEKD.format = MH33::Image::Format::ARGB8U;
+	buttons.DISABLED_CLICEKD.isAnimated = false;
+	buttons.ENABLED_NORMAL.frames.resize(1);
+	buttons.ENABLED_CLICKED.frames.resize(1);
+	buttons.DISABLED_NORMAL.frames.resize(1);
+	buttons.DISABLED_CLICEKD.frames.resize(1);
+
+	buttons.ENABLED_NORMAL.frames.push_back({});
+	buttons.ENABLED_NORMAL.frames[0].width = width;
+	buttons.ENABLED_NORMAL.frames[0].height = height;
+	buttons.ENABLED_NORMAL.frames[0].stride = width * sizeof(uint32_t);
+	buttons.ENABLED_NORMAL.frames[0].imageData.resize(size * sizeof(uint32_t));
+
+	buttons.ENABLED_CLICKED.frames.push_back({});
+	buttons.ENABLED_CLICKED.frames[0].width = width;
+	buttons.ENABLED_CLICKED.frames[0].height = height;
+	buttons.ENABLED_CLICKED.frames[0].stride = width * sizeof(uint32_t);
+	buttons.ENABLED_CLICKED.frames[0].imageData.resize(size * sizeof(uint32_t));
+
+	buttons.DISABLED_NORMAL.frames.push_back({});
+	buttons.DISABLED_NORMAL.frames[0].width = width;
+	buttons.DISABLED_NORMAL.frames[0].height = height;
+	buttons.DISABLED_NORMAL.frames[0].stride = width * sizeof(uint32_t);
+	buttons.DISABLED_NORMAL.frames[0].imageData.resize(size * sizeof(uint32_t));
+
+	buttons.DISABLED_CLICEKD.frames.push_back({});
+	buttons.DISABLED_CLICEKD.frames[0].width = width;
+	buttons.DISABLED_CLICEKD.frames[0].height = height;
+	buttons.DISABLED_CLICEKD.frames[0].stride = width * sizeof(uint32_t);
+	buttons.DISABLED_CLICEKD.frames[0].imageData.resize(size * sizeof(uint32_t));
+
+	auto ENABLED_NORMAL = std::span<uint32_t>(reinterpret_cast<uint32_t*>(buttons.ENABLED_NORMAL.frames[0].imageData.data()),size);
+	auto ENABLED_CLICKED = std::span<uint32_t>(reinterpret_cast<uint32_t*>(buttons.ENABLED_CLICKED.frames[0].imageData.data()),size);
+	auto DISABLED_NORMAL = std::span<uint32_t>(reinterpret_cast<uint32_t*>(buttons.DISABLED_NORMAL.frames[0].imageData.data()),size);
+	auto DISABLED_CLICEKD = std::span<uint32_t>(reinterpret_cast<uint32_t*>(buttons.DISABLED_CLICEKD.frames[0].imageData.data()),size);
+
 	for(int y = 0; y < height; ++y) {
-		uint32_t * const line1 = buttons.ENABLED_NORMAL.data() + (y*width);
-		uint32_t * const line2 = buttons.ENABLED_CLICKED.data() + (y*width);
-		uint32_t * const line3 = buttons.DISABLED_NORMAL.data() + (y*width);
-		uint32_t * const line4 = buttons.DISABLED_CLICEKD.data() + (y*width);
+		uint32_t * const line1 = ENABLED_NORMAL.data() + (y*width);
+		uint32_t * const line2 = ENABLED_CLICKED.data() + (y*width);
+		uint32_t * const line3 = DISABLED_NORMAL.data() + (y*width);
+		uint32_t * const line4 = DISABLED_CLICEKD.data() + (y*width);
 		for(int x = 0; x < width; ++x) {
 			if(x == 0 || x == (width-1) || y == 0 || y == (height-1)) {
 				line1[x] = borderColour32;
@@ -95,19 +133,47 @@ void createButtons(ButtonTextureCollection& buttons, int width, int height, cons
 	}
 }
 
-void createCircleTextures(std::span<uint32_t>& redCircle, std::span<uint32_t>& greenCircle, std::span<uint32_t>& blueCircle, int CIRCLE_W, int CIRCLE_H, bool argb)
+void createCircleTextures(MH33::Image::DecodeTarget& redCircle, MH33::Image::DecodeTarget& greenCircle, MH33::Image::DecodeTarget& blueCircle, int CIRCLE_W, int CIRCLE_H, bool argb)
 {
 	const int CIRCLE_SIZE = CIRCLE_W * CIRCLE_H;
 	const int CIRCLE_ORIGO_X = CIRCLE_W / 2;
 	const int CIRCLE_ORIGO_Y = CIRCLE_H / 2;
 	const float CIRCLE_RADIUS = static_cast<float>(std::min(CIRCLE_ORIGO_X,CIRCLE_ORIGO_Y));
+
+	redCircle.frames.push_back({});
+	redCircle.format = MH33::Image::Format::ARGB8U;
+	redCircle.isAnimated = false;
+	redCircle.frames[0].height = CIRCLE_H;
+	redCircle.frames[0].width = CIRCLE_W;
+	redCircle.frames[0].stride = CIRCLE_W * sizeof(uint32_t);
+	redCircle.frames[0].imageData.resize(CIRCLE_SIZE * sizeof(uint32_t));
+	auto redCircleF = std::span<uint32_t>(reinterpret_cast<uint32_t*>(redCircle.frames[0].imageData.data()),CIRCLE_SIZE);
+
+	greenCircle.frames.push_back({});
+	greenCircle.format = MH33::Image::Format::ARGB8U;
+	greenCircle.isAnimated = false;
+	greenCircle.frames[0].imageData.resize(CIRCLE_SIZE * sizeof(uint32_t));
+	greenCircle.frames[0].height = CIRCLE_H;
+	greenCircle.frames[0].width = CIRCLE_W;
+	greenCircle.frames[0].stride = CIRCLE_W * sizeof(uint32_t);
+	auto greenCircleF = std::span<uint32_t>(reinterpret_cast<uint32_t*>(greenCircle.frames[0].imageData.data()),CIRCLE_SIZE);
+
+	blueCircle.frames.push_back({});
+	blueCircle.format = MH33::Image::Format::ARGB8U;
+	blueCircle.isAnimated = false;
+	blueCircle.frames[0].imageData.resize(CIRCLE_SIZE * sizeof(uint32_t));
+	blueCircle.frames[0].height = CIRCLE_H;
+	blueCircle.frames[0].width = CIRCLE_W;
+	blueCircle.frames[0].stride = CIRCLE_W * sizeof(uint32_t);
+	auto blueCircleF = std::span<uint32_t>(reinterpret_cast<uint32_t*>(blueCircle.frames[0].imageData.data()),CIRCLE_SIZE);
+
 	//redCircle.resize(CIRCLE_SIZE);
 	//greenCircle.resize(CIRCLE_SIZE);
 	//blueCircle.resize(CIRCLE_SIZE);
 	for(int y = 0; y < CIRCLE_H; ++y) {
-		uint32_t * const line1 = &blueCircle[y*CIRCLE_W];
-		uint32_t * const line2 = &greenCircle[y*CIRCLE_W];
-		uint32_t * const line3 = &redCircle[y*CIRCLE_W];
+		uint32_t * const line1 = &blueCircleF[y*CIRCLE_W];
+		uint32_t * const line2 = &greenCircleF[y*CIRCLE_W];
+		uint32_t * const line3 = &redCircleF[y*CIRCLE_W];
 		const float distanceY = std::abs(static_cast<float>(y) - static_cast<float>(CIRCLE_ORIGO_Y));
 		for(int x = 0; x < CIRCLE_W; ++x) {
 			const float distanceX = std::abs(static_cast<float>(x) - static_cast<float>(CIRCLE_ORIGO_X));
@@ -135,16 +201,26 @@ void createCircleTextures(std::span<uint32_t>& redCircle, std::span<uint32_t>& g
 	}
 }
 
-void createCircleTexture(std::span<uint32_t>& output, const glm::fvec3& colour, int CIRCLE_W, int CIRCLE_H, bool argb)
+void createCircleTexture(MH33::Image::DecodeTarget& output, const glm::fvec3& colour, int CIRCLE_W, int CIRCLE_H, bool argb)
 {
 	const int CIRCLE_SIZE = CIRCLE_W * CIRCLE_H;
 	const int CIRCLE_ORIGO_X = CIRCLE_W / 2;
 	const int CIRCLE_ORIGO_Y = CIRCLE_H / 2;
 	const float CIRCLE_RADIUS = static_cast<float>(std::min(CIRCLE_ORIGO_X,CIRCLE_ORIGO_Y));
+
+	output.frames.push_back({});
+	output.format = MH33::Image::Format::ARGB8U;
+	output.isAnimated = false;
+	output.frames[0].height = CIRCLE_H;
+	output.frames[0].width = CIRCLE_W;
+	output.frames[0].stride = CIRCLE_W * sizeof(uint32_t);
+	output.frames[0].imageData.resize(CIRCLE_SIZE * sizeof(uint32_t));
+	auto outputF = std::span<uint32_t>(reinterpret_cast<uint32_t*>(output.frames[0].imageData.data()),CIRCLE_SIZE);
+
 	//output.resize(CIRCLE_SIZE);
 	for(int y = 0; y < CIRCLE_H; ++y) {
 		const float distanceY = std::abs(static_cast<float>(y) - static_cast<float>(CIRCLE_ORIGO_Y));
-		uint32_t * const line = &output[y*CIRCLE_W];
+		uint32_t * const line = &outputF[y*CIRCLE_W];
 		for(int x = 0; x < CIRCLE_W; ++x) {
 			const float distanceX = std::abs(static_cast<float>(x) - static_cast<float>(CIRCLE_ORIGO_X));
 			const float distance = std::sqrt(distanceX * distanceX + distanceY * distanceY);

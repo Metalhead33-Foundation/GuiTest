@@ -10,7 +10,8 @@ private:
 	int thickness;
 public:
 	TickboxWidget(const glm::fvec2& topLeft, const glm::fvec2& bottomRight,int thickness = 1);
-	void render(GuiRenderer& renderer) override;
+	static void assignPoints(MH33::GFX::GuiRenderingContext& renderer, const std::span<const glm::fvec2>& points);
+	void render(MH33::GFX::GuiRenderingContext& renderer) override;
 	int getThickness() const;
 	void setThickness(int newThickness);
 };
