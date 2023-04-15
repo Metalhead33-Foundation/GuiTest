@@ -20,6 +20,7 @@ namespace Driver {
         void pause( bool val );
 		MH33::Audio::sPlayable getPlayable( ) const;
 		void setPlayable( const MH33::Audio::sPlayable &value );
+		void setPlayable( MH33::Audio::sPlayable &&value );
         int getFreq( ) const;
         Uint8 getChannels( ) const;
         Uint16 getSamples( ) const;

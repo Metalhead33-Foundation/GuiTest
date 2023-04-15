@@ -6,6 +6,11 @@ namespace Driver {
 
 	void SDL::setPlayable( const MH33::Audio::sPlayable &value ) { playable = value; }
 
+	void SDL::setPlayable(MH33::Audio::sPlayable&& value)
+	{
+		playable = std::move(value);
+	}
+
     int SDL::getFreq( ) const { return have.freq; }
 
     Uint8 SDL::getChannels( ) const { return have.channels; }

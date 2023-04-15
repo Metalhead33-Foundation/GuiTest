@@ -140,8 +140,11 @@ void createCircleTextures(MH33::Image::DecodeTarget& redCircle, MH33::Image::Dec
 	const int CIRCLE_ORIGO_Y = CIRCLE_H / 2;
 	const float CIRCLE_RADIUS = static_cast<float>(std::min(CIRCLE_ORIGO_X,CIRCLE_ORIGO_Y));
 
+	//const auto format = argb ? MH33::Image::Format::ARGB8U : MH33::Image::Format::RGBA8U;
+	const auto format = argb ? MH33::Image::Format::RGBA8U : MH33::Image::Format::ARGB8U;
+
 	redCircle.frames.push_back({});
-	redCircle.format = MH33::Image::Format::ARGB8U;
+	redCircle.format = format;
 	redCircle.isAnimated = false;
 	redCircle.frames[0].height = CIRCLE_H;
 	redCircle.frames[0].width = CIRCLE_W;
@@ -150,7 +153,7 @@ void createCircleTextures(MH33::Image::DecodeTarget& redCircle, MH33::Image::Dec
 	auto redCircleF = std::span<uint32_t>(reinterpret_cast<uint32_t*>(redCircle.frames[0].imageData.data()),CIRCLE_SIZE);
 
 	greenCircle.frames.push_back({});
-	greenCircle.format = MH33::Image::Format::ARGB8U;
+	greenCircle.format = format;
 	greenCircle.isAnimated = false;
 	greenCircle.frames[0].imageData.resize(CIRCLE_SIZE * sizeof(uint32_t));
 	greenCircle.frames[0].height = CIRCLE_H;
@@ -159,7 +162,7 @@ void createCircleTextures(MH33::Image::DecodeTarget& redCircle, MH33::Image::Dec
 	auto greenCircleF = std::span<uint32_t>(reinterpret_cast<uint32_t*>(greenCircle.frames[0].imageData.data()),CIRCLE_SIZE);
 
 	blueCircle.frames.push_back({});
-	blueCircle.format = MH33::Image::Format::ARGB8U;
+	blueCircle.format = format;
 	blueCircle.isAnimated = false;
 	blueCircle.frames[0].imageData.resize(CIRCLE_SIZE * sizeof(uint32_t));
 	blueCircle.frames[0].height = CIRCLE_H;
@@ -171,9 +174,9 @@ void createCircleTextures(MH33::Image::DecodeTarget& redCircle, MH33::Image::Dec
 	//greenCircle.resize(CIRCLE_SIZE);
 	//blueCircle.resize(CIRCLE_SIZE);
 	for(int y = 0; y < CIRCLE_H; ++y) {
-		uint32_t * const line1 = &blueCircleF[y*CIRCLE_W];
+		uint32_t * const line1 = &redCircleF[y*CIRCLE_W];
 		uint32_t * const line2 = &greenCircleF[y*CIRCLE_W];
-		uint32_t * const line3 = &redCircleF[y*CIRCLE_W];
+		uint32_t * const line3 = &blueCircleF[y*CIRCLE_W];
 		const float distanceY = std::abs(static_cast<float>(y) - static_cast<float>(CIRCLE_ORIGO_Y));
 		for(int x = 0; x < CIRCLE_W; ++x) {
 			const float distanceX = std::abs(static_cast<float>(x) - static_cast<float>(CIRCLE_ORIGO_X));

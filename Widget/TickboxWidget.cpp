@@ -25,8 +25,10 @@ void TickboxWidget::assignPoints(MH33::GFX::GuiRenderingContext& renderer, const
 		uint32_t z = 0;
 		for(size_t i = 1; i < points.size(); ++i) {
 			span[z].POS = points[i-1];
+			span[z].POS.y *= -1.0f;
 			++z;
 			span[z].POS = points[i];
+			span[z].POS.y *= -1.0f;
 			++z;
 		}
 	});
