@@ -369,23 +369,27 @@ MH33::GFX::sWriteableTexture2D SoftwareRenderer::createWriteableTexture2D(MH33::
 	}
 }
 
-MH33::GFX::sUnindexedMesh SoftwareRenderer::createUnindexedMesh(const MH33::GFX::VertexDescriptor* vertexDescriptor)
+MH33::GFX::sUnindexedMesh SoftwareRenderer::createUnindexedMesh(const MH33::GFX::VertexDescriptor* vertexDescriptor, bool streaming)
 {
+	(void)streaming;
 	return sUnindexedMesh(new UnindexedMesh(vertexDescriptor));
 }
 
-MH33::GFX::sUnindexedMesh SoftwareRenderer::createUnindexedMesh(const MH33::GFX::VertexDescriptor* vertexDescriptor, const std::span<const std::byte>& vertexData)
+MH33::GFX::sUnindexedMesh SoftwareRenderer::createUnindexedMesh(const MH33::GFX::VertexDescriptor* vertexDescriptor, const std::span<const std::byte>& vertexData, bool streaming)
 {
+	(void)streaming;
 	return sUnindexedMesh(new UnindexedMesh(vertexDescriptor,vertexData,vertexData.size() / vertexDescriptor->stride));
 }
 
-MH33::GFX::sIndexedMesh SoftwareRenderer::createIndexedMesh(const MH33::GFX::VertexDescriptor* vertexDescriptor)
+MH33::GFX::sIndexedMesh SoftwareRenderer::createIndexedMesh(const MH33::GFX::VertexDescriptor* vertexDescriptor, bool streaming)
 {
+	(void)streaming;
 	return sIndexedMesh(new IndexedMesh(vertexDescriptor));
 }
 
-MH33::GFX::sIndexedMesh SoftwareRenderer::createIndexedMesh(const MH33::GFX::VertexDescriptor* vertexDescriptor, const std::span<const std::byte>& vertexData, const std::span<const uint32_t>& indices)
+MH33::GFX::sIndexedMesh SoftwareRenderer::createIndexedMesh(const MH33::GFX::VertexDescriptor* vertexDescriptor, const std::span<const std::byte>& vertexData, const std::span<const uint32_t>& indices, bool streaming)
 {
+	(void)streaming;
 	return sIndexedMesh(new IndexedMesh(vertexDescriptor,vertexData,vertexData.size() / vertexDescriptor->stride,indices));
 }
 

@@ -75,6 +75,40 @@ GLint IShaderProgram::getUniformLocation(const std::string& name) const
 	return glGetUniformLocation(getProgramId(),name.c_str());
 }
 
+GLuint IShaderProgram::getUniformBlockIndex(const GLchar* uniformBlockName) const
+{
+	return glGetUniformBlockIndex(getProgramId(),uniformBlockName);
+}
+
+GLuint IShaderProgram::getUniformBlockIndex(const std::string& name) const
+{
+	return glGetUniformBlockIndex(getProgramId(),name.c_str());
+}
+
+void IShaderProgram::uniformBlockBinding(GLuint uniformBlockIndex, GLuint uniformBlockBindingV)
+{
+	bind();
+	glUniformBlockBinding(getProgramId(),uniformBlockIndex,uniformBlockBindingV);
+}
+
+void IShaderProgram::bindBufferBase(GLenum target, GLuint index, GLuint buffer)
+{
+	bind();
+	glBindBufferBase(target,index,buffer);
+}
+
+void IShaderProgram::bindBufferRange(GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size)
+{
+	bind();
+	glBindBufferRange(target,index,buffer,offset,size);
+}
+
+void IShaderProgram::bindBufferBase(GLuint index, const IBuffer& buffer)
+{
+	bind();
+	glBindBufferBase(buffer.getTarget(),index,buffer.getBuffId());
+}
+
 void IShaderProgram::uniform1f(GLint location, GLfloat v0)
 {
 	bind();

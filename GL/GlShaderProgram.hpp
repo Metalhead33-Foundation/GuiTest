@@ -1,6 +1,7 @@
 #ifndef GLSHADERPROGRAM_HPP
 #define GLSHADERPROGRAM_HPP
 #include <GL/GlShader.hpp>
+#include <GL/GlBuffer.hpp>
 #include <mutex>
 #include <glm/glm.hpp>
 #include <glm/matrix.hpp>
@@ -27,7 +28,13 @@ public:
 	GLint getAttribLocation(const std::string& name) const;
 	GLint getUniformLocation(const GLchar *name) const;
 	GLint getUniformLocation(const std::string& name) const;
+	GLuint getUniformBlockIndex(const GLchar *uniformBlockName) const;
+	GLuint getUniformBlockIndex(const std::string& name) const;
+	void uniformBlockBinding(GLuint uniformBlockIndex, GLuint uniformBlockBindingV);
 	// Raw setters
+	void bindBufferBase(GLenum target, GLuint index, GLuint buffer);
+	void bindBufferRange(GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size);
+	void bindBufferBase(GLuint index, const IBuffer& buffer);
 	void uniform1f(GLint location, GLfloat v0);
 	void uniform2f(GLint location, GLfloat v0, GLfloat v1);
 	void uniform3f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2);

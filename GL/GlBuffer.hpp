@@ -8,13 +8,19 @@
 
 namespace GL {
 
+/*! A structure that encapsulates some common global buffer-related functions.*/
 struct BufferEssentials {
+	/*! A mutex that prevents two threads from access the same OpenGL buffer-related functions at the same time.*/
 	static std::recursive_mutex buffermutex;
+	/*! The ID of the last OpenGL buffer. Useful for ensuring that we don't bind the same buffer twice for no reason.*/
 	static GLuint lastBound;
+	/*! Ensures that a certain OpenGL buffer is bound to a certain target..*/
 	static void ensureBound(GLuint id, GLenum target);
 };
 
+/*! An object that encapsulates a buffer mapped range.*/
 class BufferMappedRange;
+/*! An interface to an OpenGL buffer.*/
 class IBuffer
 {
 public:

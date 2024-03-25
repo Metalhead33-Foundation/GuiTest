@@ -26,10 +26,10 @@ public:
 	virtual sWriteableTexture2D createWriteableTexture2D(const Image::DecodeTarget& source) = 0;
 	virtual sWriteableTexture2D createWriteableTexture2D(TextureFormat format, const glm::ivec2& dimensions) = 0;
 	// Meshes
-	virtual sUnindexedMesh createUnindexedMesh(const VertexDescriptor* vertexDescriptor) = 0;
-	virtual sUnindexedMesh createUnindexedMesh(const VertexDescriptor* vertexDescriptor, const std::span<const std::byte>& vertexData) = 0;
-	virtual sIndexedMesh createIndexedMesh(const VertexDescriptor* vertexDescriptor) = 0;
-	virtual sIndexedMesh createIndexedMesh(const VertexDescriptor* vertexDescriptor, const std::span<const std::byte>& vertexData, const std::span<const uint32_t>& indices) = 0;
+	virtual sUnindexedMesh createUnindexedMesh(const VertexDescriptor* vertexDescriptor, bool streaming = false) = 0;
+	virtual sUnindexedMesh createUnindexedMesh(const VertexDescriptor* vertexDescriptor, const std::span<const std::byte>& vertexData, bool streaming = false) = 0;
+	virtual sIndexedMesh createIndexedMesh(const VertexDescriptor* vertexDescriptor, bool streaming = false) = 0;
+	virtual sIndexedMesh createIndexedMesh(const VertexDescriptor* vertexDescriptor, const std::span<const std::byte>& vertexData, const std::span<const uint32_t>& indices, bool streaming = false) = 0;
 	virtual sUniformBuffer createUniformBuffer(size_t size) = 0;
 	// Shaders
 	virtual bool supportsCustomShaders() const = 0;

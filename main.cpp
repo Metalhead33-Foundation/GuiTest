@@ -12,6 +12,7 @@
 #include "MhLib/Io/MhFile.hpp"
 #include "MhLib/Media/AdvancedAudio/MhModulePlayer.hpp"
 #include "MhLib/Media/AdvancedAudio/MhAudioStreamer.hpp"
+#include "MhLib/Media/AdvancedAudio/MhFramerateConverter.hpp"
 #include <System/SystemConfiguration.hpp>
 #include <System/GameSystem.hpp>
 #include <Renderer/Software/SoftwareRenderer.hpp>
@@ -68,7 +69,19 @@ int main()
 	std::ifstream file("configuration.ini");
 	SYS::Configuration config(file);
 	file.close();
-	SYS::GameSystem gamesys(CreateSoftwareRenderer,DestroySoftwareRenderer,config.getSections()["Renderer"],config.getSections()["Audio"]);
+	const std::string backendTitle = config.getSections()["Renderer"].getValueOrDefaultStr("sRenderingBackend","Software");
+	std::shared_ptr<SYS::GameSystem> gsysptr;
+	{
+		if(backendTitle == "Software") {
+			gsysptr = std::make_shared<SYS::GameSystem>(CreateSoftwareRenderer,DestroySoftwareRenderer,config.getSections()["Renderer"],config.getSections()["Audio"]);
+		}
+	}
+	if(!gsysptr)
+	{
+		std::cout << "Invalid renderer!" << std::endl;
+		return 1;
+	}
+	SYS::GameSystem& gamesys = *gsysptr;
 	{
 		auto sfile = std::make_shared<MH33::Io::File>("wodmouse.png", MH33::Io::Mode::READ);
 		MH33::Image::DecodeTarget target;
@@ -98,18 +111,21 @@ int main()
 	{
 		const std::string musicPath = config.getSections()["Audio"].getValueOrDefaultStr("sMusicFile","/home/legacy/zene/Jmusic/Records of Lodoss War/Record Of Lodoss War - Opening 1 - Kiseki No Umi-lO-kxhToG48.ogg");
 		MH33::Io::sDevice musicfile = std::make_shared<MH33::Io::File>(musicPath,MH33::Io::Mode::READ);
+		const float speed = config.getSections()["Audio"].getValueOrDefaultDouble("fSpeed",1.13);
+		auto speedchanger = std::make_shared<MH33::Audio::FramerateConverter>(MH33::Audio::FrameCount(2048),MH33::Audio::ChannelCount(2),speed);
 		if(musicPath.ends_with(".mod") || musicPath.ends_with(".s3m") || musicPath.ends_with(".it"))
 		{
 			auto modplayer = std::make_shared<MH33::Audio::ModulePlayer>(musicfile);
 			modplayer->setState(MH33::Audio::PlayStatus::PLAYING);
-			gamesys.getSdlAudio().setPlayable(std::move(modplayer));
+			speedchanger->setPlayable(modplayer);
 		}
 		else
 		{
 			auto musicplayer = std::make_shared<MH33::Audio::Streamer>(musicfile);
 			musicplayer->setState(MH33::Audio::PlayStatus::PLAYING);
-			gamesys.getSdlAudio().setPlayable(std::move(musicplayer));
+			speedchanger->setPlayable(musicplayer);
 		}
+		gamesys.getSdlAudio().setPlayable(std::move(speedchanger));
 		gamesys.getSdlAudio().pause(false);
 	}
 	gamesys.run();

@@ -11,13 +11,13 @@
 namespace MH33 {
 namespace Io {
 
-enum class SeekOrigin {
+enum class SeekOrigin : uint8_t {
 	SET, // Beginning of file
 	CUR, // Current position
 	END // End of file
 };
 
-enum class Mode {
+enum class Mode : uint8_t {
 	READ = 1,
 	WRITE = 2,
 	APPEND = 4,
@@ -50,7 +50,7 @@ public:
 	}
 	void readAllAsString(std::string& dst) {
 		auto sz = size()-tell();
-		dst.resize(sz+1,0);
+		dst.resize(sz,0);
 		read(&dst[0],sz);
 		dst.shrink_to_fit();
 	}

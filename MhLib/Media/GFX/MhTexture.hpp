@@ -40,18 +40,6 @@ public:
 	virtual void blit(const WriteableTexture2D& cpy, const glm::ivec2 offset) = 0;
 	virtual void blit(const std::span<const std::byte>& data, TextureFormat format, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
 	virtual void update() = 0;
-	/*
-	virtual void getPixel(const glm::ivec2& pos, glm::fvec4& colourKernel) const = 0;
-	// Colour programmes
-	typedef std::function<glm::fvec4(const glm::ivec2&)> ColourProgrammer;
-	typedef std::function<glm::fvec4(const glm::ivec2&, const glm::fvec4&)> ColourProgrammer2;
-	typedef std::function<glm::fvec4(const glm::fvec2&)> ColourProgrammer3;
-	typedef std::function<glm::fvec4(const glm::fvec2&, const glm::fvec4&)> ColourProgrammer4;
-	// Colour iterators
-	typedef std::function<void(const glm::ivec2&, const glm::fvec4&)> ColourIterator;
-	typedef std::function<void(const glm::fvec2&, const glm::fvec4&)> ColourIterator2;
-	virtual void iterateOverPixels(const ColourIterator& program) const = 0;
-	virtual void iterateOverPixels(const ColourIterator2& program) const = 0;*/
 };
 
 DEFINE_CLASS(ArrayTexture2D)

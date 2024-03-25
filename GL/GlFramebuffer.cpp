@@ -1,6 +1,6 @@
 #include <GL/GlFramebuffer.hpp>
 #include <GL/GlRenderbuffer.hpp>
-#include <GL/GlTexture.hpp>
+#include <GL/GlTex.hpp>
 
 namespace GL {
 

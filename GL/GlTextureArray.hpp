@@ -1,6 +1,6 @@
 #ifndef GLTEXTUREARRAY_HPP
 #define GLTEXTUREARRAY_HPP
-#include <GL/GlTexture.hpp>
+#include <GL/GlTex.hpp>
 #include <vector>
 #include <array>
 namespace GL {

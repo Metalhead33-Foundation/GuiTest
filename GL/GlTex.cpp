@@ -1,4 +1,4 @@
-#include <GL/GlTexture.hpp>
+#include <GL/GlTex.hpp>
 #include <GL/GlValidate.hpp>
 namespace GL {
 
