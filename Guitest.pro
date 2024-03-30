@@ -18,27 +18,6 @@ DISTFILES += \
     Text/MML.md
 
 HEADERS += \
-    EGL/EglContext.hpp \
-    EGL/EglDisplay.hpp \
-    EGL/egl.h \
-    EGL/eglplatform.h \
-    GL/GlBuffer.hpp \
-    GL/GlBufferArray.hpp \
-    GL/GlFramebuffer.hpp \
-    GL/GlFramebufferArray.hpp \
-    GL/GlRenderbuffer.hpp \
-    GL/GlRenderbufferArray.hpp \
-    GL/GlSampler.hpp \
-    GL/GlSamplerArray.hpp \
-    GL/GlShader.hpp \
-    GL/GlShaderProgram.hpp \
-    GL/GlTex.hpp \
-    GL/GlTextureArray.hpp \
-    GL/GlVAO.hpp \
-    GL/GlValidate.hpp \
-    GL/GlVaoArray.hpp \
-    GL/gles2.h \
-    GL/khrplatform.h \
     MhLib/Gimmick/MhGimmick.hpp \
     MhLib/Gimmick/MhWordGenerator.hpp \
     MhLib/Interface/MhBinaryTree.hpp \
@@ -140,10 +119,6 @@ HEADERS += \
     MhLib/Util/TextureHelpers.hpp \
     MhLib/Util/ThreadsafeContainer.hpp \
     MhLib/Util/half.hpp \
-    Renderer/OpenGL/GlMesh.hpp \
-    Renderer/OpenGL/GlPipeline.hpp \
-    Renderer/OpenGL/GlTexture.hpp \
-    Renderer/OpenGL/GlUniformBuffer.hpp \
     Renderer/Shared/GuiRenderer.hpp \
     Renderer/Shared/GuiVertexTypes.hpp \
     Renderer/Software/EdgeFunction.hpp \
@@ -172,19 +147,6 @@ HEADERS += \
     Widget/TickboxWidget.hpp
 
 SOURCES += \
-    EGL/EglContext.cpp \
-    EGL/EglDisplay.cpp \
-    EGL/egl.c \
-    GL/GlBuffer.cpp \
-    GL/GlFramebuffer.cpp \
-    GL/GlRenderbuffer.cpp \
-    GL/GlSampler.cpp \
-    GL/GlShader.cpp \
-    GL/GlShaderProgram.cpp \
-    GL/GlTex.cpp \
-    GL/GlVAO.cpp \
-    GL/GlValidate.cpp \
-    GL/gles2.c \
     MhLib/Gimmick/MhWordGenerator.cpp \
     MhLib/Io/MhBufferWrapper.cpp \
     MhLib/Io/MhFile.cpp \
@@ -243,18 +205,6 @@ SOURCES += \
     MhLib/Util/MhRNG.cpp \
     MhLib/Util/MhUUID.cpp \
     MhLib/Util/TextureHelpers.cpp \
-    Renderer/OpenGL/GlMesh.cpp \
-    Renderer/OpenGL/GlPipeline.cpp \
-    Renderer/OpenGL/GlTexture.cpp \
-    Renderer/OpenGL/GlUniformBuffer.cpp \
-    Renderer/Shared/GuiRenderer.cpp \
-    Renderer/Shared/GuiVertexTypes.cpp \
-    Renderer/Software/EdgeFunction.cpp \
-    Renderer/Software/SoftGuiPipeline.cpp \
-    Renderer/Software/SoftMesh.cpp \
-    Renderer/Software/SoftTexture.cpp \
-    Renderer/Software/SoftUniformBuffer.cpp \
-    Renderer/Software/SoftwareRenderer.cpp \
     System/AppSystem.cpp \
     System/AudioSDL.cpp \
     System/FpsCounter.cpp \
