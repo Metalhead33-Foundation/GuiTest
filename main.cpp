@@ -70,6 +70,7 @@ int main()
 	SYS::Configuration config(file);
 	file.close();
 	const std::string backendTitle = config.getSections()["Renderer"].getValueOrDefaultStr("sRenderingBackend","Software");
+	std::cout << "Renderer: " << backendTitle << std::endl;
 	std::shared_ptr<SYS::GameSystem> gsysptr;
 	{
 		if(backendTitle == "Software") {

@@ -29,11 +29,6 @@ ShaderProgram::~ShaderProgram()
 	if(programId) glDeleteProgram(programId);
 }
 
-GLuint IShaderProgram::getProgramId() const
-{
-
-}
-
 void IShaderProgram::attachShader(const IShader& shader)
 {
 	glAttachShader(getProgramId(),shader.getShaderId());

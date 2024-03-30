@@ -141,6 +141,7 @@ HEADERS += \
     MhLib/Util/ThreadsafeContainer.hpp \
     MhLib/Util/half.hpp \
     Renderer/OpenGL/GlMesh.hpp \
+    Renderer/OpenGL/GlPipeline.hpp \
     Renderer/OpenGL/GlTexture.hpp \
     Renderer/OpenGL/GlUniformBuffer.hpp \
     Renderer/Shared/GuiRenderer.hpp \
@@ -243,6 +244,7 @@ SOURCES += \
     MhLib/Util/MhUUID.cpp \
     MhLib/Util/TextureHelpers.cpp \
     Renderer/OpenGL/GlMesh.cpp \
+    Renderer/OpenGL/GlPipeline.cpp \
     Renderer/OpenGL/GlTexture.cpp \
     Renderer/OpenGL/GlUniformBuffer.cpp \
     Renderer/Shared/GuiRenderer.cpp \
