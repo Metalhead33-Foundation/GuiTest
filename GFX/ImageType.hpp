@@ -5,7 +5,7 @@
 namespace MH33 {
 namespace Image {
 
-	enum class Format {
+enum class Format {
 		INVALID = 0x0000,
 		STANDARD_TYPE_MASK = 0x007F,
 		SPECIAL_TYPE_START = 0x0080,
@@ -108,6 +108,13 @@ namespace Image {
 		RGB555 = RGB565 + 1,
 		RGB444 = RGB555 + 1,
 		RGBA444 = RGB444 + 1,
+	DEPTH_COMPONENT16 = RGBA444 + 1,
+	DEPTH_COMPONENT24 = DEPTH_COMPONENT16 + 1,
+	DEPTH_COMPONENT32 = DEPTH_COMPONENT24 + 1,
+	DEPTH_COMPONENT32F = DEPTH_COMPONENT32 + 1,
+	DEPTH24_STENCIL8 = DEPTH_COMPONENT32F + 1,
+	DEPTH32F_STENCIL8 = DEPTH24_STENCIL8 + 1,
+	STENCIL_INDEX8 = DEPTH32F_STENCIL8 + 1,
 		// DXT - RGB444
 		DXT1_RGB444 = B_DXT1 | RGB444,
 		DXT3_RGB444 = B_DXT3 | RGB444,
@@ -125,6 +132,13 @@ namespace Image {
 
 	inline constexpr size_t byteSize(Format format) {
 		switch (format) {
+		case Format::DEPTH_COMPONENT16: return sizeof(uint16_t);
+		case Format::DEPTH_COMPONENT24: return 3;
+		case Format::DEPTH_COMPONENT32: return sizeof(uint32_t);
+		case Format::DEPTH_COMPONENT32F: return sizeof(uint32_t);
+		case Format::DEPTH24_STENCIL8: return sizeof(uint32_t);
+		case Format::DEPTH32F_STENCIL8: return sizeof(uint32_t)+sizeof(uint8_t);
+		case Format::STENCIL_INDEX8: return sizeof(uint8_t);
 		case Format::R8U: return sizeof(uint8_t);
 		case Format::R8S: return sizeof(int8_t);
 		case Format::R16U: return sizeof(uint16_t);

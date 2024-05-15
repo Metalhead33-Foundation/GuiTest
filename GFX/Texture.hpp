@@ -123,7 +123,7 @@ public:
 	virtual float getHeightF() = 0;
 	virtual float getHeightR() = 0;
 	// Get attachment
-	virtual Texture2D* getTextureAttachment2D(uint8_t unit) const = 0;
+	virtual Texture2D& getTextureAttachment2D(uint8_t unit) const = 0;
 };
 class CubemapFramebuffer : public GfxResource {
 public:

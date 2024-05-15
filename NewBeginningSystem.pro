@@ -8,6 +8,7 @@ LIBS += -lSDL2
 SOURCES += \
         System/AppSystem.cpp \
         System/IniConfiguration.cpp \
+        System/TestSystem.cpp \
         main.cpp
 
 HEADERS += \
@@ -20,4 +21,5 @@ HEADERS += \
     GFX/VertexBufferAdapter.hpp \
     GFX/VertexFormat.hpp \
     System/AppSystem.hpp \
-    System/IniConfiguration.hpp
+    System/IniConfiguration.hpp \
+    System/TestSystem.hpp

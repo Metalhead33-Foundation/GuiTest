@@ -4,10 +4,9 @@
 #include <locale>
 #include <stdexcept>
 #include <cstring>
-#define INI_STRING_STORAGE_SIZE 0x1FFFFF
 
-std::vector<char> IniConfigurationData::INI_STRING_STORAGE(INI_STRING_STORAGE_SIZE, 0);
-size_t IniConfigurationData::INI_STRING_STORAGE_PTR = 0;
+std::vector<char> IniConfigurationData::INI_STRING_STORAGE(INI_STRING_STORAGE_SIZE + 1, 0);
+IniStringPtr IniConfigurationData::INI_STRING_STORAGE_PTR = 0;
 
 const IniConfiguration::SectionMap &IniConfiguration::getSections() const
 {
@@ -227,10 +226,15 @@ IniConfigurationSection::const_iterator IniConfigurationSection::end() const
 IniConfigurationSection::iterator IniConfigurationSection::insert(const std::string &key, const std::string &value)
 {
 	switch (key[0]) {
+	case 'S':
 	case 's': return map.insert(std::make_pair(key,IniConfigurationData(IniType::INI_STRING,value))).first;
+	case 'B':
 	case 'b': return map.insert(std::make_pair(key,IniConfigurationData(IniType::INI_BOOLEAN,value))).first;
+	case 'F':
 	case 'f': return map.insert(std::make_pair(key,IniConfigurationData(IniType::INI_FLOAT,value))).first;
+	case 'I':
 	case 'i': return map.insert(std::make_pair(key,IniConfigurationData(IniType::INI_INTEGER,value))).first;
+	case 'U':
 	case 'u': return map.insert(std::make_pair(key,IniConfigurationData(IniType::INI_UINTEGER,value))).first;
 	default: throw std::runtime_error("Invalid INI configuration value name! Must begin with 's', 'b', 'f', 'i' or 'u'!");
 	}
@@ -241,13 +245,12 @@ IniConfigurationData &IniConfigurationSection::operator[](const std::string &key
 	return map[key];
 }
 
-const IniConfigurationData &IniConfigurationSection::getValueOrDefault(const std::string &key, const IniConfigurationData &defaultValue)
+IniConfigurationSection::iterator IniConfigurationSection::getValueOrDefault(const std::string &key, const std::string &defaultValue)
 {
 	auto iter = map.find(key);
 	if(iter == map.end()) {
-		map.emplace(key,defaultValue);
-		return defaultValue;
-	} else return iter->second;
+		return insert(key,defaultValue);
+	} else return iter;
 }
 
 IniConfigurationData::IniConfigurationData()
@@ -262,7 +265,7 @@ IniConfigurationData::IniConfigurationData(IniType type, const std::string &valu
 	case IniType::INI_STRING:
 		std::memcpy(&INI_STRING_STORAGE[INI_STRING_STORAGE_PTR], value.c_str(), value.size() + 1);
 		this->value.i_str.size = value.size() + 1;
-		this->value.i_str.str = &INI_STRING_STORAGE[INI_STRING_STORAGE_PTR];
+		this->value.i_str.ptr = INI_STRING_STORAGE_PTR;
 		INI_STRING_STORAGE_PTR += this->value.i_str.size;
 		break;
 	case IniType::INI_INTEGER: {
@@ -294,11 +297,12 @@ IniConfigurationData &IniConfigurationData::operator=(const IniConfigurationData
 {
 	this->type = cpy.type;
 	this->value = cpy.value;
+	return *this;
 }
 
 std::string_view IniConfigurationData::asStringView() const
 {
-	return std::string_view(value.i_str.str, value.i_str.size - 1);
+	return std::string_view(&INI_STRING_STORAGE[value.i_str.ptr], value.i_str.size - 1);
 }
 
 
@@ -306,7 +310,7 @@ std::string IniConfigurationData::toString() const
 {
 	switch (type) {
 	case IniType::INI_STRING:
-		return std::string(value.i_str.str, value.i_str.size - 1);
+		return std::string(&INI_STRING_STORAGE[value.i_str.ptr], value.i_str.size - 1);
 	case IniType::INI_INTEGER: {
 		std::stringstream sstrm;
 		sstrm << this->value.i_int;

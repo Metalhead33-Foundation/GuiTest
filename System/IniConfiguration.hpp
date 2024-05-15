@@ -5,10 +5,16 @@
 #include <map>
 #include <cstdint>
 #include <vector>
-
+#ifdef INI_BIGSTRING
+#define INI_STRING_STORAGE_SIZE 0x1FFFFF
+typedef uint32_t IniStringPtr;
+#else
+#define INI_STRING_STORAGE_SIZE 0xFFFF
+typedef uint16_t IniStringPtr;
+#endif
 struct SizedString {
-	const char* str;
-	size_t size;
+	IniStringPtr ptr;
+	IniStringPtr size;
 };
 enum class IniType : uint8_t {
 	INI_STRING,
@@ -17,13 +23,21 @@ enum class IniType : uint8_t {
 	INI_FLOAT,
 	INI_BOOLEAN
 };
+
 union IniValue {
 	SizedString i_str;
+	bool i_bool;
+#ifdef INI_BIGNUMBERS
 	double i_float;
 	int64_t i_int;
 	uint64_t i_uint;
-	bool i_bool;
+#else
+	float i_float;
+	int32_t i_int;
+	uint32_t i_uint;
+#endif
 };
+
 struct IniConfigurationData {
 	IniType type;
 	IniValue value;
@@ -32,14 +46,14 @@ struct IniConfigurationData {
 	IniConfigurationData(const IniConfigurationData& cpy);
 	IniConfigurationData& operator=(const IniConfigurationData& cpy);
 	static std::vector<char> INI_STRING_STORAGE;
-	static size_t INI_STRING_STORAGE_PTR;
+	static IniStringPtr INI_STRING_STORAGE_PTR;
 	std::string_view asStringView() const;
 	std::string toString() const;
 };
 template <typename T> std::basic_ostream<T>& operator<<(std::basic_ostream<T>& left, const IniConfigurationData& right) {
 	switch (right.type) {
 	case IniType::INI_STRING:
-		return left << std::string_view(right.value.i_str.str, right.value.i_str.size - 1);
+		return left << std::string_view(&IniConfigurationData::INI_STRING_STORAGE[right.value.i_str.ptr], right.value.i_str.size - 1);
 	case IniType::INI_INTEGER:
 		return left << right.value.i_int;
 	case IniType::INI_UINTEGER:
@@ -69,7 +83,7 @@ struct IniConfigurationSection {
 	const_iterator end() const;
 	iterator insert(const std::string& key, const std::string& value);
 	IniConfigurationData& operator[](const std::string& key);
-	const IniConfigurationData& getValueOrDefault(const std::string& key, const IniConfigurationData& defaultValue);
+	iterator getValueOrDefault(const std::string& key, const std::string& defaultValue);
 };
 
 class IniConfiguration

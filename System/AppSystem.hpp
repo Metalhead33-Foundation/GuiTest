@@ -16,6 +16,12 @@ protected:
 	SDL_SysWMinfo syswmi;
 	uint32_t latestTimestamp;
 	volatile bool quit;
+	int width;
+	int height;
+	float widthF;
+	float widthR;
+	float heightF;
+	float heightR;
 public:
 	virtual ~AppSystem() = default;
 	AppSystem(const std::string& title, int x, int y, int w, int h, uint32_t flags);
@@ -61,6 +67,12 @@ public:
 	virtual void onLocaleChanged() = 0;
 	virtual void onClipboardUpdate() = 0;
 	virtual void onKeymapChanged() = 0;
+	int getWidth() const;
+	int getHeight() const;
+	float getWidthF() const;
+	float getWidthR() const;
+	float getHeightF() const;
+	float getHeightR() const;
 };
 
 #endif // APPSYSTEM_HPP

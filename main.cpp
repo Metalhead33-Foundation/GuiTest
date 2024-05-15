@@ -5,6 +5,7 @@
 #include <cstring>
 #include "System/IniConfiguration.hpp"
 #include <fstream>
+#include "System/TestSystem.hpp"
 
 class BullshitVertexBuffer : public MH33::GFX::UnindexedVertexBuffer {
 private:
@@ -87,11 +88,14 @@ int main() {
 	ifs.open("hello.ini");
 	IniConfiguration ini(ifs);
 	ifs.close();
+	ini["Video"].getValueOrDefault("sRenderer","OpenGL");
 	for(auto i = std::begin(ini); i != std::end(ini) ; ++i ) {
 		std::cout << i->first << std::endl;
 		for(auto j = std::begin(i->second) ; j != std::end( i->second ) ; ++j ) {
-			std::cout << j->first << '-' << j->second << std::endl;
+			std::cout << std::boolalpha << j->first << '-' << j->second << std::endl;
 		}
 	}
+	TestSystem testSys(ini);
+	testSys.run();
 	return 0;
 }

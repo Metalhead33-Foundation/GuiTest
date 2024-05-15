@@ -1,14 +1,48 @@
 #include "AppSystem.hpp"
 
+int AppSystem::getWidth() const
+{
+	return width;
+}
+
+int AppSystem::getHeight() const
+{
+	return height;
+}
+
+float AppSystem::getWidthF() const
+{
+	return widthF;
+}
+
+float AppSystem::getWidthR() const
+{
+	return widthR;
+}
+
+float AppSystem::getHeightF() const
+{
+	return heightF;
+}
+
+float AppSystem::getHeightR() const
+{
+	return heightR;
+}
+
 AppSystem::AppSystem(const std::string &title, int x, int y, int w, int h, uint32_t flags)
-	: title(title), window(SDL_CreateWindow(this->title.c_str(),x,y,w,h,flags), SDL_DestroyWindow), latestTimestamp(0)
+	: title(title),
+	  window(SDL_CreateWindow(this->title.c_str(),x,y,w,h,flags), SDL_DestroyWindow),
+	  latestTimestamp(0), width(w), height(h),
+	  widthF(static_cast<float>(w-1)), widthR(1.0f / static_cast<float>(w-1)),
+	  heightF(static_cast<float>(h-1)), heightR(1.0f / static_cast<float>(h-1))
 {
 	SDL_VERSION(&syswmi.version);
 	SDL_GetWindowWMInfo(window.get(),&syswmi);
 }
 
 AppSystem::AppSystem(std::string &&title, int x, int y, int w, int h, uint32_t flags)
-	: title(std::move(title)), window(SDL_CreateWindow(this->title.c_str(),x,y,w,h,flags), SDL_DestroyWindow), latestTimestamp(0)
+	: title(std::move(title)), window(SDL_CreateWindow(this->title.c_str(),x,y,w,h,flags), SDL_DestroyWindow), latestTimestamp(0), width(w), height(h)
 {
 	SDL_VERSION(&syswmi.version);
 	SDL_GetWindowWMInfo(window.get(),&syswmi);
