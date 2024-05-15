@@ -3,9 +3,56 @@
 #include <string>
 #include <sstream>
 #include <map>
+#include <cstdint>
+#include <vector>
+
+struct SizedString {
+	const char* str;
+	size_t size;
+};
+enum class IniType : uint8_t {
+	INI_STRING,
+	INI_INTEGER,
+	INI_UINTEGER,
+	INI_FLOAT,
+	INI_BOOLEAN
+};
+union IniValue {
+	SizedString i_str;
+	double i_float;
+	int64_t i_int;
+	uint64_t i_uint;
+	bool i_bool;
+};
+struct IniConfigurationData {
+	IniType type;
+	IniValue value;
+	IniConfigurationData();
+	IniConfigurationData(IniType type, const std::string& value);
+	IniConfigurationData(const IniConfigurationData& cpy);
+	IniConfigurationData& operator=(const IniConfigurationData& cpy);
+	static std::vector<char> INI_STRING_STORAGE;
+	static size_t INI_STRING_STORAGE_PTR;
+	std::string_view asStringView() const;
+	std::string toString() const;
+};
+template <typename T> std::basic_ostream<T>& operator<<(std::basic_ostream<T>& left, const IniConfigurationData& right) {
+	switch (right.type) {
+	case IniType::INI_STRING:
+		return left << std::string_view(right.value.i_str.str, right.value.i_str.size - 1);
+	case IniType::INI_INTEGER:
+		return left << right.value.i_int;
+	case IniType::INI_UINTEGER:
+		return left << right.value.i_uint;
+	case IniType::INI_FLOAT:
+		return left << right.value.i_float;
+	case IniType::INI_BOOLEAN:
+		return left << right.value.i_bool;
+	}
+}
 
 struct IniConfigurationSection {
-	typedef std::map<std::string,std::string> Map;
+	typedef std::map<std::string,IniConfigurationData> Map;
 	typedef Map::iterator iterator;
 	typedef Map::const_iterator const_iterator;
 	Map map;
@@ -21,9 +68,8 @@ struct IniConfigurationSection {
 	iterator end();
 	const_iterator end() const;
 	iterator insert(const std::string& key, const std::string& value);
-	iterator insert(const std::string& key, std::string&& value);
-	std::string& operator[](const std::string& key);
-	const std::string& getValueOrDefault(const std::string& key, const std::string& defaultValue);
+	IniConfigurationData& operator[](const std::string& key);
+	const IniConfigurationData& getValueOrDefault(const std::string& key, const IniConfigurationData& defaultValue);
 };
 
 class IniConfiguration

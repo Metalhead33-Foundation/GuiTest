@@ -3,6 +3,11 @@
 #include <cctype>
 #include <locale>
 #include <stdexcept>
+#include <cstring>
+#define INI_STRING_STORAGE_SIZE 0x1FFFFF
+
+std::vector<char> IniConfigurationData::INI_STRING_STORAGE(INI_STRING_STORAGE_SIZE, 0);
+size_t IniConfigurationData::INI_STRING_STORAGE_PTR = 0;
 
 const IniConfiguration::SectionMap &IniConfiguration::getSections() const
 {
@@ -221,19 +226,106 @@ IniConfigurationSection::const_iterator IniConfigurationSection::end() const
 
 IniConfigurationSection::iterator IniConfigurationSection::insert(const std::string &key, const std::string &value)
 {
-	return map.emplace(key,value).first;
+	switch (key[0]) {
+	case 's': return map.insert(std::make_pair(key,IniConfigurationData(IniType::INI_STRING,value))).first;
+	case 'b': return map.insert(std::make_pair(key,IniConfigurationData(IniType::INI_BOOLEAN,value))).first;
+	case 'f': return map.insert(std::make_pair(key,IniConfigurationData(IniType::INI_FLOAT,value))).first;
+	case 'i': return map.insert(std::make_pair(key,IniConfigurationData(IniType::INI_INTEGER,value))).first;
+	case 'u': return map.insert(std::make_pair(key,IniConfigurationData(IniType::INI_UINTEGER,value))).first;
+	default: throw std::runtime_error("Invalid INI configuration value name! Must begin with 's', 'b', 'f', 'i' or 'u'!");
+	}
 }
 
-IniConfigurationSection::iterator IniConfigurationSection::insert(const std::string &key, std::string &&value)
+IniConfigurationData &IniConfigurationSection::operator[](const std::string &key)
 {
-	return map.emplace(key,std::move(value)).first;
+	return map[key];
 }
 
-const std::string &IniConfigurationSection::getValueOrDefault(const std::string &key, const std::string &defaultValue)
+const IniConfigurationData &IniConfigurationSection::getValueOrDefault(const std::string &key, const IniConfigurationData &defaultValue)
 {
 	auto iter = map.find(key);
 	if(iter == map.end()) {
 		map.emplace(key,defaultValue);
 		return defaultValue;
 	} else return iter->second;
+}
+
+IniConfigurationData::IniConfigurationData()
+{
+
+}
+
+IniConfigurationData::IniConfigurationData(IniType type, const std::string &value)
+{
+	this->type = type;
+	switch (type) {
+	case IniType::INI_STRING:
+		std::memcpy(&INI_STRING_STORAGE[INI_STRING_STORAGE_PTR], value.c_str(), value.size() + 1);
+		this->value.i_str.size = value.size() + 1;
+		this->value.i_str.str = &INI_STRING_STORAGE[INI_STRING_STORAGE_PTR];
+		INI_STRING_STORAGE_PTR += this->value.i_str.size;
+		break;
+	case IniType::INI_INTEGER: {
+		std::stringstream sstrm(value);
+		sstrm >> this->value.i_int;
+		break; }
+	case IniType::INI_UINTEGER: {
+		std::stringstream sstrm(value);
+		sstrm >> this->value.i_uint;
+		break; }
+	case IniType::INI_FLOAT: {
+		std::stringstream sstrm(value);
+		sstrm >> this->value.i_float;
+		break; }
+	case IniType::INI_BOOLEAN: {
+		std::stringstream sstrm(value);
+		sstrm >> std::noboolalpha >> this->value.i_bool;
+		break; }
+	}
+}
+
+IniConfigurationData::IniConfigurationData(const IniConfigurationData &cpy)
+	: type(cpy.type), value(cpy.value)
+{
+
+}
+
+IniConfigurationData &IniConfigurationData::operator=(const IniConfigurationData &cpy)
+{
+	this->type = cpy.type;
+	this->value = cpy.value;
+}
+
+std::string_view IniConfigurationData::asStringView() const
+{
+	return std::string_view(value.i_str.str, value.i_str.size - 1);
+}
+
+
+std::string IniConfigurationData::toString() const
+{
+	switch (type) {
+	case IniType::INI_STRING:
+		return std::string(value.i_str.str, value.i_str.size - 1);
+	case IniType::INI_INTEGER: {
+		std::stringstream sstrm;
+		sstrm << this->value.i_int;
+		return sstrm.str();
+	}
+	case IniType::INI_UINTEGER: {
+		std::stringstream sstrm;
+		sstrm << this->value.i_uint;
+		return sstrm.str();
+	}
+	case IniType::INI_FLOAT: {
+		std::stringstream sstrm;
+		sstrm << this->value.i_float;
+		return sstrm.str();
+	}
+	case IniType::INI_BOOLEAN: {
+		std::stringstream sstrm;
+		sstrm << std::noboolalpha << this->value.i_bool;
+		return sstrm.str();
+	}
+	}
 }
