@@ -6,7 +6,7 @@
 #include <span>
 #include <glm/glm.hpp>
 #include "NativeHandle.hpp"
-#include "ImageType.hpp"
+#include <MhLib/Media/Image/MhImageType.hpp>
 namespace MH33 {
 namespace GFX {
 typedef Image::Format TextureFormat;
