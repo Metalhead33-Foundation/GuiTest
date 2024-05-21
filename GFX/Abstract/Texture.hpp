@@ -1,5 +1,6 @@
 #ifndef TEXTURE_H
 #define TEXTURE_H
+#include <MhLib/Util/MhGlobals.hpp>
 #include <cstdint>
 #include <cstddef>
 #include <functional>
@@ -9,13 +10,21 @@
 #include <MhLib/Media/Image/MhImageType.hpp>
 namespace MH33 {
 namespace GFX {
-typedef Image::Format TextureFormat;
 
+typedef Image::Format TextureFormat;
+enum class ImageBindingType {
+	READ_ONLY = 1,
+	WRITE_ONLY = 2,
+	READ_WRITE = READ_ONLY | WRITE_ONLY
+};
+
+DEFINE_CLASS(Texture2D)
 class Texture2D : public GfxResource {
 public:
 	virtual ~Texture2D() = default;
 	virtual TextureFormat getFormat() const = 0;
 	virtual void bind(uint8_t unit) const = 0;
+	virtual void bindAsImage(uint8_t unit, ImageBindingType bindingType) const = 0;
 	// Dimensions
 	virtual unsigned getWidth() const = 0;
 	virtual float getWidthF() const = 0;
@@ -26,6 +35,8 @@ public:
 	// Stride
 	virtual unsigned getStride() const = 0;
 };
+
+DEFINE_CLASS(WriteableTexture2D)
 class WriteableTexture2D : public Texture2D {
 public:
 	// Colour programmes
@@ -60,11 +71,15 @@ public:
 	virtual void blit(const std::span<const std::byte>& data, TextureFormat format, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
 	virtual void update() = 0;
 };
+
+DEFINE_CLASS(TextureArray2D)
 class TextureArray2D : public GfxResource {
 public:
 	virtual ~TextureArray2D() = default;
 	virtual TextureFormat getFormat() const = 0;
 	virtual void bind(uint8_t unit) const = 0;
+	virtual void bindAsImage(uint8_t unit, ImageBindingType bindingType) const = 0;
+	virtual void bindAsImage(uint8_t unit, int layer, ImageBindingType bindingType) const = 0;
 	// Dimensions
 	virtual unsigned getWidth() const = 0;
 	virtual float getWidthF() const = 0;
@@ -76,11 +91,15 @@ public:
 	// Stride
 	virtual unsigned getStride() const = 0;
 };
+
+DEFINE_CLASS(Texture3D)
 class Texture3D : public GfxResource {
 public:
 	virtual ~Texture3D() = default;
 	virtual TextureFormat getFormat() const = 0;
 	virtual void bind(uint8_t unit) const = 0;
+	virtual void bindAsImage(uint8_t unit, ImageBindingType bindingType) const = 0;
+	virtual void bindAsImage(uint8_t unit, int layer, ImageBindingType bindingType) const = 0;
 	// Dimensions
 	virtual unsigned getWidth() const = 0;
 	virtual float getWidthF() const = 0;
@@ -94,11 +113,15 @@ public:
 	// Stride
 	virtual unsigned getStride() const = 0;
 };
+
+DEFINE_CLASS(Cubemap)
 class Cubemap : public GfxResource {
 public:
 	virtual ~Cubemap() = default;
 	virtual TextureFormat getFormat() const = 0;
 	virtual void bind(uint8_t unit) const = 0;
+	virtual void bindAsImage(uint8_t unit, ImageBindingType bindingType) const = 0;
+	virtual void bindAsImage(uint8_t unit, uint8_t layer, ImageBindingType bindingType) const = 0;
 	// Dimensions
 	virtual unsigned getWidth() const = 0;
 	virtual float getWidthF() const = 0;
@@ -108,38 +131,6 @@ public:
 	virtual float getHeightR() const = 0;
 	// Stride
 	virtual unsigned getStride() const = 0;
-};
-
-class Framebuffer : public GfxResource {
-public:
-	virtual ~Framebuffer() = default;
-	virtual void bind() const = 0;
-	virtual void unbind() const = 0;
-	// Dimensions
-	virtual unsigned getWidth() = 0;
-	virtual float getWidthF() = 0;
-	virtual float getWidthR() = 0;
-	virtual unsigned getHeight() = 0;
-	virtual float getHeightF() = 0;
-	virtual float getHeightR() = 0;
-	// Get attachment
-	virtual Texture2D& getTextureAttachment2D(uint8_t unit) const = 0;
-};
-class CubemapFramebuffer : public GfxResource {
-public:
-	virtual ~CubemapFramebuffer() = default;
-	virtual void bind() const = 0;
-	virtual void unbind() const = 0;
-	// Dimensions
-	virtual unsigned getWidth() = 0;
-	virtual float getWidthF() = 0;
-	virtual float getWidthR() = 0;
-	virtual unsigned getHeight() = 0;
-	virtual float getHeightF() = 0;
-	virtual float getHeightR() = 0;
-	// Get attachment
-	virtual const Cubemap& getCubemap() const = 0;
-	virtual const Texture2D& getDepthAttachment(uint8_t unit) const = 0;
 };
 
 }

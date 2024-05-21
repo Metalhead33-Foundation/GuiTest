@@ -1,5 +1,6 @@
 #ifndef VERTEXBUFFER_H
 #define VERTEXBUFFER_H
+#include <MhLib/Util/MhGlobals.hpp>
 #include <cstdint>
 #include <cstddef>
 #include <functional>
@@ -9,6 +10,7 @@
 namespace MH33 {
 namespace GFX {
 
+DEFINE_CLASS(UnindexedVertexBuffer)
 class UnindexedVertexBuffer : public GfxResource {
 public:
 	typedef std::function<void(const std::span<std::byte>& data)> AccessorFunc;
@@ -25,6 +27,8 @@ public:
 	virtual void setData(const std::span<const std::byte>& data, size_t offset) = 0;
 	virtual void getData(const ConstAccessorFunc& fun) const = 0;
 };
+
+DEFINE_CLASS(IndexedVertexBuffer)
 class IndexedVertexBuffer : public GfxResource {
 public:
 	typedef std::function<void(const std::span<std::byte>& data)> DataAccessorFunc;

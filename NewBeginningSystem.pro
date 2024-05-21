@@ -73,13 +73,16 @@ SOURCES += \
         main.cpp
 
 HEADERS += \
-    GFX/NativeHandle.hpp \
-    GFX/Pipeline.hpp \
-    GFX/Texture.hpp \
-    GFX/UniformBuffer.hpp \
-    GFX/VertexBuffer.hpp \
-    GFX/VertexBufferAdapter.hpp \
-    GFX/VertexFormat.hpp \
+    GFX/Abstract/ComputeShader.hpp \
+    GFX/Abstract/Framebuffer.hpp \
+    GFX/Abstract/GfxResourceFactory.hpp \
+    GFX/Abstract/NativeHandle.hpp \
+    GFX/Abstract/Pipeline.hpp \
+    GFX/Abstract/Texture.hpp \
+    GFX/Abstract/UniformBuffer.hpp \
+    GFX/Abstract/VertexBuffer.hpp \
+    GFX/Abstract/VertexBufferAdapter.hpp \
+    GFX/Abstract/VertexFormat.hpp \
     MhLib/Gimmick/MhGimmick.hpp \
     MhLib/Gimmick/MhWordGenerator.hpp \
     MhLib/Interface/MhBinaryTree.hpp \

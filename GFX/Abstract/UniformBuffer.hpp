@@ -1,18 +1,27 @@
 #ifndef UNIFORMBUFFER_H
 #define UNIFORMBUFFER_H
+#include <MhLib/Util/MhGlobals.hpp>
 #include <functional>
 #include <span>
 #include "NativeHandle.hpp"
 namespace MH33 {
 namespace GFX {
 
-class UniformBuffer : public GfxResource {
+enum StorageBufferType {
+	UNIFORM_BUFFER,
+	SHADER_STORAGE_BUFFER
+};
+
+DEFINE_CLASS(StorageBuffer)
+class StorageBuffer : public GfxResource {
 public:
 	typedef std::function<void(const std::span<std::byte>& data)> AccessorFunc;
 	typedef std::function<void(const std::span<const std::byte>& data)> ConstAccessorFunc;
-	virtual ~UniformBuffer() = default;
+	virtual ~StorageBuffer() = default;
+	virtual StorageBufferType getType() const = 0;
 	virtual void bind() const = 0;
 	virtual void unbind() const = 0;
+	virtual void bindBase(uint8_t bindingPoint) const = 0;
 	virtual void initializeData(const std::span<const std::byte>& data) = 0;
 	virtual void getData(void* data) const = 0;
 	virtual size_t getDataSize() const = 0;
