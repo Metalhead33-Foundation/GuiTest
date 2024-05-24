@@ -3,6 +3,9 @@
 #include <mutex>
 #include <functional>
 
+namespace MH33 {
+namespace Util {
+
 template <typename T> struct threadsafe {
 public:
 	typedef std::function<void(T&)> AccessorFunc;
@@ -22,4 +25,6 @@ public:
 	}
 };
 
+}
+}
 #endif // THREADSAFECONTAINER_HPP

@@ -132,25 +132,6 @@ void Header::load(Io::Device &input)
 	}
 }
 
-const unsigned FI16_444_RED_MASK = 0x0F00;
-const unsigned FI16_444_GREEN_MASK = 0x00F0;
-const unsigned FI16_444_BLUE_MASK = 0x000F;
-const unsigned FI16_444_RED_SHIFT	= 8;
-const unsigned FI16_444_GREEN_SHIFT = 4;
-const unsigned FI16_444_BLUE_SHIFT	= 0;
-const unsigned FI16_555_RED_MASK = 0x7C00;
-const unsigned FI16_555_GREEN_MASK	= 0x03E0;
-const unsigned FI16_555_BLUE_MASK = 0x001F;
-const unsigned FI16_555_RED_SHIFT = 10;
-const unsigned FI16_555_GREEN_SHIFT = 5;
-const unsigned FI16_555_BLUE_SHIFT = 0;
-const unsigned FI16_565_RED_MASK = 0xF800;
-const unsigned FI16_565_GREEN_MASK = 0x07E0;
-const unsigned FI16_565_BLUE_MASK = 0x001F;
-const unsigned FI16_565_RED_SHIFT = 11;
-const unsigned FI16_565_GREEN_SHIFT = 5;
-const unsigned FI16_565_BLUE_SHIFT = 0;
-
 void decode(Io::Device &iodev, DecodeTarget &destination)
 {
 	Header head;
@@ -158,39 +139,12 @@ void decode(Io::Device &iodev, DecodeTarget &destination)
 	switch (head.type) {
 	case Type::DXT1:
 		destination.format = Format::B_DXT1;
-		if ((head.ddspf.dwRBitMask == FI16_444_RED_MASK) && (head.ddspf.dwGBitMask == FI16_444_GREEN_MASK) && (head.ddspf.dwBBitMask == FI16_444_BLUE_MASK)) {
-			destination.format = Format::DXT1_RGB444;
-		}
-		if ((head.ddspf.dwRBitMask == FI16_555_RED_MASK) && (head.ddspf.dwGBitMask == FI16_555_GREEN_MASK) && (head.ddspf.dwBBitMask == FI16_555_BLUE_MASK)) {
-			destination.format = Format::DXT1_RGB555;
-		}
-		if ((head.ddspf.dwRBitMask == FI16_565_RED_MASK) && (head.ddspf.dwGBitMask == FI16_565_GREEN_MASK) && (head.ddspf.dwBBitMask == FI16_565_BLUE_MASK)) {
-			destination.format = Format::DXT1_RGB565;
-		}
 		break;
 	case Type::DXT3:
 		destination.format = Format::B_DXT3;
-		if ((head.ddspf.dwRBitMask == FI16_444_RED_MASK) && (head.ddspf.dwGBitMask == FI16_444_GREEN_MASK) && (head.ddspf.dwBBitMask == FI16_444_BLUE_MASK)) {
-			destination.format = Format::DXT3_RGB444;
-		}
-		if ((head.ddspf.dwRBitMask == FI16_555_RED_MASK) && (head.ddspf.dwGBitMask == FI16_555_GREEN_MASK) && (head.ddspf.dwBBitMask == FI16_555_BLUE_MASK)) {
-			destination.format = Format::DXT3_RGB555;
-		}
-		if ((head.ddspf.dwRBitMask == FI16_565_RED_MASK) && (head.ddspf.dwGBitMask == FI16_565_GREEN_MASK) && (head.ddspf.dwBBitMask == FI16_565_BLUE_MASK)) {
-			destination.format = Format::DXT3_RGB565;
-		}
 		break;
 	case Type::DXT5:
 		destination.format = Format::B_DXT5;
-		if ((head.ddspf.dwRBitMask == FI16_444_RED_MASK) && (head.ddspf.dwGBitMask == FI16_444_GREEN_MASK) && (head.ddspf.dwBBitMask == FI16_444_BLUE_MASK)) {
-			destination.format = Format::DXT5_RGB444;
-		}
-		if ((head.ddspf.dwRBitMask == FI16_555_RED_MASK) && (head.ddspf.dwGBitMask == FI16_555_GREEN_MASK) && (head.ddspf.dwBBitMask == FI16_555_BLUE_MASK)) {
-			destination.format = Format::DXT5_RGB555;
-		}
-		if ((head.ddspf.dwRBitMask == FI16_565_RED_MASK) && (head.ddspf.dwGBitMask == FI16_565_GREEN_MASK) && (head.ddspf.dwBBitMask == FI16_565_BLUE_MASK)) {
-			destination.format = Format::DXT5_RGB565;
-		}
 		break;
 	default:
 		destination.format = Format::INVALID; return;

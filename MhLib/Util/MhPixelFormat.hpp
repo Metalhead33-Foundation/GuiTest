@@ -2,28 +2,30 @@
 #define PIXELFORMAT_HPP
 #include <MhLib/Util/half.hpp>
 #include <glm/glm.hpp>
-#include "NormDenorm.hpp"
-#include "Dither.hpp"
+#include "MhNormDenorm.hpp"
+#include "MhDither.hpp"
 
+namespace MH33 {
+namespace Util {
 template <typename T> struct PixelGreyscale {
 	T pixel;
 	// 0.299R + 0.587G + 0.114B
 	inline void fromKernel(const glm::fvec4& kernel) {
-		pixel = denormalize<T>(
+		pixel = fdenormalize<T>(
 					(kernel.x * 0.299f) +
 					(kernel.y * 0.587f) +
 					(kernel.z * 0.114f)
 					);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
-		pixel = denormalize<T>(
+		pixel = fdenormalize<T>(
 					OrderedDither<T>::ditherUp(((kernel.x * 0.299f) +
 							 (kernel.y * 0.587f) +
 							 (kernel.z * 0.114f)
 							 ),coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		float normalized = normalize(pixel);
+		float normalized = fnormalize(pixel);
 		kernel.x = normalized;
 		kernel.y = normalized;
 		kernel.z = normalized;
@@ -45,15 +47,15 @@ typedef PixelGreyscale<double> PixelGreyscale_F64;
 template <typename T> struct PixelRG {
 	T r,g;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = denormalize<T>(kernel.x);
-		g = denormalize<T>(kernel.y);
+		r = fdenormalize<T>(kernel.x);
+		g = fdenormalize<T>(kernel.y);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
 		fromKernel(OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = normalize(r);
-		kernel.y = normalize(g);
+		kernel.x = fnormalize(r);
+		kernel.y = fnormalize(g);
 		kernel.z = 0.0f;
 		kernel.w = 1.0f;
 	}
@@ -64,17 +66,17 @@ typedef PixelRG<uint32_t> PixelRG_U32;
 template <typename T> struct PixelRGB {
 	T r,g,b;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = denormalize<T>(kernel.x);
-		g = denormalize<T>(kernel.y);
-		b = denormalize<T>(kernel.z);
+		r = fdenormalize<T>(kernel.x);
+		g = fdenormalize<T>(kernel.y);
+		b = fdenormalize<T>(kernel.z);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
 		fromKernel(OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = normalize(r);
-		kernel.y = normalize(g);
-		kernel.z = normalize(b);
+		kernel.x = fnormalize(r);
+		kernel.y = fnormalize(g);
+		kernel.z = fnormalize(b);
 		kernel.w = 1.0f;
 	}
 };
@@ -84,17 +86,17 @@ typedef PixelRGB<uint32_t> PixelRGB_U32;
 template <typename T> struct PixelBGR {
 	T b,g,r;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = denormalize<T>(kernel.x);
-		g = denormalize<T>(kernel.y);
-		b = denormalize<T>(kernel.z);
+		r = fdenormalize<T>(kernel.x);
+		g = fdenormalize<T>(kernel.y);
+		b = fdenormalize<T>(kernel.z);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
 		fromKernel(OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = normalize(r);
-		kernel.y = normalize(g);
-		kernel.z = normalize(b);
+		kernel.x = fnormalize(r);
+		kernel.y = fnormalize(g);
+		kernel.z = fnormalize(b);
 		kernel.w = 1.0f;
 	}
 };
@@ -104,19 +106,19 @@ typedef PixelBGR<uint32_t> PixelBGR_U32;
 template <typename T> struct PixelRGBA {
 	T r,g,b,a;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = denormalize<T>(kernel.x);
-		g = denormalize<T>(kernel.y);
-		b = denormalize<T>(kernel.z);
-		a = denormalize<T>(kernel.w);
+		r = fdenormalize<T>(kernel.x);
+		g = fdenormalize<T>(kernel.y);
+		b = fdenormalize<T>(kernel.z);
+		a = fdenormalize<T>(kernel.w);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
 		fromKernel(OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = normalize(r);
-		kernel.y = normalize(g);
-		kernel.z = normalize(b);
-		kernel.w = normalize(a);
+		kernel.x = fnormalize(r);
+		kernel.y = fnormalize(g);
+		kernel.z = fnormalize(b);
+		kernel.w = fnormalize(a);
 	}
 };
 typedef PixelRGBA<uint8_t> PixelRGBA_U8;
@@ -126,19 +128,19 @@ typedef PixelRGBA<uint32_t> PixelRGBA_U32;
 template <typename T> struct PixelBGRA {
 	T b,g,r,a;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = denormalize<T>(kernel.x);
-		g = denormalize<T>(kernel.y);
-		b = denormalize<T>(kernel.z);
-		a = denormalize<T>(kernel.w);
+		r = fdenormalize<T>(kernel.x);
+		g = fdenormalize<T>(kernel.y);
+		b = fdenormalize<T>(kernel.z);
+		a = fdenormalize<T>(kernel.w);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
 		fromKernel(OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = normalize(r);
-		kernel.y = normalize(g);
-		kernel.z = normalize(b);
-		kernel.w = normalize(a);
+		kernel.x = fnormalize(r);
+		kernel.y = fnormalize(g);
+		kernel.z = fnormalize(b);
+		kernel.w = fnormalize(a);
 	}
 };
 typedef PixelBGRA<uint8_t> PixelBGRA_U8;
@@ -147,19 +149,19 @@ typedef PixelBGRA<uint32_t> PixelBGRA_U32;
 template <typename T> struct PixelARGB {
 	T a,r,g,b;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = denormalize<T>(kernel.x);
-		g = denormalize<T>(kernel.y);
-		b = denormalize<T>(kernel.z);
-		a = denormalize<T>(kernel.w);
+		r = fdenormalize<T>(kernel.x);
+		g = fdenormalize<T>(kernel.y);
+		b = fdenormalize<T>(kernel.z);
+		a = fdenormalize<T>(kernel.w);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
 		fromKernel(OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = normalize(r);
-		kernel.y = normalize(g);
-		kernel.z = normalize(b);
-		kernel.w = normalize(a);
+		kernel.x = fnormalize(r);
+		kernel.y = fnormalize(g);
+		kernel.z = fnormalize(b);
+		kernel.w = fnormalize(a);
 	}
 };
 typedef PixelARGB<uint8_t> PixelARGB_U8;
@@ -168,19 +170,19 @@ typedef PixelARGB<uint32_t> PixelARGB_U32;
 template <typename T> struct PixelABGR {
 	T a,b,g,r;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = denormalize<T>(kernel.x);
-		g = denormalize<T>(kernel.y);
-		b = denormalize<T>(kernel.z);
-		a = denormalize<T>(kernel.w);
+		r = fdenormalize<T>(kernel.x);
+		g = fdenormalize<T>(kernel.y);
+		b = fdenormalize<T>(kernel.z);
+		a = fdenormalize<T>(kernel.w);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
 		fromKernel(OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = normalize(r);
-		kernel.y = normalize(g);
-		kernel.z = normalize(b);
-		kernel.w = normalize(a);
+		kernel.x = fnormalize(r);
+		kernel.y = fnormalize(g);
+		kernel.z = fnormalize(b);
+		kernel.w = fnormalize(a);
 	}
 };
 typedef PixelABGR<uint8_t> PixelABGR_U8;
@@ -1130,5 +1132,7 @@ struct PixelBGRA8888 {
 		kernel.w = static_cast<float>(a) * max8F_rec;
 	}
 };
+}
+}
 
 #endif // PIXELFORMAT_HPP

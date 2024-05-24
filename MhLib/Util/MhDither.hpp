@@ -1,10 +1,12 @@
-#ifndef DITHER_HPP
-#define DITHER_HPP
+#ifndef MHDITHER_HPP
+#define MHDITHER_HPP
 #include <cstddef>
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <limits>
 
+namespace MH33 {
+namespace Util {
 template <typename T, T maximum = std::numeric_limits<T>::max() > struct OrderedDither {
 	static constexpr const float MAX = ((static_cast<float>(maximum)+1.0f) * 8.0f) - 1.0f;
 	static constexpr const float MAX_RECIPROCAL = 1.0f/static_cast<float>(MAX);
@@ -88,4 +90,6 @@ constexpr const glm::fvec2 LOOKUP[2][2] = {
 {  glm::fvec2( 0.75f, 0.50f ), glm::fvec2( 0.00f, 0.25f ) }
 };
 
+}
+}
 #endif // DITHER_HPP

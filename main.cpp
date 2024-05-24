@@ -1,6 +1,6 @@
 #include <span>
 #include <iostream>
-#include "GFX/VertexBufferAdapter.hpp"
+#include "GFX/Abstract/VertexBufferAdapter.hpp"
 #include <vector>
 #include <cstring>
 #include "System/IniConfiguration.hpp"

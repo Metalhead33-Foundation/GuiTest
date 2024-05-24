@@ -20,14 +20,14 @@ public:
 	virtual pPipeline createPipeline(Io::sSystem& iosys, const std::string& shaderName, const VertexDescriptor* vertexDescriptor) = 0;
 	virtual sComputeShader createComputeShader(Io::sSystem& iosys, const std::string& shaderName) = 0;
 	virtual pStorageBuffer createStorageBuffer(StorageBufferType type, size_t size) = 0;
-	virtual pUnindexedVertexBuffer createUnindexedVertexBuffer(const VertexDescriptor* vertexDescriptor, size_t sizeInBytes);
+	virtual pUnindexedVertexBuffer createUnindexedVertexBuffer(const VertexDescriptor* vertexDescriptor, size_t sizeInBytes) = 0;
 	template <typename T> inline TypedVertexBuffer<T> createTypedVertexBuffer(const VertexDescriptor* vertexDescriptor, size_t elementCount) {
 		return TypedVertexBuffer<T>(
 					[this](const VertexDescriptor* desc,size_t sizeInBytes) { return createUnindexedVertexBuffer(desc,sizeInBytes); },
 					vertexDescriptor,elementCount
 		);
 	}
-	virtual pIndexedVertexBuffer createIndexedVertexBuffer(const VertexDescriptor* vertexDescriptor, size_t sizeInBytes, size_t indexCount);
+	virtual pIndexedVertexBuffer createIndexedVertexBuffer(const VertexDescriptor* vertexDescriptor, size_t sizeInBytes, size_t indexCount) = 0;
 	template <typename T> inline IndexedTypedVertexBuffer<T> createTypedIndexedVertexBuffer(const VertexDescriptor* vertexDescriptor, size_t elementCount, size_t indexCount) {
 		return IndexedTypedVertexBuffer<T>(
 					[this](const VertexDescriptor* desc,size_t sizeInBytes, size_t indexCount) { return createIndexedVertexBuffer(desc,sizeInBytes,indexCount); },

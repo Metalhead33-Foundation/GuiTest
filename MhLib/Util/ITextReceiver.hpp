@@ -4,6 +4,8 @@
 #include <string_view>
 #include <MhLib/Util/MhGlobals.hpp>
 
+namespace MH33 {
+namespace Util {
 DEFINE_CLASS(ITextReceiver)
 class ITextReceiver {
 public:
@@ -15,5 +17,6 @@ public:
 	virtual std::string getString() const = 0;
 	virtual std::string_view getStringView() const = 0;
 };
-
+}
+}
 #endif // ITEXTRECEIVER_H

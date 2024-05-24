@@ -1,7 +1,9 @@
-#include "TextureHelpers.hpp"
+#include "MhTextureHelpers.hpp"
 #include <cmath>
 #include <algorithm>
 
+namespace MH33 {
+namespace Util {
 uint32_t argb32(const float alpha)
 {
 	return static_cast<uint32_t>(std::round(alpha*255.0f)) << 24u;
@@ -247,4 +249,7 @@ void createCircleTexture(MH33::Image::DecodeTarget& output, const glm::fvec3& co
 			}
 		}
 	}
+}
+
+}
 }

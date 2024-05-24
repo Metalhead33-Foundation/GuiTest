@@ -3,12 +3,19 @@ CONFIG += console c++2a
 CONFIG -= app_bundle
 CONFIG -= qt
 
-LIBS += -lmozjs-115 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 -lgif -lturbojpeg -lsndfile -lsamplerate -lopenmpt -lwebp -lwebpdecoder -lwebpdemux  -lwebpmux -lzstd -lsnappy -lphysfs -lssl -lcrypto
+LIBS += -lmozjs-115 -lX11 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 -lgif -lturbojpeg -lsndfile -lsamplerate -lopenmpt -lwebp -lwebpdecoder -lwebpdemux  -lwebpmux -lzstd -lsnappy -lphysfs -lssl -lcrypto
 INCLUDEPATH += /usr/include/mozjs-115
 INCLUDEPATH += /usr/include/nspr
 INCLUDEPATH += $$PWD
+DEFINES += WINSYS_X
+DEFINES += DESKTOP_GL
 
 SOURCES += \
+        GFX/GL/EglContext.cpp \
+        GFX/GL/EglDisplay.cpp \
+        GFX/GL/GlResourceFactory.cpp \
+        GFX/GL/GlTexture.cpp \
+        GFX/GL/GlxContext.cpp \
         MhLib/Gimmick/MhWordGenerator.cpp \
         MhLib/Io/MhBufferWrapper.cpp \
         MhLib/Io/MhFile.cpp \
@@ -62,11 +69,18 @@ SOURCES += \
         MhLib/SIMD/private/x86/MhFloat32x8_private.cpp \
         MhLib/SIMD/private/x86/MhFloat64x2_private.cpp \
         MhLib/SIMD/private/x86/MhInt32x4_private.cpp \
-        MhLib/Util/ColourHelper.cpp \
+        MhLib/Util/MhColourHelper.cpp \
         MhLib/Util/MhDynamicLib.cpp \
         MhLib/Util/MhRNG.cpp \
+        MhLib/Util/MhTextureHelpers.cpp \
+        MhLib/Util/MhTimer.cpp \
         MhLib/Util/MhUUID.cpp \
-        MhLib/Util/TextureHelpers.cpp \
+        NativeGfxApi/glad/egl.c \
+        NativeGfxApi/glad/gl.c \
+        NativeGfxApi/glad/gles2.c \
+        NativeGfxApi/glad/glx.c \
+        NativeGfxApi/glad/vulkan.c \
+        NativeGfxApi/glad/wgl.c \
         System/AppSystem.cpp \
         System/IniConfiguration.cpp \
         System/TestSystem.cpp \
@@ -83,6 +97,12 @@ HEADERS += \
     GFX/Abstract/VertexBuffer.hpp \
     GFX/Abstract/VertexBufferAdapter.hpp \
     GFX/Abstract/VertexFormat.hpp \
+    GFX/GL/EglContext.hpp \
+    GFX/GL/EglDisplay.hpp \
+    GFX/GL/GlContext.hpp \
+    GFX/GL/GlResourceFactory.hpp \
+    GFX/GL/GlTexture.hpp \
+    GFX/GL/GlxContext.hpp \
     MhLib/Gimmick/MhGimmick.hpp \
     MhLib/Gimmick/MhWordGenerator.hpp \
     MhLib/Interface/MhBinaryTree.hpp \
@@ -158,24 +178,34 @@ HEADERS += \
     MhLib/SIMD/private/x86/MhFloat32x8_private.hpp \
     MhLib/SIMD/private/x86/MhFloat64x2_private.hpp \
     MhLib/SIMD/private/x86/MhInt32x4_private.hpp \
-    MhLib/Util/ColourHelper.hpp \
-    MhLib/Util/Dither.hpp \
     MhLib/Util/ITextReceiver.hpp \
     MhLib/Util/MhBuffer.hpp \
+    MhLib/Util/MhColourHelper.hpp \
+    MhLib/Util/MhDither.hpp \
     MhLib/Util/MhDynamicLib.hpp \
     MhLib/Util/MhEndianness.hpp \
     MhLib/Util/MhFixedStack.hpp \
     MhLib/Util/MhGlobals.hpp \
     MhLib/Util/MhIntegralIterator.hpp \
     MhLib/Util/MhNormDenorm.hpp \
+    MhLib/Util/MhPixelFormat.hpp \
     MhLib/Util/MhRNG.hpp \
+    MhLib/Util/MhTextureHelpers.hpp \
+    MhLib/Util/MhThreadsafeContainer.hpp \
     MhLib/Util/MhThreadsafeQueue.hpp \
+    MhLib/Util/MhTimer.hpp \
     MhLib/Util/MhUUID.hpp \
-    MhLib/Util/NormDenorm.hpp \
-    MhLib/Util/PixelFormat.hpp \
-    MhLib/Util/TextureHelpers.hpp \
-    MhLib/Util/ThreadsafeContainer.hpp \
     MhLib/Util/half.hpp \
+    NativeGfxApi/EGL/eglplatform.h \
+    NativeGfxApi/KHR/khrplatform.h \
+    NativeGfxApi/glad/egl.h \
+    NativeGfxApi/glad/gl.h \
+    NativeGfxApi/glad/gles2.h \
+    NativeGfxApi/glad/glwrap.h \
+    NativeGfxApi/glad/glx.h \
+    NativeGfxApi/glad/vulkan.h \
+    NativeGfxApi/glad/wgl.h \
+    NativeGfxApi/vk_platform.h \
     System/AppSystem.hpp \
     System/IniConfiguration.hpp \
     System/TestSystem.hpp

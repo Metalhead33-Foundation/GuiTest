@@ -1,8 +1,10 @@
-#include "ColourHelper.hpp"
+#include "MhColourHelper.hpp"
 #include <sstream>
 #include <map>
-#include "PixelFormat.hpp"
+#include "MhPixelFormat.hpp"
 
+namespace MH33 {
+namespace Util {
 glm::fvec4 htmlColour(const std::string& colourname)
 {
 	glm::fvec4 kernel(0.0f, 0.0f, 0.0f, 1.0f);
@@ -192,4 +194,6 @@ void htmlColour(const std::string& colourname, glm::fvec4& colourKernel)
 		auto namedColour = namedColours.find(colourname);
 		if(namedColour != std::end(namedColours)) namedColour->second.toKernel(colourKernel);
 	}
+}
+}
 }
