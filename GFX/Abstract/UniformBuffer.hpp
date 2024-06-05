@@ -22,13 +22,14 @@ public:
 	virtual void bind() const = 0;
 	virtual void unbind() const = 0;
 	virtual void bindBase(uint8_t bindingPoint) const = 0;
+	virtual void bindRange(uint8_t bindingPoint, size_t offset, size_t length) const = 0;
 	virtual void initializeData(const std::span<const std::byte>& data) = 0;
-	virtual void getData(void* data) const = 0;
+	virtual void getData(void* data, size_t offset = 0, size_t length = 0) const = 0;
 	virtual size_t getDataSize() const = 0;
 	virtual void ensureDataSize(size_t size) = 0;
-	virtual void setData(const AccessorFunc& fun, bool needsToRead) = 0;
+	virtual void setData(const AccessorFunc& fun, bool needsToRead, size_t offset = 0, size_t length = 0) = 0;
 	virtual void setData(const std::span<const std::byte>& data, size_t offset) = 0;
-	virtual void getData(const ConstAccessorFunc& fun) const = 0;
+	virtual void getData(const ConstAccessorFunc& fun, size_t offset = 0, size_t length = 0) const = 0;
 };
 
 }

@@ -7,6 +7,18 @@
 
 namespace MH33 {
 namespace Util {
+template <typename T>
+concept PixelConcept = requires(T t, const glm::fvec4& fvec, const glm::ivec2& ivec, glm::fvec4& outFvec) {
+	// Check for fromKernel method
+	{ t.fromKernel(fvec) } -> std::same_as<void>;
+
+	// Check for fromKernelDithered method
+	{ t.fromKernelDithered(fvec, ivec) } -> std::same_as<void>;
+
+	// Check for toKernel method
+	{ t.toKernel(outFvec) } -> std::same_as<void>;
+};
+
 template <typename T> struct PixelGreyscale {
 	T pixel;
 	// 0.299R + 0.587G + 0.114B
@@ -63,6 +75,15 @@ template <typename T> struct PixelRG {
 typedef PixelRG<uint8_t> PixelRG_U8;
 typedef PixelRG<uint16_t> PixelRG_U16;
 typedef PixelRG<uint32_t> PixelRG_U32;
+typedef PixelRG<uint64_t> PixelRG_U64;
+typedef PixelRG<int8_t> PixelRG_S8;
+typedef PixelRG<int16_t> PixelRG_S16;
+typedef PixelRG<int32_t> PixelRG_S32;
+typedef PixelRG<int64_t> PixelRG_S64;
+typedef PixelRG<half_float::half> PixelRG_F16;
+typedef PixelRG<float> PixelRG_F32;
+typedef PixelRG<double> PixelRG_F64;
+
 template <typename T> struct PixelRGB {
 	T r,g,b;
 	inline void fromKernel(const glm::fvec4& kernel) {
@@ -83,6 +104,14 @@ template <typename T> struct PixelRGB {
 typedef PixelRGB<uint8_t> PixelRGB_U8;
 typedef PixelRGB<uint16_t> PixelRGB_U16;
 typedef PixelRGB<uint32_t> PixelRGB_U32;
+typedef PixelRGB<uint64_t> PixelRGB_U64;
+typedef PixelRGB<int8_t> PixelRGB_S8;
+typedef PixelRGB<int16_t> PixelRGB_S16;
+typedef PixelRGB<int32_t> PixelRGB_S32;
+typedef PixelRGB<int64_t> PixelRGB_S64;
+typedef PixelRGB<half_float::half> PixelRGB_F16;
+typedef PixelRGB<float> PixelRGB_F32;
+typedef PixelRGB<double> PixelRGB_F64;
 template <typename T> struct PixelBGR {
 	T b,g,r;
 	inline void fromKernel(const glm::fvec4& kernel) {
@@ -103,6 +132,14 @@ template <typename T> struct PixelBGR {
 typedef PixelBGR<uint8_t> PixelBGR_U8;
 typedef PixelBGR<uint16_t> PixelBGR_U16;
 typedef PixelBGR<uint32_t> PixelBGR_U32;
+typedef PixelBGR<uint64_t> PixelBGR_U64;
+typedef PixelBGR<int8_t> PixelBGR_S8;
+typedef PixelBGR<int16_t> PixelBGR_S16;
+typedef PixelBGR<int32_t> PixelBGR_S32;
+typedef PixelBGR<int64_t> PixelBGR_S64;
+typedef PixelBGR<half_float::half> PixelBGR_F16;
+typedef PixelBGR<float> PixelBGR_F32;
+typedef PixelBGR<double> PixelBGR_F64;
 template <typename T> struct PixelRGBA {
 	T r,g,b,a;
 	inline void fromKernel(const glm::fvec4& kernel) {
@@ -124,6 +161,14 @@ template <typename T> struct PixelRGBA {
 typedef PixelRGBA<uint8_t> PixelRGBA_U8;
 typedef PixelRGBA<uint16_t> PixelRGBA_U16;
 typedef PixelRGBA<uint32_t> PixelRGBA_U32;
+typedef PixelRGBA<uint64_t> PixelRGBA_U64;
+typedef PixelRGBA<int8_t> PixelRGBA_S8;
+typedef PixelRGBA<int16_t> PixelRGBA_S16;
+typedef PixelRGBA<int32_t> PixelRGBA_S32;
+typedef PixelRGBA<int64_t> PixelRGBA_S64;
+typedef PixelRGBA<half_float::half> PixelRGBA_F16;
+typedef PixelRGBA<float> PixelRGBA_F32;
+typedef PixelRGBA<double> PixelRGBA_F64;
 
 template <typename T> struct PixelBGRA {
 	T b,g,r,a;
@@ -146,6 +191,14 @@ template <typename T> struct PixelBGRA {
 typedef PixelBGRA<uint8_t> PixelBGRA_U8;
 typedef PixelBGRA<uint16_t> PixelBGRA_U16;
 typedef PixelBGRA<uint32_t> PixelBGRA_U32;
+typedef PixelBGRA<uint64_t> PixelBGRA_U64;
+typedef PixelBGRA<int8_t> PixelBGRA_S8;
+typedef PixelBGRA<int16_t> PixelBGRA_S16;
+typedef PixelBGRA<int32_t> PixelBGRA_S32;
+typedef PixelBGRA<int64_t> PixelBGRA_S64;
+typedef PixelBGRA<half_float::half> PixelBGRA_F16;
+typedef PixelBGRA<float> PixelBGRA_F32;
+typedef PixelBGRA<double> PixelBGRA_F64;
 template <typename T> struct PixelARGB {
 	T a,r,g,b;
 	inline void fromKernel(const glm::fvec4& kernel) {
@@ -167,6 +220,14 @@ template <typename T> struct PixelARGB {
 typedef PixelARGB<uint8_t> PixelARGB_U8;
 typedef PixelARGB<uint16_t> PixelARGB_U16;
 typedef PixelARGB<uint32_t> PixelARGB_U32;
+typedef PixelARGB<uint64_t> PixelARGB_U64;
+typedef PixelARGB<int8_t> PixelARGB_S8;
+typedef PixelARGB<int16_t> PixelARGB_S16;
+typedef PixelARGB<int32_t> PixelARGB_S32;
+typedef PixelARGB<int64_t> PixelARGB_S64;
+typedef PixelARGB<half_float::half> PixelARGB_F16;
+typedef PixelARGB<float> PixelARGB_F32;
+typedef PixelARGB<double> PixelARGB_F64;
 template <typename T> struct PixelABGR {
 	T a,b,g,r;
 	inline void fromKernel(const glm::fvec4& kernel) {
@@ -188,6 +249,14 @@ template <typename T> struct PixelABGR {
 typedef PixelABGR<uint8_t> PixelABGR_U8;
 typedef PixelABGR<uint16_t> PixelABGR_U16;
 typedef PixelABGR<uint32_t> PixelABGR_U32;
+typedef PixelABGR<uint64_t> PixelABGR_U64;
+typedef PixelABGR<int8_t> PixelABGR_S8;
+typedef PixelABGR<int16_t> PixelABGR_S16;
+typedef PixelABGR<int32_t> PixelABGR_S32;
+typedef PixelABGR<int64_t> PixelABGR_S64;
+typedef PixelABGR<half_float::half> PixelABGR_F16;
+typedef PixelABGR<float> PixelABGR_F32;
+typedef PixelABGR<double> PixelABGR_F64;
 
 /// 8-bit texture format
 struct PixelRGB332 {

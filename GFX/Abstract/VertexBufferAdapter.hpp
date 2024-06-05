@@ -13,9 +13,9 @@ private:
 	TypedVertexBuffer(const TypedVertexBuffer& cpy) = delete;
 	TypedVertexBuffer& operator=(const TypedVertexBuffer& cpy) = delete;
 public:
-	typedef std::function<UnindexedVertexBuffer*(const VertexDescriptor*,size_t)> BufferCreator;
-	TypedVertexBuffer(const BufferCreator& creator, const VertexDescriptor* descriptor, size_t elementCount)
-		: _buffer(creator(descriptor, elementCount * sizeof(T))), elementCount(elementCount) {
+	typedef std::function<UnindexedVertexBuffer*(VertexBufferUsageClass,const VertexDescriptor*,size_t)> BufferCreator;
+	TypedVertexBuffer(const BufferCreator& creator, VertexBufferUsageClass storageClass, const VertexDescriptor* descriptor, size_t elementCount)
+		: _buffer(creator(storageClass, descriptor, elementCount * sizeof(T))), elementCount(elementCount) {
 
 	}
 	TypedVertexBuffer(TypedVertexBuffer&& mov) : _buffer(std::move(mov._buffer)), elementCount(mov.elementCount) {
@@ -39,21 +39,21 @@ public:
 	inline void getData(T* data) { _buffer->getData(data); }
 	inline size_t getElementCount() const { return elementCount; }
 	inline void ensureElementCount(size_t size) { elementCount = size; _buffer->ensureDataSize(size * sizeof(T)); }
-	inline void setData(const AccessorFunc& fun, bool needsToRead) {
+	inline void setData(const AccessorFunc& fun, bool needsToRead, size_t offset = 0, size_t length = 0) {
 		_buffer->setData([&fun](const std::span<std::byte>& data) {
 			std::span<T> spanAsT(std::reinterpret_pointer_cast<T*>(data.data()),data.size() / sizeof(T));
 			fun(spanAsT);
-		}, needsToRead);
+		}, needsToRead, offset * sizeof(T), length * sizeof(T));
 	}
 	inline void setData(const std::span<const T>& data, size_t offset) {
 		std::span<const std::byte> asByteSpan(reinterpret_cast<const std::byte*>(data.data()), data.size_bytes());
 		_buffer->setData(asByteSpan, offset * sizeof(T));
 	}
-	inline void getData(const ConstAccessorFunc& fun) {
+	inline void getData(const ConstAccessorFunc& fun, size_t offset = 0, size_t length = 0) {
 		_buffer->getData([&fun](const std::span<const std::byte>& data) {
 			std::span<const T> spanAsT(reinterpret_cast<const T*>(data.data()),data.size() / sizeof(T));
 			fun(spanAsT);
-		});
+		}, offset * sizeof(T), length * sizeof(T));
 	}
 	Handle getNativeHandle() {
 		return _buffer->getNativeHandle();
@@ -69,9 +69,9 @@ private:
 	IndexedTypedVertexBuffer(const IndexedTypedVertexBuffer& cpy) = delete;
 	IndexedTypedVertexBuffer& operator=(const IndexedTypedVertexBuffer& cpy) = delete;
 public:
-	typedef std::function<IndexedTypedVertexBuffer*(const VertexDescriptor*,size_t, size_t)> BufferCreator;
-	IndexedTypedVertexBuffer(const BufferCreator& creator, const VertexDescriptor* descriptor, size_t elementCount, size_t indexCount) :
-		_buffer(creator(descriptor, elementCount * sizeof(T),indexCount)), elementCount(elementCount) {
+	typedef std::function<IndexedTypedVertexBuffer*(VertexBufferUsageClass,const VertexDescriptor*,size_t, size_t)> BufferCreator;
+	IndexedTypedVertexBuffer(const BufferCreator& creator, VertexBufferUsageClass storageclass, const VertexDescriptor* descriptor, size_t elementCount, size_t indexCount) :
+		_buffer(creator(storageclass, descriptor, elementCount * sizeof(T),indexCount)), elementCount(elementCount) {
 
 	}
 	IndexedTypedVertexBuffer(IndexedTypedVertexBuffer&& mov) : _buffer(std::move(mov._buffer)), elementCount(mov.elementCount) {
@@ -99,9 +99,13 @@ public:
 	inline void getIndices(uint32_t* indices) const { _buffer->getIndices(indices); }
 	inline size_t getIndexCount() { return _buffer->getIndexCount(); }
 	inline void ensureIndexCount(size_t size) { _buffer->ensureIndexCount(size); }
-	inline void setIndices(const IndexedVertexBuffer::IndexAccessorFunc& fun, bool needsToRead) { _buffer->setIndices(fun,needsToRead); }
+	inline void setIndices(const IndexedVertexBuffer::IndexAccessorFunc& fun, bool needsToRead, size_t offset = 0, size_t length = 0) {
+		_buffer->setIndices(fun,needsToRead, offset, length);
+	}
 	inline void setIndices(const std::span<const uint32_t>& indices, size_t offset) { _buffer->setIndices(indices,offset); }
-	inline void getIndices(const IndexedVertexBuffer::IndexConstAccessorFunc& fun) const { _buffer->getIndices(fun); }
+	inline void getIndices(const IndexedVertexBuffer::IndexConstAccessorFunc& fun, size_t offset = 0, size_t length = 0) const {
+		_buffer->getIndices(fun, offset, length);
+	}
 	// The actual wrapper stuff
 	typedef std::function<void(const std::span<T>& data)> AccessorFunc;
 	typedef std::function<void(const std::span<const T>& data)> ConstAccessorFunc;
@@ -113,21 +117,21 @@ public:
 	inline void getData(T* data) { _buffer->getData(data); }
 	inline size_t getElementCount() const { return elementCount; }
 	inline void ensureElementCount(size_t size) { elementCount = size; _buffer->ensureDataSize(size * sizeof(T)); }
-	inline void setData(const AccessorFunc& fun, bool needsToRead) {
+	inline void setData(const AccessorFunc& fun, bool needsToRead, size_t offset = 0, size_t length = 0) {
 		_buffer->setData([&fun](const std::span<std::byte>& data) {
 			std::span<T> spanAsT(reinterpret_cast<T*>(data.data()),data.size() / sizeof(T));
 			fun(spanAsT);
-		}, needsToRead);
+		}, needsToRead, offset * sizeof(T), length * sizeof(T));
 	}
 	inline void setData(const std::span<const T>& data, size_t offset) {
 		std::span<const std::byte> asByteSpan(reinterpret_cast<const std::byte*>(data.data()), data.size_bytes());
 		_buffer->setData(asByteSpan, offset * sizeof(T));
 	}
-	inline void getData(const ConstAccessorFunc& fun) {
+	inline void getData(const ConstAccessorFunc& fun, size_t offset = 0, size_t length = 0) {
 		_buffer->getData([&fun](const std::span<const std::byte>& data) {
 			std::span<const T> spanAsT(std::reinterpret_pointer_cast<const T*>(data.data()),data.size() / sizeof(T));
 			fun(spanAsT);
-		});
+		}, offset * sizeof(T), length * sizeof(T));
 	}
 };
 

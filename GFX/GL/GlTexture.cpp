@@ -169,14 +169,31 @@ Texture2D::Texture2D(const MH33::Image::DecodeTarget& source, uint8_t wantedMipm
 	reinitialize(source,wantedMipmaps);
 }
 
+Texture2D::Texture2D(const MH33::Image::Image2D& source, uint8_t wantedMipmaps)
+{
+	glGenTextures(1,&textureVar);
+	reinitialize(source,wantedMipmaps);
+}
+
 Texture2D::~Texture2D()
 {
-	glDeleteTextures(1,&textureVar);
+	if(textureVar) glDeleteTextures(1,&textureVar);
 }
 
 void Texture2D::reinitialize(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps)
 {
 	format = source.format;
+	glBindTexture(GL_TEXTURE_2D,textureVar);
+	glInitializeTexture2D(source,textureVar,wantedMipmaps,width,height,stride);
+	widthF = static_cast<float>(width - 1);
+	widthR = 1.0f / widthF;
+	heightF = static_cast<float>(height - 1);
+	heightR = 1.0f / heightF;
+}
+
+void Texture2D::reinitialize(const MH33::Image::Image2D& source, uint8_t wantedMipmaps)
+{
+	format = source.getFormat();
 	glBindTexture(GL_TEXTURE_2D,textureVar);
 	glInitializeTexture2D(source,textureVar,wantedMipmaps,width,height,stride);
 	widthF = static_cast<float>(width - 1);
@@ -264,6 +281,21 @@ void prevalidateGlTexture(const MH33::Image::DecodeTarget& source, GLenum& inter
 		throw std::runtime_error("Invalid type! Possibly unsupported texture type?");
 	}
 }
+void prevalidateGlTexture(const MH33::Image::Image2D& source, GLenum& internalFormat, GLenum& format, GLenum& type)
+{
+	internalFormat = translateToInternalFormat(source.getFormat());
+	if(internalFormat == GLenum(-1)) {
+		throw std::runtime_error("Invalid internal format! Possibly unsupported texture type?");
+	}
+	format = translateToFormat(source.getFormat());
+	if(format == GLenum(-1)) {
+		throw std::runtime_error("Invalid format! Possibly unsupported texture type?");
+	}
+	type = translateToType(source.getFormat());
+	if(type == GLenum(-1)) {
+		throw std::runtime_error("Invalid type! Possibly unsupported texture type?");
+	}
+}
 void glInitializeTexture2D(const MH33::Image::DecodeTarget& source, GLuint texVar, uint8_t wantedMipmaps, unsigned& width, unsigned& height, unsigned& stride)
 {
 	GLenum internalFormat, format, type;
@@ -282,6 +314,18 @@ void glInitializeTexture2D(const MH33::Image::DecodeTarget& source, GLuint texVa
 		++mipmapCount;
 	}
 	if(mipmapCount < wantedMipmaps) {
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+}
+void glInitializeTexture2D(const MH33::Image::Image2D& source, GLuint texVar, uint8_t wantedMipmaps, unsigned& width, unsigned& height, unsigned& stride)
+{
+	GLenum internalFormat, format, type;
+	prevalidateGlTexture(source, internalFormat, format, type);
+	width = source.getWidth();
+	height = source.getHeight();
+	stride = source.getStride();
+	glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,format,type,source.getRawPixels());
+	if(wantedMipmaps) {
 		glGenerateMipmap(GL_TEXTURE_2D);
 	}
 }
@@ -349,6 +393,23 @@ GLenum translateBindingType(MH33::GFX::ImageBindingType bindingType)
 	}
 }
 
+
+Texture3D::Texture3D(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps)
+{
+	glGenTextures(1,&textureVar);
+	reinitialize(source,wantedMipmaps);
+}
+
+Texture3D::~Texture3D()
+{
+	if(textureVar) glDeleteTextures(1,&textureVar);
+}
+
+Texture3D::Texture3D()
+	: format(MH33::GFX::TextureFormat::INVALID), width(0), height(0), depth(0), stride(0), widthF(0), widthR(0), heightF(0), heightR(0), depthF(0), depthR(0)
+{
+	glGenTextures(1,&textureVar);
+}
 
 void Texture3D::reinitialize(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps)
 {
@@ -446,6 +507,23 @@ unsigned Texture3D::getStride() const
 	return stride;
 }
 
+TextureArray2D::TextureArray2D(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps)
+{
+	glGenTextures(1,&textureVar);
+	reinitialize(source,wantedMipmaps);
+}
+
+TextureArray2D::~TextureArray2D()
+{
+	if(textureVar) glDeleteTextures(1,&textureVar);
+}
+
+TextureArray2D::TextureArray2D()
+	: format(MH33::GFX::TextureFormat::INVALID), width(0), height(0), stride(0), textureCount(0), widthF(0), widthR(0), heightF(0), heightR(0)
+{
+	glGenTextures(1,&textureVar);
+}
+
 void TextureArray2D::reinitialize(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps)
 {
 	format = source.format;
@@ -528,6 +606,34 @@ unsigned TextureArray2D::getTextureCount() const
 unsigned TextureArray2D::getStride() const
 {
 	return stride;
+}
+
+Cubemap::Cubemap(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps)
+{
+	glGenTextures(1,&textureVar);
+	reinitialize(source,wantedMipmaps);
+}
+
+Cubemap::~Cubemap()
+{
+	if(textureVar) glDeleteTextures(1,&textureVar);
+}
+
+void Cubemap::reinitialize(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps)
+{
+	format = source.format;
+	glBindTexture(GL_TEXTURE_2D_ARRAY,textureVar);
+	glInitializeTextureCubemnap(source,textureVar,wantedMipmaps,width,height,stride);
+	widthF = static_cast<float>(width - 1);
+	widthR = 1.0f / widthF;
+	heightF = static_cast<float>(height - 1);
+	heightR = 1.0f / heightF;
+}
+
+Cubemap::Cubemap()
+	: format(MH33::GFX::TextureFormat::INVALID), width(0), height(0), stride(0), widthF(0), widthR(0), heightF(0), heightR(0)
+{
+	glGenTextures(1,&textureVar);
 }
 
 MH33::GFX::Handle Cubemap::getNativeHandle()

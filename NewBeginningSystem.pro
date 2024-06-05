@@ -13,8 +13,11 @@ DEFINES += DESKTOP_GL
 SOURCES += \
         GFX/GL/EglContext.cpp \
         GFX/GL/EglDisplay.cpp \
+        GFX/GL/GlPipeline.cpp \
         GFX/GL/GlResourceFactory.cpp \
+        GFX/GL/GlStorageBuffer.cpp \
         GFX/GL/GlTexture.cpp \
+        GFX/GL/GlVertexBuffer.cpp \
         GFX/GL/GlxContext.cpp \
         MhLib/Gimmick/MhWordGenerator.cpp \
         MhLib/Io/MhBufferWrapper.cpp \
@@ -61,8 +64,10 @@ SOURCES += \
         MhLib/Media/Audio/MhSoundFile.cpp \
         MhLib/Media/Image/MhDDS.cpp \
         MhLib/Media/Image/MhGIF.cpp \
+        MhLib/Media/Image/MhImage2D.cpp \
         MhLib/Media/Image/MhJPEG.cpp \
         MhLib/Media/Image/MhPNG.cpp \
+        MhLib/Media/Image/MhStandardImage2D.cpp \
         MhLib/Media/Image/MhTGA.cpp \
         MhLib/Media/Image/MhWEBP.cpp \
         MhLib/SIMD/private/x86/MhFloat32x4_private.cpp \
@@ -71,6 +76,7 @@ SOURCES += \
         MhLib/SIMD/private/x86/MhInt32x4_private.cpp \
         MhLib/Util/MhColourHelper.cpp \
         MhLib/Util/MhDynamicLib.cpp \
+        MhLib/Util/MhEdgeFunction.cpp \
         MhLib/Util/MhRNG.cpp \
         MhLib/Util/MhTextureHelpers.cpp \
         MhLib/Util/MhTimer.cpp \
@@ -100,8 +106,11 @@ HEADERS += \
     GFX/GL/EglContext.hpp \
     GFX/GL/EglDisplay.hpp \
     GFX/GL/GlContext.hpp \
+    GFX/GL/GlPipeline.hpp \
     GFX/GL/GlResourceFactory.hpp \
+    GFX/GL/GlStorageBuffer.hpp \
     GFX/GL/GlTexture.hpp \
+    GFX/GL/GlVertexBuffer.hpp \
     GFX/GL/GlxContext.hpp \
     MhLib/Gimmick/MhGimmick.hpp \
     MhLib/Gimmick/MhWordGenerator.hpp \
@@ -166,10 +175,13 @@ HEADERS += \
     MhLib/Media/Image/MhDecodeTarget.hpp \
     MhLib/Media/Image/MhGIF.hpp \
     MhLib/Media/Image/MhImage.hpp \
+    MhLib/Media/Image/MhImage2D.hpp \
     MhLib/Media/Image/MhImageType.hpp \
     MhLib/Media/Image/MhJPEG.hpp \
     MhLib/Media/Image/MhPNG.hpp \
     MhLib/Media/Image/MhStandardColourFormat.hpp \
+    MhLib/Media/Image/MhStandardImage2D.hpp \
+    MhLib/Media/Image/MhStandardImage2D.ipp \
     MhLib/Media/Image/MhTGA.hpp \
     MhLib/Media/Image/MhWEBP.hpp \
     MhLib/SIMD/MhSIMD.hpp \
@@ -183,6 +195,7 @@ HEADERS += \
     MhLib/Util/MhColourHelper.hpp \
     MhLib/Util/MhDither.hpp \
     MhLib/Util/MhDynamicLib.hpp \
+    MhLib/Util/MhEdgeFunction.hpp \
     MhLib/Util/MhEndianness.hpp \
     MhLib/Util/MhFixedStack.hpp \
     MhLib/Util/MhGlobals.hpp \
@@ -190,6 +203,8 @@ HEADERS += \
     MhLib/Util/MhNormDenorm.hpp \
     MhLib/Util/MhPixelFormat.hpp \
     MhLib/Util/MhRNG.hpp \
+    MhLib/Util/MhStackAllocator.hpp \
+    MhLib/Util/MhStaticStackAllocator.hpp \
     MhLib/Util/MhTextureHelpers.hpp \
     MhLib/Util/MhThreadsafeContainer.hpp \
     MhLib/Util/MhThreadsafeQueue.hpp \

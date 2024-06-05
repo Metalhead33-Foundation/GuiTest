@@ -3,8 +3,17 @@
 
 namespace EGL {
 
+static bool hasEglBeenLoaded = false;
+EGLDisplay proxyGetDisplay(void* display) {
+	if(!hasEglBeenLoaded) {
+		gladLoaderLoadEGL(nullptr);
+		hasEglBeenLoaded = true;
+	}
+	return eglGetDisplay(display);
+};
+
 Display::Display(EGLNativeDisplayType nativeDisplay)
-	: display(eglGetDisplay(nativeDisplay) ,eglTerminate)
+	: display(proxyGetDisplay(nativeDisplay) ,eglTerminate)
 {
 	if(!display) throw std::runtime_error("Unable to get display!");
 	gladLoaderLoadEGL(display.get());

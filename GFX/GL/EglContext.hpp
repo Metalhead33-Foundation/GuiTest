@@ -3,6 +3,7 @@
 #include <GFX/GL/EglDisplay.hpp>
 #include <functional>
 #include <GFX/GL/GlContext.hpp>
+#include <GFX/GL/GlResourceFactory.hpp>
 namespace EGL {
 /*! An object that encapsulates an EGL context. */
 class Context : public GL::Context
@@ -77,6 +78,14 @@ public:
 	Display& getDisplay();
 	/*! Swaps buffers. To be called every time OpenGL(ES) has finished rendering a frame. */
 	void swapBuffers();
+};
+class RenderingContext : public GL::ResourceFactory {
+private:
+	Context context;
+public:
+	RenderingContext(const SDL_SysWMinfo& syswminfo);
+	~RenderingContext();
+	Context& getContext() override;
 };
 
 }

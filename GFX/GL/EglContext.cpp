@@ -1,5 +1,6 @@
 #include "EglContext.hpp"
 #include <sstream>
+#include <NativeGfxApi/glad/glwrap.h>
 
 namespace EGL {
 
@@ -99,6 +100,34 @@ Context::surface_t* Context::getSurfacePtr()
 Context::context_t* Context::getContextPtr()
 {
 	return context.get();
+}
+
+RenderingContext::RenderingContext(const SDL_SysWMinfo& syswminfo)
+	: context(syswminfo.info.x11.display,syswminfo.info.x11.window)
+{
+	context.makeCurrent();
+#ifdef DESKTOP_GL
+	int version = gladLoaderLoadGL();
+#else
+	int version = gladLoaderLoadGLES2();
+#endif
+	if(!version) {
+		throw std::runtime_error("Failed to load OpenGL!");
+	}
+}
+
+RenderingContext::~RenderingContext()
+{
+#ifdef DESKTOP_GL
+	gladLoaderUnloadGL();
+#else
+	gladLoaderUnloadGLES2();
+#endif
+}
+
+Context& RenderingContext::getContext()
+{
+	return context;
 }
 
 }

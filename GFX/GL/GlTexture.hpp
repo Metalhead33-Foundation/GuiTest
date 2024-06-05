@@ -11,6 +11,7 @@ GLenum translateToInternalFormat(MH33::GFX::TextureFormat format);
 GLenum translateToFormat(MH33::GFX::TextureFormat format);
 GLenum translateToType(MH33::GFX::TextureFormat format);
 void glInitializeTexture2D(const MH33::Image::DecodeTarget& source, GLuint texVar, uint8_t wantedMipmaps, unsigned& width, unsigned& height, unsigned& stride);
+void glInitializeTexture2D(const MH33::Image::Image2D& source, GLuint texVar, uint8_t wantedMipmaps, unsigned& width, unsigned& height, unsigned& stride);
 void glInitializeTexture3D(const MH33::Image::DecodeTarget& source, bool isArray, GLuint texVar, uint8_t wantedMipmaps, unsigned& width, unsigned& height, unsigned& depth, unsigned& stride);
 void glInitializeTextureCubemnap(const MH33::Image::DecodeTarget& source, GLuint texVar, uint8_t wantedMipmaps, unsigned& width, unsigned& height, unsigned& stride);
 
@@ -22,11 +23,15 @@ private:
 	MH33::GFX::TextureFormat format;
 	unsigned width, height, stride;
 	float widthF, widthR, heightF, heightR;
+	Texture2D(const Texture2D& cpy) = delete;
+	Texture2D& operator=(const Texture2D& cpy) = delete;
 public:
 	Texture2D();
 	Texture2D(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps = 0);
+	Texture2D(const MH33::Image::Image2D& source, uint8_t wantedMipmaps = 0);
 	~Texture2D();
 	void reinitialize(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps = 0);
+	void reinitialize(const MH33::Image::Image2D& source, uint8_t wantedMipmaps = 0);
 	MH33::GFX::Handle getNativeHandle() override;
 	MH33::GFX::ConstHandle getNativeHandle() const override;
 	// Texture2D interface
@@ -47,6 +52,8 @@ private:
 	MH33::GFX::TextureFormat format;
 	unsigned width, height, depth, stride;
 	float widthF, widthR, heightF, heightR, depthF, depthR;
+	Texture3D(const Texture3D& cpy) = delete;
+	Texture3D& operator=(const Texture3D& cpy) = delete;
 public:
 	Texture3D();
 	Texture3D(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps = 0);
@@ -75,6 +82,8 @@ private:
 	MH33::GFX::TextureFormat format;
 	unsigned width, height, stride, textureCount;
 	float widthF, widthR, heightF, heightR;
+	TextureArray2D(const TextureArray2D& cpy) = delete;
+	TextureArray2D& operator=(const TextureArray2D& cpy) = delete;
 public:
 	TextureArray2D();
 	TextureArray2D(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps = 0);
@@ -101,6 +110,8 @@ private:
 	MH33::GFX::TextureFormat format;
 	unsigned width, height, stride;
 	float widthF, widthR, heightF, heightR;
+	Cubemap(const Cubemap& cpy) = delete;
+	Cubemap& operator=(const Cubemap& cpy) = delete;
 public:
 	Cubemap();
 	Cubemap(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps = 0);

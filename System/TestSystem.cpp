@@ -1,20 +1,21 @@
 #include "TestSystem.hpp"
 
-TestSystem::TestSystem(IniConfiguration &conf)
+TestSystem::TestSystem(const ResourceFactoryCreator& gfxCreator, IniConfiguration &conf)
 	: AppSystem(
 		conf["Main"].getValueOrDefault("sTitle","Default Window")->second.toString(),
 		0, 0,
 		conf["Video"].getValueOrDefault("iWidth","640")->second.value.i_int,
 		conf["Video"].getValueOrDefault("iHeight","640")->second.value.i_int,
 		(conf["Video"].getValueOrDefault("bFullscreen","0")->second.value.i_bool) ? SDL_WINDOW_FULLSCREEN : 0
-	)
+	), gfx(gfxCreator(syswmi))
 {
 
 }
 
-
 void TestSystem::render(float deltaTime)
 {
+	gfx->beginFrame();
+	/*
 	//Get window surface
 	auto screenSurface = SDL_GetWindowSurface( window.get() );
 
@@ -23,6 +24,8 @@ void TestSystem::render(float deltaTime)
 
 	//Update the surface
 	SDL_UpdateWindowSurface( window.get() );
+	*/
+	gfx->endFrame();
 }
 
 void TestSystem::update(float deltaTime)

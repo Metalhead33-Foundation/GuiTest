@@ -2,11 +2,16 @@
 #define TESTSYSTEM_HPP
 #include "AppSystem.hpp"
 #include "IniConfiguration.hpp"
+#include <GFX/Abstract/GfxResourceFactory.hpp>
 
 class TestSystem : public AppSystem
 {
 public:
-	TestSystem(IniConfiguration& conf);
+	typedef std::function<MH33::GFX::pResourceFactory(const SDL_SysWMinfo&)> ResourceFactoryCreator;
+private:
+	MH33::GFX::uResourceFactory gfx;
+public:
+	TestSystem(const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	void render(float deltaTime) override;
 	void update(float deltaTime) override;
 	void handleDisplayEvent(const SDL_DisplayEvent &ev) override;

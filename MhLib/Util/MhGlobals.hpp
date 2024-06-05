@@ -35,4 +35,8 @@
 	struct klass;                                                              \
 	DEFINE_PTR( klass )
 
+#define XSTRINGIFY(s) STRINGIFY(s)
+#define STRINGIFY(s) #s
+#define CONCAT(a,b) a b
+
 #endif // MHGLOBALS_HPP

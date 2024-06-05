@@ -6,8 +6,10 @@
 #include "System/IniConfiguration.hpp"
 #include <fstream>
 #include "System/TestSystem.hpp"
+#include <GFX/GL/GlxContext.hpp>
+#include <GFX/GL/EglContext.hpp>
 
-class BullshitVertexBuffer : public MH33::GFX::UnindexedVertexBuffer {
+/*class BullshitVertexBuffer : public MH33::GFX::UnindexedVertexBuffer {
 private:
 	const MH33::GFX::VertexDescriptor* vertexDescriptor;
 	std::vector<std::byte> buff;
@@ -69,7 +71,7 @@ public:
 	{
 		return { .ptr = buff.data() } ;
 	}
-};
+};*/
 typedef MH33::GFX::TypedVertexBuffer<int> IntVertBuff;
 
 int main() {
@@ -95,7 +97,16 @@ int main() {
 			std::cout << std::boolalpha << j->first << '-' << j->second << std::endl;
 		}
 	}
-	TestSystem testSys(ini);
+#ifdef USE_GLX
+	auto initializer = [](const SDL_SysWMinfo& syswmi) {
+		return new GLX::RenderingContext(syswmi);
+	};
+#else
+	auto initializer = [](const SDL_SysWMinfo& syswmi) {
+		return new EGL::RenderingContext(syswmi);
+	};
+#endif
+	TestSystem testSys(initializer, ini);
 	testSys.run();
 	return 0;
 }

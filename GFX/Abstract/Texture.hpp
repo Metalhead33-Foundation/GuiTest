@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 #include "NativeHandle.hpp"
 #include <MhLib/Media/Image/MhImageType.hpp>
+#include <MhLib/Media/Image/MhImage2D.hpp>
 namespace MH33 {
 namespace GFX {
 
@@ -40,13 +41,13 @@ DEFINE_CLASS(WriteableTexture2D)
 class WriteableTexture2D : public Texture2D {
 public:
 	// Colour programmes
-	typedef std::function<glm::fvec4(const glm::ivec2&)> ColourProgrammer;
-	typedef std::function<glm::fvec4(const glm::ivec2&, const glm::fvec4&)> ColourProgrammer2;
-	typedef std::function<glm::fvec4(const glm::fvec2&)> ColourProgrammer3;
-	typedef std::function<glm::fvec4(const glm::fvec2&, const glm::fvec4&)> ColourProgrammer4;
+	typedef MH33::Image::Image2D::ColourProgrammer ColourProgrammer;
+	typedef MH33::Image::Image2D::ColourProgrammer2 ColourProgrammer2;
+	typedef MH33::Image::Image2D::ColourProgrammer3 ColourProgrammer3;
+	typedef MH33::Image::Image2D::ColourProgrammer4 ColourProgrammer4;
 	// Colour iterators
-	typedef std::function<void(const glm::ivec2&, const glm::fvec4&)> ColourIterator;
-	typedef std::function<void(const glm::fvec2&, const glm::fvec4&)> ColourIterator2;
+	typedef MH33::Image::Image2D::ColourIterator ColourIterator;
+	typedef MH33::Image::Image2D::ColourIterator2 ColourIterator2;
 	// Now for the functions
 	virtual ~WriteableTexture2D() = default;
 	virtual void* getPixels() = 0;

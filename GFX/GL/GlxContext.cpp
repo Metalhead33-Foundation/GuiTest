@@ -60,6 +60,9 @@ Context::Context(const SDL_SysWMinfo& syswminfo, int screen)
 	: version(0), display(syswminfo.info.x11.display), win(syswminfo.info.x11.window), fbc(nullptr), fbcount(0), ctx(nullptr)
 {
 	version = gladLoaderLoadGLX(display,screen);
+	if(!version) {
+		throw std::runtime_error("Failed to load OpenGL!");
+	}
 	fbc = glXChooseFBConfig(display, screen, visual_attribs, &fbcount);
 	// Pick the FB config/visual with the most samples per pixel
 	ctx = glXCreateContextAttribsARB(display,getBestFbc(),nullptr,True,context_attribs);
@@ -81,5 +84,26 @@ void Context::swapBuffers()
 	glXSwapBuffers ( display, win );
 }
 
+RenderingContext::RenderingContext(const SDL_SysWMinfo& syswminfo, int screen)
+	: context(syswminfo,screen)
+{
+	context.makeCurrent();
+	int version = gladLoaderLoadGL();
+	if(!version) {
+		throw std::runtime_error("Failed to load OpenGL!");
+	}
+}
+
+RenderingContext::~RenderingContext()
+{
+	gladLoaderUnloadGL();
+}
+
+Context& RenderingContext::getContext()
+{
+	return context;
+}
+
 }
 #endif
+
