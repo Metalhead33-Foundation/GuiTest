@@ -2,7 +2,11 @@
 #include "GlTexture.hpp"
 #include "GlVertexBuffer.hpp"
 #include "GlPipeline.hpp"
+#include "GlComputeShader.hpp"
 #include "GlStorageBuffer.hpp"
+#include "GlWriteableTexture2D.hpp"
+#define MH33_IMG_LEAN_AND_MEAN
+#include <MhLib/Media/Image/MhStandardImage2D.hpp>
 
 namespace GL {
 
@@ -20,7 +24,17 @@ const std::array<std::string, 5> GlShaderPaths = {
 	GL_SHADER_PATH(Frag/)
 };
 
-MH33::GFX::pPipeline ResourceFactory::createPipeline(MH33::Io::System& iosys, const std::string& shaderName, const MH33::GFX::VertexDescriptor* vertexDescriptor)
+MH33::GFX::pPipeline ResourceFactory::createPipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfo>& createInfo, const MH33::GFX::VertexDescriptor* vertexDescriptor)
+{
+	return new Pipeline(createInfo);
+}
+
+MH33::GFX::pPipeline ResourceFactory::createPipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfoRef>& createInfo, const MH33::GFX::VertexDescriptor* vertexDescriptor)
+{
+	return new Pipeline(createInfo);
+}
+
+/*MH33::GFX::pPipeline ResourceFactory::createPipeline(MH33::Io::System& iosys, const std::string& shaderName, const MH33::GFX::VertexDescriptor* vertexDescriptor)
 {
 	std::vector<ShaderModuleCreateInfo> createInfo;
 	for(size_t i = 0; i < GlShaderPaths.size(); ++i) {
@@ -40,11 +54,16 @@ MH33::GFX::pPipeline ResourceFactory::createPipeline(MH33::Io::System& iosys, co
 		createInfo.push_back({ .shaderType = shaderType, .sourceCode = std::move(source) });
 	}
 	return new Pipeline(createInfo);
+}*/
+
+MH33::GFX::pComputeShader ResourceFactory::createComputeShader(const std::span<const MH33::GFX::ShaderModuleCreateInfo>& createInfo)
+{
+	return new ComputeShader(createInfo);
 }
 
-MH33::GFX::sComputeShader  ResourceFactory::createComputeShader(MH33::Io::System& iosys, const std::string& shaderName)
+MH33::GFX::pComputeShader ResourceFactory::createComputeShader(const std::span<const MH33::GFX::ShaderModuleCreateInfoRef>& createInfo)
 {
-	return nullptr;
+	return new ComputeShader(createInfo);
 }
 
 MH33::GFX::pStorageBuffer  ResourceFactory::createStorageBuffer(MH33::GFX::StorageBufferType type, size_t size)
@@ -105,7 +124,9 @@ MH33::GFX::pCubemap  ResourceFactory::createCubemap(const MH33::Image::DecodeTar
 
 MH33::GFX::pWriteableTexture2D  ResourceFactory::createWriteableTexture2D(MH33::Image::Format format, int width, int height)
 {
-	return nullptr;
+	return new WriteableTexture2D([format, width, height]() {
+		return MH33::Image::createImage2D(format,width,height);
+	});
 }
 
 MH33::GFX::pFramebuffer  ResourceFactory::createFramebuffer(std::span<MH33::Image::Format> attachmentFormat, int width, int height)

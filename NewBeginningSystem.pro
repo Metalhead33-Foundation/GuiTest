@@ -13,11 +13,16 @@ DEFINES += DESKTOP_GL
 SOURCES += \
         GFX/GL/EglContext.cpp \
         GFX/GL/EglDisplay.cpp \
+        GFX/GL/GlComputeShader.cpp \
+        GFX/GL/GlFramebuffer.cpp \
         GFX/GL/GlPipeline.cpp \
         GFX/GL/GlResourceFactory.cpp \
+        GFX/GL/GlShaderModule.cpp \
         GFX/GL/GlStorageBuffer.cpp \
         GFX/GL/GlTexture.cpp \
+        GFX/GL/GlUtil.cpp \
         GFX/GL/GlVertexBuffer.cpp \
+        GFX/GL/GlWriteableTexture2D.cpp \
         GFX/GL/GlxContext.cpp \
         MhLib/Gimmick/MhWordGenerator.cpp \
         MhLib/Io/MhBufferWrapper.cpp \
@@ -105,12 +110,17 @@ HEADERS += \
     GFX/Abstract/VertexFormat.hpp \
     GFX/GL/EglContext.hpp \
     GFX/GL/EglDisplay.hpp \
+    GFX/GL/GlComputeShader.hpp \
     GFX/GL/GlContext.hpp \
+    GFX/GL/GlFramebuffer.hpp \
     GFX/GL/GlPipeline.hpp \
     GFX/GL/GlResourceFactory.hpp \
+    GFX/GL/GlShaderModule.hpp \
     GFX/GL/GlStorageBuffer.hpp \
     GFX/GL/GlTexture.hpp \
+    GFX/GL/GlUtil.hpp \
     GFX/GL/GlVertexBuffer.hpp \
+    GFX/GL/GlWriteableTexture2D.hpp \
     GFX/GL/GlxContext.hpp \
     MhLib/Gimmick/MhGimmick.hpp \
     MhLib/Gimmick/MhWordGenerator.hpp \

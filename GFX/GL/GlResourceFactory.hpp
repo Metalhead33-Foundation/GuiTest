@@ -8,8 +8,11 @@ class ResourceFactory : public MH33::GFX::ResourceFactory
 {
 public:
 	virtual Context& getContext() = 0;
-	MH33::GFX::pPipeline createPipeline(MH33::Io::System& iosys, const std::string& shaderName, const MH33::GFX::VertexDescriptor* vertexDescriptor) override;
-	MH33::GFX::sComputeShader createComputeShader(MH33::Io::System& iosys, const std::string& shaderName) override;
+	MH33::GFX::pPipeline createPipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfo>& createInfo, const MH33::GFX::VertexDescriptor* vertexDescriptor) override;
+	MH33::GFX::pPipeline createPipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfoRef>& createInfo, const MH33::GFX::VertexDescriptor* vertexDescriptor) override;
+	//MH33::GFX::pPipeline createPipeline(MH33::Io::System& iosys, const std::string& shaderName, const MH33::GFX::VertexDescriptor* vertexDescriptor) override;
+	MH33::GFX::pComputeShader createComputeShader(const std::span<const MH33::GFX::ShaderModuleCreateInfo>& createInfo) override;
+	MH33::GFX::pComputeShader createComputeShader(const std::span<const MH33::GFX::ShaderModuleCreateInfoRef>& createInfo) override;
 	MH33::GFX::pStorageBuffer createStorageBuffer(MH33::GFX::StorageBufferType type, size_t size) override;
 	MH33::GFX::pUnindexedVertexBuffer createUnindexedVertexBuffer(MH33::GFX::VertexBufferUsageClass storageClass, const MH33::GFX::VertexDescriptor* vertexDescriptor, size_t sizeInBytes) override;
 	MH33::GFX::pIndexedVertexBuffer createIndexedVertexBuffer(MH33::GFX::VertexBufferUsageClass storageClass, const MH33::GFX::VertexDescriptor* vertexDescriptor, size_t sizeInBytes, size_t indexCount) override;

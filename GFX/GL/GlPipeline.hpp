@@ -3,38 +3,9 @@
 #include <GFX/Abstract/Pipeline.hpp>
 #include <NativeGfxApi/glad/glwrap.h>
 #include <vector>
-#include <exception>
 #include <span>
 
 namespace GL {
-
-struct ShaderModuleCreateInfo {
-	GLenum shaderType;
-	std::string sourceCode;
-};
-
-class ShaderError : public std::exception {
-private:
-	std::string errStr;
-public:
-	ShaderError(GLuint shaderId, bool isProgram = false);
-	const char* what() const noexcept override;
-};
-
-class ShaderModule {
-private:
-	GLuint shaderModule;
-	ShaderModule(const ShaderModule& cpy) = delete;
-	ShaderModule& operator=(const ShaderModule& cpy) = delete;
-public:
-	ShaderModule();
-	ShaderModule(ShaderModule&& mov);
-	ShaderModule& operator=(ShaderModule&& mov);
-	ShaderModule(const ShaderModuleCreateInfo& createInfo);
-	~ShaderModule();
-	GLuint getId() const;
-	operator GLuint() const;
-};
 
 class Pipeline : public MH33::GFX::Pipeline
 {
@@ -44,7 +15,8 @@ private:
 	Pipeline(const Pipeline& cpy) = delete;
 	Pipeline& operator=(const Pipeline& cpy) = delete;
 public:
-	Pipeline(const std::span<const ShaderModuleCreateInfo>& createInfo);
+	Pipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfo>& createInfo);
+	Pipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfoRef>& createInfo);
 	~Pipeline();
 	MH33::GFX::Handle getNativeHandle() override;
 	MH33::GFX::ConstHandle getNativeHandle() const override;

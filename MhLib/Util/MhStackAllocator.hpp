@@ -27,7 +27,8 @@ public:
 		using other = StackAllocator<U, N>;
 	};
 private:
-	std::array<T,N> buffer;
+	//std::array<T,N> buffer;
+	T buffer[N];
 	size_t offset;
 public:
 	StackAllocator() : offset(0) {

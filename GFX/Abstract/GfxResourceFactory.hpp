@@ -17,8 +17,11 @@ DEFINE_CLASS(ResourceFactory)
 class ResourceFactory {
 public:
 	virtual ~ResourceFactory() = default;
-	virtual pPipeline createPipeline(Io::System& iosys, const std::string& shaderName, const VertexDescriptor* vertexDescriptor) = 0;
-	virtual sComputeShader createComputeShader(Io::System& iosys, const std::string& shaderName) = 0;
+	virtual pPipeline createPipeline(const std::span<const ShaderModuleCreateInfo>& createInfo, const VertexDescriptor* vertexDescriptor) = 0;
+	virtual pPipeline createPipeline(const std::span<const ShaderModuleCreateInfoRef>& createInfo, const VertexDescriptor* vertexDescriptor) = 0;
+	//virtual pPipeline createPipeline(Io::System& iosys, const std::string& shaderName, const VertexDescriptor* vertexDescriptor) = 0;
+	virtual pComputeShader createComputeShader(const std::span<const ShaderModuleCreateInfo>& createInfo) = 0;
+	virtual pComputeShader createComputeShader(const std::span<const ShaderModuleCreateInfoRef>& createInfo) = 0;
 	virtual pStorageBuffer createStorageBuffer(StorageBufferType type, size_t size) = 0;
 	virtual pUnindexedVertexBuffer createUnindexedVertexBuffer(VertexBufferUsageClass storageClass, const VertexDescriptor* vertexDescriptor, size_t sizeInBytes) = 0;
 	template <typename T> inline TypedVertexBuffer<T> createTypedVertexBuffer(VertexBufferUsageClass storageClass, const VertexDescriptor* vertexDescriptor, size_t elementCount) {

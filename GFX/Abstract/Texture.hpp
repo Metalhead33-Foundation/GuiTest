@@ -67,9 +67,10 @@ public:
 	virtual void clearToColour(const ColourProgrammer2& program, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
 	virtual void clearToColour(const ColourProgrammer3& program, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
 	virtual void clearToColour(const ColourProgrammer4& program, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
-	virtual void blit(const WriteableTexture2D& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
-	virtual void blit(const WriteableTexture2D& cpy, const glm::ivec2 offset) = 0;
+	virtual void blit(const MH33::Image::Image2D& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
+	virtual void blit(const MH33::Image::Image2D& cpy, const glm::ivec2 offset) = 0;
 	virtual void blit(const std::span<const std::byte>& data, TextureFormat format, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
+	virtual void onRegionUpdate(const glm::ivec2& topleft, const glm::ivec2& bottomright) = 0;
 	virtual void update() = 0;
 };
 

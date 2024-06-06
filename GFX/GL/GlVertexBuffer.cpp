@@ -1,4 +1,5 @@
 #include "GlVertexBuffer.hpp"
+#include "GlUtil.hpp"
 
 namespace GL {
 
@@ -347,43 +348,5 @@ void IndexedVertexBuffer::getIndices(const IndexConstAccessorFunc& fun, size_t o
 	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 }
 
-void glProcessVertexDescriptor(const MH33::GFX::VertexDescriptor& vertexDescriptor)
-{
-	for (size_t i = 0; i < vertexDescriptor.descriptors.size(); ++i) {
-		const auto& attr = vertexDescriptor.descriptors[i];
-		GLint size = attr.type & MH33::GFX::SIZE_MASK;
-		GLenum type;
-		GLboolean normalized = GL_FALSE;
-
-		switch (attr.type & MH33::GFX::TYPE_MASK) {
-			case MH33::GFX::TYPE_HALF_FLOAT: type = GL_HALF_FLOAT; break;
-			case MH33::GFX::TYPE_FLOAT: type = GL_FLOAT; break;
-			case MH33::GFX::TYPE_DOUBLE: type = GL_DOUBLE; break;
-			case MH33::GFX::TYPE_UBYTE: type = GL_UNSIGNED_BYTE; break;
-			case MH33::GFX::TYPE_SBYTE: type = GL_BYTE; break;
-			case MH33::GFX::TYPE_USHORT: type = GL_UNSIGNED_SHORT; break;
-			case MH33::GFX::TYPE_SSHORT: type = GL_SHORT; break;
-			case MH33::GFX::TYPE_UINT: type = GL_UNSIGNED_INT; break;
-			case MH33::GFX::TYPE_SINT: type = GL_INT; break;
-			default: type = GL_INVALID_ENUM; break;
-		}
-
-		if (attr.type & MH33::GFX::IS_NORMALIZED) {
-			normalized = GL_TRUE;
-		}
-
-		if (type != GL_INVALID_ENUM) {
-			glVertexAttribPointer(
-				static_cast<GLuint>(i),
-				size,
-				type,
-				normalized,
-				static_cast<GLsizei>(vertexDescriptor.stride),
-				reinterpret_cast<const void*>(attr.offset)
-			);
-			glEnableVertexAttribArray(static_cast<GLuint>(i));
-		}
-	}
-}
 
 }

@@ -21,6 +21,24 @@ enum class RenderType {
 	PATCHES
 };
 
+enum class ShaderModuleType {
+	VERTEX_SHADER,
+	GEOMETRY_SHADER,
+	TESSELLATION_CONTROL_SHADER,
+	TESSELLATION_EVALUATION_SHADER,
+	PIXEL_SHADER,
+	COMPUTE_sHADER
+};
+
+struct ShaderModuleCreateInfo {
+	ShaderModuleType shaderType;
+	std::vector<std::byte> source;
+};
+struct ShaderModuleCreateInfoRef {
+	ShaderModuleType shaderType;
+	std::span<std::byte> source;
+};
+
 DEFINE_CLASS(Pipeline)
 class Pipeline : public GfxResource {
 public:

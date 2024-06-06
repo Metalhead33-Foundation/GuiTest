@@ -1,4 +1,5 @@
 #include "GlPipeline.hpp"
+#include "GlShaderModule.hpp"
 //#include <MhLib/Util/MhStaticStackAllocator.hpp>
 #include <MhLib/Util/MhStackAllocator.hpp>
 /*typedef MH33::Util::StaticStackAllocator<GL::ShaderModule,16,1> GlShaderModuleAllocator;
@@ -9,7 +10,28 @@ typedef MH33::Util::StackAllocator<GL::ShaderModule, 16> GlShaderModuleAllocator
 namespace GL {
 
 
-Pipeline::Pipeline(const std::span<const ShaderModuleCreateInfo>& createInfo)
+Pipeline::Pipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfo>& createInfo)
+	: shaderProgram(0)
+{
+	if(!createInfo.size()) throw std::runtime_error("No shader source files!");
+	if(createInfo.size() > 16) throw std::runtime_error("Too many shader stages!");
+	std::vector<ShaderModule, GlShaderModuleAllocator> modules;
+	for(const auto& it : createInfo) {
+		modules.push_back(ShaderModule(it));
+	}
+	shaderProgram = glCreateProgram();
+	GLint success;
+	for(const auto& it : modules) {
+		glAttachShader(shaderProgram, it.getId());
+	}
+	glLinkProgram(shaderProgram);
+	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+	if(!success) {
+		throw ShaderError(shaderProgram, true);
+	}
+}
+
+Pipeline::Pipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfoRef>& createInfo)
 	: shaderProgram(0)
 {
 	if(!createInfo.size()) throw std::runtime_error("No shader source files!");
@@ -139,76 +161,6 @@ void Pipeline::draw(MH33::GFX::IndexedVertexBuffer& vertices, MH33::GFX::RenderT
 		if(count) glDrawElements(mode, count,  GL_UNSIGNED_INT, nullptr);
 		else glDrawElements(mode, vertices.getIndexCount(),  GL_UNSIGNED_INT, nullptr);
 	}
-}
-
-ShaderModule::ShaderModule()
-	: shaderModule(0)
-{
-
-}
-
-ShaderModule::ShaderModule(ShaderModule&& mov)
-	: shaderModule(mov.shaderModule)
-{
-	mov.shaderModule = 0;
-}
-
-ShaderModule& ShaderModule::operator=(ShaderModule&& mov)
-{
-	this->shaderModule = mov.shaderModule;
-	mov.shaderModule = 0;
-	return *this;
-}
-
-ShaderModule::ShaderModule(const ShaderModuleCreateInfo& createInfo)
-	: shaderModule(0)
-{
-	const GLchar* sourceCode = createInfo.sourceCode.c_str();
-	const GLint sourceCodeLength = createInfo.sourceCode.length();
-	shaderModule = glCreateShader(createInfo.shaderType);
-	glShaderSource(shaderModule,1,&sourceCode,&sourceCodeLength);
-	glCompileShader(shaderModule);
-	GLint success;
-	glGetShaderiv(shaderModule, GL_COMPILE_STATUS, &success);
-	if(!success) {
-		throw ShaderError(shaderModule);
-	}
-}
-
-ShaderModule::~ShaderModule()
-{
-	if(shaderModule) glDeleteShader(shaderModule);
-}
-
-GLuint ShaderModule::getId() const
-{
-	return shaderModule;
-}
-
-ShaderModule::operator GLuint() const
-{
-	return shaderModule;
-}
-
-ShaderError::ShaderError(GLuint shaderId, bool isProgram)
-{
-	GLint totalLenght=0;
-	if(isProgram) {
-		glGetProgramiv(shaderId,GL_INFO_LOG_LENGTH,&totalLenght);
-		errStr.resize(totalLenght);
-		glGetProgramInfoLog(shaderId, totalLenght, nullptr, errStr.data());
-		errStr = "SHADER_PROGRAM_LINKING_ERROR: " + errStr;
-	} else {
-		glGetShaderiv(shaderId,GL_INFO_LOG_LENGTH,&totalLenght);
-		errStr.resize(totalLenght);
-		glGetShaderInfoLog(shaderId, totalLenght, nullptr, errStr.data());
-		errStr = "SHADER_COMPILATION_ERROR: " + errStr;
-	}
-}
-
-const char* ShaderError::what() const noexcept
-{
-	return errStr.c_str();
 }
 
 }

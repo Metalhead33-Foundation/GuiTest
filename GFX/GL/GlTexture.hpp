@@ -6,16 +6,6 @@
 
 namespace GL {
 
-GLenum translateBindingType(MH33::GFX::ImageBindingType bindingType);
-GLenum translateToInternalFormat(MH33::GFX::TextureFormat format);
-GLenum translateToFormat(MH33::GFX::TextureFormat format);
-GLenum translateToType(MH33::GFX::TextureFormat format);
-void glInitializeTexture2D(const MH33::Image::DecodeTarget& source, GLuint texVar, uint8_t wantedMipmaps, unsigned& width, unsigned& height, unsigned& stride);
-void glInitializeTexture2D(const MH33::Image::Image2D& source, GLuint texVar, uint8_t wantedMipmaps, unsigned& width, unsigned& height, unsigned& stride);
-void glInitializeTexture3D(const MH33::Image::DecodeTarget& source, bool isArray, GLuint texVar, uint8_t wantedMipmaps, unsigned& width, unsigned& height, unsigned& depth, unsigned& stride);
-void glInitializeTextureCubemnap(const MH33::Image::DecodeTarget& source, GLuint texVar, uint8_t wantedMipmaps, unsigned& width, unsigned& height, unsigned& stride);
-
-
 class Texture2D : public MH33::GFX::Texture2D
 {
 private:

@@ -1,4 +1,5 @@
 #include "GlStorageBuffer.hpp"
+#include "GlUtil.hpp"
 
 namespace GL {
 

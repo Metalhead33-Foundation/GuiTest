@@ -18,7 +18,8 @@ namespace GFX {
 		virtual float getHeightF() const = 0;
 		virtual float getHeightR() const = 0;
 		// Get attachment
-		virtual Texture2D& getTextureAttachment2D(uint8_t unit) const = 0;
+		virtual Texture2D& getTextureAttachment2D(uint8_t unit) = 0;
+		virtual const Texture2D& getTextureAttachment2D(uint8_t unit) const = 0;
 	};
 
 	DEFINE_CLASS(CubemapFramebuffer)
@@ -36,6 +37,7 @@ namespace GFX {
 		virtual float getHeightF() const = 0;
 		virtual float getHeightR() const = 0;
 		// Get attachment
+		virtual Cubemap& getCubemapAttachment(uint8_t unit) = 0;
 		virtual Cubemap& getCubemapAttachment(uint8_t unit) const = 0;
 	};
 
