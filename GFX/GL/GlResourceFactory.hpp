@@ -22,8 +22,8 @@ public:
 	MH33::GFX::pTextureArray2D createTextureArray2D(const MH33::Image::DecodeTarget& decodeTarget) override;
 	MH33::GFX::pCubemap createCubemap(const MH33::Image::DecodeTarget& decodeTarget) override;
 	MH33::GFX::pWriteableTexture2D createWriteableTexture2D(MH33::Image::Format format, int width, int height) override;
-	MH33::GFX::pFramebuffer createFramebuffer(std::span<MH33::Image::Format> attachmentFormat, int width, int height) override;
-	MH33::GFX::pCubemapFramebuffer createCubemapFramebuffer(std::span<MH33::Image::Format> attachmentFormat, int width, int height) override;
+	MH33::GFX::pFramebuffer createFramebuffer(const std::span<const MH33::Image::Format>& attachmentFormat, int width, int height) override;
+	MH33::GFX::pCubemapFramebuffer createCubemapFramebuffer(const std::span<const MH33::Image::Format>& attachmentFormat, int width, int height) override;
 	void makeCurrent() override;
 	void beginFrame() override;
 	void endFrame() override;

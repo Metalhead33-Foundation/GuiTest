@@ -43,8 +43,8 @@ public:
 	virtual pTextureArray2D createTextureArray2D(const Image::DecodeTarget& decodeTarget) = 0;
 	virtual pCubemap createCubemap(const Image::DecodeTarget& decodeTarget) = 0;
 	virtual pWriteableTexture2D createWriteableTexture2D(Image::Format format, int width, int height) = 0;
-	virtual pFramebuffer createFramebuffer(std::span<Image::Format> attachmentFormat, int width, int height) = 0;
-	virtual pCubemapFramebuffer createCubemapFramebuffer(std::span<Image::Format> attachmentFormat, int width, int height) = 0;
+	virtual pFramebuffer createFramebuffer(const std::span<const MH33::Image::Format>& attachmentFormat, int width, int height) = 0;
+	virtual pCubemapFramebuffer createCubemapFramebuffer(const std::span<const MH33::Image::Format>& attachmentFormat, int width, int height) = 0;
 	// Utilities
 	virtual void makeCurrent() = 0;
 	virtual void beginFrame() = 0;

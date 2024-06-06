@@ -44,14 +44,8 @@ private:
 	Framebuffer& operator=(const Framebuffer& cpy) = delete;
 public:
 	Framebuffer(const std::span<const MH33::GFX::TextureFormat>& attachmentFormats, unsigned width, unsigned height);
-
-	// GfxResource interface
-public:
 	MH33::GFX::Handle getNativeHandle() override;
 	MH33::GFX::ConstHandle getNativeHandle() const override;
-
-	// Framebuffer interface
-public:
 	void bind() const override;
 	void unbind() const override;
 	uint8_t getAttachmentCount() const override;

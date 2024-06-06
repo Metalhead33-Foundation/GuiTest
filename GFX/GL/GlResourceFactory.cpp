@@ -5,6 +5,7 @@
 #include "GlComputeShader.hpp"
 #include "GlStorageBuffer.hpp"
 #include "GlWriteableTexture2D.hpp"
+#include "GlFramebuffer.hpp"
 #define MH33_IMG_LEAN_AND_MEAN
 #include <MhLib/Media/Image/MhStandardImage2D.hpp>
 
@@ -129,12 +130,12 @@ MH33::GFX::pWriteableTexture2D  ResourceFactory::createWriteableTexture2D(MH33::
 	});
 }
 
-MH33::GFX::pFramebuffer  ResourceFactory::createFramebuffer(std::span<MH33::Image::Format> attachmentFormat, int width, int height)
+MH33::GFX::pFramebuffer  ResourceFactory::createFramebuffer(const std::span<const MH33::Image::Format>& attachmentFormat, int width, int height)
 {
-	return nullptr;
+	return new Framebuffer(attachmentFormat, width, height);
 }
 
-MH33::GFX::pCubemapFramebuffer  ResourceFactory::createCubemapFramebuffer(std::span<MH33::Image::Format> attachmentFormat, int width, int height)
+MH33::GFX::pCubemapFramebuffer  ResourceFactory::createCubemapFramebuffer(const std::span<const MH33::Image::Format>& attachmentFormat, int width, int height)
 {
 	return nullptr;
 }

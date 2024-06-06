@@ -8,85 +8,13 @@
 #include "System/TestSystem.hpp"
 #include <GFX/GL/GlxContext.hpp>
 #include <GFX/GL/EglContext.hpp>
+#include <MhLib/IoSys/PhysFSIoSystem.hpp>
 #define USE_GLX
 
-/*class BullshitVertexBuffer : public MH33::GFX::UnindexedVertexBuffer {
-private:
-	const MH33::GFX::VertexDescriptor* vertexDescriptor;
-	std::vector<std::byte> buff;
-public:
-	~BullshitVertexBuffer() {
-		std::cout << "Destructed." << std::endl;
-	}
-	BullshitVertexBuffer(const MH33::GFX::VertexDescriptor* vertexDescriptor) : vertexDescriptor(vertexDescriptor) {
-		std::cout << "Constructed without arguments." << std::endl;
-	}
-	BullshitVertexBuffer(const MH33::GFX::VertexDescriptor* vertexDescriptor, size_t size) : vertexDescriptor(vertexDescriptor), buff(size) {
-		std::cout << "Constructed with a size of " << size << std::endl;
-	}
-	const MH33::GFX::VertexDescriptor* getVertexDescriptor() const override {
-		return vertexDescriptor;
-	}
-	void bind() const override
-	{
-	}
-	void unbind() const override
-	{
-	}
-	void initializeData(const std::span<const std::byte> &data) override
-	{
-		buff.resize(data.size());
-		std::memcpy(buff.data(), data.data(), data.size() );
-	}
-	void getData(void *data) const override
-	{
-		std::memcpy(data,buff.data(),buff.size() );
-	}
-	size_t getDataSize() const override
-	{
-		return buff.size();
-	}
-	void ensureDataSize(size_t size) override
-	{
-		if(buff.size() > size) buff.resize(size);
-	}
-	void setData(const AccessorFunc &fun, bool needsToRead) override
-	{
-		(void)needsToRead;
-		fun(buff);
-	}
-	void setData(const std::span<const std::byte> &data, size_t offset) override
-	{
-		std::memcpy(&buff[offset],data.data(),data.size());
-	}
-	void getData(const ConstAccessorFunc &fun) const override
-	{
-		fun(buff);
-	}
-
-	MH33::GFX::Handle getNativeHandle() override
-	{
-		return { .ptr = buff.data() } ;
-	}
-	MH33::GFX::ConstHandle getNativeHandle() const override
-	{
-		return { .ptr = buff.data() } ;
-	}
-};*/
-typedef MH33::GFX::TypedVertexBuffer<int> IntVertBuff;
-
-int main() {
-	/*auto buffCreator = [](const MH33::GFX::VertexDescriptor* descriptor, size_t size) { return size ? new BullshitVertexBuffer(descriptor,size) : new BullshitVertexBuffer(descriptor); };
-	auto buffAccessor = [](const std::span<const int>& data) {
-		for(const auto& it : data) {
-			std::cout << it << ' ';
-		}
-		std::cout << std::endl;
-	};
-	int ints[] = {0, 2, 4, 6, 8, 1, 0, 4, 7, 3, 4, 8, 9, 0};
-	IntVertBuff intbuff(buffCreator,nullptr, 0);
-	intbuff.initializeData( ints );
-	intbuff.getData(buffAccessor);*/
+int main(int argc, char *argv[]) {
+	PhysFS::IoSystem::initialize(argv[0]);
+	PhysFS::sIoSystem iosys(new PhysFS::IoSystem());
+	iosys->mount(iosys->getBaseDir(),"/");
 	std::ifstream ifs;
 	ifs.open("hello.ini");
 	IniConfiguration ini(ifs);
@@ -107,7 +35,7 @@ int main() {
 		return new EGL::RenderingContext(syswmi);
 	};
 #endif
-	TestSystem testSys(initializer, ini);
+	TestSystem testSys(iosys,initializer, ini);
 	testSys.run();
 	return 0;
 }

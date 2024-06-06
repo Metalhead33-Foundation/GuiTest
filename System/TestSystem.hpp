@@ -3,15 +3,19 @@
 #include "AppSystem.hpp"
 #include "IniConfiguration.hpp"
 #include <GFX/Abstract/GfxResourceFactory.hpp>
+#include <MhLib/IoSys/MhIoSystem.hpp>
 
 class TestSystem : public AppSystem
 {
 public:
 	typedef std::function<MH33::GFX::pResourceFactory(const SDL_SysWMinfo&)> ResourceFactoryCreator;
 private:
+	MH33::Io::sSystem iosys;
+	MH33::GFX::uUnindexedVertexBuffer triangleVbo;
+	MH33::GFX::uPipeline trianglePipeline;
 	MH33::GFX::uResourceFactory gfx;
 public:
-	TestSystem(const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
+	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	void render(float deltaTime) override;
 	void update(float deltaTime) override;
 	void handleDisplayEvent(const SDL_DisplayEvent &ev) override;
