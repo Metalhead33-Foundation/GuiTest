@@ -54,48 +54,48 @@ extern "C" {
 
 #ifndef GLAD_PLATFORM_WIN32
   #if defined(_WIN32) || defined(__WIN32__) || defined(WIN32) || defined(__MINGW32__)
-    #define GLAD_PLATFORM_WIN32 1
+	#define GLAD_PLATFORM_WIN32 1
   #else
-    #define GLAD_PLATFORM_WIN32 0
+	#define GLAD_PLATFORM_WIN32 0
   #endif
 #endif
 
 #ifndef GLAD_PLATFORM_APPLE
   #ifdef __APPLE__
-    #define GLAD_PLATFORM_APPLE 1
+	#define GLAD_PLATFORM_APPLE 1
   #else
-    #define GLAD_PLATFORM_APPLE 0
+	#define GLAD_PLATFORM_APPLE 0
   #endif
 #endif
 
 #ifndef GLAD_PLATFORM_EMSCRIPTEN
   #ifdef __EMSCRIPTEN__
-    #define GLAD_PLATFORM_EMSCRIPTEN 1
+	#define GLAD_PLATFORM_EMSCRIPTEN 1
   #else
-    #define GLAD_PLATFORM_EMSCRIPTEN 0
+	#define GLAD_PLATFORM_EMSCRIPTEN 0
   #endif
 #endif
 
 #ifndef GLAD_PLATFORM_UWP
   #if defined(_MSC_VER) && !defined(GLAD_INTERNAL_HAVE_WINAPIFAMILY)
-    #ifdef __has_include
-      #if __has_include(<winapifamily.h>)
-        #define GLAD_INTERNAL_HAVE_WINAPIFAMILY 1
-      #endif
-    #elif _MSC_VER >= 1700 && !_USING_V110_SDK71_
-      #define GLAD_INTERNAL_HAVE_WINAPIFAMILY 1
-    #endif
+	#ifdef __has_include
+	  #if __has_include(<winapifamily.h>)
+		#define GLAD_INTERNAL_HAVE_WINAPIFAMILY 1
+	  #endif
+	#elif _MSC_VER >= 1700 && !_USING_V110_SDK71_
+	  #define GLAD_INTERNAL_HAVE_WINAPIFAMILY 1
+	#endif
   #endif
 
   #ifdef GLAD_INTERNAL_HAVE_WINAPIFAMILY
-    #include <winapifamily.h>
-    #if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP) && WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
-      #define GLAD_PLATFORM_UWP 1
-    #endif
+	#include <winapifamily.h>
+	#if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP) && WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
+	  #define GLAD_PLATFORM_UWP 1
+	#endif
   #endif
 
   #ifndef GLAD_PLATFORM_UWP
-    #define GLAD_PLATFORM_UWP 0
+	#define GLAD_PLATFORM_UWP 0
   #endif
 #endif
 
@@ -109,27 +109,27 @@ extern "C" {
 
 #ifndef GLAD_API_CALL
   #if defined(GLAD_API_CALL_EXPORT)
-    #if GLAD_PLATFORM_WIN32 || defined(__CYGWIN__)
-      #if defined(GLAD_API_CALL_EXPORT_BUILD)
-        #if defined(__GNUC__)
-          #define GLAD_API_CALL __attribute__ ((dllexport)) extern
-        #else
-          #define GLAD_API_CALL __declspec(dllexport) extern
-        #endif
-      #else
-        #if defined(__GNUC__)
-          #define GLAD_API_CALL __attribute__ ((dllimport)) extern
-        #else
-          #define GLAD_API_CALL __declspec(dllimport) extern
-        #endif
-      #endif
-    #elif defined(__GNUC__) && defined(GLAD_API_CALL_EXPORT_BUILD)
-      #define GLAD_API_CALL __attribute__ ((visibility ("default"))) extern
-    #else
-      #define GLAD_API_CALL extern
-    #endif
+	#if GLAD_PLATFORM_WIN32 || defined(__CYGWIN__)
+	  #if defined(GLAD_API_CALL_EXPORT_BUILD)
+		#if defined(__GNUC__)
+		  #define GLAD_API_CALL __attribute__ ((dllexport)) extern
+		#else
+		  #define GLAD_API_CALL __declspec(dllexport) extern
+		#endif
+	  #else
+		#if defined(__GNUC__)
+		  #define GLAD_API_CALL __attribute__ ((dllimport)) extern
+		#else
+		  #define GLAD_API_CALL __declspec(dllimport) extern
+		#endif
+	  #endif
+	#elif defined(__GNUC__) && defined(GLAD_API_CALL_EXPORT_BUILD)
+	  #define GLAD_API_CALL __attribute__ ((visibility ("default"))) extern
+	#else
+	  #define GLAD_API_CALL extern
+	#endif
   #else
-    #define GLAD_API_CALL extern
+	#define GLAD_API_CALL extern
   #endif
 #endif
 
@@ -187,11 +187,14 @@ typedef void (*GLADpostcallback)(void *ret, const char *name, GLADapiproc apipro
 #define GLX_COLOR_INDEX_BIT 0x00000002
 #define GLX_COLOR_INDEX_TYPE 0x8015
 #define GLX_CONFIG_CAVEAT 0x20
+#define GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+#define GLX_CONTEXT_CORE_PROFILE_BIT_ARB 0x00000001
 #define GLX_CONTEXT_DEBUG_BIT_ARB 0x00000001
 #define GLX_CONTEXT_FLAGS_ARB 0x2094
 #define GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB 0x00000002
 #define GLX_CONTEXT_MAJOR_VERSION_ARB 0x2091
 #define GLX_CONTEXT_MINOR_VERSION_ARB 0x2092
+#define GLX_CONTEXT_PROFILE_MASK_ARB 0x9126
 #define GLX_DAMAGED 0x8020
 #define GLX_DEPTH_BUFFER_BIT 0x00000020
 #define GLX_DEPTH_SIZE 12
@@ -230,8 +233,6 @@ typedef void (*GLADpostcallback)(void *ret, const char *name, GLADapiproc apipro
 #define GLX_RGBA 4
 #define GLX_RGBA_BIT 0x00000001
 #define GLX_RGBA_TYPE 0x8014
-#define GLX_SAMPLES 100001
-#define GLX_SAMPLE_BUFFERS 100000
 #define GLX_SAVED 0x8021
 #define GLX_SCREEN 0x800C
 #define GLX_SLOW_CONFIG 0x8001
@@ -349,75 +350,75 @@ typedef XID GLXFBConfigIDSGIX;
 typedef struct __GLXFBConfigRec *GLXFBConfigSGIX;
 typedef XID GLXPbufferSGIX;
 typedef struct {
-    int event_type;             /* GLX_DAMAGED or GLX_SAVED */
-    int draw_type;              /* GLX_WINDOW or GLX_PBUFFER */
-    unsigned long serial;       /* # of last request processed by server */
-    Bool send_event;            /* true if this came for SendEvent request */
-    Display *display;           /* display the event was read from */
-    GLXDrawable drawable;       /* XID of Drawable */
-    unsigned int buffer_mask;   /* mask indicating which buffers are affected */
-    unsigned int aux_buffer;    /* which aux buffer was affected */
-    int x, y;
-    int width, height;
-    int count;                  /* if nonzero, at least this many more */
+	int event_type;             /* GLX_DAMAGED or GLX_SAVED */
+	int draw_type;              /* GLX_WINDOW or GLX_PBUFFER */
+	unsigned long serial;       /* # of last request processed by server */
+	Bool send_event;            /* true if this came for SendEvent request */
+	Display *display;           /* display the event was read from */
+	GLXDrawable drawable;       /* XID of Drawable */
+	unsigned int buffer_mask;   /* mask indicating which buffers are affected */
+	unsigned int aux_buffer;    /* which aux buffer was affected */
+	int x, y;
+	int width, height;
+	int count;                  /* if nonzero, at least this many more */
 } GLXPbufferClobberEvent;
 typedef struct {
-    int type;
-    unsigned long serial;       /* # of last request processed by server */
-    Bool send_event;            /* true if this came from a SendEvent request */
-    Display *display;           /* Display the event was read from */
-    GLXDrawable drawable;       /* drawable on which event was requested in event mask */
-    int event_type;
-    int64_t ust;
-    int64_t msc;
-    int64_t sbc;
+	int type;
+	unsigned long serial;       /* # of last request processed by server */
+	Bool send_event;            /* true if this came from a SendEvent request */
+	Display *display;           /* Display the event was read from */
+	GLXDrawable drawable;       /* drawable on which event was requested in event mask */
+	int event_type;
+	int64_t ust;
+	int64_t msc;
+	int64_t sbc;
 } GLXBufferSwapComplete;
 typedef union __GLXEvent {
-    GLXPbufferClobberEvent glxpbufferclobber;
-    GLXBufferSwapComplete glxbufferswapcomplete;
-    long pad[24];
+	GLXPbufferClobberEvent glxpbufferclobber;
+	GLXBufferSwapComplete glxbufferswapcomplete;
+	long pad[24];
 } GLXEvent;
 typedef struct {
-    int type;
-    unsigned long serial;
-    Bool send_event;
-    Display *display;
-    int extension;
-    int evtype;
-    GLXDrawable window;
-    Bool stereo_tree;
+	int type;
+	unsigned long serial;
+	Bool send_event;
+	Display *display;
+	int extension;
+	int evtype;
+	GLXDrawable window;
+	Bool stereo_tree;
 } GLXStereoNotifyEventEXT;
 typedef struct {
-    int type;
-    unsigned long serial;   /* # of last request processed by server */
-    Bool send_event;        /* true if this came for SendEvent request */
-    Display *display;       /* display the event was read from */
-    GLXDrawable drawable;   /* i.d. of Drawable */
-    int event_type;         /* GLX_DAMAGED_SGIX or GLX_SAVED_SGIX */
-    int draw_type;          /* GLX_WINDOW_SGIX or GLX_PBUFFER_SGIX */
-    unsigned int mask;      /* mask indicating which buffers are affected*/
-    int x, y;
-    int width, height;
-    int count;              /* if nonzero, at least this many more */
+	int type;
+	unsigned long serial;   /* # of last request processed by server */
+	Bool send_event;        /* true if this came for SendEvent request */
+	Display *display;       /* display the event was read from */
+	GLXDrawable drawable;   /* i.d. of Drawable */
+	int event_type;         /* GLX_DAMAGED_SGIX or GLX_SAVED_SGIX */
+	int draw_type;          /* GLX_WINDOW_SGIX or GLX_PBUFFER_SGIX */
+	unsigned int mask;      /* mask indicating which buffers are affected*/
+	int x, y;
+	int width, height;
+	int count;              /* if nonzero, at least this many more */
 } GLXBufferClobberEventSGIX;
 typedef struct {
-    char    pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
-    int     networkId;
+	char    pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
+	int     networkId;
 } GLXHyperpipeNetworkSGIX;
 typedef struct {
-    char    pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
-    int     channel;
-    unsigned int participationType;
-    int     timeSlice;
+	char    pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
+	int     channel;
+	unsigned int participationType;
+	int     timeSlice;
 } GLXHyperpipeConfigSGIX;
 typedef struct {
-    char pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
-    int srcXOrigin, srcYOrigin, srcWidth, srcHeight;
-    int destXOrigin, destYOrigin, destWidth, destHeight;
+	char pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
+	int srcXOrigin, srcYOrigin, srcWidth, srcHeight;
+	int destXOrigin, destYOrigin, destWidth, destHeight;
 } GLXPipeRect;
 typedef struct {
-    char pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
-    int XOrigin, YOrigin, maxHeight, maxWidth;
+	char pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
+	int XOrigin, YOrigin, maxHeight, maxWidth;
 } GLXPipeRectLimits;
 
 
@@ -429,10 +430,10 @@ GLAD_API_CALL int GLAD_GLX_VERSION_1_1;
 GLAD_API_CALL int GLAD_GLX_VERSION_1_2;
 #define GLX_VERSION_1_3 1
 GLAD_API_CALL int GLAD_GLX_VERSION_1_3;
-#define GLX_VERSION_1_4 1
-GLAD_API_CALL int GLAD_GLX_VERSION_1_4;
 #define GLX_ARB_create_context 1
 GLAD_API_CALL int GLAD_GLX_ARB_create_context;
+#define GLX_ARB_create_context_profile 1
+GLAD_API_CALL int GLAD_GLX_ARB_create_context_profile;
 
 
 typedef GLXFBConfig * (GLAD_API_PTR *PFNGLXCHOOSEFBCONFIGPROC)(Display * dpy, int screen, const int * attrib_list, int * nelements);
@@ -458,7 +459,6 @@ typedef GLXDrawable (GLAD_API_PTR *PFNGLXGETCURRENTDRAWABLEPROC)(void);
 typedef GLXDrawable (GLAD_API_PTR *PFNGLXGETCURRENTREADDRAWABLEPROC)(void);
 typedef int (GLAD_API_PTR *PFNGLXGETFBCONFIGATTRIBPROC)(Display * dpy, GLXFBConfig config, int attribute, int * value);
 typedef GLXFBConfig * (GLAD_API_PTR *PFNGLXGETFBCONFIGSPROC)(Display * dpy, int screen, int * nelements);
-typedef __GLXextFuncPtr (GLAD_API_PTR *PFNGLXGETPROCADDRESSPROC)(const GLubyte * procName);
 typedef void (GLAD_API_PTR *PFNGLXGETSELECTEDEVENTPROC)(Display * dpy, GLXDrawable draw, unsigned long * event_mask);
 typedef XVisualInfo * (GLAD_API_PTR *PFNGLXGETVISUALFROMFBCONFIGPROC)(Display * dpy, GLXFBConfig config);
 typedef Bool (GLAD_API_PTR *PFNGLXISDIRECTPROC)(Display * dpy, GLXContext ctx);
@@ -522,8 +522,6 @@ GLAD_API_CALL PFNGLXGETFBCONFIGATTRIBPROC glad_glXGetFBConfigAttrib;
 #define glXGetFBConfigAttrib glad_glXGetFBConfigAttrib
 GLAD_API_CALL PFNGLXGETFBCONFIGSPROC glad_glXGetFBConfigs;
 #define glXGetFBConfigs glad_glXGetFBConfigs
-GLAD_API_CALL PFNGLXGETPROCADDRESSPROC glad_glXGetProcAddress;
-#define glXGetProcAddress glad_glXGetProcAddress
 GLAD_API_CALL PFNGLXGETSELECTEDEVENTPROC glad_glXGetSelectedEvent;
 #define glXGetSelectedEvent glad_glXGetSelectedEvent
 GLAD_API_CALL PFNGLXGETVISUALFROMFBCONFIGPROC glad_glXGetVisualFromFBConfig;

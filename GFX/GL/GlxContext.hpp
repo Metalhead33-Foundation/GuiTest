@@ -16,7 +16,6 @@ private:
 	GLXFBConfig* fbc;
 	int fbcount;
 	GLXContext ctx;
-	const GLXFBConfig& getBestFbc() const;
 public:
 	Context(const SDL_SysWMinfo& syswminfo, int screen = 0);
 	~Context();

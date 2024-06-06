@@ -8,6 +8,7 @@
 #include "System/TestSystem.hpp"
 #include <GFX/GL/GlxContext.hpp>
 #include <GFX/GL/EglContext.hpp>
+#define USE_GLX
 
 /*class BullshitVertexBuffer : public MH33::GFX::UnindexedVertexBuffer {
 private:
