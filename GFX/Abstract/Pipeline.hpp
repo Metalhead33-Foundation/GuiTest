@@ -33,10 +33,12 @@ enum class ShaderModuleType {
 struct ShaderModuleCreateInfo {
 	ShaderModuleType shaderType;
 	std::vector<std::byte> source;
+	bool isBinary;
 };
 struct ShaderModuleCreateInfoRef {
 	ShaderModuleType shaderType;
 	std::span<std::byte> source;
+	bool isBinary;
 };
 
 DEFINE_CLASS(Pipeline)

@@ -16,6 +16,7 @@ Pipeline::Pipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfo>& cre
 	if(!createInfo.size()) throw std::runtime_error("No shader source files!");
 	if(createInfo.size() > 16) throw std::runtime_error("Too many shader stages!");
 	std::vector<ShaderModule, GlShaderModuleAllocator> modules;
+	modules.reserve(16);
 	for(const auto& it : createInfo) {
 		modules.push_back(ShaderModule(it));
 	}

@@ -10,6 +10,7 @@ UnindexedVertexBuffer::UnindexedVertexBuffer(GLenum usage, const MH33::GFX::Vert
 	glGenVertexArrays(1,&vaoIndex);
 	glBindVertexArray(vaoIndex);
 	glBindBuffer(GL_ARRAY_BUFFER,vboIndex);
+	if(size) glBufferData(GL_ARRAY_BUFFER, size, 0, usage);
 	glProcessVertexDescriptor(*vertexDescriptor);
 }
 
@@ -140,7 +141,9 @@ IndexedVertexBuffer::IndexedVertexBuffer(GLenum usage, const MH33::GFX::VertexDe
 	glGenBuffers(1,&eboIndex);
 	glGenVertexArrays(1,&vaoIndex);
 	glBindBuffer(GL_ARRAY_BUFFER,vboIndex);
+	if(size) glBufferData(GL_ARRAY_BUFFER, size, 0, usage);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,eboIndex);
+	if(indexCount) glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexCount * sizeof(uint32_t), 0, usage);
 	glBindVertexArray(vaoIndex);
 	glProcessVertexDescriptor(*vertexDescriptor);
 }

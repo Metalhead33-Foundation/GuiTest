@@ -281,7 +281,7 @@ void Font::renderText(const std::u32string& text, TextRenderState& state)
 		const float middleY = (y-state.maxHeight*0.4f);
 		queueLineForRendering( glm::fvec2(state.currentOffset.x,-1.0f *middleY), glm::fvec2(x,-1.0f *middleY) );
 	}
-	flushQueue();
+	flushQueue(state);
 	state.currentOffset.x = x;
 	state.currentOffset.y = y;
 }

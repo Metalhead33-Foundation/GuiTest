@@ -31,6 +31,25 @@ public:
 	virtual void setData(const AccessorFunc& fun, bool needsToRead, size_t offset = 0, size_t length = 0) = 0;
 	virtual void setData(const std::span<const std::byte>& data, size_t offset) = 0;
 	virtual void getData(const ConstAccessorFunc& fun, size_t offset = 0, size_t length = 0) const = 0;
+	// Typed Data Access Wrappers
+	template <typename T> inline void initializeDataT(const std::span<const T>& data) {
+		initializeData(std::span<const std::byte>(reinterpret_cast<const std::byte*>(data.data(),data.size_bytes())));
+	}
+	template <typename T> inline void setDataT(const std::span<const T>& data, size_t offset = 0) {
+		setData(std::span<const std::byte>(reinterpret_cast<const std::byte*>(data.data()),data.size_bytes()),offset * sizeof(T));
+	}
+	template <typename T> inline void setDataT(const std::function<void( std::span<T>& data)>& fun, bool needsToRead, size_t offset = 0, size_t length = 0) {
+		setData([&fun](const std::span<std::byte>& data) {
+			std::span<T> dataspan(reinterpret_cast<T*>(data.data()),data.size() / sizeof(T));
+			fun(dataspan);
+		}, needsToRead, offset * sizeof(T), length * sizeof(T));
+	}
+	template <typename T> inline void getDataT(const std::function<void(const std::span<const T>& data)>& fun, size_t offset = 0, size_t length = 0) {
+		getData([&fun](const std::span<const std::byte>& data) {
+			const std::span<const T> dataspan(reinterpret_cast<const T*>(data.data()),data.size() / sizeof(T));
+			fun(dataspan);
+		}, offset, length);
+	}
 };
 
 DEFINE_CLASS(IndexedVertexBuffer)
@@ -64,8 +83,27 @@ public:
 	virtual size_t getIndexCount() const = 0;
 	virtual void ensureIndexCount(size_t size) = 0;
 	virtual void setIndices(const IndexAccessorFunc& fun, bool needsToRead, size_t offset = 0, size_t length = 0) = 0;
-	virtual void setIndices(const std::span<const uint32_t>& indices, size_t offset) = 0;
+	virtual void setIndices(const std::span<const uint32_t>& indices, size_t offset = 0) = 0;
 	virtual void getIndices(const IndexConstAccessorFunc& fun, size_t offset = 0, size_t length = 0) const = 0;
+	// Typed Data Access Wrappers
+	template <typename T> inline void initializeDataT(const std::span<const T>& data) {
+		initializeData(std::span<const std::byte>(reinterpret_cast<const std::byte*>(data.data(),data.size_bytes())));
+	}
+	template <typename T> inline void setDataT(const std::span<const T>& data, size_t offset = 0) {
+		setData(std::span<const std::byte>(reinterpret_cast<const std::byte*>(data.data()),data.size_bytes()),offset * sizeof(T));
+	}
+	template <typename T> inline void setDataT(const std::function<void( std::span<T>& data)>& fun, bool needsToRead, size_t offset = 0, size_t length = 0) {
+		setData([&fun](const std::span<std::byte>& data) {
+			std::span<T> dataspan(reinterpret_cast<T*>(data.data()),data.size() / sizeof(T));
+			fun(dataspan);
+		}, needsToRead, offset * sizeof(T), length * sizeof(T));
+	}
+	template <typename T> inline void getDataT(const std::function<void(const std::span<const T>& data)>& fun, size_t offset = 0, size_t length = 0) {
+		getData([&fun](const std::span<const std::byte>& data) {
+			const std::span<const T> dataspan(reinterpret_cast<const T*>(data.data()),data.size() / sizeof(T));
+			fun(dataspan);
+		}, offset, length);
+	}
 };
 
 }

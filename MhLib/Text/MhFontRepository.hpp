@@ -18,7 +18,7 @@ private:
 	sFreeTypeSystem sys;
 	MH33::Io::sSystem iosys;
 protected:
-	virtual sFont createFont(const MH33::Io::sDevice& iodev, const sFreeTypeSystem& system, unsigned fontSize, bool bold) const = 0;
+	virtual sFont createFont(Io::uDevice&& iodev, const sFreeTypeSystem& system, unsigned fontSize, bool bold) = 0;
 public:
 	FontRepository(const MH33::Io::sSystem& iosys);
 	FontRepository(MH33::Io::sSystem&& iosys);

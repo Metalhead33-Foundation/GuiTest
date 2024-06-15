@@ -1,4 +1,4 @@
-#ifndef RESOURCEFACTORY_HPP
+﻿#ifndef RESOURCEFACTORY_HPP
 #define RESOURCEFACTORY_HPP
 #include <GFX/Abstract/GfxResourceFactory.hpp>
 #include <GFX/GL/GlContext.hpp>
@@ -7,6 +7,8 @@ namespace GL {
 class ResourceFactory : public MH33::GFX::ResourceFactory
 {
 public:
+	ResourceFactory();
+	~ResourceFactory();
 	virtual Context& getContext() = 0;
 	MH33::GFX::pPipeline createPipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfo>& createInfo, const MH33::GFX::VertexDescriptor* vertexDescriptor) override;
 	MH33::GFX::pPipeline createPipeline(const std::span<const MH33::GFX::ShaderModuleCreateInfoRef>& createInfo, const MH33::GFX::VertexDescriptor* vertexDescriptor) override;
@@ -28,6 +30,9 @@ public:
 	void makeCurrent() override;
 	void beginFrame() override;
 	void endFrame() override;
+	bool supportsBinaryShaders() const override; // Only really relevant for OpenGL
+	void prepareShaderModuleFor(MH33::GFX::ShaderModuleCreateInfo& output, const std::span<const std::byte>& input) override;
+	void prepareShaderModuleFor(std::span<MH33::GFX::ShaderModuleCreateInfo>& output, const std::span<const std::vector<std::byte>>& input) override;
 };
 }
 

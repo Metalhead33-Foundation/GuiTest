@@ -42,8 +42,13 @@ ShaderModule::ShaderModule(const MH33::GFX::ShaderModuleCreateInfo& createInfo)
 		default: shaderType = GL_INVALID_ENUM;
 	}
 	shaderModule = glCreateShader(shaderType);
-	glShaderSource(shaderModule,1,&sourceCode,&sourceCodeLength);
-	glCompileShader(shaderModule);
+	if(createInfo.isBinary) {
+		glShaderBinary(1,&shaderModule,GL_SHADER_BINARY_FORMAT_SPIR_V_ARB,sourceCode,sourceCodeLength);
+		glSpecializeShaderARB(shaderModule, "main", 0, 0, 0);
+	} {
+		glShaderSource(shaderModule,1,&sourceCode,&sourceCodeLength);
+		glCompileShader(shaderModule);
+	}
 	GLint success;
 	glGetShaderiv(shaderModule, GL_COMPILE_STATUS, &success);
 	if(!success) {

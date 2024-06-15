@@ -57,7 +57,7 @@ protected:
 											const glm::ivec2& intendedCorner) = 0;
 	virtual void queueLineForRendering(const glm::fvec2& endA, const glm::fvec2& endB) = 0;
 	virtual void queueGlyphForRendering(const Character& character, const glm::fvec2& pos1, const glm::fvec2& pos2, float xdiff = 0.0f) = 0;
-	virtual void flushQueue() = 0;
+	virtual void flushQueue(TextRenderState& state) = 0;
 public:
 	virtual ~Font() = default;
 	Font(MH33::Io::uDevice&& iodev, const sFreeTypeSystem& system, unsigned fontSize = 48, bool bold = false, bool isSdf = false);
