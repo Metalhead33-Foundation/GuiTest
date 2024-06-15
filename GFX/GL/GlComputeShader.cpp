@@ -80,6 +80,7 @@ unsigned ComputeShader::getUniformBlockIndex(const std::string& uniformName) con
 
 void ComputeShader::setUniform(unsigned bindingPoint, MH33::GFX::StorageBuffer& buffer, uint8_t unit) const
 {
+	buffer.bindBase(unit);
 	glUniformBlockBinding(shaderProgram, bindingPoint, unit);
 }
 

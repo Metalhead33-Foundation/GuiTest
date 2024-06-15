@@ -1,8 +1,15 @@
 #include "TestSystem.hpp"
+#include <MhLib/Media/Image/MhPNG.hpp>
 
 struct PrimitiveColoredGayTriangle {
 	glm::vec3 POS;
 	glm::vec4 CLR;
+	static const MH33::GFX::AttributeDescriptor attributes[];
+	static const MH33::GFX::VertexDescriptor vertexDescriptor;
+};
+struct WidgetVertex {
+	glm::vec2 aPos;
+	glm::vec2 aTexCoords;
 	static const MH33::GFX::AttributeDescriptor attributes[];
 	static const MH33::GFX::VertexDescriptor vertexDescriptor;
 };
@@ -11,17 +18,45 @@ const MH33::GFX::AttributeDescriptor PrimitiveColoredGayTriangle::attributes[] =
 	{ .SemanticName = "POS", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x3, .offset = offsetof(PrimitiveColoredGayTriangle,POS) },
 	{ .SemanticName = "CLR", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x4, .offset = offsetof(PrimitiveColoredGayTriangle,CLR) }
 };
+const MH33::GFX::AttributeDescriptor WidgetVertex::attributes[] = {
+	{ .SemanticName = "POS", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x2, .offset = offsetof(WidgetVertex,aPos) },
+	{ .SemanticName = "TEX", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x2, .offset = offsetof(WidgetVertex,aTexCoords) }
+};
 
 const MH33::GFX::VertexDescriptor PrimitiveColoredGayTriangle::vertexDescriptor = {
 	.stride = sizeof(PrimitiveColoredGayTriangle),
 	.descriptors = attributes
 };
 
+const MH33::GFX::VertexDescriptor WidgetVertex::vertexDescriptor = {
+	.stride = sizeof(WidgetVertex),
+	.descriptors = attributes
+};
+
 static const PrimitiveColoredGayTriangle MyTriangleUwu[] = {
 	{ .POS = { -0.75f, -0.75f, 0.0f }, .CLR = { 1.0f, 0.0f, 0.0f, 1.0f } },
 	{ .POS = { 0.0f, 0.75f, 0.0f }, .CLR = { 0.0f, 1.0f, 0.0f, 1.0f } },
-	{ .POS = { 0.75f, -0.75f, 0.0f }, .CLR = { 0.0f, 0.0f, 1.0f, 0.5f } }
+	{ .POS = { 0.75f, -0.75f, 0.0f }, .CLR = { 0.0f, 0.0f, 1.0f, 0.1f } }
 };
+
+static const WidgetVertex ScreenQuad[] = {
+	{ .aPos = { -1.0f, 1.0f }, .aTexCoords = { 0.0f, 0.0f } },
+	{ .aPos = { -1.0f, -1.00f }, .aTexCoords = { 0.0f, 1.0f } },
+	{ .aPos = { 1.0f, 1.0f }, .aTexCoords = { 1.0f, 0.0f } },
+	{ .aPos = { 1.0f, -1.0f }, .aTexCoords = { 1.0f, 1.0f } }
+};
+
+static const uint32_t ScreenQuadIndices[] = {
+	0, 1, 2, 1, 2, 3
+};
+
+struct STD140 UniformForCompute {
+	int32_t width, height;
+	int32_t padding[2];
+};
+/*struct STD140 UniformForCompute {
+	int32_t width, pad0, pad2, pad3, height, pad4, pad5, pad6, pad7;
+};*/
 
 TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration &conf)
 	: AppSystem(
@@ -32,17 +67,85 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		(conf["Video"].getValueOrDefault("bFullscreen","0")->second.value.i_bool) ? SDL_WINDOW_FULLSCREEN : 0
 	), iosys(iosys), triangleVbo(nullptr), trianglePipeline(nullptr), gfx(gfxCreator(syswmi))
 {
+	screenQuad = MH33::GFX::uIndexedVertexBuffer(gfx->createIndexedVertexBuffer(MH33::GFX::VertexBufferUsageClass::Static,&WidgetVertex::vertexDescriptor, 0, 0));
+	screenQuad->bindData();
+	screenQuad->initializeData( std::span<const std::byte>(reinterpret_cast<const std::byte*>(ScreenQuad), sizeof (WidgetVertex) * 4 ) );
+	screenQuad->bindIndices();
+	screenQuad->initializeIndices(ScreenQuadIndices);
 	triangleVbo = MH33::GFX::uUnindexedVertexBuffer(gfx->createUnindexedVertexBuffer(MH33::GFX::VertexBufferUsageClass::Static,&PrimitiveColoredGayTriangle::vertexDescriptor, 0));
 	triangleVbo->bind();
 	triangleVbo->initializeData(std::span<const std::byte>( reinterpret_cast<const std::byte*>(MyTriangleUwu), sizeof (PrimitiveColoredGayTriangle) * 3 ) );
-	MH33::GFX::ShaderModuleCreateInfo moduleCreateInfos[2];
-	moduleCreateInfos[0].shaderType = MH33::GFX::ShaderModuleType::VERTEX_SHADER;
-	moduleCreateInfos[1].shaderType = MH33::GFX::ShaderModuleType::PIXEL_SHADER;
-	MH33::Io::uDevice f1(iosys->open("triang.vert",MH33::Io::Mode::READ));
-	MH33::Io::uDevice f2(iosys->open("triang.frag",MH33::Io::Mode::READ));
-	moduleCreateInfos[0].source = f1->readAll();
-	moduleCreateInfos[1].source = f2->readAll();
-	trianglePipeline = MH33::GFX::uPipeline(gfx->createPipeline(moduleCreateInfos,&PrimitiveColoredGayTriangle::vertexDescriptor));
+	{
+		MH33::GFX::ShaderModuleCreateInfo moduleCreateInfos[2];
+		moduleCreateInfos[0].shaderType = MH33::GFX::ShaderModuleType::VERTEX_SHADER;
+		moduleCreateInfos[1].shaderType = MH33::GFX::ShaderModuleType::PIXEL_SHADER;
+		MH33::Io::uDevice f1(iosys->open("triang.vert",MH33::Io::Mode::READ));
+		MH33::Io::uDevice f2(iosys->open("triang.frag",MH33::Io::Mode::READ));
+		moduleCreateInfos[0].source = f1->readAll();
+		moduleCreateInfos[1].source = f2->readAll();
+		trianglePipeline = MH33::GFX::uPipeline(gfx->createPipeline(moduleCreateInfos,&PrimitiveColoredGayTriangle::vertexDescriptor));
+	}
+	{
+		MH33::GFX::ShaderModuleCreateInfo moduleCreateInfos[2];
+		moduleCreateInfos[0].shaderType = MH33::GFX::ShaderModuleType::VERTEX_SHADER;
+		moduleCreateInfos[1].shaderType = MH33::GFX::ShaderModuleType::PIXEL_SHADER;
+		MH33::Io::uDevice f1(iosys->open("screen.vs",MH33::Io::Mode::READ));
+		MH33::Io::uDevice f2(iosys->open("sdftext.fs",MH33::Io::Mode::READ));
+		moduleCreateInfos[0].source = f1->readAll();
+		moduleCreateInfos[1].source = f2->readAll();
+		screenPipeline = MH33::GFX::uPipeline(gfx->createPipeline(moduleCreateInfos,&WidgetVertex::vertexDescriptor));
+	}
+	{
+		MH33::GFX::ShaderModuleCreateInfo moduleCreateInfos[1];
+		moduleCreateInfos[0].shaderType = MH33::GFX::ShaderModuleType::COMPUTE_SHADER;
+		MH33::Image::DecodeTarget decodeTarget;
+		MH33::Io::uDevice f1(iosys->open("letterA.png",MH33::Io::Mode::READ));
+		MH33::Io::uDevice f2(iosys->open("sdf1.glsl",MH33::Io::Mode::READ));
+		moduleCreateInfos[0].source = f2->readAll();
+		MH33::Image::PNG::decode(*f1,decodeTarget);
+		tex1 = MH33::GFX::uTexture2D(gfx->createTexture2D(decodeTarget));
+		tex2 = MH33::GFX::uTexture2D(gfx->createTexture2D(decodeTarget.format, tex1->getWidth(), tex1->getHeight()));
+		MH33::GFX::uComputeShader compshader(gfx->createComputeShader(moduleCreateInfos));
+		MH33::GFX::uStorageBuffer uniform(gfx->createStorageBuffer(MH33::GFX::StorageBufferType::UNIFORM_BUFFER,sizeof(UniformForCompute)));
+		UniformForCompute uniform1 = { .width = static_cast<int32_t>(decodeTarget.frames[0].width), .height = static_cast<int32_t>(decodeTarget.frames[0].height) };
+		uniform->bind();
+		uniform->initializeData(std::span<std::byte>(reinterpret_cast<std::byte*>(&uniform1), sizeof(UniformForCompute)));
+		compshader->bind();
+		compshader->setUniform(compshader->getBindingPoint("fontTexture"), *tex1, 0, MH33::GFX::ImageBindingType::READ_ONLY);
+		compshader->setUniform(compshader->getBindingPoint("sdfTexture"), *tex2, 1, MH33::GFX::ImageBindingType::WRITE_ONLY);
+		compshader->setUniform(compshader->getBindingPoint("dimensions"), *uniform, 2);
+		compshader->dispatchCompute(decodeTarget.frames[0].width, decodeTarget.frames[0].height, 1);
+		compshader->waitForFinish();
+	}
+	{
+		MH33::GFX::ShaderModuleCreateInfo moduleCreateInfos[1];
+		moduleCreateInfos[0].shaderType = MH33::GFX::ShaderModuleType::COMPUTE_SHADER;
+		MH33::Io::uDevice f1(iosys->open("gaussian.glsl",MH33::Io::Mode::READ));
+		moduleCreateInfos[0].source = f1->readAll();
+		MH33::GFX::uComputeShader compshader(gfx->createComputeShader(moduleCreateInfos));
+		MH33::GFX::uStorageBuffer uniform(gfx->createStorageBuffer(MH33::GFX::StorageBufferType::UNIFORM_BUFFER,sizeof(UniformForCompute)));
+		UniformForCompute uniform1 = { .width = static_cast<int32_t>(tex1->getWidth()), .height = static_cast<int32_t>(tex1->getHeight()) };
+		uniform->bind();
+		uniform->initializeData(std::span<std::byte>(reinterpret_cast<std::byte*>(&uniform1), sizeof(UniformForCompute)));
+		compshader->bind();
+		compshader->setUniform(compshader->getBindingPoint("inputTexture"), *tex2, 0, MH33::GFX::ImageBindingType::READ_ONLY);
+		compshader->setUniform(compshader->getBindingPoint("outputTexture"), *tex1, 1, MH33::GFX::ImageBindingType::WRITE_ONLY);
+		compshader->setUniform(compshader->getBindingPoint("dimensions"), *uniform, 2);
+		compshader->dispatchCompute(uniform1.width, uniform1.height, 1);
+		compshader->waitForFinish();
+	}
+
+}
+
+TestSystem::~TestSystem()
+{
+	tex1 = nullptr;
+	tex2 = nullptr;
+	screenQuad = nullptr;
+	screenPipeline = nullptr;
+	triangleVbo = nullptr;
+	trianglePipeline = nullptr;
+	gfx = nullptr;
 }
 
 void TestSystem::render(float deltaTime)
@@ -58,8 +161,11 @@ void TestSystem::render(float deltaTime)
 	//Update the surface
 	SDL_UpdateWindowSurface( window.get() );
 	*/
-	trianglePipeline->bind();
-	trianglePipeline->draw(*triangleVbo, MH33::GFX::RenderType::TRIANGLES, 0, 3);
+	screenPipeline->bind();
+	screenPipeline->setUniform(screenPipeline->getBindingPoint("texture_diffuse"),*tex1,0);
+	screenPipeline->draw(*screenQuad, MH33::GFX::RenderType::TRIANGLES);
+	//trianglePipeline->bind();
+	//trianglePipeline->draw(*triangleVbo, MH33::GFX::RenderType::TRIANGLES, 0, 3);
 	gfx->endFrame();
 }
 

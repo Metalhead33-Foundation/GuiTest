@@ -163,4 +163,22 @@ void Pipeline::draw(MH33::GFX::IndexedVertexBuffer& vertices, MH33::GFX::RenderT
 	}
 }
 
+void Pipeline::drawInstanced(uint32_t instances, MH33::GFX::UnindexedVertexBuffer& vertices, MH33::GFX::RenderType geometryType, size_t offset, size_t count)
+{
+	vertices.bind();
+	glDrawArraysInstanced( translateGeometryType(geometryType), offset, count, instances);
+}
+
+void Pipeline::drawInstanced(uint32_t instances, MH33::GFX::IndexedVertexBuffer& vertices, MH33::GFX::RenderType geometryType, size_t count)
+{
+	GLuint mode = translateGeometryType(geometryType);
+	if(mode == GL_INVALID_ENUM) return;
+	vertices.bindData();
+	vertices.bindIndices();
+	if(count) glDrawElementsInstanced(mode, count, GL_UNSIGNED_INT, nullptr, instances);
+	else {
+		if(count) glDrawElementsInstanced(mode, vertices.getIndexCount(), GL_UNSIGNED_INT, nullptr, instances);
+	}
+}
+
 }

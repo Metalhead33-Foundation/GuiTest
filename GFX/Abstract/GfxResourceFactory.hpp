@@ -37,6 +37,7 @@ public:
 					storageClass,vertexDescriptor,elementCount, indexCount
 		);
 	}
+	virtual pTexture2D createTexture2D(TextureFormat format, unsigned width, unsigned height) = 0;
 	virtual pTexture2D createTexture2D(const Image::DecodeTarget& decodeTarget) = 0;
 	virtual pTexture2D createTexture2D(const Image::Image2D& decodeTarget) = 0;
 	virtual pTexture3D createTexture3D(const Image::DecodeTarget& decodeTarget) = 0;

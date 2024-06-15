@@ -27,7 +27,7 @@ enum class ShaderModuleType {
 	TESSELLATION_CONTROL_SHADER,
 	TESSELLATION_EVALUATION_SHADER,
 	PIXEL_SHADER,
-	COMPUTE_sHADER
+	COMPUTE_SHADER
 };
 
 struct ShaderModuleCreateInfo {
@@ -53,6 +53,8 @@ public:
 	virtual void setUniform(unsigned bindingPoint, Cubemap& texture, uint8_t unit) const = 0;
 	virtual void draw(UnindexedVertexBuffer& vertices, RenderType geometryType, size_t offset = 0, size_t count = 0) = 0;
 	virtual void draw(IndexedVertexBuffer& vertices, RenderType geometryType, size_t offset = 0, size_t count = 0) = 0;
+	virtual void drawInstanced(uint32_t instances, UnindexedVertexBuffer& vertices, RenderType geometryType, size_t offset, size_t count) = 0;
+	virtual void drawInstanced(uint32_t instances, IndexedVertexBuffer& vertices, RenderType geometryType, size_t count) = 0;
 };
 
 }

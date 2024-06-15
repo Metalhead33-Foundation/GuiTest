@@ -17,6 +17,7 @@ private:
 	Texture2D& operator=(const Texture2D& cpy) = delete;
 public:
 	Texture2D();
+	Texture2D(MH33::GFX::TextureFormat format, unsigned width, unsigned height);
 	Texture2D(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps = 0);
 	Texture2D(const MH33::Image::Image2D& source, uint8_t wantedMipmaps = 0);
 	~Texture2D();

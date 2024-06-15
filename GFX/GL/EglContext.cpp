@@ -114,6 +114,8 @@ RenderingContext::RenderingContext(const SDL_SysWMinfo& syswminfo)
 	if(!version) {
 		throw std::runtime_error("Failed to load OpenGL!");
 	}
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 RenderingContext::~RenderingContext()

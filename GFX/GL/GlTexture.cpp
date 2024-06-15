@@ -9,6 +9,22 @@ Texture2D::Texture2D()
 	glGenTextures(1,&textureVar);
 }
 
+Texture2D::Texture2D(MH33::GFX::TextureFormat format, unsigned width, unsigned height)
+	: format(format), width(width), height(height), stride(MH33::Image::byteSize(format) * width), widthF(static_cast<float>(width - 1)), widthR(1.0f / static_cast<float>(width - 1)),
+	  heightF(static_cast<float>(height - 1)), heightR(1.0f / static_cast<float>(height - 1))
+{
+	glGenTextures(1,&textureVar);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glBindTexture(GL_TEXTURE_2D,textureVar);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	GLenum internalFormat, nformat, type;
+	prevalidateGlTextureFormat(format, internalFormat, nformat, type);
+	glTexImage2D(GL_TEXTURE_2D,0,internalFormat,width,height,0,nformat,type,nullptr);
+}
+
 Texture2D::Texture2D(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps)
 {
 	glGenTextures(1,&textureVar);
@@ -28,8 +44,13 @@ Texture2D::~Texture2D()
 
 void Texture2D::reinitialize(const MH33::Image::DecodeTarget& source, uint8_t wantedMipmaps)
 {
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	format = source.format;
 	glBindTexture(GL_TEXTURE_2D,textureVar);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glInitializeTexture2D(source,textureVar,wantedMipmaps,width,height,stride);
 	widthF = static_cast<float>(width - 1);
 	widthR = 1.0f / widthF;
@@ -41,6 +62,10 @@ void Texture2D::reinitialize(const MH33::Image::Image2D& source, uint8_t wantedM
 {
 	format = source.getFormat();
 	glBindTexture(GL_TEXTURE_2D,textureVar);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glInitializeTexture2D(source,textureVar,wantedMipmaps,width,height,stride);
 	widthF = static_cast<float>(width - 1);
 	widthR = 1.0f / widthF;

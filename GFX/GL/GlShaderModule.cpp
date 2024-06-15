@@ -37,7 +37,7 @@ ShaderModule::ShaderModule(const MH33::GFX::ShaderModuleCreateInfo& createInfo)
 			shaderType = GL_TESS_EVALUATION_SHADER; break;
 		case MH33::GFX::ShaderModuleType::PIXEL_SHADER:
 			shaderType = GL_FRAGMENT_SHADER; break;
-		case MH33::GFX::ShaderModuleType::COMPUTE_sHADER:
+		case MH33::GFX::ShaderModuleType::COMPUTE_SHADER:
 			shaderType = GL_COMPUTE_SHADER; break;
 		default: shaderType = GL_INVALID_ENUM;
 	}

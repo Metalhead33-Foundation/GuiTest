@@ -113,7 +113,7 @@ GLenum translateToFormat(MH33::GFX::TextureFormat format)
 		default: break;
 	}
 	if(toReturn == GLenum(-1)) {
-		switch (unsigned(format) | unsigned(MH33::GFX::TextureFormat::COLOR_COMPONENT_MASK)) {
+		switch (unsigned(format) & unsigned(MH33::GFX::TextureFormat::COLOR_COMPONENT_MASK)) {
 			case unsigned(MH33::GFX::TextureFormat::ST_GREYSCALE): return GL_RED;
 			case unsigned(MH33::GFX::TextureFormat::ST_RG): return GL_RG;
 			case unsigned(MH33::GFX::TextureFormat::ST_RGB): return GL_RGB;
@@ -143,7 +143,7 @@ GLenum translateToType(MH33::GFX::TextureFormat format)
 		default: break;
 	}
 	if(toReturn == GLenum(-1)) {
-		switch (unsigned(format) | unsigned(MH33::GFX::TextureFormat::COLOR_RESOLUTION_MASK)) {
+		switch (unsigned(format) & unsigned(MH33::GFX::TextureFormat::COLOR_RESOLUTION_MASK)) {
 			case unsigned(MH33::GFX::TextureFormat::SC_UINT8): return  GL_UNSIGNED_BYTE;
 			case unsigned(MH33::GFX::TextureFormat::SC_UINT16): return  GL_UNSIGNED_SHORT;
 			case unsigned(MH33::GFX::TextureFormat::SC_UINT32): return  GL_UNSIGNED_INT;

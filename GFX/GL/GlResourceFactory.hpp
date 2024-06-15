@@ -16,6 +16,7 @@ public:
 	MH33::GFX::pStorageBuffer createStorageBuffer(MH33::GFX::StorageBufferType type, size_t size) override;
 	MH33::GFX::pUnindexedVertexBuffer createUnindexedVertexBuffer(MH33::GFX::VertexBufferUsageClass storageClass, const MH33::GFX::VertexDescriptor* vertexDescriptor, size_t sizeInBytes) override;
 	MH33::GFX::pIndexedVertexBuffer createIndexedVertexBuffer(MH33::GFX::VertexBufferUsageClass storageClass, const MH33::GFX::VertexDescriptor* vertexDescriptor, size_t sizeInBytes, size_t indexCount) override;
+	MH33::GFX::pTexture2D createTexture2D(MH33::GFX::TextureFormat format, unsigned width, unsigned height) override;
 	MH33::GFX::pTexture2D createTexture2D(const MH33::Image::DecodeTarget& decodeTarget) override;
 	MH33::GFX::pTexture2D createTexture2D(const MH33::Image::Image2D& decodeTarget) override;
 	MH33::GFX::pTexture3D createTexture3D(const MH33::Image::DecodeTarget& decodeTarget) override;

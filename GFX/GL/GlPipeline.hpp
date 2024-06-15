@@ -30,6 +30,8 @@ public:
 	void setUniform(unsigned bindingPoint, MH33::GFX::Cubemap& texture, uint8_t unit) const override;
 	void draw(MH33::GFX::UnindexedVertexBuffer& vertices, MH33::GFX::RenderType geometryType, size_t offset, size_t count) override;
 	void draw(MH33::GFX::IndexedVertexBuffer& vertices, MH33::GFX::RenderType geometryType, size_t offset, size_t count) override;
+	void drawInstanced(uint32_t instances, MH33::GFX::UnindexedVertexBuffer& vertices, MH33::GFX::RenderType geometryType, size_t offset, size_t count) override;
+	void drawInstanced(uint32_t instances, MH33::GFX::IndexedVertexBuffer& vertices, MH33::GFX::RenderType geometryType, size_t count) override;
 };
 }
 

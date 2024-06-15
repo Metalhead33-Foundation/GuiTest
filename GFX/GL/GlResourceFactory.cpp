@@ -98,6 +98,11 @@ MH33::GFX::pIndexedVertexBuffer  ResourceFactory::createIndexedVertexBuffer(MH33
 	}
 }
 
+MH33::GFX::pTexture2D ResourceFactory::createTexture2D(MH33::GFX::TextureFormat format, unsigned width, unsigned height)
+{
+	return new Texture2D(format, width, height);
+}
+
 MH33::GFX::pTexture2D  ResourceFactory::createTexture2D(const MH33::Image::DecodeTarget& decodeTarget)
 {
 	return new Texture2D(decodeTarget);

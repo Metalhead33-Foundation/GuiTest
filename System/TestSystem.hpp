@@ -12,10 +12,15 @@ public:
 private:
 	MH33::Io::sSystem iosys;
 	MH33::GFX::uUnindexedVertexBuffer triangleVbo;
+	MH33::GFX::uIndexedVertexBuffer screenQuad;
 	MH33::GFX::uPipeline trianglePipeline;
+	MH33::GFX::uPipeline screenPipeline;
 	MH33::GFX::uResourceFactory gfx;
+	MH33::GFX::uTexture2D tex1;
+	MH33::GFX::uTexture2D tex2;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
+	~TestSystem();
 	void render(float deltaTime) override;
 	void update(float deltaTime) override;
 	void handleDisplayEvent(const SDL_DisplayEvent &ev) override;

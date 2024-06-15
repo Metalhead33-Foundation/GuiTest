@@ -7,6 +7,8 @@ LIBS += -lmozjs-115 -lX11 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 -
 INCLUDEPATH += /usr/include/mozjs-115
 INCLUDEPATH += /usr/include/nspr
 INCLUDEPATH += $$PWD
+INCLUDEPATH += /usr/include/freetype2
+INCLUDEPATH += I/usr/include/harfbuzz
 DEFINES += WINSYS_X
 DEFINES += DESKTOP_GL
 
@@ -79,6 +81,11 @@ SOURCES += \
         MhLib/SIMD/private/x86/MhFloat32x8_private.cpp \
         MhLib/SIMD/private/x86/MhFloat64x2_private.cpp \
         MhLib/SIMD/private/x86/MhInt32x4_private.cpp \
+        MhLib/Text/MhFont.cpp \
+        MhLib/Text/MhFontRepository.cpp \
+        MhLib/Text/MhRichTextProcessor.cpp \
+        MhLib/Text/MhRtProcessorStack.cpp \
+        MhLib/Text/MmlParser.cpp \
         MhLib/Util/MhColourHelper.cpp \
         MhLib/Util/MhDynamicLib.cpp \
         MhLib/Util/MhEdgeFunction.cpp \
@@ -200,6 +207,12 @@ HEADERS += \
     MhLib/SIMD/private/x86/MhFloat32x8_private.hpp \
     MhLib/SIMD/private/x86/MhFloat64x2_private.hpp \
     MhLib/SIMD/private/x86/MhInt32x4_private.hpp \
+    MhLib/Text/MhFont.hpp \
+    MhLib/Text/MhFontRepository.hpp \
+    MhLib/Text/MhRichTextProcessor.hpp \
+    MhLib/Text/MhRtProcessorStack.hpp \
+    MhLib/Text/MhTextBlock.hpp \
+    MhLib/Text/MmlParser.hpp \
     MhLib/Util/ITextReceiver.hpp \
     MhLib/Util/MhBuffer.hpp \
     MhLib/Util/MhColourHelper.hpp \
@@ -237,4 +250,5 @@ HEADERS += \
 
 DISTFILES += \
     MhLib/Media/Audio/FFTConvolver/COPYING.txt \
-    MhLib/Media/Audio/FFTConvolver/README.md
+    MhLib/Media/Audio/FFTConvolver/README.md \
+    MhLib/Text/MML.md
