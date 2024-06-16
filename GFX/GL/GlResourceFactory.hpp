@@ -31,8 +31,8 @@ public:
 	void beginFrame() override;
 	void endFrame() override;
 	bool supportsBinaryShaders() const override; // Only really relevant for OpenGL
-	void prepareShaderModuleFor(MH33::GFX::ShaderModuleCreateInfo& output, const std::span<const std::byte>& input) override;
-	void prepareShaderModuleFor(std::span<MH33::GFX::ShaderModuleCreateInfo>& output, const std::span<const std::vector<std::byte>>& input) override;
+	void prepareShaderModuleFor(MH33::Io::System& iosys, MH33::GFX::ShaderModuleCreateInfo& output, const std::string& input) override;
+	void prepareShaderModuleFor(MH33::Io::System& iosys, const std::span<MH33::GFX::ShaderModuleCreateInfo>& output, const std::span<const std::string>& input) override;
 };
 }
 

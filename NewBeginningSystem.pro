@@ -26,6 +26,7 @@ SOURCES += \
         GFX/GL/GlUtil.cpp \
         GFX/GL/GlVertexBuffer.cpp \
         GFX/GL/GlWriteableTexture2D.cpp \
+        GFX/GL/GlslangIncluder.cpp \
         GFX/GL/GlxContext.cpp \
         MhLib/Gimmick/MhWordGenerator.cpp \
         MhLib/Io/MhBufferWrapper.cpp \
@@ -130,6 +131,7 @@ HEADERS += \
     GFX/GL/GlUtil.hpp \
     GFX/GL/GlVertexBuffer.hpp \
     GFX/GL/GlWriteableTexture2D.hpp \
+    GFX/GL/GlslangIncluder.hpp \
     GFX/GL/GlxContext.hpp \
     MhLib/Gimmick/MhGimmick.hpp \
     MhLib/Gimmick/MhWordGenerator.hpp \

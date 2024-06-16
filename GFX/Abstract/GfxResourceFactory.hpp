@@ -48,8 +48,8 @@ public:
 	virtual pCubemapFramebuffer createCubemapFramebuffer(const std::span<const MH33::Image::Format>& attachmentFormat, int width, int height) = 0;
 	// Shader compilation stuff
 	virtual bool supportsBinaryShaders() const = 0; // Only really relevant for OpenGL
-	virtual void prepareShaderModuleFor(ShaderModuleCreateInfo& output, const std::span<const std::byte>& input) = 0;
-	virtual void prepareShaderModuleFor(std::span<ShaderModuleCreateInfo>& output, const std::span<const std::vector<std::byte>>& input) = 0;
+	virtual void prepareShaderModuleFor(Io::System& iosys, ShaderModuleCreateInfo& output, const std::string& input) = 0;
+	virtual void prepareShaderModuleFor(Io::System& iosys, const std::span<ShaderModuleCreateInfo>& output, const std::span<const std::string>& input) = 0;
 	// Utilities
 	virtual void makeCurrent() = 0;
 	virtual void beginFrame() = 0;

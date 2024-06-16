@@ -11,6 +11,7 @@
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
 #include <glslang/Include/ResourceLimits.h>
+#include "GlslangIncluder.hpp"
 
 namespace GL {
 
@@ -316,8 +317,9 @@ public:
 	}
 };
 
-void ResourceFactory::prepareShaderModuleFor(MH33::GFX::ShaderModuleCreateInfo& output, const std::span<const std::byte>& input)
+void ResourceFactory::prepareShaderModuleFor(MH33::Io::System& iosys, MH33::GFX::ShaderModuleCreateInfo& output, const std::string& input)
 {
+	GlslangIncluder includer(&iosys);
 	EShLanguage stage;
 	switch (output.shaderType) {
 		case MH33::GFX::ShaderModuleType::VERTEX_SHADER: stage = EShLangVertex; break;
@@ -337,7 +339,7 @@ void ResourceFactory::prepareShaderModuleFor(MH33::GFX::ShaderModuleCreateInfo& 
 
 	EShMessages messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
 
-	if (!shader.parse(&GlslangResources, 460, false, messages)) {
+	if (!shader.parse(&GlslangResources, 460, false, messages,includer)) {
 		throw HlslParseError(shader);
 	}
 
@@ -349,16 +351,16 @@ void ResourceFactory::prepareShaderModuleFor(MH33::GFX::ShaderModuleCreateInfo& 
 	output.isBinary = true;
 }
 
-void ResourceFactory::prepareShaderModuleFor(std::span<MH33::GFX::ShaderModuleCreateInfo>& output, const std::span<const std::vector<std::byte> >& input)
+void ResourceFactory::prepareShaderModuleFor(MH33::Io::System& iosys, const std::span<MH33::GFX::ShaderModuleCreateInfo>& output, const std::span<const std::string>& input)
 {
+	GlslangIncluder includer(&iosys);
 	std::vector<EShLanguage> stages(output.size());
-	std::vector<glslang::TShader> tempShaders;
+	std::vector<std::unique_ptr<glslang::TShader>> tempShaders;
 	tempShaders.reserve(output.size());
 	glslang::TProgram program;
 	for(size_t i = 0; i < output.size(); ++i) {
-		auto& out = output[i];
-		const auto& in = input[i];
 		EShLanguage& stage = stages[i];
+		auto& out = output[i];
 		switch (out.shaderType) {
 			case MH33::GFX::ShaderModuleType::VERTEX_SHADER: stage = EShLangVertex; break;
 			case MH33::GFX::ShaderModuleType::GEOMETRY_SHADER: stage = EShLangGeometry; break;
@@ -368,17 +370,37 @@ void ResourceFactory::prepareShaderModuleFor(std::span<MH33::GFX::ShaderModuleCr
 			case MH33::GFX::ShaderModuleType::COMPUTE_SHADER: stage = EShLangCompute; break;
 			default: throw std::runtime_error("Unsupported shader type.");
 		}
-		const char* shaderSource = reinterpret_cast<const char*>(input.data());
-		tempShaders.push_back(glslang::TShader(stage));
-		auto& shader = tempShaders.back();
+		tempShaders.push_back(std::make_unique<glslang::TShader>(stage));
+	}
+	for(size_t i = 0; i < output.size(); ++i) {
+		auto& out = output[i];
+		const auto& in = input[i];
+		const EShLanguage& stage = stages[i];
+		const char* shaderSource = in.c_str();
+		auto& shader = *tempShaders.back();
+		//glslang::TShader shader(stage);
 		shader.setStrings(&shaderSource, 1);
 		shader.setEnvInput(glslang::EShSourceHlsl, stage, glslang::EShClientOpenGL, 460);
 		shader.setEnvClient(glslang::EShClientOpenGL, glslang::EShTargetOpenGL_450);
 		shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
+		switch (out.shaderType) {
+			case MH33::GFX::ShaderModuleType::VERTEX_SHADER: shader.setEntryPoint("vs_main"); break;
+			case MH33::GFX::ShaderModuleType::GEOMETRY_SHADER: shader.setEntryPoint("gs_main"); break;
+			case MH33::GFX::ShaderModuleType::TESSELLATION_CONTROL_SHADER: shader.setEntryPoint("tcs_main"); break;
+			case MH33::GFX::ShaderModuleType::TESSELLATION_EVALUATION_SHADER: shader.setEntryPoint("tes_main"); break;
+			case MH33::GFX::ShaderModuleType::PIXEL_SHADER: shader.setEntryPoint("ps_main"); break;
+			case MH33::GFX::ShaderModuleType::COMPUTE_SHADER: shader.setEntryPoint("main"); break;
+			default: throw std::runtime_error("Unsupported shader type.");
+		}
 
 		EShMessages messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
 
-		if (!shader.parse(&GlslangResources, 460, false, messages)) {
+		std::string preprocessedStr;
+		if(!shader.preprocess(&GlslangResources,460, ENoProfile, false, false, messages, &preprocessedStr, includer)) {
+			throw HlslParseError(shader);
+		}
+
+		if (!shader.parse(&GlslangResources, 460, true, messages, includer)) {
 			throw HlslParseError(shader);
 		}
 		program.addShader(&shader);
@@ -390,9 +412,9 @@ void ResourceFactory::prepareShaderModuleFor(std::span<MH33::GFX::ShaderModuleCr
 	for(size_t i = 0; i < output.size(); ++i) {
 		auto& out = output[i];
 		const EShLanguage& stage = stages[i];
-		std::vector<unsigned int> spirv;
+		std::vector<uint32_t> spirv;
 		glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
-		out.source.resize(spirv.size() * sizeof(unsigned int));
+		out.source.resize(spirv.size() * sizeof(uint32_t));
 		std::memcpy(out.source.data(), spirv.data(), out.source.size());
 		out.isBinary = true;
 	}
