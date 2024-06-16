@@ -15,12 +15,12 @@ struct WidgetVertex {
 };
 
 const MH33::GFX::AttributeDescriptor PrimitiveColoredGayTriangle::attributes[] = {
-	{ .SemanticName = "POS", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x3, .offset = offsetof(PrimitiveColoredGayTriangle,POS) },
+	{ .SemanticName = "POSITION", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x3, .offset = offsetof(PrimitiveColoredGayTriangle,POS) },
 	{ .SemanticName = "CLR", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x4, .offset = offsetof(PrimitiveColoredGayTriangle,CLR) }
 };
 const MH33::GFX::AttributeDescriptor WidgetVertex::attributes[] = {
-	{ .SemanticName = "POS", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x2, .offset = offsetof(WidgetVertex,aPos) },
-	{ .SemanticName = "TEX", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x2, .offset = offsetof(WidgetVertex,aTexCoords) }
+	{ .SemanticName = "POSITION", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x2, .offset = offsetof(WidgetVertex,aPos) },
+	{ .SemanticName = "TEXCOORD", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x2, .offset = offsetof(WidgetVertex,aTexCoords) }
 };
 
 const MH33::GFX::VertexDescriptor PrimitiveColoredGayTriangle::vertexDescriptor = {
@@ -78,7 +78,9 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 	{
 		MH33::GFX::ShaderModuleCreateInfo moduleCreateInfos[2];
 		moduleCreateInfos[0].shaderType = MH33::GFX::ShaderModuleType::VERTEX_SHADER;
+		moduleCreateInfos[0].isBinary = false;
 		moduleCreateInfos[1].shaderType = MH33::GFX::ShaderModuleType::PIXEL_SHADER;
+		moduleCreateInfos[1].isBinary = false;
 		MH33::Io::uDevice f1(iosys->open("triang.vert",MH33::Io::Mode::READ));
 		MH33::Io::uDevice f2(iosys->open("triang.frag",MH33::Io::Mode::READ));
 		moduleCreateInfos[0].source = f1->readAll();
@@ -90,15 +92,15 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		std::vector<std::string> shaderCodes(2);
 		moduleCreateInfos[0].shaderType = MH33::GFX::ShaderModuleType::VERTEX_SHADER;
 		moduleCreateInfos[1].shaderType = MH33::GFX::ShaderModuleType::PIXEL_SHADER;
-		//MH33::Io::uDevice f1(iosys->open("screen.vs",MH33::Io::Mode::READ));
-		//MH33::Io::uDevice f2(iosys->open("sdftext.fs",MH33::Io::Mode::READ));
-		MH33::Io::uDevice f1(iosys->open("screen_v.hlsl",MH33::Io::Mode::READ));
-		MH33::Io::uDevice f2(iosys->open("screen_p.hlsl",MH33::Io::Mode::READ));
-		shaderCodes[0] = f1->readAllAsString();
-		shaderCodes[1] = f2->readAllAsString();
-		gfx->prepareShaderModuleFor(*iosys,moduleCreateInfos,shaderCodes);
-		//moduleCreateInfos[0].source = f1->readAll();
-		//moduleCreateInfos[1].source = f2->readAll();
+		MH33::Io::uDevice f1(iosys->open("screen.vs",MH33::Io::Mode::READ));
+		MH33::Io::uDevice f2(iosys->open("sdftext.fs",MH33::Io::Mode::READ));
+		//MH33::Io::uDevice f1(iosys->open("screen_v.hlsl",MH33::Io::Mode::READ));
+		//MH33::Io::uDevice f2(iosys->open("screen_p.hlsl",MH33::Io::Mode::READ));
+		//shaderCodes[0] = f1->readAllAsString();
+		//shaderCodes[1] = f2->readAllAsString();
+		//gfx->prepareShaderModuleFor(*iosys,moduleCreateInfos,shaderCodes);
+		moduleCreateInfos[0].source = f1->readAll();
+		moduleCreateInfos[1].source = f2->readAll();
 		screenPipeline = MH33::GFX::uPipeline(gfx->createPipeline(moduleCreateInfos,&WidgetVertex::vertexDescriptor));
 	}
 	{
@@ -108,6 +110,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		MH33::Io::uDevice f1(iosys->open("letterA.png",MH33::Io::Mode::READ));
 		MH33::Io::uDevice f2(iosys->open("sdf1.glsl",MH33::Io::Mode::READ));
 		moduleCreateInfos[0].source = f2->readAll();
+		moduleCreateInfos[0].isBinary = false;
 		MH33::Image::PNG::decode(*f1,decodeTarget);
 		tex1 = MH33::GFX::uTexture2D(gfx->createTexture2D(decodeTarget));
 		tex2 = MH33::GFX::uTexture2D(gfx->createTexture2D(decodeTarget.format, tex1->getWidth(), tex1->getHeight()));
@@ -126,6 +129,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 	{
 		MH33::GFX::ShaderModuleCreateInfo moduleCreateInfos[1];
 		moduleCreateInfos[0].shaderType = MH33::GFX::ShaderModuleType::COMPUTE_SHADER;
+		moduleCreateInfos[0].isBinary = false;
 		MH33::Io::uDevice f1(iosys->open("gaussian.glsl",MH33::Io::Mode::READ));
 		moduleCreateInfos[0].source = f1->readAll();
 		MH33::GFX::uComputeShader compshader(gfx->createComputeShader(moduleCreateInfos));

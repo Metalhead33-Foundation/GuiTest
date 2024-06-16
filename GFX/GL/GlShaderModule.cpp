@@ -24,7 +24,6 @@ ShaderModule::ShaderModule(const MH33::GFX::ShaderModuleCreateInfo& createInfo)
 	: shaderModule(0)
 {
 	const GLchar* sourceCode = reinterpret_cast<const GLchar*>(createInfo.source.data());
-	const GLint sourceCodeLength = createInfo.source.size() - 1; // Exclude null terminator.
 	GLenum shaderType;
 	switch (createInfo.shaderType) {
 		case MH33::GFX::ShaderModuleType::VERTEX_SHADER:
@@ -43,9 +42,11 @@ ShaderModule::ShaderModule(const MH33::GFX::ShaderModuleCreateInfo& createInfo)
 	}
 	shaderModule = glCreateShader(shaderType);
 	if(createInfo.isBinary) {
+		const GLint sourceCodeLength = createInfo.source.size(); // Exclude null terminator.
 		glShaderBinary(1,&shaderModule,GL_SHADER_BINARY_FORMAT_SPIR_V_ARB,sourceCode,sourceCodeLength);
 		glSpecializeShaderARB(shaderModule, "main", 0, 0, 0);
-	} {
+	} else {
+		const GLint sourceCodeLength = createInfo.source.size() - 1; // Exclude null terminator.
 		glShaderSource(shaderModule,1,&sourceCode,&sourceCodeLength);
 		glCompileShader(shaderModule);
 	}
