@@ -42,6 +42,7 @@ private:
 	CharacterMap characters;
 	sFreeTypeFace fontFace;
 	sFreeTypeSystem sys;
+	//std::vector<std::byte> buff;
 	void addCharacterFromBlock(char32_t c);
 protected:
 	bool isBold;
@@ -55,8 +56,8 @@ protected:
 											unsigned int glyphAdvance,
 											const glm::ivec2& glyphOffset,
 											const glm::ivec2& intendedCorner) = 0;
-	virtual void queueLineForRendering(const glm::fvec2& endA, const glm::fvec2& endB) = 0;
-	virtual void queueGlyphForRendering(const Character& character, const glm::fvec2& pos1, const glm::fvec2& pos2, float xdiff = 0.0f) = 0;
+	virtual void queueLineForRendering(TextRenderState& state, const glm::fvec2& endA, const glm::fvec2& endB) = 0;
+	virtual void queueGlyphForRendering(TextRenderState& state, const Character& character, const glm::fvec2& pos1, const glm::fvec2& pos2, float xdiff = 0.0f) = 0;
 	virtual void flushQueue(TextRenderState& state) = 0;
 public:
 	virtual ~Font() = default;

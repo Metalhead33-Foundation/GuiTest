@@ -13,12 +13,16 @@
 namespace MH33 {
 namespace GFX {
 
+typedef std::span<ShaderModuleCreateInfo> MutableModuleCreateInfoList;
+typedef std::span<const ShaderModuleCreateInfo> ConstModuleCreateInfoList;
+typedef std::span<const ShaderModuleCreateInfoRef> ConstModuleCreateInfoRefList;
+
 DEFINE_CLASS(ResourceFactory)
 class ResourceFactory {
 public:
 	virtual ~ResourceFactory() = default;
-	virtual pPipeline createPipeline(const std::span<const ShaderModuleCreateInfo>& createInfo, const VertexDescriptor* vertexDescriptor) = 0;
-	virtual pPipeline createPipeline(const std::span<const ShaderModuleCreateInfoRef>& createInfo, const VertexDescriptor* vertexDescriptor) = 0;
+	virtual pPipeline createPipeline(const ConstModuleCreateInfoList& createInfo, const VertexDescriptor* vertexDescriptor) = 0;
+	virtual pPipeline createPipeline(const ConstModuleCreateInfoRefList& createInfo, const VertexDescriptor* vertexDescriptor) = 0;
 	//virtual pPipeline createPipeline(Io::System& iosys, const std::string& shaderName, const VertexDescriptor* vertexDescriptor) = 0;
 	virtual pComputeShader createComputeShader(const std::span<const ShaderModuleCreateInfo>& createInfo) = 0;
 	virtual pComputeShader createComputeShader(const std::span<const ShaderModuleCreateInfoRef>& createInfo) = 0;
@@ -49,7 +53,7 @@ public:
 	// Shader compilation stuff
 	virtual bool supportsBinaryShaders() const = 0; // Only really relevant for OpenGL
 	virtual void prepareShaderModuleFor(Io::System& iosys, ShaderModuleCreateInfo& output, const std::string& input) = 0;
-	virtual void prepareShaderModuleFor(Io::System& iosys, const std::span<ShaderModuleCreateInfo>& output, const std::span<const std::string>& input) = 0;
+	virtual void prepareShaderModuleFor(Io::System& iosys, const MutableModuleCreateInfoList& output, const std::span<const std::string>& input) = 0;
 	// Utilities
 	virtual void makeCurrent() = 0;
 	virtual void beginFrame() = 0;

@@ -31,6 +31,7 @@ void FontRepository::initializeFont(const std::string& fontName, const std::stri
 	for(uint8_t flags = 0; flags < 2; ++flags) {
 		MH33::Io::uDevice iodev(iosys->open(path,MH33::Io::Mode::READ));
 		fmap[flags] = createFont(std::move(iodev), sys, 48, flags & 0x01);
+		fmap[flags]->insertCharacters( { 0x00, 0xFF } );
 	}
 	fonts.insert_or_assign(fontName,fmap);
 }

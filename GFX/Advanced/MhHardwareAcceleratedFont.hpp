@@ -27,6 +27,7 @@ struct STD140 UniformForTextRendering {
 
 DEFINE_STRUCT(TextRenderingContext)
 struct TextRenderingContext {
+	pTexture2D texture;
 	UniformForTextRendering localUniform;
 	std::vector<GlyphVertex> glyphCache;
 	std::vector<uint32_t> indexCache;
@@ -48,22 +49,28 @@ private:
 	pTextRenderingContext renderingContext;
 protected:
 	void insertCharacterIntoBackend(Character& character, const std::span<const std::byte>& bytes, const glm::ivec2& glyphSize, const glm::ivec2& glyphBearing, unsigned int glyphAdvance, const glm::ivec2& glyphOffset, const glm::ivec2& intendedCorner) override;
-	void queueLineForRendering(const glm::fvec2& endA, const glm::fvec2& endB) override;
-	void queueGlyphForRendering(const Character& character, const glm::fvec2& pos1, const glm::fvec2& pos2, float xdiff) override;
+	void queueLineForRendering(TXT::TextRenderState& state, const glm::fvec2& endA, const glm::fvec2& endB) override;
+	void queueGlyphForRendering(TXT::TextRenderState& state, const Character& character, const glm::fvec2& pos1, const glm::fvec2& pos2, float xdiff) override;
 	void flushQueue(TXT::TextRenderState& state) override;
 public:
 	Font(pTextRenderingContext renderingContext, ResourceFactory& resFact, MH33::Io::uDevice&& iodev, const TXT::sFreeTypeSystem& system, unsigned fontSize = 48, bool bold = false, bool isSdf = false);
 };
+/*
+typedef std::span<ShaderModuleCreateInfo> MutableModuleCreateInfoList;
+typedef std::span<const ShaderModuleCreateInfo> ConstModuleCreateInfoList;
+typedef std::span<const ShaderModuleCreateInfoRef> ConstModuleCreateInfoRefList;
+*/
+
 class FontRepository : public MH33::TXT::FontRepository {
 private:
 	pResourceFactory resourceFactory;
 	TextRenderingContext renderingContext;
-	void init();
+	void init(const ConstModuleCreateInfoList& textPipelineCreator, const ConstModuleCreateInfoList& linePipelineCreator);
 protected:
 	TXT::sFont createFont(Io::uDevice&& iodev, const TXT::sFreeTypeSystem& system, unsigned fontSize, bool bold) override;
 public:
-	FontRepository(const MH33::Io::sSystem& iosys, pResourceFactory resourceFactory);
-	FontRepository(MH33::Io::sSystem&& iosys, pResourceFactory resourceFactory);
+	FontRepository(const MH33::Io::sSystem& iosys, pResourceFactory resourceFactory, const ConstModuleCreateInfoList& textPipelineCreator, const ConstModuleCreateInfoList& linePipelineCreator);
+	FontRepository(MH33::Io::sSystem&& iosys, pResourceFactory resourceFactory, const ConstModuleCreateInfoList& textPipelineCreator, const ConstModuleCreateInfoList& linePipelineCreator);
 };
 
 }

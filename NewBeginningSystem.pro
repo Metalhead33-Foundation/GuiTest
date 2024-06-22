@@ -202,7 +202,6 @@ HEADERS += \
     MhLib/Media/Image/MhPNG.hpp \
     MhLib/Media/Image/MhStandardColourFormat.hpp \
     MhLib/Media/Image/MhStandardImage2D.hpp \
-    MhLib/Media/Image/MhStandardImage2D.ipp \
     MhLib/Media/Image/MhTGA.hpp \
     MhLib/Media/Image/MhWEBP.hpp \
     MhLib/SIMD/MhSIMD.hpp \

@@ -4,6 +4,8 @@
 #include "IniConfiguration.hpp"
 #include <GFX/Abstract/GfxResourceFactory.hpp>
 #include <MhLib/IoSys/MhIoSystem.hpp>
+#include <GFX/Advanced/MhHardwareAcceleratedFont.hpp>
+#include <MhLib/Text/MmlParser.hpp>
 
 class TestSystem : public AppSystem
 {
@@ -14,10 +16,14 @@ private:
 	MH33::GFX::uUnindexedVertexBuffer triangleVbo;
 	MH33::GFX::uIndexedVertexBuffer screenQuad;
 	MH33::GFX::uPipeline trianglePipeline;
-	MH33::GFX::uPipeline screenPipeline;
+	MH33::GFX::uPipeline textPipeline;
+	MH33::GFX::uPipeline linePipeline;
 	MH33::GFX::uResourceFactory gfx;
 	MH33::GFX::uTexture2D tex1;
 	MH33::GFX::uTexture2D tex2;
+	MH33::TXT::sFontRepository fontRepo;
+	MH33::TXT::uRichTextProcessor rtp;
+	MH33::TXT::uMmlParser mml;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	~TestSystem();

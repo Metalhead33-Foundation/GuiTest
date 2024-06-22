@@ -84,7 +84,8 @@ unsigned Pipeline::getUniformBlockIndex(const std::string& uniformName) const
 
 void Pipeline::setUniform(unsigned bindingPoint, MH33::GFX::StorageBuffer& buffer, uint8_t unit) const
 {
-	glUniformBlockBinding(shaderProgram, bindingPoint, unit);
+	glBindBufferBase(buffer.getType() == MH33::GFX::StorageBufferType::SHADER_STORAGE_BUFFER ? GL_SHADER_STORAGE_BUFFER : GL_UNIFORM_BUFFER, bindingPoint, buffer.getNativeHandle().oglUint);
+	//glUniformBlockBinding(shaderProgram, bindingPoint, unit);
 }
 
 void Pipeline::setUniform(unsigned bindingPoint, MH33::GFX::Texture2D& texture, uint8_t unit) const

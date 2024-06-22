@@ -8,6 +8,15 @@ WriteableTexture2D::WriteableTexture2D(const SoftwareSideImageCreator& imageCrea
 	  bottomRightUpdated(std::numeric_limits<int>::min(), std::numeric_limits<int>::min()), wasResized(false)
 {
 	glGenTextures(1,&textureVar);
+	glBindTexture(GL_TEXTURE_2D,textureVar);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	GLenum glinternalFormat, glFormat, gltype;
+	prevalidateGlTexture(*softTexture,glinternalFormat,glFormat,gltype);
+	glTexImage2D(GL_TEXTURE_2D,0,glinternalFormat,softTexture->getWidth(),softTexture->getHeight(),0,glFormat,gltype,softTexture->getRawPixels());
 }
 
 WriteableTexture2D::~WriteableTexture2D()
@@ -46,8 +55,8 @@ void WriteableTexture2D::onRegionUpdate(const glm::ivec2& topleft, const glm::iv
 	if(!wasResized) {
 		topLeftUpdated.x = std::min(topleft.x, topLeftUpdated.x);
 		topLeftUpdated.y = std::min(topleft.y, topLeftUpdated.y);
-		bottomRightUpdated.x = std::min(bottomright.x, bottomRightUpdated.x);
-		bottomRightUpdated.y = std::min(bottomright.y, bottomRightUpdated.y);
+		bottomRightUpdated.x = std::max(bottomright.x, bottomRightUpdated.x);
+		bottomRightUpdated.y = std::max(bottomright.y, bottomRightUpdated.y);
 	}
 }
 
@@ -133,10 +142,10 @@ const void* WriteableTexture2D::getPixels() const
 
 bool WriteableTexture2D::resize(int newWidth, int newHeight)
 {
-	return softTexture->resize(newWidth, newHeight);
 	topLeftUpdated = { 0, 0 };
 	bottomRightUpdated = { newWidth, newHeight };
 	wasResized = true;
+	return softTexture->resize(newWidth, newHeight);
 }
 
 void WriteableTexture2D::iterateOverPixels(const ColourIterator& program) const
@@ -243,7 +252,12 @@ void WriteableTexture2D::update()
 	prevalidateGlTexture(*softTexture,glinternalFormat,glFormat,gltype);
 	if(wasResized) {
 		glBindTexture(GL_TEXTURE_2D,textureVar);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glTexImage2D(GL_TEXTURE_2D,0,glinternalFormat,softTexture->getWidth(),softTexture->getHeight(),0,glFormat,gltype,softTexture->getRawPixels());
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		clearUpdatedRegion();
 		wasResized = false;
 	} else if(!topLeftUpdated.x && !topLeftUpdated.y && bottomRightUpdated.x == softTexture->getWidth() && bottomRightUpdated.y == softTexture->getHeight()) {

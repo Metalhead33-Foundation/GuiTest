@@ -88,7 +88,7 @@ size_t  ShaderStorageBuffer::getDataSize() const
 
 void  ShaderStorageBuffer::ensureDataSize(size_t size)
 {
-	if(dataSize > size) {
+	if(dataSize < size) {
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, handle);
 		glBufferData(GL_SHADER_STORAGE_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
 		dataSize = size;
@@ -211,7 +211,7 @@ size_t  UniformBuffer::getDataSize() const
 
 void  UniformBuffer::ensureDataSize(size_t size)
 {
-	if(dataSize > size) {
+	if(dataSize < size) {
 		glBindBuffer(GL_UNIFORM_BUFFER, handle);
 		glBufferData(GL_UNIFORM_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
 		dataSize = size;

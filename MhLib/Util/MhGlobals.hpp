@@ -1,6 +1,7 @@
 #ifndef MHGLOBALS_HPP
 #define MHGLOBALS_HPP
 #include <memory>
+#include <span>
 
 /*#ifdef _WIN32
 #define MH33_API_EXPORT __declspec(dllexport)
@@ -38,5 +39,18 @@
 #define XSTRINGIFY(s) STRINGIFY(s)
 #define STRINGIFY(s) #s
 #define CONCAT(a,b) a b
+
+namespace MH33 {
+namespace Util {
+
+template <typename T> std::span<std::byte> as_byte_span(T& thingie) {
+	return std::span<std::byte>( reinterpret_cast<std::byte*>(&thingie), sizeof(T) );
+}
+template <typename T> const std::span<const std::byte> as_const_byte_span(const T& thingie) {
+	return std::span<const std::byte>( reinterpret_cast<const std::byte*>(&thingie), sizeof(T) );
+}
+
+}
+}
 
 #endif // MHGLOBALS_HPP

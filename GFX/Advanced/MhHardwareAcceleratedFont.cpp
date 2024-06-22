@@ -34,15 +34,16 @@ void Font::insertCharacterIntoBackend(Character& character, const std::span<cons
 	}
 	tex->blit(bytes,MH33::GFX::TextureFormat::R8U,textureOffset,glyphSize);
 	tex->update();
+	textureOffset.x += glyphSize.x + 1;
 }
 
-void Font::queueLineForRendering(const glm::fvec2& endA, const glm::fvec2& endB)
+void Font::queueLineForRendering(TXT::TextRenderState& state, const glm::fvec2& endA, const glm::fvec2& endB)
 {
 	renderingContext->lineCache.push_back( { .POS = endA } );
 	renderingContext->lineCache.push_back( { .POS = endB } );
 }
 static const unsigned quadIds[] = { 0, 1, 2, 1, 2, 3 };
-void Font::queueGlyphForRendering(const Character& character, const glm::fvec2& pos1, const glm::fvec2& pos2, float xdiff)
+void Font::queueGlyphForRendering(TXT::TextRenderState& state, const Character& character, const glm::fvec2& pos1, const glm::fvec2& pos2, float xdiff)
 {
 	const glm::fvec2 tc0(static_cast<float>(character.offset.x) * tex->getWidthR(), static_cast<float>(character.offset.y) * tex->getHeightR());
 	const glm::fvec2 tc1 = tc0 + glm::vec2(static_cast<float>(character.size.x) * tex->getWidthR(), static_cast<float>(character.size.y) * tex->getHeightR());
@@ -62,6 +63,7 @@ void Font::queueGlyphForRendering(const Character& character, const glm::fvec2& 
 
 void Font::flushQueue(TXT::TextRenderState& state)
 {
+	renderingContext->texture = tex.get();
 	renderingContext->flush(state);
 }
 
@@ -76,7 +78,7 @@ static constexpr const unsigned EXPECTED_MAX_GLYPH_VERTICES = EXPECTED_MAX_GLYPH
 static constexpr const unsigned EXPECTED_MAX_GLYPH_INDICES = EXPECTED_MAX_GLYPHS_ONSCREEN * 6;
 static constexpr const unsigned EXPECTED_MAX_GLYPH_LINES = EXPECTED_MAX_GLYPHS_ONSCREEN * 2;
 
-void FontRepository::init()
+void FontRepository::init(const ConstModuleCreateInfoList& textPipelineCreator, const ConstModuleCreateInfoList& linePipelineCreator)
 {
 	renderingContext.glyphCache.reserve(EXPECTED_MAX_GLYPH_VERTICES);
 	renderingContext.indexCache.reserve(EXPECTED_MAX_GLYPH_INDICES);
@@ -85,13 +87,14 @@ void FontRepository::init()
 	renderingContext.glyphVertexBuffer = MH33::GFX::uIndexedVertexBuffer(resourceFactory->createIndexedVertexBuffer(VertexBufferUsageClass::Dynamic, &GlyphVertex::vertexDescriptor, EXPECTED_MAX_GLYPH_VERTICES * sizeof(GlyphVertex), EXPECTED_MAX_GLYPH_INDICES));
 	renderingContext.lineVertexBuffer = MH33::GFX::uUnindexedVertexBuffer(resourceFactory->createUnindexedVertexBuffer(VertexBufferUsageClass::Dynamic, &LineVertex::vertexDescriptor, EXPECTED_MAX_GLYPH_LINES * sizeof(LineVertex)));
 	renderingContext.uniformBuffer = MH33::GFX::uStorageBuffer(resourceFactory->createStorageBuffer(MH33::GFX::StorageBufferType::UNIFORM_BUFFER,sizeof(UniformForTextRendering)));
-	renderingContext.glyphPipeline = MH33::GFX::uPipeline(resourceFactory->createPipeline(std::span<ShaderModuleCreateInfo>(),&GlyphVertex::vertexDescriptor));
-	renderingContext.linePipeline = MH33::GFX::uPipeline(resourceFactory->createPipeline(std::span<ShaderModuleCreateInfo>(),&LineVertex::vertexDescriptor));
+	renderingContext.glyphPipeline = MH33::GFX::uPipeline(resourceFactory->createPipeline(textPipelineCreator,&GlyphVertex::vertexDescriptor));
+	renderingContext.linePipeline = MH33::GFX::uPipeline(resourceFactory->createPipeline(linePipelineCreator,&LineVertex::vertexDescriptor));
 	renderingContext.uniformBindingPoint1 = renderingContext.glyphPipeline->getBindingPoint("fontRenderingData");
 	renderingContext.textureBindingPoint = renderingContext.glyphPipeline->getBindingPoint("glyphTexture");
 	renderingContext.uniformIndex1 = renderingContext.glyphPipeline->getUniformBlockIndex("fontRenderingData");
 	renderingContext.uniformBindingPoint2 = renderingContext.linePipeline->getBindingPoint("fontRenderingData");
 	renderingContext.uniformIndex2 = renderingContext.linePipeline->getUniformBlockIndex("fontRenderingData");
+	renderingContext.uniformBuffer->ensureDataSize(sizeof(UniformForTextRendering));
 }
 
 TXT::sFont FontRepository::createFont(Io::uDevice&& iodev, const TXT::sFreeTypeSystem& system, unsigned fontSize, bool bold)
@@ -99,16 +102,16 @@ TXT::sFont FontRepository::createFont(Io::uDevice&& iodev, const TXT::sFreeTypeS
 	return std::make_shared<Font>(&renderingContext,*resourceFactory,std::move(iodev), system, fontSize, bold, true);
 }
 
-FontRepository::FontRepository(const Io::sSystem& iosys, pResourceFactory resourceFactory)
+FontRepository::FontRepository(const Io::sSystem& iosys, pResourceFactory resourceFactory, const ConstModuleCreateInfoList& textPipelineCreator, const ConstModuleCreateInfoList& linePipelineCreator)
 	: MH33::TXT::FontRepository(iosys), resourceFactory(resourceFactory)
 {
-	init();
+	init(textPipelineCreator, linePipelineCreator);
 }
 
-FontRepository::FontRepository(Io::sSystem&& iosys, pResourceFactory resourceFactory)
+FontRepository::FontRepository(Io::sSystem&& iosys, pResourceFactory resourceFactory, const ConstModuleCreateInfoList& textPipelineCreator, const ConstModuleCreateInfoList& linePipelineCreator)
 	: MH33::TXT::FontRepository(std::move(iosys)), resourceFactory(resourceFactory)
 {
-	init();
+	init(textPipelineCreator, linePipelineCreator);
 }
 
 void TextRenderingContext::flush(TXT::TextRenderState& state)
@@ -120,12 +123,15 @@ void TextRenderingContext::flush(TXT::TextRenderState& state)
 	lineVertexBuffer->ensureDataSize(lineCache.size() * sizeof(LineVertex));
 	lineVertexBuffer->setDataT<LineVertex>(lineCache);
 	localUniform.clr = state.colour;
-	uniformBuffer->setDataT<UniformForTextRendering>(std::span<UniformForTextRendering>(&localUniform,1));
+	uniformBuffer->bind();
+	//uniformBuffer->setDataT<UniformForTextRendering>(std::span<UniformForTextRendering>(&localUniform,1) );
+	uniformBuffer->setData(MH33::Util::as_const_byte_span(localUniform),0);
 	glyphPipeline->bind();
-	glyphPipeline->setUniform(uniformBindingPoint1,*uniformBuffer,uniformIndex1);
+	glyphPipeline->setUniform(uniformIndex1,*uniformBuffer,uniformIndex1);
+	glyphPipeline->setUniform(textureBindingPoint,*texture, 0);
 	glyphPipeline->draw(*glyphVertexBuffer, MH33::GFX::RenderType::TRIANGLES);
 	linePipeline->bind();
-	linePipeline->setUniform(uniformBindingPoint2,*uniformBuffer,uniformIndex2);
+	linePipeline->setUniform(uniformIndex2,*uniformBuffer,uniformIndex2);
 	linePipeline->draw(*lineVertexBuffer, MH33::GFX::RenderType::LINES, 0, lineCache.size());
 	maxIndex = 0;
 	glyphCache.clear();

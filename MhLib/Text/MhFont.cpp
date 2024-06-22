@@ -233,12 +233,12 @@ void Font::renderText(const std::u32string& text, TextRenderState& state)
 			// Strikethrough
 			if(state.attributes.isStrikethrough) {
 				const float middleY = (y+state.maxHeight*0.4f);
-				queueLineForRendering(glm::fvec2(state.currentOffset.x,-1.0f * middleY), glm::fvec2(x,-1.0f * middleY));
+				queueLineForRendering(state,glm::fvec2(state.currentOffset.x,-1.0f * middleY), glm::fvec2(x,-1.0f * middleY));
 			}
 			// Underline
 			if(state.attributes.isUnderline) {
 				const float zy = y + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
-				queueLineForRendering(glm::fvec2(state.currentOffset.x,-1.0f * zy),glm::fvec2(x,-1.0f * zy));
+				queueLineForRendering(state,glm::fvec2(state.currentOffset.x,-1.0f * zy),glm::fvec2(x,-1.0f * zy));
 				y = ny + (2.0f * (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale));
 				state.attributes.isUnderline = true;
 			} else {
@@ -261,11 +261,11 @@ void Font::renderText(const std::u32string& text, TextRenderState& state)
 		if(state.attributes.isItalic) {
 			const glm::fvec2 pos2 = pos + dim;
 			const float xdiff = std::abs(std::max(pos.y,pos2.y) - std::min(pos.y,pos2.y)) * italicMagicNumber;
-			queueGlyphForRendering(charIt->second,pos,pos2,xdiff);
+			queueGlyphForRendering(state, charIt->second,pos,pos2,xdiff);
 		}
 		else {
 			const glm::fvec2 pos2 = pos + dim;
-			queueGlyphForRendering(charIt->second,pos,pos2);
+			queueGlyphForRendering(state, charIt->second,pos,pos2);
 		}
 		x += (charIt->second.advance >> 6) * state.reciprocalSize.x * state.scale;
 		}
@@ -274,12 +274,12 @@ void Font::renderText(const std::u32string& text, TextRenderState& state)
 	// Underline
 	if(state.attributes.isUnderline && blockWidth >= state.reciprocalSize.x) {
 		const float ny = y + (state.reciprocalSize.y * static_cast<float>(state.spacing) * state.scale);
-		queueLineForRendering(glm::fvec2(state.currentOffset.x,-1.0f *ny),glm::fvec2(x,-1.0f *ny));
+		queueLineForRendering(state, glm::fvec2(state.currentOffset.x,-1.0f *ny),glm::fvec2(x,-1.0f *ny));
 	}
 	// Strikethrough
 	if(state.attributes.isStrikethrough && blockWidth >= state.reciprocalSize.x) {
 		const float middleY = (y-state.maxHeight*0.4f);
-		queueLineForRendering( glm::fvec2(state.currentOffset.x,-1.0f *middleY), glm::fvec2(x,-1.0f *middleY) );
+		queueLineForRendering(state, glm::fvec2(state.currentOffset.x,-1.0f *middleY), glm::fvec2(x,-1.0f *middleY) );
 	}
 	flushQueue(state);
 	state.currentOffset.x = x;
