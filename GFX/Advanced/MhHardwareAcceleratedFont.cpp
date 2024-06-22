@@ -33,7 +33,6 @@ void Font::insertCharacterIntoBackend(Character& character, const std::span<cons
 		}
 	}
 	tex->blit(bytes,MH33::GFX::TextureFormat::R8U,textureOffset,glyphSize);
-	tex->update();
 	textureOffset.x += glyphSize.x + 1;
 }
 
@@ -65,6 +64,11 @@ void Font::flushQueue(TXT::TextRenderState& state)
 {
 	renderingContext->texture = tex.get();
 	renderingContext->flush(state);
+}
+
+void Font::flushTexture()
+{
+	tex->update();
 }
 
 Font::Font(pTextRenderingContext renderingContext, ResourceFactory& resFact, Io::uDevice&& iodev, const TXT::sFreeTypeSystem& system, unsigned fontSize, bool bold, bool isSdf)

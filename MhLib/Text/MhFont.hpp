@@ -42,7 +42,7 @@ private:
 	CharacterMap characters;
 	sFreeTypeFace fontFace;
 	sFreeTypeSystem sys;
-	//std::vector<std::byte> buff;
+	std::vector<std::byte> buff;
 	void addCharacterFromBlock(char32_t c);
 protected:
 	bool isBold;
@@ -59,6 +59,7 @@ protected:
 	virtual void queueLineForRendering(TextRenderState& state, const glm::fvec2& endA, const glm::fvec2& endB) = 0;
 	virtual void queueGlyphForRendering(TextRenderState& state, const Character& character, const glm::fvec2& pos1, const glm::fvec2& pos2, float xdiff = 0.0f) = 0;
 	virtual void flushQueue(TextRenderState& state) = 0;
+	virtual void flushTexture() = 0;
 public:
 	virtual ~Font() = default;
 	Font(MH33::Io::uDevice&& iodev, const sFreeTypeSystem& system, unsigned fontSize = 48, bool bold = false, bool isSdf = false);

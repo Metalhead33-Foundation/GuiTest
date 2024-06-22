@@ -110,6 +110,7 @@ static void createDuealPipeline(MH33::Io::System& iosys,
 }
 #define INSERT_HUNGARIAN
 #define INSERT_RUSSIAN
+//#define INSERT_JAPANESE
 
 TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration &conf)
 	: AppSystem(

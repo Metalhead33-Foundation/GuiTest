@@ -52,6 +52,7 @@ protected:
 	void queueLineForRendering(TXT::TextRenderState& state, const glm::fvec2& endA, const glm::fvec2& endB) override;
 	void queueGlyphForRendering(TXT::TextRenderState& state, const Character& character, const glm::fvec2& pos1, const glm::fvec2& pos2, float xdiff) override;
 	void flushQueue(TXT::TextRenderState& state) override;
+	void flushTexture() override;
 public:
 	Font(pTextRenderingContext renderingContext, ResourceFactory& resFact, MH33::Io::uDevice&& iodev, const TXT::sFreeTypeSystem& system, unsigned fontSize = 48, bool bold = false, bool isSdf = false);
 };

@@ -142,16 +142,22 @@ void Font::addCharacterFromBlock(char32_t c)
 
 void Font::insertCharacter(char32_t c)
 {
-	if (!FT_Get_Char_Index(fontFace.get(),c) || FT_Load_Char(fontFace.get(), c, FT_LOAD_RENDER))
+	auto glyph_index = FT_Get_Char_Index( fontFace.get(), c );
+	if(!glyph_index)
 	{
 		characters.insert(std::pair<char32_t, Character>(c, Character{ .valid = false } ));
 		return;
 	}
-	if(isSdf) {
-		FT_Render_Glyph(fontFace->glyph, FT_RENDER_MODE_SDF);
+	if (FT_Load_Glyph(fontFace.get(), glyph_index, FT_LOAD_RENDER))
+	{
+		characters.insert(std::pair<char32_t, Character>(c, Character{ .valid = false } ));
+		return;
 	}
 	if(isBold) {
 		FT_Bitmap_Embolden(sys.get(),&fontFace->glyph->bitmap,2 << 6,2 << 6);
+	}
+	if(isSdf) {
+		FT_Render_Glyph(fontFace->glyph, FT_RENDER_MODE_SDF);
 	}
 	const glm::ivec2 glyphSize(fontFace->glyph->bitmap.width,fontFace->glyph->bitmap.rows);
 	const std::span<const std::byte> bytes(reinterpret_cast<const std::byte*>(fontFace->glyph->bitmap.buffer),glyphSize.x * glyphSize.y);
@@ -180,6 +186,7 @@ void Font::insertCharacters(const std::pair<char32_t, char32_t>& range)
 	for (char32_t c = range.first; c <= range.second; c++) {
 		insertCharacter(c);
 	}
+	flushTexture();
 }
 
 unsigned long IoFromMh33( FT_Stream       stream,
@@ -198,6 +205,7 @@ Font::Font(MH33::Io::uDevice&& iodev, const sFreeTypeSystem& system, unsigned fo
 	: iodev(std::move(iodev)), sys(system),
 	  isBold(bold), isSdf(isSdf), textureOffset(0,1), maxCharSizeSoFar(0,0)
 {
+	//buff = this->iodev->readAll();
 	memset(&stream,0,sizeof(FT_StreamRec));
 	stream.close = CloseIoFromMh33;
 	stream.read = IoFromMh33;
@@ -208,8 +216,11 @@ Font::Font(MH33::Io::uDevice&& iodev, const sFreeTypeSystem& system, unsigned fo
 	openArgs.stream = &stream;
 	FT_Face face;
 	FT_Open_Face(sys.get(), &openArgs, 0, &face);
+	/*FT_Face face;
+	FT_New_Memory_Face(sys.get(), reinterpret_cast<const FT_Byte*>(buff.data()), buff.size(), 0, &face);*/
 	FT_Set_Pixel_Sizes(face, 0, fontSize);
 	fontFace = sFreeTypeFace(face,FT_Done_Face);
+	//FT_Select_Charmap(face, FT_ENCODING_UNICODE);
 }
 
 void Font::renderText(const std::string& text, TextRenderState& state)
