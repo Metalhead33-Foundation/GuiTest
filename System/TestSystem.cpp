@@ -151,7 +151,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		strm << "<colour=#FF0000><b>Magyar </b></colour><colour=#FFFFFF><u>nyelven &amp; </u></colour><colour=#00FF00><i>írtam.</i></colour><br>";
 #endif
 #ifdef INSERT_RUSSIAN
-		strm << "<b><s><colour=#FFFFFF><b>Я </b></colour><colour=#0000AA><u>люблю </u></colour><colour=#AA0000><i>Нику.</i></colour><br></s></b><br>";
+		strm << "<s><colour=#FFFFFF><b>Я </b></colour><colour=#0000AA><u>люблю </u></colour><colour=#AA0000><i>Нику.</i></colour></s><br>";
 		strm << "<colour=#FFFFFF>русский язык</colour><br>";
 #endif
 #ifdef INSERT_JAPANESE
@@ -233,7 +233,7 @@ void TestSystem::render(float deltaTime)
 	textPipeline->draw(*screenQuad, MH33::GFX::RenderType::TRIANGLES);
 */
 	glm::vec2 sizeReciprocal(2.0f/static_cast<float>(width),2.0f/static_cast<float>(height));
-	MH33::TXT::Font::renderTextBlocks(rtp->getBlocks(),glm::fvec2(-0.9f,-0.9f),sizeReciprocal,0.5f,8);
+	MH33::TXT::Font::renderTextBlocks(rtp->getBlocks(),glm::fvec2(-0.9f,-0.7f),sizeReciprocal,1.0f,8);
 	//trianglePipeline->bind();
 	//trianglePipeline->draw(*triangleVbo, MH33::GFX::RenderType::TRIANGLES, 0, 3);
 	gfx->endFrame();

@@ -1,9 +1,20 @@
 #include "MhFont.hpp"
 #include <locale>
 #include <codecvt>
+#include <iostream>
 extern "C" {
 #include <freetype/ftbitmap.h>
 }
+static void debugText(const std::string& str)
+{
+	std::cout << '[' << str << ']';
+}
+static void debugText(const std::u32string& str)
+{
+	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
+	std::cout << '[' << convert.to_bytes(str) << ']';
+}
+
 namespace MH33 {
 namespace TXT {
 static const std::pair<char32_t,char32_t> UNICODE_RANGES[] = {
@@ -232,9 +243,7 @@ static const float italicMagicNumber = 0.5f;
 
 void Font::renderText(const std::u32string& text, TextRenderState& state)
 {
-	//renderingContext.lineCache.clear();
-	//renderingContext.textCache.clear();
-	//renderingContext.indexCache.clear();
+	//debugText(text);
 	float x = state.currentOffset.x;
 	float y = state.currentOffset.y;
 	for(const auto c : text) {

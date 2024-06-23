@@ -147,27 +147,39 @@ FontRepository::FontRepository(Io::sSystem&& iosys, pResourceFactory resourceFac
 
 void TextRenderingContext::flush(TXT::TextRenderState& state)
 {
-	glyphVertexBuffer->ensureDataSize(glyphCache.size() * sizeof(GlyphVertex));
-	glyphVertexBuffer->setDataT<GlyphVertex>(glyphCache);
-	glyphVertexBuffer->ensureIndexCount(indexCache.size());
-	glyphVertexBuffer->setIndices(indexCache);
-	lineVertexBuffer->ensureDataSize(lineCache.size() * sizeof(LineVertex));
-	lineVertexBuffer->setDataT<LineVertex>(lineCache);
+	if( !(glyphCache.size() || lineCache.size() ) ) {
+		return;
+	}
 	localUniform.clr = state.colour;
 	uniformBuffer->bind();
-	//uniformBuffer->setDataT<UniformForTextRendering>(std::span<UniformForTextRendering>(&localUniform,1) );
 	uniformBuffer->setData(MH33::Util::as_const_byte_span(localUniform),0);
-	glyphPipeline->bind();
-	glyphPipeline->setUniform(uniformIndex1,*uniformBuffer,uniformIndex1);
-	glyphPipeline->setUniform(textureBindingPoint,*texture, 0);
-	glyphPipeline->draw(*glyphVertexBuffer, MH33::GFX::RenderType::TRIANGLES);
-	linePipeline->bind();
-	linePipeline->setUniform(uniformIndex2,*uniformBuffer,uniformIndex2);
-	linePipeline->draw(*lineVertexBuffer, MH33::GFX::RenderType::LINES, 0, lineCache.size());
-	maxIndex = 0;
-	glyphCache.clear();
-	indexCache.clear();
-	lineCache.clear();
+	if(glyphCache.size()) {
+		glyphVertexBuffer->bindData();
+		glyphVertexBuffer->ensureDataSize(glyphCache.size() * sizeof(GlyphVertex));
+		glyphVertexBuffer->setDataT<GlyphVertex>(glyphCache);
+		glyphVertexBuffer->bindIndices();
+		glyphVertexBuffer->ensureIndexCount(indexCache.size());
+		glyphVertexBuffer->setIndices(indexCache);
+		glyphVertexBuffer->unbindData();
+		glyphVertexBuffer->unbindIndices();
+		glyphPipeline->bind();
+		glyphPipeline->setUniform(uniformIndex1,*uniformBuffer,uniformIndex1);
+		glyphPipeline->setUniform(textureBindingPoint,*texture, 0);
+		glyphPipeline->draw(*glyphVertexBuffer, MH33::GFX::RenderType::TRIANGLES, 0, indexCache.size());
+		maxIndex = 0;
+		glyphCache.clear();
+		indexCache.clear();
+	}
+	if(lineCache.size()) {
+		lineVertexBuffer->bind();
+		lineVertexBuffer->ensureDataSize(lineCache.size() * sizeof(LineVertex));
+		lineVertexBuffer->setDataT<LineVertex>(lineCache);
+		lineVertexBuffer->unbind();
+		linePipeline->bind();
+		linePipeline->setUniform(uniformIndex2,*uniformBuffer,uniformIndex2);
+		linePipeline->draw(*lineVertexBuffer, MH33::GFX::RenderType::LINES, 0, lineCache.size());
+		lineCache.clear();
+	}
 }
 
 }
