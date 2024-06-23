@@ -230,6 +230,7 @@ void WriteableTexture2D::clearToColour(const ColourProgrammer4& program, const g
 
 void WriteableTexture2D::blit(const MH33::Image::Image2D& cpy, const glm::ivec2 offset, const glm::ivec2& dimensions)
 {
+	if(!(dimensions.x && dimensions.y)) return;
 	softTexture->blit(cpy,offset,dimensions);
 	onRegionUpdate( offset, offset + dimensions );
 }
@@ -242,6 +243,7 @@ void WriteableTexture2D::blit(const MH33::Image::Image2D& cpy, const glm::ivec2 
 
 void WriteableTexture2D::blit(const std::span<const std::byte>& data, MH33::GFX::TextureFormat format, const glm::ivec2 offset, const glm::ivec2& dimensions)
 {
+	if(!(dimensions.x && dimensions.y)) return;
 	softTexture->blit(data, format, offset, dimensions);
 	onRegionUpdate( offset, offset + dimensions );
 }
@@ -260,24 +262,21 @@ void WriteableTexture2D::update()
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		clearUpdatedRegion();
 		wasResized = false;
-	}else {
-		// Edge case in case the entire texture was updated.
-		glTexSubImage2D(GL_TEXTURE_2D,0,0,0,softTexture->getWidth(),softTexture->getHeight(),glFormat,gltype,softTexture->getRawPixels());
-		clearUpdatedRegion();
-	}/* else if(!topLeftUpdated.x && !topLeftUpdated.y && bottomRightUpdated.x == softTexture->getWidth() && bottomRightUpdated.y == softTexture->getHeight()) {
+	} else if(!topLeftUpdated.x && !topLeftUpdated.y && bottomRightUpdated.x == softTexture->getWidth() && bottomRightUpdated.y == softTexture->getHeight()) {
 		// Edge case in case the entire texture was updated.
 		glTexSubImage2D(GL_TEXTURE_2D,0,0,0,softTexture->getWidth(),softTexture->getHeight(),glFormat,gltype,softTexture->getRawPixels());
 		clearUpdatedRegion();
 	} else {
 		// We're gonna update line by line. Ouch.
-		const int lineLength = clampXWitthinBounds(bottomRightUpdated.x) - clampXWitthinBounds(topLeftUpdated.x);
+		const int lineLength = bottomRightUpdated.x - topLeftUpdated.x;
 		for(int y = topLeftUpdated.y; y < bottomRightUpdated.y; ++y) {
-			const std::byte* const lineStart = &static_cast<const std::byte*>(softTexture->getRawPixels())[softTexture->getStride() * y];
-			const std::byte* const offsetLine = &lineStart[topLeftUpdated.x * MH33::Image::byteSize(softTexture->getFormat())];
-			glTexSubImage2D(GL_TEXTURE_2D, 0, topLeftUpdated.x, y, lineLength, 1, glFormat, gltype, offsetLine);
+			const size_t lineStartAddr = softTexture->getStride() * y;
+			const size_t offsetLineAddr = lineStartAddr + (topLeftUpdated.x * MH33::Image::byteSize(softTexture->getFormat()));
+			const std::byte* const bytes = &(static_cast<const std::byte*>(softTexture->getRawPixels())[offsetLineAddr]);
+			glTexSubImage2D(GL_TEXTURE_2D, 0, topLeftUpdated.x, y, lineLength, 1, glFormat, gltype, bytes);
 		}
 		clearUpdatedRegion();
-	}*/
+	}
 }
 
 void WriteableTexture2D::saveTo(MH33::Io::Device& iodev)

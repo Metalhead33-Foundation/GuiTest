@@ -370,6 +370,7 @@ inline bool StandardImage2D<PixelType,fmt>::resize(int newWidth, int newHeight) 
 	this->heightF = static_cast<float>(newHeight - 1);
 	this->widthR = 1.0f / static_cast<float>(newWidth);
 	this->heightR = 1.0f / static_cast<float>(newHeight);
+	this->stride = newWidth * sizeof(PixelType);
 	return true;
 }
 
