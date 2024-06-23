@@ -151,7 +151,8 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		strm << "<colour=#FF0000><b>Magyar </b></colour><colour=#FFFFFF><u>nyelven &amp; </u></colour><colour=#00FF00><i>írtam.</i></colour><br>";
 #endif
 #ifdef INSERT_RUSSIAN
-		strm << "<b><s><colour=#FFFFFF><b>Я </b></colour><colour=#0000AA><u>люблю </u></colour><colour=#AA0000><i>Нику.</i></colour><br></s></b>";
+		strm << "<b><s><colour=#FFFFFF><b>Я </b></colour><colour=#0000AA><u>люблю </u></colour><colour=#AA0000><i>Нику.</i></colour><br></s></b><br>";
+		strm << "<colour=#FFFFFF>русский язык</colour><br>";
 #endif
 #ifdef INSERT_JAPANESE
 		strm << "<colour=#AA00AA>ニカが大好きです。</colour><br>";

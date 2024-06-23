@@ -1,7 +1,31 @@
 ﻿#include "MhHardwareAcceleratedFont.hpp"
+#include <MhLib/Io/MhFile.hpp>
+#include <MhLib/Media/Image/MhPNG.hpp>
 namespace MH33 {
 namespace GFX {
 
+static void DEBUG_SAVE_GLYPH(MH33::TXT::Font::Character& character, const std::span<const std::byte>& bytes) {
+	if(!(character.size.x && character.size.y)) return;
+	std::stringstream sstrm;
+	sstrm << "debug/" << character.offset.x << 'x' << character.offset.y << ".png";
+	MH33::Io::File outfile(sstrm.str(),MH33::Io::Mode::WRITE);
+	MH33::Image::DecodeTarget out;
+	out.format = MH33::Image::Format::R8U;
+	out.frames.resize(1);
+	out.frames[0].width = character.size.x;
+	out.frames[0].height = character.size.y;
+	out.frames[0].stride = character.size.x;
+	out.frames[0].imageData.resize(bytes.size());
+	std::memcpy(out.frames[0].imageData.data(),bytes.data(),bytes.size());
+	MH33::Image::PNG::encode(outfile,character.size.x,character.size.y,0,8, out.frames[0].imageData, 0.5f);
+}
+void Font::debugSaveTexture()
+{
+	std::stringstream sstrm;
+	sstrm << "debug/font_texture-" << fontFace->family_name << '-' << int(isBold) << '_' << int(isSdf) << ".png";
+	MH33::Io::File outfile(sstrm.str(),MH33::Io::Mode::WRITE);
+	tex->saveTo(outfile);
+}
 
 const MH33::GFX::AttributeDescriptor LineVertex::attributes[] = {
 	{ .SemanticName = "POS", .SemanticIndex = 0, .type = MH33::GFX::PrimitiveType::F32x2, .offset = offsetof(LineVertex,POS) }
@@ -21,6 +45,7 @@ const MH33::GFX::VertexDescriptor GlyphVertex::vertexDescriptor = {
 	.descriptors = attributes
 };
 
+
 void Font::insertCharacterIntoBackend(Character& character, const std::span<const std::byte>& bytes, const glm::ivec2& glyphSize, const glm::ivec2& glyphBearing, unsigned int glyphAdvance, const glm::ivec2& glyphOffset, const glm::ivec2& intendedCorner)
 {
 	if((glyphOffset.x >= tex->getWidth() || intendedCorner.x >= tex->getWidth())) {
@@ -32,6 +57,7 @@ void Font::insertCharacterIntoBackend(Character& character, const std::span<cons
 			character.offset = textureOffset + glm::ivec2(1, 0);
 		}
 	}
+	//DEBUG_SAVE_GLYPH(character, bytes);
 	tex->blit(bytes,MH33::GFX::TextureFormat::R8U,textureOffset,glyphSize);
 	textureOffset.x += glyphSize.x + 1;
 }
@@ -69,6 +95,7 @@ void Font::flushQueue(TXT::TextRenderState& state)
 void Font::flushTexture()
 {
 	tex->update();
+	//debugSaveTexture();
 }
 
 Font::Font(pTextRenderingContext renderingContext, ResourceFactory& resFact, Io::uDevice&& iodev, const TXT::sFreeTypeSystem& system, unsigned fontSize, bool bold, bool isSdf)

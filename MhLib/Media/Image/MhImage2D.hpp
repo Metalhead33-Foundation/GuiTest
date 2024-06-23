@@ -4,6 +4,7 @@
 #include <MhLib/Media/Image/MhImageType.hpp>
 #include <glm/glm.hpp>
 #include <span>
+#include <MhLib/Io/MhIoDevice.hpp>
 
 namespace MH33 {
 namespace Image {
@@ -84,6 +85,8 @@ public:
 	// Stride
 	virtual unsigned getStride() const = 0;
 	virtual Format getFormat() const = 0;
+	// Debug save
+	void save(Io::Device& iodev) const;
 };
 
 }

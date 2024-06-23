@@ -72,6 +72,7 @@ public:
 	virtual void blit(const std::span<const std::byte>& data, TextureFormat format, const glm::ivec2 offset, const glm::ivec2& dimensions) = 0;
 	virtual void onRegionUpdate(const glm::ivec2& topleft, const glm::ivec2& bottomright) = 0;
 	virtual void update() = 0;
+	virtual void saveTo(MH33::Io::Device& iodev) = 0;
 };
 
 DEFINE_CLASS(TextureArray2D)

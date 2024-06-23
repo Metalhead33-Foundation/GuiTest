@@ -1,6 +1,7 @@
 #include <MhLib/Media/Image/MhImage2D.hpp>
 #include <MhLib/Util/MhDither.hpp>
 #include <MhLib/Util/MhEdgeFunction.hpp>
+#include <MhLib/Media/Image/MhPNG.hpp>
 namespace MH33 {
 namespace Image {
 
@@ -158,6 +159,18 @@ void Image2D::blit(const Image2D& cpy, const glm::ivec2 offset)
 			setPixel(position+offset,kernel);
 		}
 	}
+}
+
+void Image2D::save(Io::Device& iodev) const
+{
+	const void * const rawPixelsStart = getRawPixels();
+	const int width = getWidth();
+	const int height = getHeight();
+	const auto format = getFormat();
+	const size_t bytesPerRow = byteSize(format) * static_cast<size_t>(width);
+	const std::span<const std::byte> bytespan(static_cast<const std::byte*>(rawPixelsStart), bytesPerRow * height);
+	PNG::encode(iodev,width,height,format,bytespan, 0.5f);
+
 }
 
 }

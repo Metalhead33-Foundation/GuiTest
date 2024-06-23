@@ -47,6 +47,7 @@ class Font : public MH33::TXT::Font {
 private:
 	sWriteableTexture2D tex;
 	pTextRenderingContext renderingContext;
+	void debugSaveTexture();
 protected:
 	void insertCharacterIntoBackend(Character& character, const std::span<const std::byte>& bytes, const glm::ivec2& glyphSize, const glm::ivec2& glyphBearing, unsigned int glyphAdvance, const glm::ivec2& glyphOffset, const glm::ivec2& intendedCorner) override;
 	void queueLineForRendering(TXT::TextRenderState& state, const glm::fvec2& endA, const glm::fvec2& endB) override;

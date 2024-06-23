@@ -250,9 +250,9 @@ void WriteableTexture2D::update()
 {
 	GLenum glinternalFormat, glFormat, gltype;
 	prevalidateGlTexture(*softTexture,glinternalFormat,glFormat,gltype);
+	glBindTexture(GL_TEXTURE_2D,textureVar);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	if(wasResized) {
-		glBindTexture(GL_TEXTURE_2D,textureVar);
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glTexImage2D(GL_TEXTURE_2D,0,glinternalFormat,softTexture->getWidth(),softTexture->getHeight(),0,glFormat,gltype,softTexture->getRawPixels());
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
@@ -260,13 +260,15 @@ void WriteableTexture2D::update()
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		clearUpdatedRegion();
 		wasResized = false;
-	} else if(!topLeftUpdated.x && !topLeftUpdated.y && bottomRightUpdated.x == softTexture->getWidth() && bottomRightUpdated.y == softTexture->getHeight()) {
+	}else {
 		// Edge case in case the entire texture was updated.
-		glBindTexture(GL_TEXTURE_2D,textureVar);
+		glTexSubImage2D(GL_TEXTURE_2D,0,0,0,softTexture->getWidth(),softTexture->getHeight(),glFormat,gltype,softTexture->getRawPixels());
+		clearUpdatedRegion();
+	}/* else if(!topLeftUpdated.x && !topLeftUpdated.y && bottomRightUpdated.x == softTexture->getWidth() && bottomRightUpdated.y == softTexture->getHeight()) {
+		// Edge case in case the entire texture was updated.
 		glTexSubImage2D(GL_TEXTURE_2D,0,0,0,softTexture->getWidth(),softTexture->getHeight(),glFormat,gltype,softTexture->getRawPixels());
 		clearUpdatedRegion();
 	} else {
-		glBindTexture(GL_TEXTURE_2D,textureVar);
 		// We're gonna update line by line. Ouch.
 		const int lineLength = clampXWitthinBounds(bottomRightUpdated.x) - clampXWitthinBounds(topLeftUpdated.x);
 		for(int y = topLeftUpdated.y; y < bottomRightUpdated.y; ++y) {
@@ -275,7 +277,12 @@ void WriteableTexture2D::update()
 			glTexSubImage2D(GL_TEXTURE_2D, 0, topLeftUpdated.x, y, lineLength, 1, glFormat, gltype, offsetLine);
 		}
 		clearUpdatedRegion();
-	}
+	}*/
+}
+
+void WriteableTexture2D::saveTo(MH33::Io::Device& iodev)
+{
+	softTexture->save(iodev);
 }
 
 }

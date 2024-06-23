@@ -106,7 +106,7 @@ void decode(Io::Device& iodev, DecodeTarget &destination)
 	png_destroy_read_struct(&pngPtr,&infoPtr,&endInfoPtr);
 }
 
-void encode(Io::Device& iodev, uint16_t width, uint16_t height, uint8_t color_type, uint8_t bit_depth, Util::Buffer &pixelData, float compressionLevel)
+void encode(Io::Device& iodev, uint16_t width, uint16_t height, uint8_t color_type, uint8_t bit_depth, const std::span<const std::byte> &pixelData, float compressionLevel)
 {
 	auto pngPtr = png_create_write_struct(PNG_LIBPNG_VER_STRING,nullptr,nullptr,nullptr);
 	if(!pngPtr) return;
@@ -121,7 +121,7 @@ void encode(Io::Device& iodev, uint16_t width, uint16_t height, uint8_t color_ty
 	png_set_compression_level(pngPtr,int(std::clamp(compressionLevel,0.0f,1.0f)*9.0f));
 	std::vector<png_bytep> rowPtrs(height);
 	for (int y=0; y<height; y++) {
-		rowPtrs[y] = reinterpret_cast<png_bytep>(&pixelData[type2bytes(color_type,bit_depth)*width*y]);
+		rowPtrs[y] = const_cast<unsigned char*>(reinterpret_cast<const unsigned char*>(&pixelData[type2bytes(color_type,bit_depth)*width*y]));
 	}
 	png_write_info(pngPtr,infoPtr);
 	png_write_rows(pngPtr,rowPtrs.data(),rowPtrs.size());
@@ -142,6 +142,55 @@ void decode(Io::System &iosys, const std::string &path, DecodeTarget &destinatio
 	if(iodev) {
 		decode(*iodev,destination);
 	}
+}
+
+void encode(Io::Device& iodev, uint16_t width, uint16_t height, Format format, const std::span<const std::byte>& pixelData, float compressionLevel)
+{
+	uint8_t color_type = 0;
+	uint8_t bit_depth = 0;
+	switch (format) {
+		case MH33::Image::Format::R8U:
+			color_type = PNG_FORMAT_GRAY;
+			bit_depth = 8;
+			break;
+		case MH33::Image::Format::R16U:
+			color_type = PNG_FORMAT_GRAY;
+			bit_depth = 16;
+			break;
+		case MH33::Image::Format::RGB8U:
+			color_type = PNG_FORMAT_RGB;
+			bit_depth = 8;
+			break;
+		case MH33::Image::Format::RG16U:
+			color_type = PNG_FORMAT_RGB;
+			bit_depth = 16;
+			break;
+		case MH33::Image::Format::RGBA8U:
+			color_type = PNG_FORMAT_RGBA;
+			bit_depth = 8;
+			break;
+		case MH33::Image::Format::RGBA16U:
+			color_type = PNG_FORMAT_RGBA;
+			bit_depth = 16;
+			break;
+		case MH33::Image::Format::ARGB8U:
+			color_type = PNG_FORMAT_ARGB;
+			bit_depth = 8;
+			break;
+		case MH33::Image::Format::ARGB16U:
+			color_type = PNG_FORMAT_ARGB;
+			bit_depth = 16;
+			break;
+		default: break;
+	}
+	if(bit_depth) {
+		encode(iodev,width, height, color_type, bit_depth, pixelData, compressionLevel);
+	}
+}
+
+void encode(Io::Device& iodev, DecodeTarget& source, float compressionLevel)
+{
+	encode(iodev, source.frames[0].width, source.frames[0].height, source.format, source.frames[0].imageData, compressionLevel);
 }
 
 }

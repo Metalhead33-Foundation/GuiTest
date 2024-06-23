@@ -40,9 +40,10 @@ private:
 	FT_StreamRec stream;
 	MH33::Io::uDevice iodev;
 	CharacterMap characters;
+protected:
 	sFreeTypeFace fontFace;
 	sFreeTypeSystem sys;
-	std::vector<std::byte> buff;
+private:
 	void addCharacterFromBlock(char32_t c);
 protected:
 	bool isBold;

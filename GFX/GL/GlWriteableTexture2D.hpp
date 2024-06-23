@@ -56,6 +56,7 @@ public:
 	void blit(const MH33::Image::Image2D& cpy, const glm::ivec2 offset) override;
 	void blit(const std::span<const std::byte>& data, MH33::GFX::TextureFormat format, const glm::ivec2 offset, const glm::ivec2& dimensions) override;
 	void update() override;
+	void saveTo(MH33::Io::Device& iodev) override;
 };
 }
 #endif // WRITEABLETEXTURE2D_HPP
