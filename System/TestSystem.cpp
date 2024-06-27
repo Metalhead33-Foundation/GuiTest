@@ -222,11 +222,12 @@ void TestSystem::loadLocalizations()
 	iosys->enumerate("/localization/english", (MH33::Io::System::FilesystemCallback)[this](MH33::Io::System* system, const std::string& fullpath, const std::string& fname) {
 		MH33::Io::uDevice udev(system->open(fullpath, MH33::Io::Mode::READ));
 		std::string str = udev->readAllAsString();
-		YAML::Node translationYaml = YAML::Load(str);
+		YAML::Node wholeDocument = YAML::Load(str);
+		YAML::Node translationYaml = wholeDocument["localization"];
 		for(auto it = std::begin(translationYaml) ; it != std::end(translationYaml) ; ++it ) {
 			auto key = it->first.as<std::string>();
 			auto value = it->second.as<std::string>();
-			//std::cout << key << '-' << value << std::endl;
+			std::cout << key << '-' << value << std::endl;
 			this->localizations.emplace(std::move(key), std::move(value));
 		}
 	});

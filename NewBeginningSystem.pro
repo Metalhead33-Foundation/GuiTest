@@ -133,6 +133,7 @@ HEADERS += \
     GFX/GL/GlWriteableTexture2D.hpp \
     GFX/GL/GlslangIncluder.hpp \
     GFX/GL/GlxContext.hpp \
+    GUI/sigslot.h \
     MhLib/Gimmick/MhGimmick.hpp \
     MhLib/Gimmick/MhWordGenerator.hpp \
     MhLib/Interface/MhBinaryTree.hpp \
