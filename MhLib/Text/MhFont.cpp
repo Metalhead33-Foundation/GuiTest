@@ -1,20 +1,8 @@
 #include "MhFont.hpp"
-#include <locale>
-#include <codecvt>
-#include <iostream>
+#include <utf8cpp/utf8.h>
 extern "C" {
 #include <freetype/ftbitmap.h>
 }
-static void debugText(const std::string& str)
-{
-	std::cout << '[' << str << ']';
-}
-static void debugText(const std::u32string& str)
-{
-	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-	std::cout << '[' << convert.to_bytes(str) << ']';
-}
-
 namespace MH33 {
 namespace TXT {
 static const std::pair<char32_t,char32_t> UNICODE_RANGES[] = {
@@ -236,8 +224,7 @@ Font::Font(MH33::Io::uDevice&& iodev, const sFreeTypeSystem& system, unsigned fo
 
 void Font::renderText(const std::string& text, TextRenderState& state)
 {
-	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
-	renderText(convert.from_bytes(text.c_str()),state);
+	renderText(utf8::utf8to32(text) ,state);
 }
 static const float italicMagicNumber = 0.5f;
 
@@ -308,7 +295,6 @@ void Font::renderText(const std::u32string& text, TextRenderState& state)
 
 void Font::renderTextBlocks(const std::span<const TextBlockUtf8> textBlocks, const glm::fvec2& offset, const glm::fvec2& reciprocalSize, float scale, int spacing)
 {
-	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
 	TextRenderState state;
 	memset(&state,0,sizeof(TextRenderState));
 	state.originalOffset = offset;
@@ -321,7 +307,7 @@ void Font::renderTextBlocks(const std::span<const TextBlockUtf8> textBlocks, con
 		state.attributes.isItalic = it.isItalic;
 		state.attributes.isStrikethrough = it.isStrikethrough;
 		state.attributes.isUnderline = it.isUnderline;
-		if(it.font) it.font->renderText(convert.from_bytes(it.text),state);
+		if(it.font) it.font->renderText(utf8::utf8to32(it.text),state);
 	}
 }
 

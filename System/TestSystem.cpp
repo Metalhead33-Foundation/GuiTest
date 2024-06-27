@@ -110,7 +110,7 @@ static void createDuealPipeline(MH33::Io::System& iosys,
 }
 #define INSERT_HUNGARIAN
 #define INSERT_RUSSIAN
-//#define INSERT_JAPANESE
+#define INSERT_JAPANESE
 
 TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration &conf)
 	: AppSystem(
@@ -155,7 +155,8 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		strm << "<colour=#FFFFFF>русский язык</colour><br>";
 #endif
 #ifdef INSERT_JAPANESE
-		strm << "<colour=#AA00AA>ニカが大好きです。</colour><br>";
+		//strm << "<colour=#AA00AA>めぐみんのマンコがすてき。<br>めぐみんが大好きですよ。</colour><br>";
+		strm << "<colour=#AA00AA>めぐみんのマンコがすてき。</colour><br>";
 #endif
 		mml->parse(strm.str());
 	}
@@ -233,7 +234,7 @@ void TestSystem::render(float deltaTime)
 	textPipeline->draw(*screenQuad, MH33::GFX::RenderType::TRIANGLES);
 */
 	glm::vec2 sizeReciprocal(2.0f/static_cast<float>(width),2.0f/static_cast<float>(height));
-	MH33::TXT::Font::renderTextBlocks(rtp->getBlocks(),glm::fvec2(-0.9f,-0.7f),sizeReciprocal,1.0f,8);
+	MH33::TXT::Font::renderTextBlocks(rtp->getBlocks(),glm::fvec2(-0.9f,-0.7f),sizeReciprocal,1.5f,8);
 	//trianglePipeline->bind();
 	//trianglePipeline->draw(*triangleVbo, MH33::GFX::RenderType::TRIANGLES, 0, 3);
 	gfx->endFrame();

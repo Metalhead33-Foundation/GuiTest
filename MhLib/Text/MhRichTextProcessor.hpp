@@ -4,9 +4,6 @@
 #include <MhLib/Text/MhTextBlock.hpp>
 #include <functional>
 #include <sstream>
-#include <locale>
-#include <codecvt>
-#include <cuchar>
 #include <ostream>
 
 namespace MH33 {
@@ -26,7 +23,6 @@ private:
 	std::string defaultFontName;
 	std::string currentFontName;
 	std::stringstream sstrm;
-	std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> convert;
 	sFontRepository fontRepo;
 	bool isBold;
 	bool isItalic;

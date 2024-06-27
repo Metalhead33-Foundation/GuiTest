@@ -1,6 +1,7 @@
 #include "MhRichTextProcessor.hpp"
 #include <MhLib/Util/MhNormDenorm.hpp>
 #include <MhLib/Util/MhPixelFormat.hpp>
+#include <utf8cpp/utf8.h>
 
 namespace MH33 {
 namespace TXT {
@@ -74,7 +75,7 @@ void RichTextProcessor::flush()
 	auto tmpStr = sstrm.str();
 	if(!tmpStr.empty()) {
 		sstrm.str(std::string());
-		currentBlock.text = convert.from_bytes(tmpStr);
+		currentBlock.text = utf8::utf8to32(tmpStr);
 		currentBlock.font = fontRepo->getFont(currentFontName,isBold).get();
 		currentBlock.isItalic = isItalic;
 		currentBlock.isUnderline = isUnderline;
@@ -286,8 +287,8 @@ void RichTextProcessor::setCurrentColour(uint8_t r, uint8_t g, uint8_t b, uint8_
 }
 
 RichTextProcessor::RichTextProcessor(const sFontRepository& repo)
-	: fontRepo(repo), defaultSize(10), currentSize(10), currentColour(0.0f, 0.0f, 0.0f, 1.0f),
-	  currentFontName("Noto"), defaultFontName("Noto"), isBold(false), isItalic(false), isUnderline(false), isStrikethrough(false)
+	: defaultSize(10), currentSize(10), currentColour(0.0f, 0.0f, 0.0f, 1.0f), defaultFontName("Noto"),
+	  currentFontName("Noto"), fontRepo(repo), isBold(false), isItalic(false), isUnderline(false), isStrikethrough(false)
 {
 	currentBlock.font = nullptr;
 	/*int num = 0;
@@ -297,8 +298,8 @@ RichTextProcessor::RichTextProcessor(const sFontRepository& repo)
 }
 
 RichTextProcessor::RichTextProcessor(sFontRepository&& repo)
-	: fontRepo(std::move(repo)), defaultSize(10), currentSize(10), currentColour(0.0f, 0.0f, 0.0f, 1.0f),
-	  currentFontName("Noto"), defaultFontName("Noto"), isBold(false), isItalic(false), isUnderline(false), isStrikethrough(false)
+	: defaultSize(10), currentSize(10), currentColour(0.0f, 0.0f, 0.0f, 1.0f), defaultFontName("Noto"),
+	  currentFontName("Noto"), fontRepo(std::move(repo)), isBold(false), isItalic(false), isUnderline(false), isStrikethrough(false)
 {
 	currentBlock.font = nullptr;
 	/*int num = 0;
@@ -315,7 +316,7 @@ RichTextProcessor& RichTextProcessor::operator<<(const char* s) {
 	return *this;
 }
 RichTextProcessor& RichTextProcessor::operator<<(char32_t c) {
-	sstrm << convert.to_bytes(c);
+	sstrm << utf8::utf32to8(std::u32string(1,c));
 	return *this;
 }
 RichTextProcessor& RichTextProcessor::operator<<(const std::string& s) {
