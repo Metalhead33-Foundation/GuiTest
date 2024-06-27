@@ -1,5 +1,7 @@
 #include "TestSystem.hpp"
 #include <MhLib/Media/Image/MhPNG.hpp>
+#include <iostream>
+#include <yaml-cpp/yaml.h>
 
 struct PrimitiveColoredGayTriangle {
 	glm::vec3 POS;
@@ -139,6 +141,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 	MH33::TXT::uRichTextProcessor rtp;
 	MH33::TXT::uMmlParser mml;
 */
+	loadLocalizations();
 	rtp = std::make_unique<MH33::TXT::RichTextProcessor>(fontRepo);
 	rtp->setDefaultFontName("noto");
 	rtp->setCurrentFontName("noto");
@@ -148,15 +151,13 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 	//strm << "<colour=#FF0000><b>Hello </b></colour><colour=#FFFFFF><u>World! &amp; </u></colour><colour=#00FF00><i>Hello World!</i></colour><br>" << std::endl;
 	//strm << "<b><s><colour=#FFFFFF><b>Hello </b></colour><colour=#0000AA><u>World! </u></colour><colour=#AA0000><i>World!.</i></colour><br></s></b>" << std::endl;
 #ifdef INSERT_HUNGARIAN
-		strm << "<colour=#FF0000><b>Magyar </b></colour><colour=#FFFFFF><u>nyelven &amp; </u></colour><colour=#00FF00><i>írtam.</i></colour><br>";
+		strm << localizations["INSERT_HUNGARIAN"];
 #endif
 #ifdef INSERT_RUSSIAN
-		strm << "<s><colour=#FFFFFF><b>Я </b></colour><colour=#0000AA><u>люблю </u></colour><colour=#AA0000><i>Нику.</i></colour></s><br>";
-		strm << "<colour=#FFFFFF>русский язык</colour><br>";
+		strm << localizations["INSERT_RUSSIAN"];
 #endif
 #ifdef INSERT_JAPANESE
-		//strm << "<colour=#AA00AA>めぐみんのマンコがすてき。<br>めぐみんが大好きですよ。</colour><br>";
-		strm << "<colour=#AA00AA>めぐみんのマンコがすてき。</colour><br>";
+		strm << localizations["INSERT_JAPANESE"];
 #endif
 		mml->parse(strm.str());
 	}
@@ -214,6 +215,21 @@ TestSystem::~TestSystem()
 	triangleVbo = nullptr;
 	trianglePipeline = nullptr;
 	gfx = nullptr;
+}
+
+void TestSystem::loadLocalizations()
+{
+	iosys->enumerate("/localization/english", (MH33::Io::System::FilesystemCallback)[this](MH33::Io::System* system, const std::string& fullpath, const std::string& fname) {
+		MH33::Io::uDevice udev(system->open(fullpath, MH33::Io::Mode::READ));
+		std::string str = udev->readAllAsString();
+		YAML::Node translationYaml = YAML::Load(str);
+		for(auto it = std::begin(translationYaml) ; it != std::end(translationYaml) ; ++it ) {
+			auto key = it->first.as<std::string>();
+			auto value = it->second.as<std::string>();
+			//std::cout << key << '-' << value << std::endl;
+			this->localizations.emplace(std::move(key), std::move(value));
+		}
+	});
 }
 
 void TestSystem::render(float deltaTime)

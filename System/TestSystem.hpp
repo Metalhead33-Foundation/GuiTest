@@ -24,9 +24,11 @@ private:
 	MH33::TXT::sFontRepository fontRepo;
 	MH33::TXT::uRichTextProcessor rtp;
 	MH33::TXT::uMmlParser mml;
+	std::map<std::string, std::string> localizations;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	~TestSystem();
+	void loadLocalizations();
 	void render(float deltaTime) override;
 	void update(float deltaTime) override;
 	void handleDisplayEvent(const SDL_DisplayEvent &ev) override;
