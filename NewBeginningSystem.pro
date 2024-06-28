@@ -3,7 +3,7 @@ CONFIG += console c++2a
 CONFIG -= app_bundle
 CONFIG -= qt
 
-LIBS += -lmozjs-115 -lX11 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 -lgif -lturbojpeg -lsndfile -lsamplerate -lopenmpt -lwebp -lwebpdecoder -lwebpdemux  -lwebpmux -lzstd -lsnappy -lphysfs -lssl -lcrypto -lglslang -lSPIRV -lSPIRV-Tools -lyaml-cpp
+LIBS += -lmozjs-115 -lX11 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 -lgif -lturbojpeg -lsndfile -lsamplerate -lopenmpt -lwebp -lwebpdecoder -lwebpdemux  -lwebpmux -lzstd -lsnappy -lphysfs -lssl -lcrypto -lglslang -lSPIRV -lSPIRV-Tools -lspirv-cross-glsl -lspirv-cross-reflect -lyaml-cpp
 INCLUDEPATH += /usr/include/mozjs-115
 INCLUDEPATH += /usr/include/nspr
 INCLUDEPATH += $$PWD
@@ -18,6 +18,7 @@ SOURCES += \
         GFX/GL/EglDisplay.cpp \
         GFX/GL/GlComputeShader.cpp \
         GFX/GL/GlFramebuffer.cpp \
+        GFX/GL/GlHlslConversion.cpp \
         GFX/GL/GlPipeline.cpp \
         GFX/GL/GlResourceFactory.cpp \
         GFX/GL/GlShaderModule.cpp \
@@ -123,6 +124,7 @@ HEADERS += \
     GFX/GL/GlComputeShader.hpp \
     GFX/GL/GlContext.hpp \
     GFX/GL/GlFramebuffer.hpp \
+    GFX/GL/GlHlslConversion.hpp \
     GFX/GL/GlPipeline.hpp \
     GFX/GL/GlResourceFactory.hpp \
     GFX/GL/GlShaderModule.hpp \
