@@ -68,10 +68,12 @@ static MH33::GFX::uPipeline createPipelineFromFiles(MH33::GFX::ResourceFactory& 
 	moduleCreateInfos[0].isBinary = false;
 	moduleCreateInfos[1].shaderType = MH33::GFX::ShaderModuleType::PIXEL_SHADER;
 	moduleCreateInfos[1].isBinary = false;
-	MH33::Io::uDevice f1(iosys.open(SHADER_PATH_PREFIX + shaderName + ".vert",MH33::Io::Mode::READ));
-	MH33::Io::uDevice f2(iosys.open(SHADER_PATH_PREFIX + shaderName + ".frag",MH33::Io::Mode::READ));
-	moduleCreateInfos[0].source = f1->readAll();
-	moduleCreateInfos[1].source = f2->readAll();
+	std::string shaderSourceCodes[2];
+	MH33::Io::uDevice f1(iosys.open(SHADER_PATH_PREFIX + shaderName + ".vert.hlsl",MH33::Io::Mode::READ));
+	MH33::Io::uDevice f2(iosys.open(SHADER_PATH_PREFIX + shaderName + ".frag.hlsl",MH33::Io::Mode::READ));
+	shaderSourceCodes[0] = f1->readAllAsString();
+	shaderSourceCodes[1] = f2->readAllAsString();
+	gfx.prepareShaderModuleFor(iosys,moduleCreateInfos,shaderSourceCodes);
 	return MH33::GFX::uPipeline(gfx.createPipeline(moduleCreateInfos,vertexDescriptor));
 }
 static void createPipelineFromFiles(MH33::Io::System& iosys, const std::string& shaderName, const std::function<void(const MH33::GFX::ConstModuleCreateInfoList&)>& fun) {
