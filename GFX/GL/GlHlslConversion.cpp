@@ -3,6 +3,7 @@
 #include <glslang/SPIRV/GlslangToSpv.h>
 #include <glslang/Include/ResourceLimits.h>
 #include <spirv-tools/libspirv.hpp>
+#include <spirv-tools/optimizer.hpp>
 #include "GlslangIncluder.hpp"
 #include <spirv_cross/spirv_glsl.hpp>
 #include <iostream>
@@ -38,6 +39,28 @@ public:
 		return errStr.c_str();
 	}
 };
+
+void CLIMessageConsumer(spv_message_level_t level, const char*,
+						const spv_position_t& position, const char* message) {
+  switch (level) {
+	case SPV_MSG_FATAL:
+	case SPV_MSG_INTERNAL_ERROR:
+	case SPV_MSG_ERROR:
+	  std::cerr << "error: line " << position.index << ": " << message
+				<< std::endl;
+	  break;
+	case SPV_MSG_WARNING:
+	  std::cout << "warning: line " << position.index << ": " << message
+				<< std::endl;
+	  break;
+	case SPV_MSG_INFO:
+	  std::cout << "info: line " << position.index << ": " << message
+				<< std::endl;
+	  break;
+	default:
+	  break;
+  }
+}
 
 static TBuiltInResource GlslangResources;
 static void initResources() {
@@ -177,7 +200,7 @@ void prepareShaderModuleFor(MH33::Io::System& iosys, const std::span<MH33::GFX::
 		shader.setStrings(&shaderSource, 1);
 		shader.setEnvInput(glslang::EShSourceHlsl, stage, glslang::EShClientVulkan, 1);
 		shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
-		shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
+		shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
 		shader.setEntryPoint("main");
 
 		EShMessages messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
@@ -199,6 +222,13 @@ void prepareShaderModuleFor(MH33::Io::System& iosys, const std::span<MH33::GFX::
 		throw GlslangProgramError(program);
 	}
 	spvtools::SpirvTools spvTool(SPV_ENV_VULKAN_1_0);
+	spvtools::Optimizer optimizer(SPV_ENV_VULKAN_1_0);
+	spvTool.SetMessageConsumer(CLIMessageConsumer);
+	optimizer.SetMessageConsumer(CLIMessageConsumer);
+	optimizer.RegisterPass(spvtools::CreateNullPass());
+	//optimizer.RegisterLegalizationPasses();
+	//optimizer.RegisterPerformancePasses();
+	//optimizer.RegisterSizePasses();
 	for(size_t i = 0; i < output.size(); ++i) {
 		auto& out = output[i];
 		const EShLanguage& stage = stages[i];
@@ -208,11 +238,15 @@ void prepareShaderModuleFor(MH33::Io::System& iosys, const std::span<MH33::GFX::
 		if (spvTool.Validate(spirv) != SPV_SUCCESS) {
 				throw std::runtime_error("SPIR-V validation failed");
 		}
+		std::vector<uint32_t> optimizedSpirv;
+		if(!optimizer.Run(spirv.data(),spirv.size(),&optimizedSpirv)) {
+			throw std::runtime_error("SPIR-V optimization failed!");
+		}
 		/*out.source.resize(spirv.size() * sizeof(uint32_t));
 		auto outSize = out.source.size();
 		std::memcpy(out.source.data(), spirv.data(), out.source.size());
 		out.isBinary = true;*/
-		convertSpirvBackToGlsl(out,std::move(spirv));
+		convertSpirvBackToGlsl(out,std::move(optimizedSpirv));
 	}
 }
 
@@ -221,6 +255,10 @@ void prepareShaderModuleFor(MH33::Io::System& iosys, MH33::GFX::ShaderModuleCrea
 	std::span<MH33::GFX::ShaderModuleCreateInfo> out1(&output,1);
 	std::span<const std::string> in1(&input,1);
 	prepareShaderModuleFor(iosys,out1,in1);
+}
+
+static void testWholeShader(glslang::TProgram& program) {
+	std::vector<uint32_t> spriv;
 }
 
 void convertSpirvBackToGlsl(MH33::GFX::ShaderModuleCreateInfo& output, std::vector<uint32_t>&& vec)
@@ -246,11 +284,11 @@ void convertSpirvBackToGlsl(MH33::GFX::ShaderModuleCreateInfo& output, std::vect
 	options.version = 330;
 	options.es = false;
 	glsl.set_common_options(options);
+	glsl.build_combined_image_samplers();
 	for (auto &remap : glsl.get_combined_image_samplers())
 	{
-	   glsl.set_name(remap.combined_id, glsl.get_name(remap.image_id));
+		glsl.set_name(remap.combined_id, glsl.get_name(remap.image_id));
 	}
-	glsl.build_combined_image_samplers();
 
 	// Compile to GLSL, ready to give to GL driver.
 	std::string source = glsl.compile();

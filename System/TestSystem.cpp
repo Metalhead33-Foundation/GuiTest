@@ -88,7 +88,7 @@ static void createPipelineFromFiles(MH33::Io::System& iosys, const std::string& 
 	moduleCreateInfos[1].source = f2->readAll();
 	fun(moduleCreateInfos);
 }
-static void createDuealPipeline(MH33::Io::System& iosys,
+static void createDuealPipeline(MH33::GFX::ResourceFactory& gfx, MH33::Io::System& iosys,
 								const std::string& shaderNameA,
 								const std::string& shaderNameB,
 								const std::function<void(const MH33::GFX::ConstModuleCreateInfoList&, const MH33::GFX::ConstModuleCreateInfoList&)>& fun) {
@@ -102,14 +102,18 @@ static void createDuealPipeline(MH33::Io::System& iosys,
 	moduleCreateInfosB[0].isBinary = false;
 	moduleCreateInfosB[1].shaderType = MH33::GFX::ShaderModuleType::PIXEL_SHADER;
 	moduleCreateInfosB[1].isBinary = false;
-	MH33::Io::uDevice f1(iosys.open(SHADER_PATH_PREFIX + shaderNameA + ".vert",MH33::Io::Mode::READ));
-	MH33::Io::uDevice f2(iosys.open(SHADER_PATH_PREFIX + shaderNameA + ".frag",MH33::Io::Mode::READ));
-	MH33::Io::uDevice f3(iosys.open(SHADER_PATH_PREFIX + shaderNameB + ".vert",MH33::Io::Mode::READ));
-	MH33::Io::uDevice f4(iosys.open(SHADER_PATH_PREFIX + shaderNameB + ".frag",MH33::Io::Mode::READ));
-	moduleCreateInfosA[0].source = f1->readAll();
-	moduleCreateInfosA[1].source = f2->readAll();
-	moduleCreateInfosB[0].source = f3->readAll();
-	moduleCreateInfosB[1].source = f4->readAll();
+	std::string sourceCodesA[2];
+	std::string sourceCodesB[2];
+	MH33::Io::uDevice f1(iosys.open(SHADER_PATH_PREFIX + shaderNameA + ".vert.hlsl",MH33::Io::Mode::READ));
+	MH33::Io::uDevice f2(iosys.open(SHADER_PATH_PREFIX + shaderNameA + ".frag.hlsl",MH33::Io::Mode::READ));
+	MH33::Io::uDevice f3(iosys.open(SHADER_PATH_PREFIX + shaderNameB + ".vert.hlsl",MH33::Io::Mode::READ));
+	MH33::Io::uDevice f4(iosys.open(SHADER_PATH_PREFIX + shaderNameB + ".frag.hlsl",MH33::Io::Mode::READ));
+	sourceCodesA[0] = f1->readAllAsString();
+	sourceCodesA[1] = f2->readAllAsString();
+	sourceCodesB[0] = f3->readAllAsString();
+	sourceCodesB[1] = f4->readAllAsString();
+	gfx.prepareShaderModuleFor(iosys,moduleCreateInfosA,sourceCodesA);
+	gfx.prepareShaderModuleFor(iosys,moduleCreateInfosB,sourceCodesB);
 	fun(moduleCreateInfosA, moduleCreateInfosB);
 }
 #define INSERT_HUNGARIAN
@@ -125,7 +129,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		(conf["Video"].getValueOrDefault("bFullscreen","0")->second.value.i_bool) ? SDL_WINDOW_FULLSCREEN : 0
 	), iosys(iosys), triangleVbo(nullptr), trianglePipeline(nullptr), gfx(gfxCreator(syswmi))
 {
-	screenQuad = MH33::GFX::uIndexedVertexBuffer(gfx->createIndexedVertexBuffer(MH33::GFX::VertexBufferUsageClass::Static,&WidgetVertex::vertexDescriptor, 0, 0));
+/*	screenQuad = MH33::GFX::uIndexedVertexBuffer(gfx->createIndexedVertexBuffer(MH33::GFX::VertexBufferUsageClass::Static,&WidgetVertex::vertexDescriptor, 0, 0));
 	screenQuad->bindData();
 	screenQuad->initializeData( std::span<const std::byte>(reinterpret_cast<const std::byte*>(ScreenQuad), sizeof (WidgetVertex) * 4 ) );
 	screenQuad->bindIndices();
@@ -133,9 +137,9 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 	triangleVbo = MH33::GFX::uUnindexedVertexBuffer(gfx->createUnindexedVertexBuffer(MH33::GFX::VertexBufferUsageClass::Static,&PrimitiveColoredGayTriangle::vertexDescriptor, 0));
 	triangleVbo->bind();
 	triangleVbo->initializeData(std::span<const std::byte>( reinterpret_cast<const std::byte*>(MyTriangleUwu), sizeof (PrimitiveColoredGayTriangle) * 3 ) );
-	trianglePipeline = createPipelineFromFiles(*gfx, *iosys, "triang", &PrimitiveColoredGayTriangle::vertexDescriptor);
+	trianglePipeline = createPipelineFromFiles(*gfx, *iosys, "triang", &PrimitiveColoredGayTriangle::vertexDescriptor);*/
 	textPipeline = createPipelineFromFiles(*gfx, *iosys, "sdftext", &WidgetVertex::vertexDescriptor);
-	createDuealPipeline(*iosys,"sdftext", "textline",[this](const MH33::GFX::ConstModuleCreateInfoList& a, const MH33::GFX::ConstModuleCreateInfoList& b){
+	createDuealPipeline(*gfx, *iosys,"sdftext", "textline",[this](const MH33::GFX::ConstModuleCreateInfoList& a, const MH33::GFX::ConstModuleCreateInfoList& b){
 		this->fontRepo = std::make_shared<MH33::GFX::FontRepository>(this->iosys, this->gfx.get(), a, b);
 	});
 	fontRepo->initializeFont("noto", "/fonts/NotoTraditionalNushu-Regular.ttf");
@@ -164,7 +168,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		mml->parse(strm.str());
 	}
 	rtp->flush();
-	{
+/*	{
 		MH33::GFX::ShaderModuleCreateInfo moduleCreateInfos[1];
 		moduleCreateInfos[0].shaderType = MH33::GFX::ShaderModuleType::COMPUTE_SHADER;
 		MH33::Image::DecodeTarget decodeTarget;
@@ -204,7 +208,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		compshader->setUniform(compshader->getBindingPoint("dimensions"), *uniform, 2);
 		compshader->dispatchCompute(uniform1.width, uniform1.height, 1);
 		compshader->waitForFinish();
-	}
+	}*/
 }
 
 TestSystem::~TestSystem()
