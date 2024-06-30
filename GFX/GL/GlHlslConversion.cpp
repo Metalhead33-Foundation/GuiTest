@@ -221,27 +221,39 @@ void prepareShaderModuleFor(MH33::Io::System& iosys, MH33::GFX::ShaderModuleCrea
 	prepareShaderModuleFor(iosys,out1,in1);
 }
 
+static void unsetDecorations(spirv_cross::CompilerGLSL& glsl, spirv_cross::SmallVector<spirv_cross::Resource>& resource_collection, const char* fmt) {
+	for (auto &resource : resource_collection) {
+	unsigned set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+	unsigned binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+	printf(fmt, resource.name.c_str(), set, binding);
+
+	// Modify the decoration to prepare it for GLSL.
+	glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
+	glsl.unset_decoration(resource.id, spv::DecorationBinding);
+	glsl.unset_decoration(resource.id, spv::DecorationLocation);
+
+	// Some arbitrary remapping if we want.
+	//glsl.set_decoration(resource.id, spv::DecorationBinding, set * 16 + binding);
+	}
+}
+
 void convertSpirvBackToGlsl(MH33::GFX::ShaderModuleCreateInfo& output, std::vector<uint32_t>&& vec)
 {
 	spirv_cross::CompilerGLSL glsl(std::move(vec));
 	spirv_cross::ShaderResources resources = glsl.get_shader_resources();
 	// Get all sampled images in the shader.
-	/*for (auto &resource : resources.sampled_images)
-	{
-		unsigned set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
-		unsigned binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
-		printf("Image %s at set = %u, binding = %u\n", resource.name.c_str(), set, binding);
-
-		// Modify the decoration to prepare it for GLSL.
-		glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
-
-		// Some arbitrary remapping if we want.
-		glsl.set_decoration(resource.id, spv::DecorationBinding, set * 16 + binding);
-	}*/
-
+	/*unsetDecorations(glsl,resources.sampled_images,"Sampled Image %s at set = %u, binding = %u\n");
+	unsetDecorations(glsl,resources.push_constant_buffers,"Push constant buffer %s at set = %u, binding = %u\n");
+	unsetDecorations(glsl,resources.separate_images,"Separate Image %s at set = %u, binding = %u\n");
+	unsetDecorations(glsl,resources.separate_samplers,"Separate Sampler %s at set = %u, binding = %u\n");
+	unsetDecorations(glsl,resources.storage_buffers,"Storage Buffer %s at set = %u, binding = %u\n");
+	unsetDecorations(glsl,resources.uniform_buffers,"Uniform Buffer %s at set = %u, binding = %u\n");
+	unsetDecorations(glsl,resources.gl_plain_uniforms,"Plain uniform %s at set = %u, binding = %u\n");
+	unsetDecorations(glsl,resources.stage_inputs,"Stage input %s at set = %u, binding = %u\n");
+	unsetDecorations(glsl,resources.stage_outputs,"Stage output %s at set = %u, binding = %u\n");*/
 	// Set some options.
 	spirv_cross::CompilerGLSL::Options options;
-	options.version = 410;
+	options.version = 420;
 	options.es = false;
 	options.fragment.default_float_precision = spirv_cross::CompilerGLSL::Options::Lowp;
 	options.fragment.default_int_precision = spirv_cross::CompilerGLSL::Options::Mediump;
