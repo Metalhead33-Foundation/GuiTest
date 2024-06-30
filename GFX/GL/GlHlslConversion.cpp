@@ -2,8 +2,6 @@
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
 #include <glslang/Include/ResourceLimits.h>
-#include <spirv-tools/libspirv.hpp>
-#include <spirv-tools/optimizer.hpp>
 #include "GlslangIncluder.hpp"
 #include <spirv_cross/spirv_glsl.hpp>
 #include <iostream>
@@ -39,28 +37,6 @@ public:
 		return errStr.c_str();
 	}
 };
-
-void CLIMessageConsumer(spv_message_level_t level, const char*,
-						const spv_position_t& position, const char* message) {
-  switch (level) {
-	case SPV_MSG_FATAL:
-	case SPV_MSG_INTERNAL_ERROR:
-	case SPV_MSG_ERROR:
-	  std::cerr << "error: line " << position.index << ": " << message
-				<< std::endl;
-	  break;
-	case SPV_MSG_WARNING:
-	  std::cout << "warning: line " << position.index << ": " << message
-				<< std::endl;
-	  break;
-	case SPV_MSG_INFO:
-	  std::cout << "info: line " << position.index << ": " << message
-				<< std::endl;
-	  break;
-	default:
-	  break;
-  }
-}
 
 static TBuiltInResource GlslangResources;
 static void initResources() {
@@ -198,9 +174,9 @@ void prepareShaderModuleFor(MH33::Io::System& iosys, const std::span<MH33::GFX::
 		auto& shader = *tempShaders[i];
 		//glslang::TShader shader(stage);
 		shader.setStrings(&shaderSource, 1);
-		shader.setEnvInput(glslang::EShSourceHlsl, stage, glslang::EShClientVulkan, 1);
-		shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
-		shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
+		shader.setEnvInput(glslang::EShSource::EShSourceHlsl, stage, glslang::EShClient::EShClientVulkan, 100);
+		shader.setEnvClient(glslang::EShClient::EShClientVulkan, glslang::EshTargetClientVersion::EShTargetVulkan_1_0);
+		shader.setEnvTarget(glslang::EShTargetLanguage::EShTargetSpv, glslang::EShTargetLanguageVersion::EShTargetSpv_1_0);
 		shader.setEntryPoint("main");
 
 		EShMessages messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
@@ -221,31 +197,19 @@ void prepareShaderModuleFor(MH33::Io::System& iosys, const std::span<MH33::GFX::
 	if (!program.link(messages)) {
 		throw GlslangProgramError(program);
 	}
-	spvtools::SpirvTools spvTool(SPV_ENV_VULKAN_1_0);
-	spvtools::Optimizer optimizer(SPV_ENV_VULKAN_1_0);
-	spvTool.SetMessageConsumer(CLIMessageConsumer);
-	optimizer.SetMessageConsumer(CLIMessageConsumer);
-	optimizer.RegisterPass(spvtools::CreateNullPass());
-	//optimizer.RegisterLegalizationPasses();
-	//optimizer.RegisterPerformancePasses();
-	//optimizer.RegisterSizePasses();
+	glslang::SpvOptions spvOpts;
+	spvOpts.disableOptimizer = false;
+	spvOpts.disassemble = false;
+	spvOpts.generateDebugInfo = false;
+	spvOpts.disassemble = false;
+	spvOpts.compileOnly = false;
+	spvOpts.optimizeSize = false;
+	spvOpts.validate = true;
 	for(size_t i = 0; i < output.size(); ++i) {
 		auto& out = output[i];
 		const EShLanguage& stage = stages[i];
 		std::vector<uint32_t> spirv;
-		glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
-		auto spirvSize = spirv.size();
-		/*if (spvTool.Validate(spirv) != SPV_SUCCESS) {
-				throw std::runtime_error("SPIR-V validation failed");
-		}
-		std::vector<uint32_t> optimizedSpirv;
-		if(!optimizer.Run(spirv.data(),spirv.size(),&optimizedSpirv)) {
-			throw std::runtime_error("SPIR-V optimization failed!");
-		}*/
-		/*out.source.resize(spirv.size() * sizeof(uint32_t));
-		auto outSize = out.source.size();
-		std::memcpy(out.source.data(), spirv.data(), out.source.size());
-		out.isBinary = true;*/
+		glslang::GlslangToSpv(*program.getIntermediate(stage), spirv, &spvOpts);
 		convertSpirvBackToGlsl(out,std::move(spirv));
 	}
 }
@@ -255,10 +219,6 @@ void prepareShaderModuleFor(MH33::Io::System& iosys, MH33::GFX::ShaderModuleCrea
 	std::span<MH33::GFX::ShaderModuleCreateInfo> out1(&output,1);
 	std::span<const std::string> in1(&input,1);
 	prepareShaderModuleFor(iosys,out1,in1);
-}
-
-static void testWholeShader(glslang::TProgram& program) {
-	std::vector<uint32_t> spriv;
 }
 
 void convertSpirvBackToGlsl(MH33::GFX::ShaderModuleCreateInfo& output, std::vector<uint32_t>&& vec)
