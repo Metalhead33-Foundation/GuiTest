@@ -235,18 +235,18 @@ void prepareShaderModuleFor(MH33::Io::System& iosys, const std::span<MH33::GFX::
 		std::vector<uint32_t> spirv;
 		glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
 		auto spirvSize = spirv.size();
-		if (spvTool.Validate(spirv) != SPV_SUCCESS) {
+		/*if (spvTool.Validate(spirv) != SPV_SUCCESS) {
 				throw std::runtime_error("SPIR-V validation failed");
 		}
 		std::vector<uint32_t> optimizedSpirv;
 		if(!optimizer.Run(spirv.data(),spirv.size(),&optimizedSpirv)) {
 			throw std::runtime_error("SPIR-V optimization failed!");
-		}
+		}*/
 		/*out.source.resize(spirv.size() * sizeof(uint32_t));
 		auto outSize = out.source.size();
 		std::memcpy(out.source.data(), spirv.data(), out.source.size());
 		out.isBinary = true;*/
-		convertSpirvBackToGlsl(out,std::move(optimizedSpirv));
+		convertSpirvBackToGlsl(out,std::move(spirv));
 	}
 }
 
@@ -266,7 +266,7 @@ void convertSpirvBackToGlsl(MH33::GFX::ShaderModuleCreateInfo& output, std::vect
 	spirv_cross::CompilerGLSL glsl(std::move(vec));
 	spirv_cross::ShaderResources resources = glsl.get_shader_resources();
 	// Get all sampled images in the shader.
-	for (auto &resource : resources.sampled_images)
+	/*for (auto &resource : resources.sampled_images)
 	{
 		unsigned set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
 		unsigned binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
@@ -277,12 +277,14 @@ void convertSpirvBackToGlsl(MH33::GFX::ShaderModuleCreateInfo& output, std::vect
 
 		// Some arbitrary remapping if we want.
 		glsl.set_decoration(resource.id, spv::DecorationBinding, set * 16 + binding);
-	}
+	}*/
 
 	// Set some options.
 	spirv_cross::CompilerGLSL::Options options;
-	options.version = 330;
+	options.version = 410;
 	options.es = false;
+	options.fragment.default_float_precision = spirv_cross::CompilerGLSL::Options::Lowp;
+	options.fragment.default_int_precision = spirv_cross::CompilerGLSL::Options::Mediump;
 	glsl.set_common_options(options);
 	glsl.build_combined_image_samplers();
 	for (auto &remap : glsl.get_combined_image_samplers())
