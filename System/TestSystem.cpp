@@ -2,6 +2,7 @@
 #include <MhLib/Media/Image/MhPNG.hpp>
 #include <iostream>
 #include <yaml-cpp/yaml.h>
+#include <jsapi.h>
 
 struct PrimitiveColoredGayTriangle {
 	glm::vec3 POS;
@@ -127,7 +128,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		conf["Video"].getValueOrDefault("iWidth","640")->second.value.i_int,
 		conf["Video"].getValueOrDefault("iHeight","640")->second.value.i_int,
 		(conf["Video"].getValueOrDefault("bFullscreen","0")->second.value.i_bool) ? SDL_WINDOW_FULLSCREEN : 0
-	), iosys(iosys), triangleVbo(nullptr), trianglePipeline(nullptr), gfx(gfxCreator(syswmi))
+	), iosys(iosys), triangleVbo(nullptr), trianglePipeline(nullptr), gfx(gfxCreator(syswmi)), jscore(iosys)
 {
 /*	screenQuad = MH33::GFX::uIndexedVertexBuffer(gfx->createIndexedVertexBuffer(MH33::GFX::VertexBufferUsageClass::Static,&WidgetVertex::vertexDescriptor, 0, 0));
 	screenQuad->bindData();
@@ -148,6 +149,47 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 	MH33::TXT::uMmlParser mml;
 */
 	loadLocalizations();
+	// Add localizations to JS
+
+	jscore.insertModule("CONFIG", [&conf](JSContext& ctx,JS::RootedObject& obj) {
+		for( auto it = std::begin(conf) ; it != std::end(conf) ; ++it ) {
+			JS::RootedObject section(&ctx, JS_NewPlainObject(&ctx));
+			for( auto zt = std::begin(it->second) ; zt != std::end(it->second) ; ++zt ) {
+				switch (zt->second.type) {
+					case IniType::INI_BOOLEAN: {
+						JS::RootedValue rootedBool(&ctx, zt->second.value.i_bool ? JS::TrueValue() : JS::FalseValue() );
+						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedBool, JSPROP_READONLY );
+						break; }
+					case IniType::INI_FLOAT: {
+						JS::RootedValue rootedFloat(&ctx, JS_NumberValue(zt->second.value.i_float) );
+						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedFloat, JSPROP_READONLY );
+						break;  }
+					case IniType::INI_INTEGER: {
+						JS::RootedValue rootedInt(&ctx, JS_NumberValue(zt->second.value.i_int) );
+						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedInt, JSPROP_READONLY );
+						break; }
+					case IniType::INI_UINTEGER: {
+						JS::RootedValue rootedUint(&ctx, JS_NumberValue(zt->second.value.i_uint) );
+						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedUint, JSPROP_READONLY );
+						break; }
+					case IniType::INI_STRING: {
+						auto strview = zt->second.asStringView();
+						JS::RootedString rootedString(&ctx, JS_NewStringCopyN(&ctx, strview.data(), strview.size() ) );
+						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedString, JSPROP_READONLY );
+						break; }
+					default: break;
+				}
+			}
+			JS_DefineProperty(&ctx,obj, it->first.c_str(), section, JSPROP_READONLY);
+		}
+	});
+	jscore.insertModule("localization", [this](JSContext& ctx,JS::RootedObject& obj) {
+		for(auto it = std::begin(this->localizations); it != std::end(this->localizations); ++it) {
+			JS::RootedString rstr(&ctx, JS_NewStringCopyN(&ctx, it->second.c_str(),it->second.size()));
+			JS_DefineProperty(&ctx, obj, it->first.c_str(), rstr, JSPROP_READONLY);
+		}
+	});
+
 	rtp = std::make_unique<MH33::TXT::RichTextProcessor>(fontRepo);
 	rtp->setDefaultFontName("noto");
 	rtp->setCurrentFontName("noto");
@@ -209,6 +251,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		compshader->dispatchCompute(uniform1.width, uniform1.height, 1);
 		compshader->waitForFinish();
 	}*/
+	jscore.run();
 }
 
 TestSystem::~TestSystem()

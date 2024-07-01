@@ -12,6 +12,7 @@
 #define USE_GLX
 
 int main(int argc, char *argv[]) {
+	if(JS::Core::inintializeJs()) {
 	PhysFS::IoSystem::initialize(argv[0]);
 	PhysFS::sIoSystem iosys(new PhysFS::IoSystem());
 	iosys->mount(iosys->getBaseDir(),"/");
@@ -37,5 +38,7 @@ int main(int argc, char *argv[]) {
 #endif
 	TestSystem testSys(iosys,initializer, ini);
 	testSys.run();
+	JS::Core::shutdownJs();
+	}
 	return 0;
 }

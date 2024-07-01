@@ -13,6 +13,9 @@ DEFINES += WINSYS_X
 DEFINES += DESKTOP_GL
 
 SOURCES += \
+        JS/JsCore.cpp \
+        JS/JsException.cpp \
+        JS/JsUtil.cpp \
         GFX/Advanced/MhHardwareAcceleratedFont.cpp \
         GFX/GL/EglContext.cpp \
         GFX/GL/EglDisplay.cpp \
@@ -108,6 +111,9 @@ SOURCES += \
         main.cpp
 
 HEADERS += \
+    JS/JsCore.hpp \
+    JS/JsException.hpp \
+    JS/JsUtil.hpp \
     GFX/Abstract/ComputeShader.hpp \
     GFX/Abstract/Framebuffer.hpp \
     GFX/Abstract/GfxResourceFactory.hpp \

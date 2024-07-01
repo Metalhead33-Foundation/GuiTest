@@ -1,5 +1,6 @@
 #ifndef TESTSYSTEM_HPP
 #define TESTSYSTEM_HPP
+#include <JS/JsCore.hpp>
 #include "AppSystem.hpp"
 #include "IniConfiguration.hpp"
 #include <GFX/Abstract/GfxResourceFactory.hpp>
@@ -25,6 +26,7 @@ private:
 	MH33::TXT::uRichTextProcessor rtp;
 	MH33::TXT::uMmlParser mml;
 	std::map<std::string, std::string> localizations;
+	JS::Core jscore;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	~TestSystem();
