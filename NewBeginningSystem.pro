@@ -228,6 +228,7 @@ HEADERS += \
     MhLib/Util/ITextReceiver.hpp \
     MhLib/Util/MhBuffer.hpp \
     MhLib/Util/MhColourHelper.hpp \
+    MhLib/Util/MhCommandQueue.hpp \
     MhLib/Util/MhDither.hpp \
     MhLib/Util/MhDynamicLib.hpp \
     MhLib/Util/MhEdgeFunction.hpp \

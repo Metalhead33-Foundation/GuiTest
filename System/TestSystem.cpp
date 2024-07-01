@@ -158,35 +158,37 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 				switch (zt->second.type) {
 					case IniType::INI_BOOLEAN: {
 						JS::RootedValue rootedBool(&ctx, zt->second.value.i_bool ? JS::TrueValue() : JS::FalseValue() );
-						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedBool, JSPROP_READONLY );
+						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedBool, JSPROP_READONLY | JSPROP_ENUMERATE);
 						break; }
 					case IniType::INI_FLOAT: {
 						JS::RootedValue rootedFloat(&ctx, JS_NumberValue(zt->second.value.i_float) );
-						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedFloat, JSPROP_READONLY );
+						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedFloat, JSPROP_READONLY | JSPROP_ENUMERATE );
 						break;  }
 					case IniType::INI_INTEGER: {
 						JS::RootedValue rootedInt(&ctx, JS_NumberValue(zt->second.value.i_int) );
-						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedInt, JSPROP_READONLY );
+						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedInt, JSPROP_READONLY | JSPROP_ENUMERATE );
 						break; }
 					case IniType::INI_UINTEGER: {
 						JS::RootedValue rootedUint(&ctx, JS_NumberValue(zt->second.value.i_uint) );
-						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedUint, JSPROP_READONLY );
+						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedUint, JSPROP_READONLY  | JSPROP_ENUMERATE);
 						break; }
 					case IniType::INI_STRING: {
 						auto strview = zt->second.asStringView();
-						JS::RootedString rootedString(&ctx, JS_NewStringCopyN(&ctx, strview.data(), strview.size() ) );
-						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedString, JSPROP_READONLY );
+						JS::UTF8Chars uChars( strview.data(), strview.size() );
+						JS::RootedString rootedString(&ctx, JS_NewStringCopyUTF8N(&ctx, uChars) );
+						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedString, JSPROP_READONLY | JSPROP_ENUMERATE );
 						break; }
 					default: break;
 				}
 			}
-			JS_DefineProperty(&ctx,obj, it->first.c_str(), section, JSPROP_READONLY);
+			JS_DefineProperty(&ctx,obj, it->first.c_str(), section, JSPROP_READONLY | JSPROP_ENUMERATE);
 		}
 	});
 	jscore.insertModule("localization", [this](JSContext& ctx,JS::RootedObject& obj) {
 		for(auto it = std::begin(this->localizations); it != std::end(this->localizations); ++it) {
-			JS::RootedString rstr(&ctx, JS_NewStringCopyN(&ctx, it->second.c_str(),it->second.size()));
-			JS_DefineProperty(&ctx, obj, it->first.c_str(), rstr, JSPROP_READONLY);
+			JS::UTF8Chars uChars(it->second.c_str(),it->second.size());
+			JS::RootedString rstr(&ctx, JS_NewStringCopyUTF8N(&ctx, uChars));
+			JS_DefineProperty(&ctx, obj, it->first.c_str(), rstr, JSPROP_READONLY | JSPROP_ENUMERATE);
 		}
 	});
 
@@ -308,6 +310,7 @@ void TestSystem::render(float deltaTime)
 
 void TestSystem::update(float deltaTime)
 {
+	processCommands();
 }
 
 void TestSystem::handleDisplayEvent(const SDL_DisplayEvent &ev)
@@ -325,30 +328,147 @@ void TestSystem::handleWindowEvent(const SDL_WindowEvent &ev)
 
 void TestSystem::handleKeyboardEvent(const SDL_KeyboardEvent &ev)
 {
+	if(jsSideEventHandlers.contains(ev.type)) {
+		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
+			auto it = jsSideEventHandlers[ev.type];
+			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
+			JS::ValueArray<6> valarr;
+			valarr.elements[0].setNumber(ev.timestamp);
+			valarr.elements[1].setNumber(ev.windowID);
+			valarr.elements[2].setNumber(ev.state);
+			valarr.elements[3].setNumber(ev.repeat);
+			valarr.elements[4].setNumber(static_cast<int32_t>(ev.keysym.scancode));
+			valarr.elements[5].setNumber(static_cast<int32_t>(ev.keysym.sym));
+			JS::RootedValueArray<6> args(&ctx, valarr);
+			JS::RootedValue retval(&ctx);
+			JS_CallFunction(&ctx,rootedF,it,args, &retval);
+		});
+	}
 }
 
 void TestSystem::handleTextEditingEvent(const SDL_TextEditingEvent &ev)
 {
+	if(jsSideEventHandlers.contains(ev.type)) {
+		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
+			auto it = jsSideEventHandlers[ev.type];
+			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
+			JS::ValueArray<5> valarr;
+			valarr.elements[0].setNumber(ev.timestamp);
+			valarr.elements[1].setNumber(ev.windowID);
+			valarr.elements[2].setString(JS_NewStringCopyN(&ctx,ev.text,SDL_TEXTEDITINGEVENT_TEXT_SIZE));
+			valarr.elements[3].setNumber(ev.start);
+			valarr.elements[4].setNumber(ev.length);
+			JS::RootedValueArray<5> args(&ctx, valarr);
+			JS::RootedValue retval(&ctx);
+			JS_CallFunction(&ctx,rootedF,it,args, &retval);
+		});
+	}
 }
 
 void TestSystem::handleTextEditingExtEvent(const SDL_TextEditingExtEvent &ev)
 {
+	if(jsSideEventHandlers.contains(ev.type)) {
+		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
+			auto it = jsSideEventHandlers[ev.type];
+			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
+			JS::ValueArray<5> valarr;
+			valarr.elements[0].setNumber(ev.timestamp);
+			valarr.elements[1].setNumber(ev.windowID);
+			valarr.elements[2].setString(JS_NewStringCopyZ(&ctx,ev.text));
+			valarr.elements[3].setNumber(ev.start);
+			valarr.elements[4].setNumber(ev.length);
+			JS::RootedValueArray<5> args(&ctx, valarr);
+			JS::RootedValue retval(&ctx);
+			SDL_free(ev.text);
+			JS_CallFunction(&ctx,rootedF,it,args, &retval);
+		});
+	}
 }
 
 void TestSystem::handleTextInputEvent(const SDL_TextInputEvent &ev)
 {
+	if(jsSideEventHandlers.contains(ev.type)) {
+		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
+			auto it = jsSideEventHandlers[ev.type];
+			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
+			JS::ValueArray<3> valarr;
+			valarr.elements[0].setNumber(ev.timestamp);
+			valarr.elements[1].setNumber(ev.windowID);
+			valarr.elements[2].setString(JS_NewStringCopyN(&ctx,ev.text,SDL_TEXTEDITINGEVENT_TEXT_SIZE));
+			JS::RootedValueArray<3> args(&ctx, valarr);
+			JS::RootedValue retval(&ctx);
+			JS_CallFunction(&ctx,rootedF,it,args, &retval);
+		});
+	}
 }
 
 void TestSystem::handleMouseMotionEvent(const SDL_MouseMotionEvent &ev)
 {
+	if(jsSideEventHandlers.contains(ev.type)) {
+		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
+			auto it = jsSideEventHandlers[ev.type];
+			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
+			JS::ValueArray<7> valarr;
+			valarr.elements[0].setNumber(ev.timestamp);
+			valarr.elements[1].setNumber(ev.windowID);
+			valarr.elements[2].setNumber(ev.which);
+			valarr.elements[3].setNumber(ev.state);
+			valarr.elements[4].setNumber(ev.x);
+			valarr.elements[5].setNumber(ev.y);
+			valarr.elements[6].setNumber(ev.xrel);
+			valarr.elements[6].setNumber(ev.yrel);
+			JS::RootedValueArray<7> args(&ctx, valarr);
+			JS::RootedValue retval(&ctx);
+			JS_CallFunction(&ctx,rootedF,it,args, &retval);
+		});
+	}
 }
 
 void TestSystem::handleMouseButtonEvent(const SDL_MouseButtonEvent &ev)
 {
+	if(jsSideEventHandlers.contains(ev.type)) {
+		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
+			auto it = jsSideEventHandlers[ev.type];
+			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
+			JS::ValueArray<8> valarr;
+			valarr.elements[0].setNumber(ev.timestamp);
+			valarr.elements[1].setNumber(ev.windowID);
+			valarr.elements[2].setNumber(ev.which);
+			valarr.elements[3].setNumber(ev.state);
+			valarr.elements[4].setNumber(ev.button);
+			valarr.elements[5].setNumber(ev.state);
+			valarr.elements[6].setNumber(ev.button);
+			valarr.elements[6].setNumber(ev.x);
+			valarr.elements[7].setNumber(ev.y);
+			JS::RootedValueArray<8> args(&ctx, valarr);
+			JS::RootedValue retval(&ctx);
+			JS_CallFunction(&ctx,rootedF,it,args, &retval);
+		});
+	}
 }
 
 void TestSystem::handleMouseWheelEvent(const SDL_MouseWheelEvent &ev)
 {
+	if(jsSideEventHandlers.contains(ev.type)) {
+		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
+			auto it = jsSideEventHandlers[ev.type];
+			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
+			JS::ValueArray<9> valarr;
+			valarr.elements[0].setNumber(ev.timestamp);
+			valarr.elements[1].setNumber(ev.windowID);
+			valarr.elements[2].setNumber(ev.which);
+			valarr.elements[3].setNumber(ev.x);
+			valarr.elements[4].setNumber(ev.y);
+			valarr.elements[5].setNumber(ev.direction);
+			valarr.elements[6].setNumber(ev.preciseX);
+			valarr.elements[6].setNumber(ev.preciseY);
+			valarr.elements[7].setNumber(ev.mouseX);
+			valarr.elements[8].setNumber(ev.mouseY);
+			JS::RootedValueArray<9> args(&ctx, valarr);
+			JS::RootedValue retval(&ctx);
+			JS_CallFunction(&ctx,rootedF,it,args, &retval);
+		});
+	}
 }
 
 void TestSystem::handleJoyAxisEvent(const SDL_JoyAxisEvent &ev)

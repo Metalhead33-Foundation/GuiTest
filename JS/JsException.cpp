@@ -2,7 +2,7 @@
 #include <sstream>
 
 namespace JS {
-StdException::StdException(JSContext* cx)
+Exception::Exception(JSContext* cx)
 {
 	bool isExecptionPending = JS_IsExceptionPending(cx);
 	std::stringstream errorstream;
@@ -22,7 +22,7 @@ StdException::StdException(JSContext* cx)
 	err_str = errorstream.str();
 }
 
-StdException::StdException(JSContext *cx, JS::HandleValue error)
+Exception::Exception(JSContext *cx, JS::HandleValue error)
 {
 	std::stringstream errorstream;
 	errorstream << "Uh-oh, stinky!" << std::endl;
@@ -35,7 +35,7 @@ StdException::StdException(JSContext *cx, JS::HandleValue error)
 	err_str = errorstream.str();
 }
 
-StdException::StdException(JSContext *cx, const char *message, JSErrorReport *report)
+Exception::Exception(JSContext *cx, const char *message, JSErrorReport *report)
 {
 	std::stringstream errorstream;
 	errorstream << "Uh-oh, stinky!" << std::endl;
@@ -46,7 +46,7 @@ StdException::StdException(JSContext *cx, const char *message, JSErrorReport *re
 	err_str = errorstream.str();
 }
 
-const char *StdException::what() const noexcept
+const char *Exception::what() const noexcept
 {
 	return err_str.c_str();
 }

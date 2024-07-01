@@ -2,6 +2,8 @@
 #include "JsUtil.hpp"
 #include "JsException.hpp"
 #include <iostream>
+#include <js/Array.h>
+#include <js/MapAndSet.h>
 
 namespace JS {
 void Core::run(bool module)
@@ -24,12 +26,31 @@ std::string Core::GetJsFileAsString(JS::CallArgs& args) const {
 	return getCodeFromJsFile(str0,true);
 }
 
-void Core::insertModule(const std::string& moduleName, const ModuleCreator& creator)
+void Core::insertModule(const std::string& moduleName, const ModuleCreator& creator, CreatedObjectType objectType, size_t arrSize)
 {
-	JS::RootedObject moduleObject(cx.get(),JS_NewPlainObject(cx.get()));
-	JS_DefineProperty(cx.get(),moduleObject,"__esModule",JS::TrueHandleValue, JSPROP_READONLY);
-	creator(*cx,moduleObject);
-	moduleRegistry.emplace(moduleName, JS::PersistentRootedObject(cx.get(), moduleObject));
+	switch (objectType) {
+		case JS::CreatedObjectType::PLAIN_OBJECT: {
+			JS::RootedObject moduleObject(cx.get(),JS_NewPlainObject(cx.get()));
+			JS_DefineProperty(cx.get(),moduleObject,"__esModule",JS::TrueHandleValue, JSPROP_READONLY);
+			creator(*cx,moduleObject);
+			moduleRegistry.emplace(moduleName, JS::PersistentRootedObject(cx.get(), moduleObject));
+			break; }
+		case JS::CreatedObjectType::ARRAY: {
+			JS::RootedObject moduleObject(cx.get(),JS::NewArrayObject(cx.get(), arrSize));
+			creator(*cx,moduleObject);
+			moduleRegistry.emplace(moduleName, JS::PersistentRootedObject(cx.get(), moduleObject));
+			break; }
+		case JS::CreatedObjectType::MAP: {
+			JS::RootedObject moduleObject(cx.get(),JS::NewMapObject(cx.get()));
+			creator(*cx,moduleObject);
+			moduleRegistry.emplace(moduleName, JS::PersistentRootedObject(cx.get(), moduleObject));
+			break; }
+		case JS::CreatedObjectType::SET: {
+			JS::RootedObject moduleObject(cx.get(),JS::NewSetObject(cx.get()));
+			creator(*cx,moduleObject);
+			moduleRegistry.emplace(moduleName, JS::PersistentRootedObject(cx.get(), moduleObject));
+			break; }
+	}
 }
 
 void Core::insertModule(const std::string& moduleName, const JSClass& protoClass, const ModuleCreator& creator)
@@ -44,6 +65,11 @@ void Core::insertModule(const std::string& moduleName, JSNative call, unsigned n
 {
 	JS::RootedFunction fun(cx.get(), JS_NewFunction(cx.get(), call, nargs, flags, moduleName.c_str()));
 	moduleRegistry.emplace(moduleName, JS::PersistentRootedObject(cx.get(), JS_GetFunctionObject(fun) ) );
+}
+
+void Core::executeWithinContext(const ContextAccessor& accessor)
+{
+	accessor(*cx);
 }
 
 static bool JsPrint(JSContext* cx, unsigned argc, JS::Value* vp) {
@@ -100,7 +126,7 @@ bool Core::JsRequire(JSContext* cx, unsigned argc, JS::Value* vp) {
 }
 
 void reportError(JSContext* cx, const char* message, JSErrorReport* report) {
-	throw new StdException(cx,message,report);
+	throw new Exception(cx,message,report);
 }
 
 void Core::initialize()
@@ -243,19 +269,19 @@ bool Core::compileAndExecuteScript(const std::string code, JS::RootedValue *retv
 
 	auto script = JS::RootedScript(cx.get(), JS::Compile(cx.get(),options,source));
 	if (!script) {
-		throw StdException(cx.get());
+		throw Exception(cx.get());
 	}
 	JS::MutableHandleValue rv(retval);
 	if(retval) {
 		if (!JS_ExecuteScript(cx.get(), script, rv)) {
-			throw StdException(cx.get());
+			throw Exception(cx.get());
 		}
 	} else {
 		if (!JS_ExecuteScript(cx.get(), script)) {
-			throw StdException(cx.get());
+			throw Exception(cx.get());
 		}
 	}
-	if(JS_IsExceptionPending(cx.get())) throw StdException(cx.get());
+	if(JS_IsExceptionPending(cx.get())) throw Exception(cx.get());
 	return true;
 }
 bool Core::compileAndExecuteScript(const FileReadFunction &codereader, JS::RootedValue *retval, const std::string &scriptName)
@@ -291,12 +317,12 @@ bool Core::compileAndExecuteCommonJSModule(const std::string code, JS::RootedVal
 
 	auto script = JS::RootedScript(cx.get(), JS::Compile(cx.get(),options,source));
 	if (!script) {
-		throw StdException(cx.get());
+		throw Exception(cx.get());
 	}
 	if (!JS_ExecuteScript(cx.get(), script)) {
-		throw StdException(cx.get());
+		throw Exception(cx.get());
 	}
-	if(JS_IsExceptionPending(cx.get())) throw StdException(cx.get());
+	if(JS_IsExceptionPending(cx.get())) throw Exception(cx.get());
 	retval.setObject(*exportsObj);
 	moduleRegistry.emplace(moduleName, JS::PersistentRootedObject(cx.get(), exportsObj));
 	return true;
@@ -332,7 +358,7 @@ JSObject *Core::compileModuleFromSource(const std::string code, const std::strin
 
 	auto mod = JS::CompileModule(cx.get(),options,source);
 	if(!mod) {
-		throw StdException(cx.get());
+		throw Exception(cx.get());
 	}
 	else {
 		moduleRegistry.emplace(moduleName, JS::PersistentRootedObject(cx.get(), mod));
@@ -359,13 +385,13 @@ bool Core::runToplevelModule(const std::string code, const std::string &moduleNa
 	JS::RootedObject rootModule(cx.get(), compileModuleFromSource(code, moduleName));
 
 	if(!JS::ModuleLink(cx.get(),rootModule)) {
-		throw StdException(cx.get());
+		throw Exception(cx.get());
 	}
 	JS::RootedValue rval(cx.get());
 	if(JS::ModuleEvaluate(cx.get(), rootModule, &rval)) {
-		if(JS_IsExceptionPending(cx.get())) throw StdException(cx.get());
+		if(JS_IsExceptionPending(cx.get())) throw Exception(cx.get());
 		return true;
-	} else throw StdException(cx.get());
+	} else throw Exception(cx.get());
 }
 
 bool Core::runToplevelModule(const FileReadFunction &codereader, const std::string &moduleName)
@@ -373,13 +399,13 @@ bool Core::runToplevelModule(const FileReadFunction &codereader, const std::stri
 	JS::RootedObject rootModule(cx.get(), compileModuleFromSource(codereader, moduleName));
 
 	if(!JS::ModuleLink(cx.get(),rootModule)) {
-		throw StdException(cx.get());
+		throw Exception(cx.get());
 	}
 	JS::RootedValue rval(cx.get());
 	if(JS::ModuleEvaluate(cx.get(), rootModule, &rval)) {
-		if(JS_IsExceptionPending(cx.get())) throw StdException(cx.get());
+		if(JS_IsExceptionPending(cx.get())) throw Exception(cx.get());
 		return true;
-	} else throw StdException(cx.get());
+	} else throw Exception(cx.get());
 }
 
 bool Core::runToplevelModule(const std::string &moduleName)
@@ -400,6 +426,6 @@ JSObject *Core::JsResolveModuleHook(JSContext *cx, JS::HandleValue modulePrivate
 }
 
 void Core::ErrorInterception::interceptError(JSContext *cx, JS::HandleValue error) {
-	throw StdException(cx, error);
+	throw Exception(cx, error);
 }
 }

@@ -253,8 +253,8 @@ void convertSpirvBackToGlsl(MH33::GFX::ShaderModuleCreateInfo& output, std::vect
 	unsetDecorations(glsl,resources.stage_outputs,"Stage output %s at set = %u, binding = %u\n");*/
 	// Set some options.
 	spirv_cross::CompilerGLSL::Options options;
-	options.version = 420;
-	options.es = false;
+	options.version = 320;
+	options.es = true;
 	options.fragment.default_float_precision = spirv_cross::CompilerGLSL::Options::Lowp;
 	options.fragment.default_int_precision = spirv_cross::CompilerGLSL::Options::Mediump;
 	glsl.set_common_options(options);

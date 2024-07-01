@@ -4,14 +4,14 @@
 #include <jsapi.h>
 
 namespace JS {
-class StdException : public std::exception
+class Exception : public std::exception
 {
 private:
 	std::string err_str;
 public:
-	StdException(JSContext *cx);
-	StdException(JSContext* cx, JS::HandleValue error);
-	StdException(JSContext* cx, const char* message, JSErrorReport* report);
+	Exception(JSContext *cx);
+	Exception(JSContext* cx, JS::HandleValue error);
+	Exception(JSContext* cx, const char* message, JSErrorReport* report);
 	const char *what() const noexcept;
 };
 

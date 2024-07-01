@@ -11,6 +11,14 @@
 #include <map>
 #include <MhLib/IoSys/MhIoSystem.hpp>
 namespace  JS {
+
+enum class CreatedObjectType {
+	PLAIN_OBJECT,
+	ARRAY,
+	MAP,
+	SET
+};
+
 typedef std::function<bool(JSContext*)> JsTask;
 typedef std::function<bool(JSContext*,unsigned,JS::Value*)> JsFun;
 typedef std::unique_ptr<JSContext,decltype (&JS_DestroyContext)> JsContext;
@@ -20,6 +28,7 @@ class Core
 {
 public:
 	typedef std::function<void(JSContext&,JS::RootedObject&)> ModuleCreator;
+	typedef std::function<void(JSContext&)> ContextAccessor;
 private:
 	JsContext cx;
 	std::map<std::string, JS::PersistentRootedObject> moduleRegistry;
@@ -61,9 +70,10 @@ public:
 	bool runToplevelModule(const FileReadFunction& codereader, const std::string& moduleName);
 	bool runToplevelModule(const std::string& moduleName);
 	std::string GetJsFileAsString(JS::CallArgs& args) const;
-	void insertModule(const std::string& moduleName, const ModuleCreator& creator);
+	void insertModule(const std::string& moduleName, const ModuleCreator& creator, CreatedObjectType objectType = CreatedObjectType::PLAIN_OBJECT, size_t arrSize = 0);
 	void insertModule(const std::string& moduleName, const JSClass& protoClass, const ModuleCreator& creator);
 	void insertModule(const std::string& moduleName, JSNative call, unsigned nargs, unsigned flags);
+	void executeWithinContext(const ContextAccessor& accessor);
 	// JSClass
 	void run(bool module=false);
 	// Static JS stuff

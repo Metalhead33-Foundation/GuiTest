@@ -7,8 +7,9 @@
 #include <MhLib/IoSys/MhIoSystem.hpp>
 #include <GFX/Advanced/MhHardwareAcceleratedFont.hpp>
 #include <MhLib/Text/MmlParser.hpp>
+#include <MhLib/Util/MhCommandQueue.hpp>
 
-class TestSystem : public AppSystem
+class TestSystem : public AppSystem, public MH33::Util::CommandQueue<TestSystem>
 {
 public:
 	typedef std::function<MH33::GFX::pResourceFactory(const SDL_SysWMinfo&)> ResourceFactoryCreator;
@@ -27,6 +28,7 @@ private:
 	MH33::TXT::uMmlParser mml;
 	std::map<std::string, std::string> localizations;
 	JS::Core jscore;
+	std::map<unsigned int, JS::PersistentRootedFunction> jsSideEventHandlers;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	~TestSystem();
