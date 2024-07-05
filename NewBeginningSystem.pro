@@ -13,6 +13,11 @@ DEFINES += WINSYS_X
 DEFINES += DESKTOP_GL
 
 SOURCES += \
+        GFX/Advanced/MhHardwareAcceleratedGuiRenderer.cpp \
+        GUI/MhGuiRenderable.cpp \
+        GUI/MhGuiRenderer.cpp \
+        GUI/MhGuiRootNode.cpp \
+        GUI/MhWidget.cpp \
         JS/JsCore.cpp \
         JS/JsException.cpp \
         JS/JsUtil.cpp \
@@ -111,6 +116,12 @@ SOURCES += \
         main.cpp
 
 HEADERS += \
+    GFX/Advanced/MhHardwareAcceleratedGuiRenderer.hpp \
+    GFX/Advanced/MhHardwareAcceleratedRenderCache.hpp \
+    GUI/MhGuiRenderable.hpp \
+    GUI/MhGuiRenderer.hpp \
+    GUI/MhGuiRootNode.hpp \
+    GUI/MhWidget.hpp \
     JS/JsCore.hpp \
     JS/JsException.hpp \
     JS/JsUtil.hpp \

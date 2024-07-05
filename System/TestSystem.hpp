@@ -8,6 +8,7 @@
 #include <GFX/Advanced/MhHardwareAcceleratedFont.hpp>
 #include <MhLib/Text/MmlParser.hpp>
 #include <MhLib/Util/MhCommandQueue.hpp>
+#include <GFX/Advanced/MhHardwareAcceleratedGuiRenderer.hpp>
 
 class TestSystem : public AppSystem, public MH33::Util::CommandQueue<TestSystem>
 {
@@ -29,6 +30,7 @@ private:
 	std::map<std::string, std::string> localizations;
 	JS::Core jscore;
 	std::map<unsigned int, JS::PersistentRootedFunction> jsSideEventHandlers;
+	std::unique_ptr<MH33::GFX::GuiRenderer> guiRenderer;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	~TestSystem();

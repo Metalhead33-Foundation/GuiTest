@@ -77,17 +77,19 @@ static MH33::GFX::uPipeline createPipelineFromFiles(MH33::GFX::ResourceFactory& 
 	gfx.prepareShaderModuleFor(iosys,moduleCreateInfos,shaderSourceCodes);
 	return MH33::GFX::uPipeline(gfx.createPipeline(moduleCreateInfos,vertexDescriptor));
 }
-static void createPipelineFromFiles(MH33::Io::System& iosys, const std::string& shaderName, const std::function<void(const MH33::GFX::ConstModuleCreateInfoList&)>& fun) {
+static MH33::GFX::sPipeline createPipelineFromFilesS(MH33::GFX::ResourceFactory& gfx, MH33::Io::System& iosys, const std::string& shaderName, const MH33::GFX::VertexDescriptor* vertexDescriptor) {
 	MH33::GFX::ShaderModuleCreateInfo moduleCreateInfos[2];
 	moduleCreateInfos[0].shaderType = MH33::GFX::ShaderModuleType::VERTEX_SHADER;
 	moduleCreateInfos[0].isBinary = false;
 	moduleCreateInfos[1].shaderType = MH33::GFX::ShaderModuleType::PIXEL_SHADER;
 	moduleCreateInfos[1].isBinary = false;
-	MH33::Io::uDevice f1(iosys.open(SHADER_PATH_PREFIX + shaderName + ".vert",MH33::Io::Mode::READ));
-	MH33::Io::uDevice f2(iosys.open(SHADER_PATH_PREFIX + shaderName + ".frag",MH33::Io::Mode::READ));
-	moduleCreateInfos[0].source = f1->readAll();
-	moduleCreateInfos[1].source = f2->readAll();
-	fun(moduleCreateInfos);
+	std::string shaderSourceCodes[2];
+	MH33::Io::uDevice f1(iosys.open(SHADER_PATH_PREFIX + shaderName + ".vert.hlsl",MH33::Io::Mode::READ));
+	MH33::Io::uDevice f2(iosys.open(SHADER_PATH_PREFIX + shaderName + ".frag.hlsl",MH33::Io::Mode::READ));
+	shaderSourceCodes[0] = f1->readAllAsString();
+	shaderSourceCodes[1] = f2->readAllAsString();
+	gfx.prepareShaderModuleFor(iosys,moduleCreateInfos,shaderSourceCodes);
+	return MH33::GFX::uPipeline(gfx.createPipeline(moduleCreateInfos,vertexDescriptor));
 }
 static void createDuealPipeline(MH33::GFX::ResourceFactory& gfx, MH33::Io::System& iosys,
 								const std::string& shaderNameA,
@@ -130,20 +132,16 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		(conf["Video"].getValueOrDefault("bFullscreen","0")->second.value.i_bool) ? SDL_WINDOW_FULLSCREEN : 0
 	), iosys(iosys), triangleVbo(nullptr), trianglePipeline(nullptr), gfx(gfxCreator(syswmi)), jscore(iosys)
 {
-/*	screenQuad = MH33::GFX::uIndexedVertexBuffer(gfx->createIndexedVertexBuffer(MH33::GFX::VertexBufferUsageClass::Static,&WidgetVertex::vertexDescriptor, 0, 0));
-	screenQuad->bindData();
-	screenQuad->initializeData( std::span<const std::byte>(reinterpret_cast<const std::byte*>(ScreenQuad), sizeof (WidgetVertex) * 4 ) );
-	screenQuad->bindIndices();
-	screenQuad->initializeIndices(ScreenQuadIndices);
-	triangleVbo = MH33::GFX::uUnindexedVertexBuffer(gfx->createUnindexedVertexBuffer(MH33::GFX::VertexBufferUsageClass::Static,&PrimitiveColoredGayTriangle::vertexDescriptor, 0));
-	triangleVbo->bind();
-	triangleVbo->initializeData(std::span<const std::byte>( reinterpret_cast<const std::byte*>(MyTriangleUwu), sizeof (PrimitiveColoredGayTriangle) * 3 ) );
-	trianglePipeline = createPipelineFromFiles(*gfx, *iosys, "triang", &PrimitiveColoredGayTriangle::vertexDescriptor);*/
 	textPipeline = createPipelineFromFiles(*gfx, *iosys, "sdftext", &WidgetVertex::vertexDescriptor);
 	createDuealPipeline(*gfx, *iosys,"sdftext", "textline",[this](const MH33::GFX::ConstModuleCreateInfoList& a, const MH33::GFX::ConstModuleCreateInfoList& b){
 		this->fontRepo = std::make_shared<MH33::GFX::FontRepository>(this->iosys, this->gfx.get(), a, b);
 	});
 	fontRepo->initializeFont("noto", "/fonts/NotoTraditionalNushu-Regular.ttf");
+	guiRenderer = std::make_unique<MH33::GFX::GuiRenderer>( *gfx,
+														  createPipelineFromFilesS(*gfx,*iosys,"GuiColouredVertex",&MH33::GFX::ColouredGuiVertex::vertexDescriptor),
+														  createPipelineFromFilesS(*gfx,*iosys,"GuiTexturedVertex",&MH33::GFX::TexturedGuiVertex::vertexDescriptor),
+														  createPipelineFromFilesS(*gfx,*iosys,"GuiColouredTexturedVertex",&MH33::GFX::ColouredTexturedGuiVertex::vertexDescriptor)
+														  );
 	/*
 	MH33::TXT::uRichTextProcessor rtp;
 	MH33::TXT::uMmlParser mml;
@@ -303,6 +301,8 @@ void TestSystem::render(float deltaTime)
 */
 	glm::vec2 sizeReciprocal(2.0f/static_cast<float>(width),2.0f/static_cast<float>(height));
 	MH33::TXT::Font::renderTextBlocks(rtp->getBlocks(),glm::fvec2(-0.9f,-0.7f),sizeReciprocal,1.5f,8);
+	guiRenderer->render( MH33::GUI::ColouredQuad{ .topLeft = { -0.75, -0.75 }, .bottomRight = { 0.75, 0.75 }, .clr = { 0.5, 0.5, 0.5, 0.5 } } );
+	guiRenderer->flush();
 	//trianglePipeline->bind();
 	//trianglePipeline->draw(*triangleVbo, MH33::GFX::RenderType::TRIANGLES, 0, 3);
 	gfx->endFrame();
