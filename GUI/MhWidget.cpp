@@ -1,6 +1,16 @@
 #include "MhWidget.hpp"
 namespace MH33 {
 namespace GUI {
+bool Widget::getHidden() const
+{
+	return hidden;
+}
+
+void Widget::setHidden(bool newHidden)
+{
+	hidden = newHidden;
+}
+
 void Widget::changeState(uint32_t newState)
 {
 	if(state != newState) {

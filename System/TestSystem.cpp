@@ -3,6 +3,7 @@
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 #include <jsapi.h>
+#include <MhLib/Media/Image/MhStandardImage2D.hpp>
 
 struct PrimitiveColoredGayTriangle {
 	glm::vec3 POS;
@@ -251,11 +252,22 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		compshader->dispatchCompute(uniform1.width, uniform1.height, 1);
 		compshader->waitForFinish();
 	}*/
+	{
+		MH33::Image::DecodeTarget decodeTarget;
+		MH33::Io::uDevice f1(iosys->open("/cursors/wodmouse.png",MH33::Io::Mode::READ));
+		MH33::Image::PNG::decode(*f1,decodeTarget);
+		std::unique_ptr<MH33::Image::Image2D> tmpImg(MH33::Image::createImage2D(decodeTarget.frames[0],decodeTarget.format));
+		cursorTex = std::unique_ptr<MH33::GFX::Texture2D>(gfx->createTexture2D(*tmpImg));
+		cursor = std::make_unique<MH33::GUI::Cursor>(*tmpImg,reinterpret_cast<uintptr_t>(cursorTex.get()), glm::fvec2(widthR,heightR));
+		SDL_ShowCursor(SDL_DISABLE);
+	}
 	jscore.run();
 }
 
 TestSystem::~TestSystem()
 {
+	cursor = nullptr;
+	cursorTex = nullptr;
 	fontRepo = nullptr;
 	tex1 = nullptr;
 	tex2 = nullptr;
@@ -302,6 +314,7 @@ void TestSystem::render(float deltaTime)
 	glm::vec2 sizeReciprocal(2.0f/static_cast<float>(width),2.0f/static_cast<float>(height));
 	MH33::TXT::Font::renderTextBlocks(rtp->getBlocks(),glm::fvec2(-0.9f,-0.7f),sizeReciprocal,1.5f,8);
 	guiRenderer->render( MH33::GUI::ColouredQuad{ .topLeft = { -0.75, -0.75 }, .bottomRight = { 0.75, 0.75 }, .clr = { 0.5, 0.5, 0.5, 0.5 } } );
+	if(cursor) cursor->render(*guiRenderer);
 	guiRenderer->flush();
 	//trianglePipeline->bind();
 	//trianglePipeline->draw(*triangleVbo, MH33::GFX::RenderType::TRIANGLES, 0, 3);
@@ -310,6 +323,7 @@ void TestSystem::render(float deltaTime)
 
 void TestSystem::update(float deltaTime)
 {
+	if(cursor) cursor->setPosition(mousePos);
 	processCommands();
 }
 
@@ -404,6 +418,8 @@ void TestSystem::handleTextInputEvent(const SDL_TextInputEvent &ev)
 
 void TestSystem::handleMouseMotionEvent(const SDL_MouseMotionEvent &ev)
 {
+	mousePos = (glm::fvec2( static_cast<float>(ev.x), static_cast<float>(ev.y) ) * (glm::fvec2(widthR,heightR)*2.0f)) - glm::fvec2(1.0f,1.0f);
+	mousePos.y *= -1.0f;
 	if(jsSideEventHandlers.contains(ev.type)) {
 		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
 			auto it = jsSideEventHandlers[ev.type];

@@ -11,16 +11,17 @@ DEFINE_CLASS(Renderer)
 DEFINE_CLASS(Renderable)
 
 enum class WidgetStateFlags : uint32_t {
-	VISIBLE = 1,
-	ENABLED = 1 << 1,
-	CLICKED = 1 << 2,
-	IN_MOUSE_FOCUS = 1 << 3,
+	ENABLED = 1,
+	CLICKED = 1 << 1,
+	IN_MOUSE_FOCUS = 1 << 2,
+	FULL_STATE = ENABLED | CLICKED | IN_MOUSE_FOCUS
 };
 
 DEFINE_CLASS(Widget)
 class Widget : public Renderable
 {
 protected:
+	bool hidden;
 	uint32_t state;
 	glm::vec2 topLeft, bottomRight;
 	void changeState(uint32_t newState);
@@ -36,13 +37,14 @@ public:
 	void setNewPosition(const glm::vec2& newTopleft, const glm::vec2& newBottomRight);
 	// Interface
 	virtual bool onClick(const glm::fvec2& offset, uint8_t button, uint8_t mousestate, uint8_t clicks) = 0;
-	virtual bool onHover(const glm::fvec2& offset, const glm::fvec2& relativePosToLast) = 0;
 	virtual void render(Renderer& renderer) = 0;
 	virtual void iterateOverChildren(const ChildIterator& iterator) = 0;
 	virtual void iterateOverChildren(const ConstChildIterator& iterator) const = 0;
 	// Signals
 	sigslot::signal<pWidget,uint32_t,uint32_t> signal_onStateChanged;
 	sigslot::signal<pWidget,const glm::vec2*, const glm::vec2*> signal_onPositionChanged;
+	bool getHidden() const;
+	void setHidden(bool newHidden);
 };
 
 }

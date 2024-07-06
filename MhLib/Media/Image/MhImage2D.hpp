@@ -85,6 +85,8 @@ public:
 	// Stride
 	virtual unsigned getStride() const = 0;
 	virtual Format getFormat() const = 0;
+	// Produce 1-bit alpha map!
+	void produceAlphaMap(std::vector<bool>& alphas, float threshhold) const;
 	// Debug save
 	void save(Io::Device& iodev) const;
 };

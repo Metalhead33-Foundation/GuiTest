@@ -161,6 +161,16 @@ void Image2D::blit(const Image2D& cpy, const glm::ivec2 offset)
 	}
 }
 
+void Image2D::produceAlphaMap(std::vector<bool>& alphas, float threshhold) const
+{
+	const int width = getWidth();
+	alphas.resize(getWidth() * getHeight());
+	iterateOverPixels((ColourIterator)[&alphas,threshhold,width](const glm::ivec2& pos, const glm::fvec4& clr) {
+		int index = (pos.y*width)+pos.x;
+		alphas[index] = clr.a >= threshhold;
+	});
+}
+
 void Image2D::save(Io::Device& iodev) const
 {
 	const void * const rawPixelsStart = getRawPixels();

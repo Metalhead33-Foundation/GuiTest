@@ -26,6 +26,8 @@ public:
 	virtual void render(Renderer& renderer) = 0;
 	virtual void iterateOverChildren(const ChildIterator& iterator) = 0;
 	virtual void iterateOverChildren(const ConstChildIterator& iterator) const = 0;
+	int32_t getZIndex() const;
+	void setZIndex(int32_t newZIndex);
 };
 
 }

@@ -14,9 +14,12 @@ DEFINES += DESKTOP_GL
 
 SOURCES += \
         GFX/Advanced/MhHardwareAcceleratedGuiRenderer.cpp \
+        GUI/MhCursor.cpp \
         GUI/MhGuiRenderable.cpp \
         GUI/MhGuiRenderer.cpp \
         GUI/MhGuiRootNode.cpp \
+        GUI/MhTexturedButton.cpp \
+        GUI/MhTexturedWidget.cpp \
         GUI/MhWidget.cpp \
         JS/JsCore.cpp \
         JS/JsException.cpp \
@@ -118,9 +121,12 @@ SOURCES += \
 HEADERS += \
     GFX/Advanced/MhHardwareAcceleratedGuiRenderer.hpp \
     GFX/Advanced/MhHardwareAcceleratedRenderCache.hpp \
+    GUI/MhCursor.hpp \
     GUI/MhGuiRenderable.hpp \
     GUI/MhGuiRenderer.hpp \
     GUI/MhGuiRootNode.hpp \
+    GUI/MhTexturedButton.hpp \
+    GUI/MhTexturedWidget.hpp \
     GUI/MhWidget.hpp \
     JS/JsCore.hpp \
     JS/JsException.hpp \

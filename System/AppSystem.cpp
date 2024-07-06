@@ -42,7 +42,9 @@ AppSystem::AppSystem(const std::string &title, int x, int y, int w, int h, uint3
 }
 
 AppSystem::AppSystem(std::string &&title, int x, int y, int w, int h, uint32_t flags)
-	: title(std::move(title)), window(SDL_CreateWindow(this->title.c_str(),x,y,w,h,flags), SDL_DestroyWindow), latestTimestamp(0), width(w), height(h)
+	: title(std::move(title)), window(SDL_CreateWindow(this->title.c_str(),x,y,w,h,flags), SDL_DestroyWindow), latestTimestamp(0), width(w), height(h),
+	  widthF(static_cast<float>(w-1)), widthR(1.0f / static_cast<float>(w-1)),
+	  heightF(static_cast<float>(h-1)), heightR(1.0f / static_cast<float>(h-1))
 {
 	SDL_VERSION(&syswmi.version);
 	SDL_GetWindowWMInfo(window.get(),&syswmi);

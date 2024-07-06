@@ -9,6 +9,7 @@
 #include <MhLib/Text/MmlParser.hpp>
 #include <MhLib/Util/MhCommandQueue.hpp>
 #include <GFX/Advanced/MhHardwareAcceleratedGuiRenderer.hpp>
+#include <GUI/MhCursor.hpp>
 
 class TestSystem : public AppSystem, public MH33::Util::CommandQueue<TestSystem>
 {
@@ -24,6 +25,7 @@ private:
 	MH33::GFX::uResourceFactory gfx;
 	MH33::GFX::uTexture2D tex1;
 	MH33::GFX::uTexture2D tex2;
+	MH33::GFX::uTexture2D cursorTex;
 	MH33::TXT::sFontRepository fontRepo;
 	MH33::TXT::uRichTextProcessor rtp;
 	MH33::TXT::uMmlParser mml;
@@ -31,6 +33,8 @@ private:
 	JS::Core jscore;
 	std::map<unsigned int, JS::PersistentRootedFunction> jsSideEventHandlers;
 	std::unique_ptr<MH33::GFX::GuiRenderer> guiRenderer;
+	std::unique_ptr<MH33::GUI::Cursor> cursor;
+	glm::fvec2 mousePos;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	~TestSystem();

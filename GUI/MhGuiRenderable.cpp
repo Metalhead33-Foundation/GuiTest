@@ -3,6 +3,16 @@
 namespace MH33 {
 namespace GUI {
 
+int32_t Renderable::getZIndex() const
+{
+	return zIndex;
+}
+
+void Renderable::setZIndex(int32_t newZIndex)
+{
+	zIndex = newZIndex;
+}
+
 void Renderable::sortRenderList(RenderList& renderList, bool descending)
 {
 	if(descending) std::sort(renderList.begin(),renderList.end(), [](const IndexedRenderable& a, const IndexedRenderable& b) {
