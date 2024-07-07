@@ -4,6 +4,8 @@
 #include <iostream>
 #include <js/Array.h>
 #include <js/MapAndSet.h>
+#include <JS/Wrappers/Util/JsRandom.hpp>
+#include <JS/Wrappers/Io/JsIO.hpp>
 
 namespace JS {
 void Core::run(bool module)
@@ -139,6 +141,12 @@ void Core::initialize()
 	insertModule("print", JsPrint, 1, 0);
 	insertModule("console", [](JSContext& ctx,JS::RootedObject& obj) {
 		JS_DefineFunction(&ctx, obj, "log", JsPrint, 1, 0);
+	});
+	insertModule("random", [](JSContext& ctx,JS::RootedObject& obj) {
+		CreateRandomIzerClass(&ctx,obj);
+	});
+	insertModule("IO", [](JSContext& ctx,JS::RootedObject& obj) {
+		CreateIOClasses(&ctx,obj);
 	});
 	/*
 	//

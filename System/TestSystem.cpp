@@ -331,11 +331,12 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 #else
 		SDL_ShowCursor(SDL_DISABLE);
 #endif
-	jscore.run();
+	JsThread = std::thread([this]() { jscore.run(); });
 }
 
 TestSystem::~TestSystem()
 {
+	JsThread.join();
 	buttonTex = nullptr;
 	cursor = nullptr;
 	cursorTex = nullptr;

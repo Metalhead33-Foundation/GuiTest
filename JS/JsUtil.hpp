@@ -85,7 +85,10 @@ bool executeDeletePropertyOp(const DeletePropertyOpWrapper& fun, JSContext* cx, 
 
 intptr_t storeSharedVoidPtr(const std::shared_ptr<void>& ptr);
 intptr_t storeSharedVoidPtr(std::shared_ptr<void>&& ptr);
+intptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, const std::shared_ptr<void>& ptr);
+intptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, std::shared_ptr<void>&& ptr);
 std::shared_ptr<void> getSharedVoidPtr(intptr_t id);
+std::shared_ptr<void> getSharedVoidPtrFromObj(JSObject* obj, size_t slot);
 void removeSmartPointer(intptr_t id);
 template<typename T> intptr_t storeSmartPointer(const std::shared_ptr<T>& ptr) {
 	return storeSharedVoidPtr(ptr);
@@ -93,10 +96,20 @@ template<typename T> intptr_t storeSmartPointer(const std::shared_ptr<T>& ptr) {
 template<typename T> intptr_t storeSmartPointer(std::shared_ptr<T>&& ptr) {
 	return storeSharedVoidPtr(std::move(ptr));
 }
+template<typename T> intptr_t storeSmartPointerToObj(JSObject* obj, uint32_t index, const std::shared_ptr<T>& ptr) {
+	return storeSharedVoidPtrToObj(obj,index,ptr);
+}
+template<typename T> intptr_t storeSmartPointerToObj(JSObject* obj, uint32_t index, std::shared_ptr<T>&& ptr) {
+	return storeSharedVoidPtrToObj(obj,index,std::move(ptr));
+}
 
 template<typename T> std::shared_ptr<T> getSmartPointer(intptr_t id) {
 	return std::static_pointer_cast<T>(getSharedVoidPtr(id));
 }
+template<typename T> std::shared_ptr<T> getSmartPointerFromObj(JSObject* obj, size_t slot) {
+	return std::static_pointer_cast<T>(getSharedVoidPtrFromObj(obj,slot));
+}
+void js_finalizer_shared(JS::GCContext* cx, JSObject* obj);
 
 }
 

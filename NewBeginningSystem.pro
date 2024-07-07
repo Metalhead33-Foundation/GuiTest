@@ -44,6 +44,8 @@ SOURCES += \
         GFX/GL/GlWriteableTexture2D.cpp \
         GFX/GL/GlslangIncluder.cpp \
         GFX/GL/GlxContext.cpp \
+        JS/Wrappers/Io/JsIO.cpp \
+        JS/Wrappers/Util/JsRandom.cpp \
         MhLib/Gimmick/MhWordGenerator.cpp \
         MhLib/Io/MhBufferWrapper.cpp \
         MhLib/Io/MhFile.cpp \
@@ -164,6 +166,8 @@ HEADERS += \
     GFX/GL/GlslangIncluder.hpp \
     GFX/GL/GlxContext.hpp \
     GUI/sigslot.h \
+    JS/Wrappers/Io/JsIO.hpp \
+    JS/Wrappers/Util/JsRandom.hpp \
     MhLib/Gimmick/MhGimmick.hpp \
     MhLib/Gimmick/MhWordGenerator.hpp \
     MhLib/Interface/MhBinaryTree.hpp \

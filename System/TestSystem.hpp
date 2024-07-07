@@ -16,6 +16,7 @@
 #include <MhLib/Media/AdvancedAudio/MhAudioBuffer.hpp>
 #include <MhLib/Media/AdvancedAudio/MhSoundSource.hpp>
 #include <MhLib/Media/AdvancedAudio/MhMatrixPanner.hpp>
+#include <thread>
 
 class TestSystem : public AppSystem, public MH33::Util::CommandQueue<TestSystem>
 {
@@ -48,6 +49,7 @@ private:
 	MH33::Audio::sBuffer audioBuffer;
 	MH33::Audio::sSoundSource soundSource;
 	MH33::Audio::sMatrixPanner matrixPanner;
+	std::thread JsThread;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	~TestSystem();
