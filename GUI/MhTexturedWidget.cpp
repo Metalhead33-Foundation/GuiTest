@@ -46,7 +46,7 @@ void TexturedWidget::render(Renderer& renderer)
 						 .topLeft = topLeft,
 						 .bottomRight = bottomRight,
 						 .tcoord = { atlasCoords[state].first, atlasCoords[state].second },
-						 .texturePtr = textureAtlasId, }
+						 .texturePtr = textureAtlasId }
 					 );
 }
 

@@ -6,6 +6,7 @@
 namespace MH33 {
 namespace Audio {
 
+DEFINE_CLASS(MatrixPanner)
 class MH_ADV_AUDIO_API MatrixPanner : public Playable
 {
 private:

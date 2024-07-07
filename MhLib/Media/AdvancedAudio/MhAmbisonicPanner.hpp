@@ -6,6 +6,7 @@
 namespace MH33 {
 namespace Audio {
 
+DEFINE_CLASS(AmbisonicPanner)
 class MH_ADV_AUDIO_API AmbisonicPanner : public Playable
 {
 private:

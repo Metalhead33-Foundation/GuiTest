@@ -7,6 +7,7 @@
 
 namespace MH33 {
 namespace Audio {
+DEFINE_CLASS(SoundSource)
 class MH_ADV_AUDIO_API SoundSource : public Playable
 {
 private:

@@ -2,6 +2,7 @@
 #define TESTSYSTEM_HPP
 #include <JS/JsCore.hpp>
 #include "AppSystem.hpp"
+#include <System/AudioSDL.hpp>
 #include "IniConfiguration.hpp"
 #include <GFX/Abstract/GfxResourceFactory.hpp>
 #include <MhLib/IoSys/MhIoSystem.hpp>
@@ -10,12 +11,16 @@
 #include <MhLib/Util/MhCommandQueue.hpp>
 #include <GFX/Advanced/MhHardwareAcceleratedGuiRenderer.hpp>
 #include <GUI/MhCursor.hpp>
+#include <GUI/MhWidget.hpp>
+#include <MhLib/Media/AdvancedAudio/MhAudioMixer.hpp>
 
 class TestSystem : public AppSystem, public MH33::Util::CommandQueue<TestSystem>
 {
 public:
 	typedef std::function<MH33::GFX::pResourceFactory(const SDL_SysWMinfo&)> ResourceFactoryCreator;
 private:
+	Driver::SDL audioDriver;
+	MH33::Audio::sMixer mixer;
 	MH33::Io::sSystem iosys;
 	MH33::GFX::uUnindexedVertexBuffer triangleVbo;
 	MH33::GFX::uIndexedVertexBuffer screenQuad;
@@ -25,7 +30,7 @@ private:
 	MH33::GFX::uResourceFactory gfx;
 	MH33::GFX::uTexture2D tex1;
 	MH33::GFX::uTexture2D tex2;
-	MH33::GFX::uTexture2D cursorTex;
+	MH33::GFX::uTexture2D cursorTex,buttonTex;
 	MH33::TXT::sFontRepository fontRepo;
 	MH33::TXT::uRichTextProcessor rtp;
 	MH33::TXT::uMmlParser mml;
@@ -33,8 +38,10 @@ private:
 	JS::Core jscore;
 	std::map<unsigned int, JS::PersistentRootedFunction> jsSideEventHandlers;
 	std::unique_ptr<MH33::GFX::GuiRenderer> guiRenderer;
-	std::unique_ptr<MH33::GUI::Cursor> cursor;
+	MH33::GUI::uCursor cursor;
 	glm::fvec2 mousePos;
+	std::vector<MH33::GUI::uWidget> widgets;
+	MH33::GUI::pWidget hoveredOverWidget;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	~TestSystem();
@@ -79,6 +86,10 @@ public:
 	void onLocaleChanged() override;
 	void onClipboardUpdate() override;
 	void onKeymapChanged() override;
+	MH33::Audio::Mixer& getMixer();
+	const MH33::Audio::Mixer& getMixer() const;
+	std::vector<MH33::GUI::uWidget>& getWidgets();
+	const std::vector<MH33::GUI::uWidget>& getWidgets() const;
 };
 
 #endif // TESTSYSTEM_HPP

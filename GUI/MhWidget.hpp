@@ -7,14 +7,11 @@
 namespace MH33 {
 namespace GUI {
 
-DEFINE_CLASS(Renderer)
-DEFINE_CLASS(Renderable)
-
 enum class WidgetStateFlags : uint32_t {
 	ENABLED = 1,
 	CLICKED = 1 << 1,
 	IN_MOUSE_FOCUS = 1 << 2,
-	FULL_STATE = ENABLED | CLICKED | IN_MOUSE_FOCUS
+	FULL_STATE = (ENABLED | CLICKED | IN_MOUSE_FOCUS)+1
 };
 
 DEFINE_CLASS(Widget)

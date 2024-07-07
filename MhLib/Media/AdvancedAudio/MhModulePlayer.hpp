@@ -8,6 +8,7 @@
 namespace MH33 {
 namespace Audio {
 
+DEFINE_CLASS(ModulePlayer)
 class MH_ADV_AUDIO_API ModulePlayer : public Playable
 {
 private:

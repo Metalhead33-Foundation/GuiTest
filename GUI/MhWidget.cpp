@@ -1,4 +1,5 @@
 #include "MhWidget.hpp"
+#include <iostream>
 namespace MH33 {
 namespace GUI {
 bool Widget::getHidden() const
@@ -51,19 +52,21 @@ void Widget::setTopLeft(const glm::vec2& newTopLeft)
 
 void Widget::setFlag(bool state, WidgetStateFlags flag)
 {
+	std::cout << static_cast<uint32_t>(flag) << ' ' << state << std::endl;
 	if(state) {
-		changeState( state | static_cast<uint32_t>(flag));
+		changeState( this->state | static_cast<uint32_t>(flag));
 	} else {
-		changeState( state & ~static_cast<uint32_t>(flag));
+		changeState( this->state & (~static_cast<uint32_t>(flag)));
 	}
 }
 
 bool Widget::getFlag(WidgetStateFlags flag) const
 {
-	return (state & static_cast<uint32_t>(flag)) != 0;
+	return bool(state & static_cast<uint32_t>(flag));
 }
 
 Widget::Widget()
+	: state(0)
 {
 
 }

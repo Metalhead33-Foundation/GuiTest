@@ -8,8 +8,7 @@
 namespace MH33 {
 namespace Audio {
 
-class Buffer;
-typedef std::shared_ptr<Buffer> sBuffer;
+DEFINE_CLASS(Buffer)
 class MH_ADV_AUDIO_API Buffer
 {
 private:

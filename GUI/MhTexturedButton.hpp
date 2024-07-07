@@ -6,7 +6,9 @@ namespace GUI {
 class TexturedButton : public TexturedWidget
 {
 public:
-	TexturedButton();
+	TexturedButton(void* textureAtlasId = nullptr);
+	TexturedButton(void* textureAtlasId, const std::span<const TextureCoordDuo>& coordDuos);
+	TexturedButton(void* textureAtlasId, const std::initializer_list<const TextureCoordDuo>& coordDuos);
 
 	// Renderable interface
 public:

@@ -8,6 +8,7 @@
 namespace MH33 {
 namespace Audio {
 
+DEFINE_CLASS(Mixer)
 class MH_ADV_AUDIO_API Mixer : public Playable
 {
 public:

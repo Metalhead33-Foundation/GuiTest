@@ -12,6 +12,10 @@ INCLUDEPATH += I/usr/include/harfbuzz
 DEFINES += WINSYS_X
 DEFINES += DESKTOP_GL
 
+debug {
+  DEFINES += _DEBUG
+}
+
 SOURCES += \
         GFX/Advanced/MhHardwareAcceleratedGuiRenderer.cpp \
         GUI/MhCursor.cpp \
@@ -114,6 +118,7 @@ SOURCES += \
         NativeGfxApi/glad/vulkan.c \
         NativeGfxApi/glad/wgl.c \
         System/AppSystem.cpp \
+        System/AudioSDL.cpp \
         System/IniConfiguration.cpp \
         System/TestSystem.cpp \
         main.cpp
@@ -275,6 +280,7 @@ HEADERS += \
     NativeGfxApi/glad/wgl.h \
     NativeGfxApi/vk_platform.h \
     System/AppSystem.hpp \
+    System/AudioSDL.hpp \
     System/IniConfiguration.hpp \
     System/TestSystem.hpp
 

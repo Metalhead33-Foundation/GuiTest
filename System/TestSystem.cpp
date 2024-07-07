@@ -4,6 +4,7 @@
 #include <yaml-cpp/yaml.h>
 #include <jsapi.h>
 #include <MhLib/Media/Image/MhStandardImage2D.hpp>
+#include <GUI/MhTexturedButton.hpp>
 
 struct PrimitiveColoredGayTriangle {
 	glm::vec3 POS;
@@ -124,6 +125,14 @@ static void createDuealPipeline(MH33::GFX::ResourceFactory& gfx, MH33::Io::Syste
 #define INSERT_RUSSIAN
 #define INSERT_JAPANESE
 
+#define GET_AUDIO_BUFFER_SIZE (conf["Audio"].getValueOrDefault("iBufferSize","2024")->second.value.i_int)
+#define GET_AUDIO_SAMPLE_RATE (conf["Audio"].getValueOrDefault("iSamplerate","48000")->second.value.i_int)
+
+const std::vector<MH33::GUI::uWidget>& TestSystem::getWidgets() const
+{
+	return widgets;
+}
+
 TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration &conf)
 	: AppSystem(
 		conf["Main"].getValueOrDefault("sTitle","Default Window")->second.toString(),
@@ -131,7 +140,11 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		conf["Video"].getValueOrDefault("iWidth","640")->second.value.i_int,
 		conf["Video"].getValueOrDefault("iHeight","640")->second.value.i_int,
 		(conf["Video"].getValueOrDefault("bFullscreen","0")->second.value.i_bool) ? SDL_WINDOW_FULLSCREEN : 0
-	), iosys(iosys), triangleVbo(nullptr), trianglePipeline(nullptr), gfx(gfxCreator(syswmi)), jscore(iosys)
+	), audioDriver(GET_AUDIO_SAMPLE_RATE,2,GET_AUDIO_BUFFER_SIZE),
+		mixer(new MH33::Audio::Mixer(MH33::Audio::FrameCount(GET_AUDIO_BUFFER_SIZE),MH33::Audio::FrameCount(GET_AUDIO_SAMPLE_RATE),MH33::Audio::ChannelCount(2))),
+		iosys(iosys), triangleVbo(nullptr), trianglePipeline(nullptr), gfx(gfxCreator(syswmi)),
+		jscore(iosys),
+		hoveredOverWidget(nullptr)
 {
 	textPipeline = createPipelineFromFiles(*gfx, *iosys, "sdftext", &WidgetVertex::vertexDescriptor);
 	createDuealPipeline(*gfx, *iosys,"sdftext", "textline",[this](const MH33::GFX::ConstModuleCreateInfoList& a, const MH33::GFX::ConstModuleCreateInfoList& b){
@@ -259,13 +272,53 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		std::unique_ptr<MH33::Image::Image2D> tmpImg(MH33::Image::createImage2D(decodeTarget.frames[0],decodeTarget.format));
 		cursorTex = std::unique_ptr<MH33::GFX::Texture2D>(gfx->createTexture2D(*tmpImg));
 		cursor = std::make_unique<MH33::GUI::Cursor>(*tmpImg,reinterpret_cast<uintptr_t>(cursorTex.get()), glm::fvec2(widthR,heightR));
-		SDL_ShowCursor(SDL_DISABLE);
 	}
+	{
+		MH33::Image::DecodeTarget decodeTarget;
+		MH33::Io::uDevice f1(iosys->open("/textures/menuButton.png",MH33::Io::Mode::READ));
+		MH33::Image::PNG::decode(*f1,decodeTarget);
+		buttonTex = std::unique_ptr<MH33::GFX::Texture2D>(gfx->createTexture2D(decodeTarget));
+		MH33::GUI::TexturedWidget::TextureCoordDuo textCoords[5];
+		float texRecipH =  1.0f / static_cast<float>(buttonTex->getHeight());
+		unsigned individualHeight = buttonTex->getHeight() / 5;
+		for(int i = 0; i < 5; ++i) {
+			textCoords[i].first = { 0.0f, texRecipH * static_cast<float>(i * individualHeight)};
+			textCoords[i].second = { 1.0f, texRecipH * static_cast<float>( (i+1) * individualHeight ) };
+		}
+		MH33::GUI::TexturedWidget::TextureCoordDuo textCoords2[static_cast<int>(MH33::GUI::WidgetStateFlags::FULL_STATE)];
+		textCoords2[0] = textCoords[0];
+		textCoords2[static_cast<int>(MH33::GUI::WidgetStateFlags::CLICKED)] = textCoords[0];
+		textCoords2[static_cast<int>(MH33::GUI::WidgetStateFlags::IN_MOUSE_FOCUS)] = textCoords[0];
+		textCoords2[static_cast<int>(MH33::GUI::WidgetStateFlags::ENABLED)] = textCoords[1];
+		textCoords2[static_cast<int>(MH33::GUI::WidgetStateFlags::ENABLED) |
+				static_cast<int>(MH33::GUI::WidgetStateFlags::CLICKED)] = textCoords[2];
+		textCoords2[static_cast<int>(MH33::GUI::WidgetStateFlags::ENABLED) |
+				static_cast<int>(MH33::GUI::WidgetStateFlags::IN_MOUSE_FOCUS)] = textCoords[3];
+		textCoords2[static_cast<int>(MH33::GUI::WidgetStateFlags::ENABLED) |
+				static_cast<int>(MH33::GUI::WidgetStateFlags::CLICKED) |
+				static_cast<int>(MH33::GUI::WidgetStateFlags::IN_MOUSE_FOCUS)] = textCoords[4];
+		auto btn = std::make_unique<MH33::GUI::TexturedButton>(buttonTex.get(),textCoords2);
+		btn->setTopLeft( glm::fvec2(0.0, 0.0f ));
+		btn->setBottomRight( glm::fvec2(0.4f, -0.33333333333333f) );
+		btn->setHidden(false);
+		btn->signal_onStateChanged.connect( [](MH33::GUI::pWidget widg, uint32_t oldState, uint32_t newState) {
+			std::cout << '[' << static_cast<void*>(widg) << "] changed state. Old state: " << oldState << ". New State: " << newState << '.' << std::endl;
+		});
+		btn->setFlag(true,MH33::GUI::WidgetStateFlags::ENABLED);
+		widgets.push_back(MH33::GUI::uWidget(std::move(btn)));
+	}
+	audioDriver.setPlayable(mixer);
+#if defined (_DEBUG) || defined (DEBUG) || defined (NDEBUG)
+		std::cout << "This is a debug build!" << std::endl;
+#else
+		SDL_ShowCursor(SDL_DISABLE);
+#endif
 	jscore.run();
 }
 
 TestSystem::~TestSystem()
 {
+	buttonTex = nullptr;
 	cursor = nullptr;
 	cursorTex = nullptr;
 	fontRepo = nullptr;
@@ -313,7 +366,10 @@ void TestSystem::render(float deltaTime)
 */
 	glm::vec2 sizeReciprocal(2.0f/static_cast<float>(width),2.0f/static_cast<float>(height));
 	MH33::TXT::Font::renderTextBlocks(rtp->getBlocks(),glm::fvec2(-0.9f,-0.7f),sizeReciprocal,1.5f,8);
-	guiRenderer->render( MH33::GUI::ColouredQuad{ .topLeft = { -0.75, -0.75 }, .bottomRight = { 0.75, 0.75 }, .clr = { 0.5, 0.5, 0.5, 0.5 } } );
+	//guiRenderer->render( MH33::GUI::ColouredQuad{ .topLeft = { -0.75, -0.75 }, .bottomRight = { 0.75, 0.75 }, .clr = { 0.5, 0.5, 0.5, 0.5 } } );
+	for(const auto& it : widgets) {
+		it->render(*guiRenderer);
+	}
 	if(cursor) cursor->render(*guiRenderer);
 	guiRenderer->flush();
 	//trianglePipeline->bind();
@@ -420,7 +476,27 @@ void TestSystem::handleMouseMotionEvent(const SDL_MouseMotionEvent &ev)
 {
 	mousePos = (glm::fvec2( static_cast<float>(ev.x), static_cast<float>(ev.y) ) * (glm::fvec2(widthR,heightR)*2.0f)) - glm::fvec2(1.0f,1.0f);
 	mousePos.y *= -1.0f;
-	if(jsSideEventHandlers.contains(ev.type)) {
+	MH33::GUI::pWidget pcwidg = hoveredOverWidget;
+	MH33::GUI::pWidget cwidg = nullptr;
+	for(const auto& it : widgets) {
+		if( !it->getFlag(MH33::GUI::WidgetStateFlags::ENABLED) ) continue;
+		const auto& tl = it->getTopLeft();
+		const auto& br = it->getBottomRight();
+		if( (mousePos.x >= tl.x && mousePos.x <= br.x) && (mousePos.y <= tl.y && mousePos.y >= br.y) ) {
+				cwidg = it.get();
+				break;
+		}
+	}
+	if(pcwidg != cwidg) {
+		if(pcwidg) {
+			pcwidg->setFlag(false,MH33::GUI::WidgetStateFlags::IN_MOUSE_FOCUS);
+		}
+		if(cwidg) {
+			cwidg->setFlag(true,MH33::GUI::WidgetStateFlags::IN_MOUSE_FOCUS);
+		}
+	}
+	hoveredOverWidget = cwidg;
+	/*if(jsSideEventHandlers.contains(ev.type)) {
 		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
 			auto it = jsSideEventHandlers[ev.type];
 			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
@@ -437,12 +513,16 @@ void TestSystem::handleMouseMotionEvent(const SDL_MouseMotionEvent &ev)
 			JS::RootedValue retval(&ctx);
 			JS_CallFunction(&ctx,rootedF,it,args, &retval);
 		});
-	}
+	}*/
 }
 
 void TestSystem::handleMouseButtonEvent(const SDL_MouseButtonEvent &ev)
 {
-	if(jsSideEventHandlers.contains(ev.type)) {
+	if(hoveredOverWidget) {
+		const auto& tl = hoveredOverWidget->getTopLeft();
+		hoveredOverWidget->onClick(mousePos - tl,ev.button,ev.state,ev.clicks);
+	}
+	/*if(jsSideEventHandlers.contains(ev.type)) {
 		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
 			auto it = jsSideEventHandlers[ev.type];
 			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
@@ -460,7 +540,7 @@ void TestSystem::handleMouseButtonEvent(const SDL_MouseButtonEvent &ev)
 			JS::RootedValue retval(&ctx);
 			JS_CallFunction(&ctx,rootedF,it,args, &retval);
 		});
-	}
+	}*/
 }
 
 void TestSystem::handleMouseWheelEvent(const SDL_MouseWheelEvent &ev)
@@ -604,4 +684,19 @@ void TestSystem::onClipboardUpdate()
 
 void TestSystem::onKeymapChanged()
 {
+}
+
+MH33::Audio::Mixer& TestSystem::getMixer()
+{
+	return *mixer;
+}
+
+const MH33::Audio::Mixer& TestSystem::getMixer() const
+{
+	return *mixer;
+}
+
+std::vector<MH33::GUI::uWidget>& TestSystem::getWidgets()
+{
+	return widgets;
 }

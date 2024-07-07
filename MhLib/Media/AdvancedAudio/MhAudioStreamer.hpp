@@ -8,6 +8,7 @@
 namespace MH33 {
 namespace Audio {
 
+DEFINE_CLASS(Streamer)
 class MH_ADV_AUDIO_API Streamer : public Playable
 {
 private:
