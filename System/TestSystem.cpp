@@ -143,6 +143,25 @@ static bool js_test_add_widget(JSContext* cx, unsigned argc, JS::Value* vp) {
 		return true;
 	}, cx, argc, vp);
 }
+static bool js_gib_texture(JSContext* cx, unsigned argc, JS::Value* vp) {
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		auto zobj = JS::GetMaybePtrFromReservedSlot<TestSystem>(args.thisv().toObjectOrNull(), 0);
+		auto firstArg = args.get(0);
+		if(!firstArg.isString()) throw std::runtime_error("Excepted string as first argument!");
+		JS::RootedString rstring(cx,firstArg.toString());
+		auto path = JS::JsToNativeString(cx,rstring);
+		auto givenTex = zobj->gibTextureTMPR(path);
+		givenTex.wait();
+		auto value = givenTex.get();
+		auto returnObj = JS::RootedObject(cx, JS_NewPlainObject(cx));
+		JS::RootedValue rootedProperty(cx);
+		rootedProperty.setPrivate(value.get());
+		JS_DefineProperty(cx,returnObj,"tex",rootedProperty, JSPROP_READONLY | JSPROP_ENUMERATE);
+		args.rval().setObjectOrNull(returnObj);
+		return true;
+	}, cx, argc, vp);
+}
 
 const std::vector<MH33::GUI::sWidget>& TestSystem::getWidgets() const
 {
@@ -165,6 +184,7 @@ static void registerTestSystemToJs(TestSystem* ts, JSContext* cx, const JS::Hand
 	TestSystemJsInfo.ps.push_back(JS_PS_END);
 	TestSystemJsInfo.static_ps.push_back(JS_PS_END);
 	TestSystemJsInfo.fs.push_back(JS_FN("addWidget",js_test_add_widget,1,0));
+	TestSystemJsInfo.fs.push_back(JS_FN("gibTexture",js_gib_texture,1,0));
 	TestSystemJsInfo.fs.push_back(JS_FS_END);
 	TestSystemJsInfo.static_fs.push_back(JS_FS_END);
 	{
@@ -308,6 +328,11 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		textCoords2[static_cast<int>(MH33::GUI::WidgetStateFlags::ENABLED) |
 				static_cast<int>(MH33::GUI::WidgetStateFlags::CLICKED) |
 				static_cast<int>(MH33::GUI::WidgetStateFlags::IN_MOUSE_FOCUS)] = textCoords[4];
+		std::cout << '[';
+		for(const auto& it : textCoords2) {
+			std::cout << it.first.x << ", " << it.first.y << ", " << it.second.x << ", " << it.second.y << ", ";
+		}
+		std::cout << ']' << std::endl;
 		auto btn = std::make_shared<MH33::GUI::TexturedButton>(buttonTex.get(),textCoords2);
 		btn->setTopLeft( glm::fvec2(0.0, 0.0f ));
 		btn->setBottomRight( glm::fvec2(0.4f, -0.33333333333333f) );
@@ -393,6 +418,8 @@ TestSystem::~TestSystem()
 	JsThread.join();
 	buttonTex = nullptr;
 	cursor = nullptr;
+	guiRenderer = nullptr;
+	textureCollector.clear();
 	cursorTex = nullptr;
 	fontRepo = nullptr;
 	tex1 = nullptr;
@@ -402,6 +429,21 @@ TestSystem::~TestSystem()
 	triangleVbo = nullptr;
 	trianglePipeline = nullptr;
 	gfx = nullptr;
+}
+
+std::future<MH33::GFX::sTexture2D> TestSystem::gibTextureTMPR(const std::string& path)
+{
+	auto promise = std::make_shared<std::promise<MH33::GFX::sTexture2D>>();
+	std::future<MH33::GFX::sTexture2D> future = promise->get_future();
+	enqueue([&path,promise](TestSystem& tsys) {
+		MH33::Image::DecodeTarget decodeTarget;
+		MH33::Io::uDevice f1(tsys.iosys->open(path,MH33::Io::Mode::READ));
+		MH33::Image::PNG::decode(*f1,decodeTarget);
+		MH33::GFX::sTexture2D tmpImg(tsys.gfx->createTexture2D(decodeTarget));
+		tsys.textureCollector.insert(tmpImg);
+		promise->set_value(tmpImg);
+	});
+	return future;
 }
 
 void TestSystem::loadLocalizations()

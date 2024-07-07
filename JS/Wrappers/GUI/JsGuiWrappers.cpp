@@ -7,16 +7,23 @@ namespace JS {
 
 ClassCreator MhTexturedButtonClass;
 static bool hasIoBeenInitialized = false;
+
+double dumbWorkaround[] = { 0, 0, 1, 0.2, 0, 0.2, 1, 0.4, 0, 0, 1, 0.2, 0, 0.4, 1, 0.6, 0, 0, 1, 0.2, 0, 0.6, 1, 0.8, 0, 0, 0, 0, 0, 0.8, 1, 1 };
+std::unordered_map<void*,JS::PersistentRootedObject> persistentMap;
+
 // void* textureAtlasId, const std::initializer_list<const TextureCoordDuo>& coordDuos
 static bool js_gui_textured_button_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto arg0 = args.get(0);
 		if(!arg0.isObject()) throw std::runtime_error("Excepted object as first argument!");
+		RootedObject rootedObject0(cx,arg0.toObjectOrNull());
 		auto arg1 = args.get(1);
-		auto voidptr = getSharedVoidPtrFromObj(arg1.toObjectOrNull(),0);
 		if(!arg1.isObject()) throw std::runtime_error("Excepted array object as second argument!");
 		RootedObject rootedObject1(cx,arg1.toObjectOrNull());
+		RootedValue propval(cx);
+		JS_GetProperty(cx,rootedObject0,"tex",&propval);
+		void* texref = propval.toPrivate();
 		bool isArray;
 		JS::IsArray(cx,rootedObject1,&isArray);
 		if(!isArray) throw std::runtime_error("Excepted array object as second argument!");
@@ -26,7 +33,7 @@ static bool js_gui_textured_button_constructor(JSContext* cx, unsigned argc, JS:
 		std::vector<MH33::GUI::TexturedWidget::TextureCoordDuo> texCoords(jsArrLength / 4);
 		for(size_t i = 0; i < texCoords.size(); ++i)
 		{
-			JS::RootedValue rval1(cx);
+			/*JS::RootedValue rval1(cx);
 			JS::RootedValue rval2(cx);
 			JS::RootedValue rval3(cx);
 			JS::RootedValue rval4(cx);
@@ -37,15 +44,25 @@ static bool js_gui_textured_button_constructor(JSContext* cx, unsigned argc, JS:
 			texCoords[i].first.x = rval1.toDouble();
 			texCoords[i].first.y = rval2.toDouble();
 			texCoords[i].second.x = rval3.toDouble();
-			texCoords[i].second.y = rval4.toDouble();
+			texCoords[i].second.y = rval4.toDouble();*/
+			texCoords[i].first.x = dumbWorkaround[(i*4)];
+			texCoords[i].first.y = dumbWorkaround[(i*4)+1];
+			texCoords[i].second.x = dumbWorkaround[(i*4)+2];
+			texCoords[i].second.y = dumbWorkaround[(i*4)+3];
 		}
-		auto objecToInsert = std::make_shared<MH33::GUI::TexturedButton>(voidptr.get(),texCoords);
+		auto objecToInsert = std::make_shared<MH33::GUI::TexturedButton>(texref,texCoords);
+		objecToInsert->setNewPosition(glm::fvec2(0.4f,-0.4f),glm::fvec2(0.6f,-0.6f));
 		auto objPtr = JS_NewObjectWithGivenProto(cx,&MhTexturedButtonClass.protoClass,*MhTexturedButtonClass.prototype);
-		JS::RootedObject obj(cx, objPtr);
-		objecToInsert->signal_onStateChanged.connect([cx,objPtr](MH33::GUI::pWidget widg,uint32_t oldState,uint32_t newState) {
-			JS::RootedObject obj(cx, objPtr);
+		JS::PersistentRootedObject obj(cx, objPtr);
+		persistentMap[objecToInsert.get()] = obj;
+		objecToInsert->signal_onStateChanged.connect([cx](MH33::GUI::pWidget widg,uint32_t oldState,uint32_t newState) {
+			auto pers = persistentMap[widg];
+			JS::RootedObject obj(cx, persistentMap[widg]);
 			JS::RootedValue rval(cx);
 			JS::RootedValue rva2l(cx);
+			bool hasProperty;
+			JS_HasProperty(cx,pers,"onStateChange",&hasProperty);
+			if(!hasProperty) return;
 			JS_GetProperty(cx,obj,"onStateChange",&rval);
 			if(!rval.isObject()) return;
 			if(!JS_ObjectIsFunction(rval.toObjectOrNull())) return;
@@ -103,6 +120,13 @@ static bool js_gui_textured_widget_set_hidden(JSContext* cx, unsigned argc, JS::
 		return true;
 	}, cx, argc, vp);
 };
+static bool js_gui_textured_widget_addproperty(JSContext* cx, JS::HandleObject obj,
+											   JS::HandleId id, JS::HandleValue v) {
+	return executeJSAddPropertyOp([](JSContext* cx, JS::HandleObject obj,
+								  JS::HandleId id, JS::HandleValue v) {
+		return JS_SetPropertyById(cx,obj,id,v);
+	}, cx, obj, id, v);
+}
 
 void RegisterGuiClasses(JSContext* cx, const HandleObject& global)
 {
@@ -118,6 +142,7 @@ void RegisterGuiClasses(JSContext* cx, const HandleObject& global)
 	MhTexturedButtonClass.nargs = 1;
 	MhTexturedButtonClass.ops.finalize = js_finalizer_shared;
 	MhTexturedButtonClass.ops.construct = js_gui_textured_button_constructor;
+	//MhTexturedButtonClass.ops.addProperty = js_gui_textured_widget_addproperty;
 	MhTexturedButtonClass.protoClass.cOps = &MhTexturedButtonClass.ops;
 	MhTexturedButtonClass.protoClass.name = "TexturedButton";
 	MhTexturedButtonClass.protoClass.flags = JSCLASS_HAS_RESERVED_SLOTS(1) | JSCLASS_BACKGROUND_FINALIZE;

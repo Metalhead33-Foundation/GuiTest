@@ -17,6 +17,8 @@
 #include <MhLib/Media/AdvancedAudio/MhSoundSource.hpp>
 #include <MhLib/Media/AdvancedAudio/MhMatrixPanner.hpp>
 #include <thread>
+#include <unordered_set>
+#include <future>
 
 class TestSystem : public AppSystem, public MH33::Util::CommandQueue<TestSystem>
 {
@@ -50,9 +52,11 @@ private:
 	MH33::Audio::sSoundSource soundSource;
 	MH33::Audio::sMatrixPanner matrixPanner;
 	std::thread JsThread;
+	std::unordered_set<MH33::GFX::sTexture2D> textureCollector;;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	~TestSystem();
+	std::future<MH33::GFX::sTexture2D> gibTextureTMPR(const std::string& path);
 	void loadLocalizations();
 	void render(float deltaTime) override;
 	void update(float deltaTime) override;
