@@ -13,6 +13,9 @@
 #include <GUI/MhCursor.hpp>
 #include <GUI/MhWidget.hpp>
 #include <MhLib/Media/AdvancedAudio/MhAudioMixer.hpp>
+#include <MhLib/Media/AdvancedAudio/MhAudioBuffer.hpp>
+#include <MhLib/Media/AdvancedAudio/MhSoundSource.hpp>
+#include <MhLib/Media/AdvancedAudio/MhMatrixPanner.hpp>
 
 class TestSystem : public AppSystem, public MH33::Util::CommandQueue<TestSystem>
 {
@@ -42,6 +45,9 @@ private:
 	glm::fvec2 mousePos;
 	std::vector<MH33::GUI::uWidget> widgets;
 	MH33::GUI::pWidget hoveredOverWidget;
+	MH33::Audio::sBuffer audioBuffer;
+	MH33::Audio::sSoundSource soundSource;
+	MH33::Audio::sMatrixPanner matrixPanner;
 public:
 	TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration& conf);
 	~TestSystem();

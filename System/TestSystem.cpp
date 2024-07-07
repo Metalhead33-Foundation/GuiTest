@@ -274,6 +274,16 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		cursor = std::make_unique<MH33::GUI::Cursor>(*tmpImg,reinterpret_cast<uintptr_t>(cursorTex.get()), glm::fvec2(widthR,heightR));
 	}
 	{
+		//matrixPanner = std::make_shared<MH33::Audio::MatrixPanner>(MH33::Audio::FrameCount(1024),MH33::Audio::ChannelCount(1),MH33::Audio::ChannelCount(2));
+		MH33::Io::sDevice f1(iosys->open("/sounds/menu_click.ogg",MH33::Io::Mode::READ));
+		audioBuffer = std::make_shared<MH33::Audio::Buffer>(f1);
+		audioBuffer->resample(mixer->getFrameRate());
+		soundSource = std::make_shared<MH33::Audio::SoundSource>();
+		soundSource->setBuffer(audioBuffer);
+		mixer->set(soundSource,1.0f);
+		//mixer->set(matrixPanner,1.0f);
+	}
+	{
 		MH33::Image::DecodeTarget decodeTarget;
 		MH33::Io::uDevice f1(iosys->open("/textures/menuButton.png",MH33::Io::Mode::READ));
 		MH33::Image::PNG::decode(*f1,decodeTarget);
@@ -301,13 +311,21 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		btn->setTopLeft( glm::fvec2(0.0, 0.0f ));
 		btn->setBottomRight( glm::fvec2(0.4f, -0.33333333333333f) );
 		btn->setHidden(false);
-		btn->signal_onStateChanged.connect( [](MH33::GUI::pWidget widg, uint32_t oldState, uint32_t newState) {
-			std::cout << '[' << static_cast<void*>(widg) << "] changed state. Old state: " << oldState << ". New State: " << newState << '.' << std::endl;
+		btn->signal_onStateChanged.connect( [this](MH33::GUI::pWidget widg, uint32_t oldState, uint32_t newState) {
+			bool oldClickedState = bool(oldState & static_cast<uint32_t>(MH33::GUI::WidgetStateFlags::CLICKED));
+			bool newClickedState = bool(newState & static_cast<uint32_t>(MH33::GUI::WidgetStateFlags::CLICKED));
+			if(oldClickedState != newClickedState) {
+				soundSource->setCursor(MH33::Audio::FrameIndex(0));
+				soundSource->setState(MH33::Audio::PlayStatus::PLAYING);
+			}
+			//std::cout << '[' << static_cast<void*>(widg) << "] changed state. Old state: " << oldState << ". New State: " << newState << '.' << std::endl;
 		});
 		btn->setFlag(true,MH33::GUI::WidgetStateFlags::ENABLED);
 		widgets.push_back(MH33::GUI::uWidget(std::move(btn)));
 	}
 	audioDriver.setPlayable(mixer);
+	audioDriver.unlock();
+	audioDriver.pause(false);
 #if defined (_DEBUG) || defined (DEBUG) || defined (NDEBUG)
 		std::cout << "This is a debug build!" << std::endl;
 #else

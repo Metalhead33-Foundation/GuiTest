@@ -4,7 +4,6 @@
 #include <MhLib/Media/AdvancedAudio/MhAudioPacket.hpp>
 #include <MhLib/Media/Audio/MhSoundFile.hpp>
 #include <vector>
-#include <memory>
 namespace MH33 {
 namespace Audio {
 
@@ -27,6 +26,7 @@ public:
 	FrameCount getFrameCount() const;
 	FrameRate getFrameRate() const;
 	ChannelCount getChannelCount() const;
+	void resample(FrameRate newSampleRate);
 };
 
 }

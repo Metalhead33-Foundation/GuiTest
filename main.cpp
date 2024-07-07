@@ -12,6 +12,7 @@
 #define USE_GLX
 
 int main(int argc, char *argv[]) {
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 	if(JS::Core::inintializeJs()) {
 	PhysFS::IoSystem::initialize(argv[0]);
 	PhysFS::sIoSystem iosys(new PhysFS::IoSystem());

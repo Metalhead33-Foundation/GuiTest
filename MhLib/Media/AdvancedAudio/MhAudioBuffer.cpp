@@ -1,4 +1,5 @@
 #include <MhLib/Media/AdvancedAudio/MhAudioBuffer.hpp>
+#include <MhLib/Media/Audio/MhResampler.hpp>
 
 namespace MH33 {
 namespace Audio {
@@ -16,6 +17,21 @@ FrameRate Buffer::getFrameRate() const
 ChannelCount Buffer::getChannelCount() const
 {
 	return channelCount;
+}
+
+void Buffer::resample(FrameRate newSampleRate)
+{
+	if(newSampleRate.var == frameRate.var) return;
+	SimpleResampler srsmpl;
+	double ratio = static_cast<double>(newSampleRate.var) / static_cast<double>(frameRate.var);
+	long inFrames = frameCount.var;
+	long outFrames = static_cast<long>(ceil(static_cast<double>(inFrames) * ratio));
+	std::vector<float> newBuffer(channelCount.var * outFrames);
+	srsmpl.set(samples.data(),newBuffer.data(),frameCount,FrameCount(outFrames),ratio);
+	srsmpl.resample(ResampleType::SINC_BEST_QUALITY,channelCount);
+	frameCount.var = outFrames;
+	frameRate = newSampleRate;
+	samples = std::move(newBuffer);
 }
 
 void Buffer::fillData(SoundFile &sndfile)

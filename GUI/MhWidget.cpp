@@ -52,7 +52,7 @@ void Widget::setTopLeft(const glm::vec2& newTopLeft)
 
 void Widget::setFlag(bool state, WidgetStateFlags flag)
 {
-	std::cout << static_cast<uint32_t>(flag) << ' ' << state << std::endl;
+	//std::cout << static_cast<uint32_t>(flag) << ' ' << state << std::endl;
 	if(state) {
 		changeState( this->state | static_cast<uint32_t>(flag));
 	} else {
