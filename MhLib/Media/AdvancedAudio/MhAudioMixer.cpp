@@ -26,7 +26,7 @@ FrameCount Mixer::processIndividual(Playable &playable, float volume)
 			break;
 		}
 
-	} while (framesToGo.var > 0);
+	} while (framesToGo.var > 0 && currentlyDoneFrames.var);
 
 	for(const auto jt : framesProcessedSoFar) {
 		const float * const inFrameStart = &buffB[jt * channelCount.var];
