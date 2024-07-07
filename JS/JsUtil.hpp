@@ -10,7 +10,7 @@ namespace JS {
 
 std::string JsToNativeString(JSContext* cx, JSString* jsstring);
 
-struct JsClassCreator {
+struct ClassCreator {
 	JSClassOps ops;
 	JSClass protoClass;
 	std::string name;

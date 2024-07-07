@@ -6,6 +6,8 @@
 #include <js/MapAndSet.h>
 #include <JS/Wrappers/Util/JsRandom.hpp>
 #include <JS/Wrappers/Io/JsIO.hpp>
+#include <JS/Wrappers/Audio/JsAudioPlayer.hpp>
+#include <JS/Wrappers/GUI/JsGuiWrappers.hpp>
 
 namespace JS {
 void Core::run(bool module)
@@ -58,6 +60,14 @@ void Core::insertModule(const std::string& moduleName, const ModuleCreator& crea
 void Core::insertModule(const std::string& moduleName, const JSClass& protoClass, const ModuleCreator& creator)
 {
 	JS::RootedObject moduleObject(cx.get(),JS_NewObject(cx.get(), &protoClass));
+	JS_DefineProperty(cx.get(),moduleObject,"__esModule",JS::TrueHandleValue, JSPROP_READONLY);
+	creator(*cx,moduleObject);
+	moduleRegistry.emplace(moduleName, JS::PersistentRootedObject(cx.get(), moduleObject));
+}
+
+void Core::insertModule(const std::string& moduleName, const JSClass& protoClass, JS::Handle<JSObject*> proto, const ModuleCreator& creator)
+{
+	JS::RootedObject moduleObject(cx.get(),JS_NewObjectWithGivenProto(cx.get(), &protoClass, proto));
 	JS_DefineProperty(cx.get(),moduleObject,"__esModule",JS::TrueHandleValue, JSPROP_READONLY);
 	creator(*cx,moduleObject);
 	moduleRegistry.emplace(moduleName, JS::PersistentRootedObject(cx.get(), moduleObject));
@@ -147,6 +157,12 @@ void Core::initialize()
 	});
 	insertModule("IO", [](JSContext& ctx,JS::RootedObject& obj) {
 		CreateIOClasses(&ctx,obj);
+	});
+	insertModule("Audio", [](JSContext& ctx,JS::RootedObject& obj) {
+		RegisterAudioPlayerClasses(&ctx,obj);
+	});
+	insertModule("GUI", [](JSContext& ctx,JS::RootedObject& obj) {
+		RegisterGuiClasses(&ctx,obj);
 	});
 	/*
 	//

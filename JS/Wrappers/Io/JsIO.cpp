@@ -321,7 +321,7 @@ static bool js_file_size(JSContext* cx, unsigned argc, JS::Value* vp) {
 		return true;
 	}, cx, argc, vp);
 }
-static JsClassCreator MhFSIoCreator;
+static ClassCreator MhFSIoCreator;
 static bool js_file_io_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
@@ -343,7 +343,7 @@ static bool js_file_io_constructor(JSContext* cx, unsigned argc, JS::Value* vp) 
 		return true;
 	}, cx, argc, vp);
 }
-static JsClassCreator MhPhysFSCreator;
+static ClassCreator MhPhysFSCreator;
 static bool js_physfs_io_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
@@ -365,7 +365,7 @@ static bool js_physfs_io_constructor(JSContext* cx, unsigned argc, JS::Value* vp
 		return true;
 	}, cx, argc, vp);
 }
-static JsClassCreator MhStdinCreator;
+static ClassCreator MhStdinCreator;
 static bool js_stdin_io_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
@@ -375,7 +375,7 @@ static bool js_stdin_io_constructor(JSContext* cx, unsigned argc, JS::Value* vp)
 		return true;
 	}, cx, argc, vp);
 }
-static JsClassCreator MhStdoutCreator;
+static ClassCreator MhStdoutCreator;
 static bool js_stdout_io_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
@@ -385,7 +385,7 @@ static bool js_stdout_io_constructor(JSContext* cx, unsigned argc, JS::Value* vp
 		return true;
 	}, cx, argc, vp);
 }
-static JsClassCreator MhStderrCreator;
+static ClassCreator MhStderrCreator;
 static bool js_stderr_io_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
@@ -395,8 +395,8 @@ static bool js_stderr_io_constructor(JSContext* cx, unsigned argc, JS::Value* vp
 		return true;
 	}, cx, argc, vp);
 }
-static JsClassCreator MhFilesystemCreator;
-static JsClassCreator MhPhysfsSystemCreator;
+static ClassCreator MhFilesystemCreator;
+static ClassCreator MhPhysfsSystemCreator;
 static bool hasIoBeenInitialized = false;
 
 void CreateIOClasses(JSContext *cx, const JS::HandleObject &global)
@@ -415,12 +415,13 @@ void CreateIOClasses(JSContext *cx, const JS::HandleObject &global)
 		MhFSIoCreator.protoClass.name = "File";
 		MhFSIoCreator.protoClass.flags = JSCLASS_HAS_RESERVED_SLOTS(1) | JSCLASS_BACKGROUND_FINALIZE;
 		MhFSIoCreator.prototype = std::make_unique<JS::RootedObject>(cx, JS_NewObject(cx,&MhFSIoCreator.protoClass));
+		MhFSIoCreator.ps.push_back(JS_PSG("size",js_file_size,JSPROP_ENUMERATE));
 		MhFSIoCreator.ps.push_back(JS_PS_END);
 		MhFSIoCreator.static_ps.push_back(JS_PS_END);
 		MhFSIoCreator.fs.push_back(JS_FN("tell",js_file_tell,0,0));
 		MhFSIoCreator.fs.push_back(JS_FN("flush",js_file_flush,0,0));
 		MhFSIoCreator.fs.push_back(JS_FN("getMode",js_file_get_mode,0,0));
-		MhFSIoCreator.fs.push_back(JS_FN("size",js_file_size,0,0));
+		//MhFSIoCreator.fs.push_back(JS_FN("size",js_file_size,0,0));
 		MhFSIoCreator.fs.push_back(JS_FN("seek",js_file_seek,2,0));
 		// Read stuff
 		// 16-but half-float

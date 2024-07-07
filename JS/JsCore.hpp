@@ -1,6 +1,7 @@
 #ifndef JSCORE_MH33_HPP
 #define JSCORE_MH33_HPP
 #include <jsapi.h>
+#include <js/Object.h>
 #include <js/CompilationAndEvaluation.h>
 #include <js/SourceText.h>
 #include <js/Initialization.h>
@@ -72,6 +73,7 @@ public:
 	std::string GetJsFileAsString(JS::CallArgs& args) const;
 	void insertModule(const std::string& moduleName, const ModuleCreator& creator, CreatedObjectType objectType = CreatedObjectType::PLAIN_OBJECT, size_t arrSize = 0);
 	void insertModule(const std::string& moduleName, const JSClass& protoClass, const ModuleCreator& creator);
+	void insertModule(const std::string& moduleName, const JSClass& protoClass, JS::Handle<JSObject*> proto, const ModuleCreator& creator);
 	void insertModule(const std::string& moduleName, JSNative call, unsigned nargs, unsigned flags);
 	void executeWithinContext(const ContextAccessor& accessor);
 	// JSClass

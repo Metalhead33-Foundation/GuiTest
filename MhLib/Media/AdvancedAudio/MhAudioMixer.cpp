@@ -1,6 +1,7 @@
 #include <MhLib/Media/AdvancedAudio/MhAudioMixer.hpp>
 #include <cstring>
 #include <MhLib/Media/AdvancedAudio/MhAudioError.hpp>
+#include <iostream>
 namespace MH33 {
 namespace Audio {
 
@@ -19,7 +20,14 @@ FrameCount Mixer::processIndividual(Playable &playable, float volume)
 		currentlyDoneFrames = playable.outputTo(out);
 		framesProcessedSoFar += currentlyDoneFrames;
 		framesToGo -= currentlyDoneFrames;
-	} while(framesToGo.var || !currentlyDoneFrames.var);
+
+		// Ensure that if currentlyDoneFrames is zero but framesToGo is not, we continue processing
+		if (currentlyDoneFrames.var == 0 && framesToGo.var > 0) {
+			break;
+		}
+
+	} while (framesToGo.var > 0);
+
 	for(const auto jt : framesProcessedSoFar) {
 		const float * const inFrameStart = &buffB[jt * channelCount.var];
 		float * const outFrameStart = &buffA[jt * channelCount.var];
@@ -30,12 +38,14 @@ FrameCount Mixer::processIndividual(Playable &playable, float volume)
 	return framesProcessedSoFar;
 }
 
+
 FrameCount Mixer::process()
 {
 	memset(this->buffA.data(),0,sizeof(float)*this->buffA.size());
 	FrameCount largest(0);
 	for(auto it = std::begin(playables); it != std::end(playables); ++it) {
-		largest = std::max(largest,processIndividual(*it->first,it->second));
+		auto returned = processIndividual(*it->first,it->second);
+		largest = std::max(largest,returned);
 	}
 	return largest;
 }

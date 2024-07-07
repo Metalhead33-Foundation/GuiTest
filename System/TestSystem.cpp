@@ -5,6 +5,7 @@
 #include <jsapi.h>
 #include <MhLib/Media/Image/MhStandardImage2D.hpp>
 #include <GUI/MhTexturedButton.hpp>
+#include <JS/Wrappers/Audio/JsAudioPlayer.hpp>
 
 struct PrimitiveColoredGayTriangle {
 	glm::vec3 POS;
@@ -126,11 +127,52 @@ static void createDuealPipeline(MH33::GFX::ResourceFactory& gfx, MH33::Io::Syste
 #define INSERT_JAPANESE
 
 #define GET_AUDIO_BUFFER_SIZE (conf["Audio"].getValueOrDefault("iBufferSize","2024")->second.value.i_int)
+#define GET_AUDIO_BUFFER_SIZE2 (conf["Audio"].getValueOrDefault("iBufferSize","2024")->second.value.i_int / 2)
 #define GET_AUDIO_SAMPLE_RATE (conf["Audio"].getValueOrDefault("iSamplerate","48000")->second.value.i_int)
 
-const std::vector<MH33::GUI::uWidget>& TestSystem::getWidgets() const
+static bool js_test_add_widget(JSContext* cx, unsigned argc, JS::Value* vp) {
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		auto zobj = JS::GetMaybePtrFromReservedSlot<TestSystem>(args.thisv().toObjectOrNull(), 0);
+		auto firstArg = args.get(0);
+		if(!firstArg.isObject()) throw std::runtime_error("Excepted object as first argument!");
+		auto returnObj = JS::RootedObject(cx, firstArg.toObjectOrNull());
+		auto toSet = JS::getSmartPointerFromObj<MH33::GUI::Widget>(returnObj,0);
+		zobj->getWidgets().push_back(toSet);
+		args.rval().setObjectOrNull(returnObj);
+		return true;
+	}, cx, argc, vp);
+}
+
+const std::vector<MH33::GUI::sWidget>& TestSystem::getWidgets() const
 {
 	return widgets;
+}
+
+JS::ClassCreator TestSystemJsInfo;
+static void registerTestSystemToJs(TestSystem* ts, JSContext* cx, const JS::HandleObject &global) {
+	std::memset(&TestSystemJsInfo.protoClass, 0, sizeof(JSClass));
+	std::memset(&TestSystemJsInfo.ops, 0, sizeof(JSClassOps));
+	TestSystemJsInfo.constructor = nullptr;
+	TestSystemJsInfo.name = "TestSystem";
+	TestSystemJsInfo.nargs = 1;
+	TestSystemJsInfo.ops.finalize = nullptr;
+	TestSystemJsInfo.ops.construct = nullptr;
+	TestSystemJsInfo.protoClass.cOps = &TestSystemJsInfo.ops;
+	TestSystemJsInfo.protoClass.name = "TestSystem";
+	TestSystemJsInfo.protoClass.flags = JSCLASS_HAS_RESERVED_SLOTS(1) | JSCLASS_BACKGROUND_FINALIZE;
+	TestSystemJsInfo.prototype = std::make_unique<JS::RootedObject>(cx, JS_NewObject(cx,&TestSystemJsInfo.protoClass));
+	TestSystemJsInfo.ps.push_back(JS_PS_END);
+	TestSystemJsInfo.static_ps.push_back(JS_PS_END);
+	TestSystemJsInfo.fs.push_back(JS_FN("addWidget",js_test_add_widget,1,0));
+	TestSystemJsInfo.fs.push_back(JS_FS_END);
+	TestSystemJsInfo.static_fs.push_back(JS_FS_END);
+	{
+		auto toReturn = TestSystemJsInfo.registerToJS(cx, global, *TestSystemJsInfo.prototype);
+		auto reg = JS::RootedValue(cx,JS::ObjectOrNullValue(toReturn) );
+		auto rootedReg = JS::RootedObject(cx,toReturn);
+		JS_SetProperty(cx, global, TestSystemJsInfo.name.c_str(), reg );
+	}
 }
 
 TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCreator& gfxCreator, IniConfiguration &conf)
@@ -140,7 +182,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		conf["Video"].getValueOrDefault("iWidth","640")->second.value.i_int,
 		conf["Video"].getValueOrDefault("iHeight","640")->second.value.i_int,
 		(conf["Video"].getValueOrDefault("bFullscreen","0")->second.value.i_bool) ? SDL_WINDOW_FULLSCREEN : 0
-	), audioDriver(GET_AUDIO_SAMPLE_RATE,2,GET_AUDIO_BUFFER_SIZE),
+	), audioDriver(GET_AUDIO_SAMPLE_RATE,2,GET_AUDIO_BUFFER_SIZE2),
 		mixer(new MH33::Audio::Mixer(MH33::Audio::FrameCount(GET_AUDIO_BUFFER_SIZE),MH33::Audio::FrameCount(GET_AUDIO_SAMPLE_RATE),MH33::Audio::ChannelCount(2))),
 		iosys(iosys), triangleVbo(nullptr), trianglePipeline(nullptr), gfx(gfxCreator(syswmi)),
 		//jscore(iosys),
@@ -266,7 +308,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		textCoords2[static_cast<int>(MH33::GUI::WidgetStateFlags::ENABLED) |
 				static_cast<int>(MH33::GUI::WidgetStateFlags::CLICKED) |
 				static_cast<int>(MH33::GUI::WidgetStateFlags::IN_MOUSE_FOCUS)] = textCoords[4];
-		auto btn = std::make_unique<MH33::GUI::TexturedButton>(buttonTex.get(),textCoords2);
+		auto btn = std::make_shared<MH33::GUI::TexturedButton>(buttonTex.get(),textCoords2);
 		btn->setTopLeft( glm::fvec2(0.0, 0.0f ));
 		btn->setBottomRight( glm::fvec2(0.4f, -0.33333333333333f) );
 		btn->setHidden(false);
@@ -280,7 +322,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 			//std::cout << '[' << static_cast<void*>(widg) << "] changed state. Old state: " << oldState << ". New State: " << newState << '.' << std::endl;
 		});
 		btn->setFlag(true,MH33::GUI::WidgetStateFlags::ENABLED);
-		widgets.push_back(MH33::GUI::uWidget(std::move(btn)));
+		widgets.push_back(MH33::GUI::sWidget(std::move(btn)));
 	}
 	audioDriver.setPlayable(mixer);
 	audioDriver.unlock();
@@ -292,7 +334,16 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 #endif
 	JsThread = std::thread([&, this]() {
 		JS::Core jscore(this->iosys);
-
+		// registerTestSystemToJs
+		jscore.insertModule("_SystemType",[this](JSContext& ctx,JS::RootedObject& rootedObj) {
+			registerTestSystemToJs(this,&ctx,rootedObj);
+		});
+		jscore.insertModule("System",TestSystemJsInfo.protoClass,*TestSystemJsInfo.prototype,[this](JSContext& ctx,JS::RootedObject& rootedObj) {
+			JS_SetReservedSlot(rootedObj, 0, JS::PrivateValue( this ));
+		});
+		jscore.insertModule("GLOBAL_AUDIO_MIXER", JS::MhAudioMixerClass.protoClass, *JS::MhAudioMixerClass.prototype, [this](JSContext& context,JS::RootedObject& obj) {
+			JS::storeSmartPointerToObj(obj,0,this->mixer);
+		});
 		jscore.insertModule("CONFIG", [&conf](JSContext& ctx,JS::RootedObject& obj) {
 			for( auto it = std::begin(conf) ; it != std::end(conf) ; ++it ) {
 				JS::RootedObject section(&ctx, JS_NewPlainObject(&ctx));
@@ -718,7 +769,7 @@ const MH33::Audio::Mixer& TestSystem::getMixer() const
 	return *mixer;
 }
 
-std::vector<MH33::GUI::uWidget>& TestSystem::getWidgets()
+std::vector<MH33::GUI::sWidget>& TestSystem::getWidgets()
 {
 	return widgets;
 }

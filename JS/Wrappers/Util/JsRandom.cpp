@@ -7,7 +7,7 @@
 namespace JS {
 template <typename engine> struct RNG_JS_ADAPTER {
 	static std::string name;
-	static JsClassCreator creator;
+	static ClassCreator creator;
 	static bool isInitialized;
 	static bool js_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
 		return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
@@ -114,31 +114,31 @@ template <typename engine> struct RNG_JS_ADAPTER {
 };
 
 template <> std::string RNG_JS_ADAPTER<std::minstd_rand0>::name = "";
-template <> JsClassCreator RNG_JS_ADAPTER<std::minstd_rand0>::creator = {};
+template <> ClassCreator RNG_JS_ADAPTER<std::minstd_rand0>::creator = {};
 template <> bool RNG_JS_ADAPTER<std::minstd_rand0>::isInitialized = false;
 template <> std::string RNG_JS_ADAPTER<std::minstd_rand>::name = "";
-template <> JsClassCreator RNG_JS_ADAPTER<std::minstd_rand>::creator = {};
+template <> ClassCreator RNG_JS_ADAPTER<std::minstd_rand>::creator = {};
 template <> bool RNG_JS_ADAPTER<std::minstd_rand>::isInitialized = false;
 template <> std::string RNG_JS_ADAPTER<std::mt19937>::name = "";
-template <> JsClassCreator RNG_JS_ADAPTER<std::mt19937>::creator = {};
+template <> ClassCreator RNG_JS_ADAPTER<std::mt19937>::creator = {};
 template <> bool RNG_JS_ADAPTER<std::mt19937>::isInitialized = false;
 template <> std::string RNG_JS_ADAPTER<std::mt19937_64>::name = "";
-template <> JsClassCreator RNG_JS_ADAPTER<std::mt19937_64>::creator = {};
+template <> ClassCreator RNG_JS_ADAPTER<std::mt19937_64>::creator = {};
 template <> bool RNG_JS_ADAPTER<std::mt19937_64>::isInitialized = false;
 template <> std::string RNG_JS_ADAPTER<std::ranlux24_base>::name = "";
-template <> JsClassCreator RNG_JS_ADAPTER<std::ranlux24_base>::creator = {};
+template <> ClassCreator RNG_JS_ADAPTER<std::ranlux24_base>::creator = {};
 template <> bool RNG_JS_ADAPTER<std::ranlux24_base>::isInitialized = false;
 template <> std::string RNG_JS_ADAPTER<std::ranlux48_base>::name = "";
-template <> JsClassCreator RNG_JS_ADAPTER<std::ranlux48_base>::creator = {};
+template <> ClassCreator RNG_JS_ADAPTER<std::ranlux48_base>::creator = {};
 template <> bool RNG_JS_ADAPTER<std::ranlux48_base>::isInitialized = false;
 template <> std::string RNG_JS_ADAPTER<std::ranlux24>::name = "";
-template <> JsClassCreator RNG_JS_ADAPTER<std::ranlux24>::creator = {};
+template <> ClassCreator RNG_JS_ADAPTER<std::ranlux24>::creator = {};
 template <> bool RNG_JS_ADAPTER<std::ranlux24>::isInitialized = false;
 template <> std::string RNG_JS_ADAPTER<std::ranlux48>::name = "";
-template <> JsClassCreator RNG_JS_ADAPTER<std::ranlux48>::creator = {};
+template <> ClassCreator RNG_JS_ADAPTER<std::ranlux48>::creator = {};
 template <> bool RNG_JS_ADAPTER<std::ranlux48>::isInitialized = false;
 template <> std::string RNG_JS_ADAPTER<std::knuth_b>::name = "";
-template <> JsClassCreator RNG_JS_ADAPTER<std::knuth_b>::creator = {};
+template <> ClassCreator RNG_JS_ADAPTER<std::knuth_b>::creator = {};
 template <> bool RNG_JS_ADAPTER<std::knuth_b>::isInitialized = false;
 
 bool CreateRandomIzerClass(JSContext* cx, const JS::HandleObject &global) {

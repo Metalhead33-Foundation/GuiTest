@@ -53,7 +53,7 @@ void removeSmartPointer(intptr_t id) {
 	smartPointerTable.erase(id);
 }
 
-JSObject* JsClassCreator::registerToJS(JSContext* cx, JS::HandleObject obj)
+JSObject* ClassCreator::registerToJS(JSContext* cx, JS::HandleObject obj)
 {
 	JSObject* toReturn = JS_InitClass(cx,obj,&protoClass,nullptr,name.c_str(),constructor,nargs,ps.data(),fs.data(),static_ps.data(),static_fs.data());
 	auto rootedReg = JS::RootedObject(cx,toReturn);
@@ -61,9 +61,10 @@ JSObject* JsClassCreator::registerToJS(JSContext* cx, JS::HandleObject obj)
 	JS_SetProperty(cx, obj, name.c_str(), rootedVal );
 	return toReturn;
 }
-JSObject* JsClassCreator::registerToJS(JSContext* cx, JS::HandleObject obj, JS::HandleObject prototype)
+JSObject* ClassCreator::registerToJS(JSContext* cx, JS::HandleObject obj, JS::HandleObject prototype)
 {
 	JS_DefineFunctions(cx,prototype,fs.data());
+	JS_DefineProperties(cx,prototype,ps.data());
 	JSObject* toReturn =  JS_InitClass(cx,obj,&protoClass,prototype,name.c_str(),constructor,nargs,ps.data(),fs.data(),static_ps.data(),static_fs.data());
 	auto rootedReg = JS::RootedObject(cx,toReturn);
 	auto rootedVal = JS::RootedValue(cx,JS::ObjectOrNullValue(toReturn) );

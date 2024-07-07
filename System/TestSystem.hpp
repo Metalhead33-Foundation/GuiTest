@@ -44,7 +44,7 @@ private:
 	std::unique_ptr<MH33::GFX::GuiRenderer> guiRenderer;
 	MH33::GUI::uCursor cursor;
 	glm::fvec2 mousePos;
-	std::vector<MH33::GUI::uWidget> widgets;
+	std::vector<MH33::GUI::sWidget> widgets;
 	MH33::GUI::pWidget hoveredOverWidget;
 	MH33::Audio::sBuffer audioBuffer;
 	MH33::Audio::sSoundSource soundSource;
@@ -96,8 +96,8 @@ public:
 	void onKeymapChanged() override;
 	MH33::Audio::Mixer& getMixer();
 	const MH33::Audio::Mixer& getMixer() const;
-	std::vector<MH33::GUI::uWidget>& getWidgets();
-	const std::vector<MH33::GUI::uWidget>& getWidgets() const;
+	std::vector<MH33::GUI::sWidget>& getWidgets();
+	const std::vector<MH33::GUI::sWidget>& getWidgets() const;
 };
 
 #endif // TESTSYSTEM_HPP

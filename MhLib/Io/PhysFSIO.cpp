@@ -48,6 +48,7 @@ IO::IO(const char *path, MH33::Io::Mode mode) : handle(nullptr), mode(mode)
 	default:
 		break; // Unsupported mode.
 	}
+	if(handle) PHYSFS_setBuffer(static_cast<PHYSFS_File*>(handle),1024*1024);
 }
 
 IO::IO(const std::string &path, MH33::Io::Mode mode) : handle(nullptr), mode(mode)
@@ -66,6 +67,7 @@ IO::IO(const std::string &path, MH33::Io::Mode mode) : handle(nullptr), mode(mod
 	default:
 		break; // Unsupported mode.
 	}
+	if(handle) PHYSFS_setBuffer(static_cast<PHYSFS_File*>(handle),1024*1024);
 }
 
 bool IO::flush()
