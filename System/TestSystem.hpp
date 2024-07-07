@@ -39,7 +39,7 @@ private:
 	MH33::TXT::uRichTextProcessor rtp;
 	MH33::TXT::uMmlParser mml;
 	std::map<std::string, std::string> localizations;
-	JS::Core jscore;
+	//JS::Core jscore;
 	std::map<unsigned int, JS::PersistentRootedFunction> jsSideEventHandlers;
 	std::unique_ptr<MH33::GFX::GuiRenderer> guiRenderer;
 	MH33::GUI::uCursor cursor;

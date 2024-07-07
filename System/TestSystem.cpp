@@ -143,7 +143,7 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 	), audioDriver(GET_AUDIO_SAMPLE_RATE,2,GET_AUDIO_BUFFER_SIZE),
 		mixer(new MH33::Audio::Mixer(MH33::Audio::FrameCount(GET_AUDIO_BUFFER_SIZE),MH33::Audio::FrameCount(GET_AUDIO_SAMPLE_RATE),MH33::Audio::ChannelCount(2))),
 		iosys(iosys), triangleVbo(nullptr), trianglePipeline(nullptr), gfx(gfxCreator(syswmi)),
-		jscore(iosys),
+		//jscore(iosys),
 		hoveredOverWidget(nullptr)
 {
 	textPipeline = createPipelineFromFiles(*gfx, *iosys, "sdftext", &WidgetVertex::vertexDescriptor);
@@ -162,47 +162,6 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 */
 	loadLocalizations();
 	// Add localizations to JS
-
-	jscore.insertModule("CONFIG", [&conf](JSContext& ctx,JS::RootedObject& obj) {
-		for( auto it = std::begin(conf) ; it != std::end(conf) ; ++it ) {
-			JS::RootedObject section(&ctx, JS_NewPlainObject(&ctx));
-			for( auto zt = std::begin(it->second) ; zt != std::end(it->second) ; ++zt ) {
-				switch (zt->second.type) {
-					case IniType::INI_BOOLEAN: {
-						JS::RootedValue rootedBool(&ctx, zt->second.value.i_bool ? JS::TrueValue() : JS::FalseValue() );
-						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedBool, JSPROP_READONLY | JSPROP_ENUMERATE);
-						break; }
-					case IniType::INI_FLOAT: {
-						JS::RootedValue rootedFloat(&ctx, JS_NumberValue(zt->second.value.i_float) );
-						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedFloat, JSPROP_READONLY | JSPROP_ENUMERATE );
-						break;  }
-					case IniType::INI_INTEGER: {
-						JS::RootedValue rootedInt(&ctx, JS_NumberValue(zt->second.value.i_int) );
-						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedInt, JSPROP_READONLY | JSPROP_ENUMERATE );
-						break; }
-					case IniType::INI_UINTEGER: {
-						JS::RootedValue rootedUint(&ctx, JS_NumberValue(zt->second.value.i_uint) );
-						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedUint, JSPROP_READONLY  | JSPROP_ENUMERATE);
-						break; }
-					case IniType::INI_STRING: {
-						auto strview = zt->second.asStringView();
-						JS::UTF8Chars uChars( strview.data(), strview.size() );
-						JS::RootedString rootedString(&ctx, JS_NewStringCopyUTF8N(&ctx, uChars) );
-						JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedString, JSPROP_READONLY | JSPROP_ENUMERATE );
-						break; }
-					default: break;
-				}
-			}
-			JS_DefineProperty(&ctx,obj, it->first.c_str(), section, JSPROP_READONLY | JSPROP_ENUMERATE);
-		}
-	});
-	jscore.insertModule("localization", [this](JSContext& ctx,JS::RootedObject& obj) {
-		for(auto it = std::begin(this->localizations); it != std::end(this->localizations); ++it) {
-			JS::UTF8Chars uChars(it->second.c_str(),it->second.size());
-			JS::RootedString rstr(&ctx, JS_NewStringCopyUTF8N(&ctx, uChars));
-			JS_DefineProperty(&ctx, obj, it->first.c_str(), rstr, JSPROP_READONLY | JSPROP_ENUMERATE);
-		}
-	});
 
 	rtp = std::make_unique<MH33::TXT::RichTextProcessor>(fontRepo);
 	rtp->setDefaultFontName("noto");
@@ -331,7 +290,51 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 #else
 		SDL_ShowCursor(SDL_DISABLE);
 #endif
-	JsThread = std::thread([this]() { jscore.run(); });
+	JsThread = std::thread([&, this]() {
+		JS::Core jscore(this->iosys);
+
+		jscore.insertModule("CONFIG", [&conf](JSContext& ctx,JS::RootedObject& obj) {
+			for( auto it = std::begin(conf) ; it != std::end(conf) ; ++it ) {
+				JS::RootedObject section(&ctx, JS_NewPlainObject(&ctx));
+				for( auto zt = std::begin(it->second) ; zt != std::end(it->second) ; ++zt ) {
+					switch (zt->second.type) {
+						case IniType::INI_BOOLEAN: {
+							JS::RootedValue rootedBool(&ctx, zt->second.value.i_bool ? JS::TrueValue() : JS::FalseValue() );
+							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedBool, JSPROP_READONLY | JSPROP_ENUMERATE);
+							break; }
+						case IniType::INI_FLOAT: {
+							JS::RootedValue rootedFloat(&ctx, JS_NumberValue(zt->second.value.i_float) );
+							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedFloat, JSPROP_READONLY | JSPROP_ENUMERATE );
+							break;  }
+						case IniType::INI_INTEGER: {
+							JS::RootedValue rootedInt(&ctx, JS_NumberValue(zt->second.value.i_int) );
+							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedInt, JSPROP_READONLY | JSPROP_ENUMERATE );
+							break; }
+						case IniType::INI_UINTEGER: {
+							JS::RootedValue rootedUint(&ctx, JS_NumberValue(zt->second.value.i_uint) );
+							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedUint, JSPROP_READONLY  | JSPROP_ENUMERATE);
+							break; }
+						case IniType::INI_STRING: {
+							auto strview = zt->second.asStringView();
+							JS::UTF8Chars uChars( strview.data(), strview.size() );
+							JS::RootedString rootedString(&ctx, JS_NewStringCopyUTF8N(&ctx, uChars) );
+							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedString, JSPROP_READONLY | JSPROP_ENUMERATE );
+							break; }
+						default: break;
+					}
+				}
+				JS_DefineProperty(&ctx,obj, it->first.c_str(), section, JSPROP_READONLY | JSPROP_ENUMERATE);
+			}
+		});
+		jscore.insertModule("localization", [this](JSContext& ctx,JS::RootedObject& obj) {
+			for(auto it = std::begin(this->localizations); it != std::end(this->localizations); ++it) {
+				JS::UTF8Chars uChars(it->second.c_str(),it->second.size());
+				JS::RootedString rstr(&ctx, JS_NewStringCopyUTF8N(&ctx, uChars));
+				JS_DefineProperty(&ctx, obj, it->first.c_str(), rstr, JSPROP_READONLY | JSPROP_ENUMERATE);
+			}
+		});
+		jscore.run();
+	});
 }
 
 TestSystem::~TestSystem()
@@ -417,7 +420,7 @@ void TestSystem::handleWindowEvent(const SDL_WindowEvent &ev)
 
 void TestSystem::handleKeyboardEvent(const SDL_KeyboardEvent &ev)
 {
-	if(jsSideEventHandlers.contains(ev.type)) {
+	/*if(jsSideEventHandlers.contains(ev.type)) {
 		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
 			auto it = jsSideEventHandlers[ev.type];
 			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
@@ -432,12 +435,12 @@ void TestSystem::handleKeyboardEvent(const SDL_KeyboardEvent &ev)
 			JS::RootedValue retval(&ctx);
 			JS_CallFunction(&ctx,rootedF,it,args, &retval);
 		});
-	}
+	}*/
 }
 
 void TestSystem::handleTextEditingEvent(const SDL_TextEditingEvent &ev)
 {
-	if(jsSideEventHandlers.contains(ev.type)) {
+	/*if(jsSideEventHandlers.contains(ev.type)) {
 		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
 			auto it = jsSideEventHandlers[ev.type];
 			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
@@ -451,12 +454,12 @@ void TestSystem::handleTextEditingEvent(const SDL_TextEditingEvent &ev)
 			JS::RootedValue retval(&ctx);
 			JS_CallFunction(&ctx,rootedF,it,args, &retval);
 		});
-	}
+	}*/
 }
 
 void TestSystem::handleTextEditingExtEvent(const SDL_TextEditingExtEvent &ev)
 {
-	if(jsSideEventHandlers.contains(ev.type)) {
+	/*if(jsSideEventHandlers.contains(ev.type)) {
 		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
 			auto it = jsSideEventHandlers[ev.type];
 			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
@@ -471,12 +474,12 @@ void TestSystem::handleTextEditingExtEvent(const SDL_TextEditingExtEvent &ev)
 			SDL_free(ev.text);
 			JS_CallFunction(&ctx,rootedF,it,args, &retval);
 		});
-	}
+	}*/
 }
 
 void TestSystem::handleTextInputEvent(const SDL_TextInputEvent &ev)
 {
-	if(jsSideEventHandlers.contains(ev.type)) {
+	/*if(jsSideEventHandlers.contains(ev.type)) {
 		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
 			auto it = jsSideEventHandlers[ev.type];
 			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
@@ -488,7 +491,7 @@ void TestSystem::handleTextInputEvent(const SDL_TextInputEvent &ev)
 			JS::RootedValue retval(&ctx);
 			JS_CallFunction(&ctx,rootedF,it,args, &retval);
 		});
-	}
+	}*/
 }
 
 void TestSystem::handleMouseMotionEvent(const SDL_MouseMotionEvent &ev)
@@ -564,7 +567,7 @@ void TestSystem::handleMouseButtonEvent(const SDL_MouseButtonEvent &ev)
 
 void TestSystem::handleMouseWheelEvent(const SDL_MouseWheelEvent &ev)
 {
-	if(jsSideEventHandlers.contains(ev.type)) {
+	/*if(jsSideEventHandlers.contains(ev.type)) {
 		jscore.executeWithinContext([this,&ev](JSContext& ctx) {
 			auto it = jsSideEventHandlers[ev.type];
 			JS::RootedObject rootedF(&ctx, JS_GetFunctionObject(it));
@@ -583,7 +586,7 @@ void TestSystem::handleMouseWheelEvent(const SDL_MouseWheelEvent &ev)
 			JS::RootedValue retval(&ctx);
 			JS_CallFunction(&ctx,rootedF,it,args, &retval);
 		});
-	}
+	}*/
 }
 
 void TestSystem::handleJoyAxisEvent(const SDL_JoyAxisEvent &ev)
