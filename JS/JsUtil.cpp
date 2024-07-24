@@ -1,40 +1,42 @@
 #include "JsUtil.hpp"
 #include <exception>
 #include <unordered_map>
+#include <MhLib/Util/MhSequentialIdGenerator.hpp>
 #include <js/Class.h>
 #include <js/Proxy.h>
 namespace JS {
 
-static std::unordered_map<intptr_t, std::shared_ptr<void>> smartPointerTable;
+static MH33::Util::SequentialIdGenerator<uintptr_t> IdGenerator;
+static std::unordered_map<uintptr_t, std::shared_ptr<void>> smartPointerTable;
 static std::mutex smartPointerTableMutex;
 
-intptr_t storeSharedVoidPtr(const std::shared_ptr<void>& ptr) {
+uintptr_t storeSharedVoidPtr(const std::shared_ptr<void>& ptr) {
 	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
-	intptr_t id = reinterpret_cast<intptr_t>(ptr.get());
+	uintptr_t id = IdGenerator.generateID();
 	smartPointerTable[id] = ptr;
 	return id;
 }
 
-intptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, const std::shared_ptr<void>& ptr)
+uintptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, const std::shared_ptr<void>& ptr)
 {
-	intptr_t id = storeSharedVoidPtr(ptr);
+	uintptr_t id = storeSharedVoidPtr(ptr);
 	JS_SetReservedSlot(obj, index, JS::PrivateValue( reinterpret_cast<void*>(id) ) );
 	return id;
 }
-intptr_t storeSharedVoidPtr(std::shared_ptr<void>&& ptr) {
+uintptr_t storeSharedVoidPtr(std::shared_ptr<void>&& ptr) {
 	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
-	intptr_t id = reinterpret_cast<intptr_t>(ptr.get());
+	uintptr_t id = IdGenerator.generateID();
 	smartPointerTable[id] = std::move(ptr);
 	return id;
 }
 
-intptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, std::shared_ptr<void>&& ptr)
+uintptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, std::shared_ptr<void>&& ptr)
 {
-	intptr_t id = storeSharedVoidPtr(std::move(ptr));
+	uintptr_t id = storeSharedVoidPtr(std::move(ptr));
 	JS_SetReservedSlot(obj, index, JS::PrivateValue( reinterpret_cast<void*>(id) ) );
 	return id;
 }
-std::shared_ptr<void> getSharedVoidPtr(intptr_t id) {
+std::shared_ptr<void> getSharedVoidPtr(uintptr_t id) {
 	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
 	auto it = smartPointerTable.find(id);
 	if (it != smartPointerTable.end()) {
@@ -45,10 +47,10 @@ std::shared_ptr<void> getSharedVoidPtr(intptr_t id) {
 
 std::shared_ptr<void> getSharedVoidPtrFromObj(JSObject* obj, size_t slot)
 {
-	intptr_t id = reinterpret_cast<intptr_t>(JS::GetMaybePtrFromReservedSlot<void>(obj,slot));
+	uintptr_t id = reinterpret_cast<uintptr_t>(JS::GetMaybePtrFromReservedSlot<void>(obj,slot));
 	return getSharedVoidPtr(id);
 }
-void removeSmartPointer(intptr_t id) {
+void removeSmartPointer(uintptr_t id) {
 	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
 	smartPointerTable.erase(id);
 }
@@ -224,7 +226,7 @@ void js_finalizer_shared(GCContext* cx, JSObject* obj)
 {
 	(void)cx;
 	if(!obj) return;
-	auto privval = reinterpret_cast<intptr_t>(JS::GetMaybePtrFromReservedSlot<void>(obj, 0));
+	auto privval = reinterpret_cast<uintptr_t>(JS::GetMaybePtrFromReservedSlot<void>(obj, 0));
 	if(!privval) return;
 	removeSmartPointer(privval);
 }

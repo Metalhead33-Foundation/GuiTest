@@ -70,7 +70,7 @@ public:
 		readLine(stream);
 		return stream.str();
 	}
-	size_t write(const Util::Buffer& src) {
+	size_t write(const Util::CByteSpan& src) {
 		return write(src.data(),src.size());
 	}
 };

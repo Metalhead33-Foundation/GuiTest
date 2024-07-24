@@ -264,14 +264,6 @@ template <MH33::Util::Endian endianness> static bool js_write_string_array(JSCon
 		return true;
 	}, cx, argc, vp);
 }
-
-static void js_finalizer_iosys(JS::GCContext* cx, JSObject* obj) {
-	(void)cx;
-	if(!obj) return;
-	MH33::Io::System* privval = JS::GetMaybePtrFromReservedSlot<MH33::Io::System>(obj, 0);
-	if(!privval) return;
-	delete privval;
-}
 static bool js_file_seek(JSContext* cx, unsigned argc, JS::Value* vp) {
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);

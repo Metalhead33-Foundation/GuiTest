@@ -50,6 +50,7 @@ SOURCES += \
         JS/Wrappers/Util/JsRandom.cpp \
         MhLib/Gimmick/MhWordGenerator.cpp \
         MhLib/Io/MhBufferWrapper.cpp \
+        MhLib/Io/MhCBufferWrapper.cpp \
         MhLib/Io/MhFile.cpp \
         MhLib/Io/MhFixedBufferWrapper.cpp \
         MhLib/Io/MhProxyReadStream.cpp \
@@ -179,6 +180,7 @@ HEADERS += \
     MhLib/Interface/MhEquatable.hpp \
     MhLib/Interface/MhObserv.hpp \
     MhLib/Io/MhBufferWrapper.hpp \
+    MhLib/Io/MhCBufferWrapper.hpp \
     MhLib/Io/MhDataStream.hpp \
     MhLib/Io/MhFile.hpp \
     MhLib/Io/MhFixedBufferWrapper.hpp \
@@ -269,6 +271,8 @@ HEADERS += \
     MhLib/Util/MhNormDenorm.hpp \
     MhLib/Util/MhPixelFormat.hpp \
     MhLib/Util/MhRNG.hpp \
+    MhLib/Util/MhSequentialIdGenerator.hpp \
+    MhLib/Util/MhSnowflake.hpp \
     MhLib/Util/MhStackAllocator.hpp \
     MhLib/Util/MhStaticStackAllocator.hpp \
     MhLib/Util/MhTextureHelpers.hpp \

@@ -2,6 +2,7 @@
 #include <cstring>
 #include <sstream>
 #include <MhLib/Io/MhFixedBufferWrapper.hpp>
+#include <MhLib/Io/MhCBufferWrapper.hpp>
 namespace MH33 {
 namespace Util {
 
@@ -244,7 +245,7 @@ void UUID::fromTimeAndRandom(const std::chrono::milliseconds& time, uint64_t ran
 void UUID::toTimeAndRandom(std::chrono::milliseconds &time, uint32_t &randomNumA, uint32_t &randomNumB) const
 {
 	int64_t tmpTime;
-	Io::FixedBufferWrapper buff(const_cast<uint8_t*>(__uuid),size);
+	Io::CBufferWrapper buff(__uuid,size);
 	Io::DataStream<Util::Endian::Big>(buff) >> tmpTime >> randomNumA >> randomNumB;
 	time = std::chrono::milliseconds(tmpTime);
 }
@@ -252,14 +253,14 @@ void UUID::toTimeAndRandom(std::chrono::milliseconds &time, uint32_t &randomNumA
 void UUID::toTimeAndRandom(std::chrono::milliseconds &time, uint64_t &randomNum) const
 {
 	int64_t tmpTime;
-	Io::FixedBufferWrapper buff(const_cast<uint8_t*>(__uuid),size);
+	Io::CBufferWrapper buff(__uuid,size);
 	Io::DataStream<Util::Endian::Big>(buff) >> tmpTime >> randomNum;
 	time = std::chrono::milliseconds(tmpTime);
 }
 
 void UUID::toRandom(uint32_t &randomNum1, uint32_t &randomNum2, uint32_t &randomNum3, uint32_t &randomNum4) const
 {
-	Io::FixedBufferWrapper buff(const_cast<uint8_t*>(__uuid),size);
+	Io::CBufferWrapper buff(__uuid,size);
 	Io::DataStream<Util::Endian::Big>(buff) >> randomNum1 >> randomNum2 >> randomNum3 >> randomNum4;
 }
 
