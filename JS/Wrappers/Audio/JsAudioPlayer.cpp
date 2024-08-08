@@ -15,6 +15,53 @@ ClassCreator MhSoundSourceClass;
 ClassCreator MhAudioMixerClass;
 static bool hasIoBeenInitialized = false;
 
+template <typename T> struct ReturnValueWrapper<MH33::Util::IntegralIterable<T>> {
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, MH33::Util::IntegralIterable<T> value) {
+		// Default case for non-specialized types
+		rval.setInt32(static_cast<int32_t>(value.var));
+	}
+	static MH33::Util::IntegralIterable<T> fromValue(JSContext* cx, const HandleValue& arg) {
+		return MH33::Util::IntegralIterable<T>(static_cast<T>(arg.toInt32()));
+	}
+};
+template <typename T> struct ReturnValueWrapper<MH33::Util::IntegralIterator<T>> {
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, MH33::Util::IntegralIterator<T> value) {
+		// Default case for non-specialized types
+		rval.setInt32(static_cast<int32_t>(value.var));
+	}
+	static MH33::Util::IntegralIterator<T> fromValue(JSContext* cx, const HandleValue& arg) {
+		return MH33::Util::IntegralIterator<T>(static_cast<T>(arg.toInt32()));
+	}
+};
+
+/*template <> struct ReturnValueWrapper<MH33::Audio::PlayStatus> {
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, MH33::Audio::PlayStatus value) {
+		// Default case for non-specialized types
+		rval.setInt32(static_cast<int32_t>(value));
+	}
+	static MH33::Audio::PlayStatus fromValue(JSContext* cx, const HandleValue& arg) {
+		return static_cast<MH33::Audio::PlayStatus>(arg.toInt32());
+	}
+};
+template <> struct ReturnValueWrapper<MH33::Audio::ChannelCount> {
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, MH33::Audio::ChannelCount value) {
+		// Default case for non-specialized types
+		rval.setInt32(static_cast<int32_t>(value.var));
+	}
+	static MH33::Audio::ChannelCount fromValue(JSContext* cx, const HandleValue& arg) {
+		return MH33::Audio::ChannelCount(arg.toInt32());
+	}
+};
+template <> struct ReturnValueWrapper<MH33::Audio::FrameRate> {
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, MH33::Audio::FrameRate value) {
+		// Default case for non-specialized types
+		rval.setInt32(static_cast<int32_t>(value.var));
+	}
+	static MH33::Audio::FrameRate fromValue(JSContext* cx, const HandleValue& arg) {
+		return MH33::Audio::FrameRate(arg.toInt32());
+	}
+};*/
+
 // Playable
 /*
 class Playable {
@@ -26,20 +73,22 @@ public:
 };
 */
 static bool js_audio_playable_getFrameRate(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+	/*return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto buff = JS::getSmartPointerFromObj<MH33::Audio::Playable>(args.thisv().toObjectOrNull(), 0);
 		args.rval().setInt32(buff->getFrameRate().var);
 		return true;
-	}, cx, argc, vp);
+	}, cx, argc, vp);*/
+	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::Audio::Playable::getFrameRate);
 }
 static bool js_audio_playable_getChannelCount(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+	/*return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto buff = JS::getSmartPointerFromObj<MH33::Audio::Playable>(args.thisv().toObjectOrNull(), 0);
 		args.rval().setInt32(buff->getChannelCount().var);
 		return true;
-	}, cx, argc, vp);
+	}, cx, argc, vp);*/
+	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::Audio::Playable::getChannelCount);
 }
 
 // Constructors
@@ -120,6 +169,7 @@ static bool js_audio_buffer_getFrameRate(JSContext* cx, unsigned argc, JS::Value
 		args.rval().setInt32(buff->getFrameRate().var);
 		return true;
 	}, cx, argc, vp);
+	//return wrapMemberFunction<MH33::Audio::Buffer, int, void, &MH33::Audio::Buffer::getFrameRate>(cx, argc, vp);
 }
 static bool js_audio_buffer_getChannelCount(JSContext* cx, unsigned argc, JS::Value* vp) {
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
@@ -270,15 +320,16 @@ static bool js_audiostreamer_setState(JSContext* cx, unsigned argc, JS::Value* v
 	}, cx, argc, vp);
 }
 static bool js_audiostreamer_getRepeating(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+	/*return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::Streamer>(args.thisv().toObjectOrNull(), 0);
 		args.rval().setBoolean(static_cast<int32_t>(zobj->getRepeating()));
 		return true;
-	}, cx, argc, vp);
+	}, cx, argc, vp);*/
+	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::Audio::Streamer::getRepeating);
 }
 static bool js_audiostreamer_setRepeating(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+	/*return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::Streamer>(args.thisv().toObjectOrNull(), 0);
 		auto firstArg = args.get(0);
@@ -286,7 +337,8 @@ static bool js_audiostreamer_setRepeating(JSContext* cx, unsigned argc, JS::Valu
 		zobj->setRepeating(firstArg.toBoolean());
 		args.rval().set(firstArg);
 		return true;
-	}, cx, argc, vp);
+	}, cx, argc, vp);*/
+	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::Audio::Streamer::setRepeating);
 }
 
 static bool js_mixer_InserPlayable(JSContext* cx, unsigned argc, JS::Value* vp) {

@@ -42,6 +42,8 @@ public:
 	sigslot::signal<pWidget,const glm::vec2*, const glm::vec2*> signal_onPositionChanged;
 	bool getHidden() const;
 	void setHidden(bool newHidden);
+	template <WidgetStateFlags flag> inline bool getFlag() const { return getFlag(flag); }
+	template <WidgetStateFlags flag> inline void setFlag(bool state) { setFlag(state,flag); }
 };
 
 }

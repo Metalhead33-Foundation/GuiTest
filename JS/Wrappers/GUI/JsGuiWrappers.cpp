@@ -83,15 +83,16 @@ static bool js_gui_textured_button_constructor(JSContext* cx, unsigned argc, JS:
 }
 
 template <MH33::GUI::WidgetStateFlags flag> static bool js_gui_textured_widget_get_flag(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+	/*return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto zobj = JS::getSmartPointerFromObj<MH33::GUI::Widget>(args.thisv().toObjectOrNull(), 0);
 		args.rval().setBoolean(zobj->getFlag(flag));
 		return true;
-	}, cx, argc, vp);
+	}, cx, argc, vp);*/
+	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::GUI::Widget::getFlag<flag>);
 };
 template <MH33::GUI::WidgetStateFlags flag> static bool js_gui_textured_widget_set_flag(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+	/*return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto zobj = JS::getSmartPointerFromObj<MH33::GUI::Widget>(args.thisv().toObjectOrNull(), 0);
 		auto arg0 = args.get(0);
@@ -99,18 +100,20 @@ template <MH33::GUI::WidgetStateFlags flag> static bool js_gui_textured_widget_s
 		zobj->setFlag(arg0.toBoolean(),flag);
 		args.rval().set(arg0);
 		return true;
-	}, cx, argc, vp);
+	}, cx, argc, vp);*/
+	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::GUI::Widget::setFlag<flag>);
 };
 static bool js_gui_textured_widget_get_hidden(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+	/*return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto zobj = JS::getSmartPointerFromObj<MH33::GUI::Widget>(args.thisv().toObjectOrNull(), 0);
 		args.rval().setBoolean(zobj->getHidden());
 		return true;
-	}, cx, argc, vp);
+	}, cx, argc, vp);*/
+	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::GUI::Widget::getHidden);
 };
 static bool js_gui_textured_widget_set_hidden(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+	/*return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto zobj = JS::getSmartPointerFromObj<MH33::GUI::Widget>(args.thisv().toObjectOrNull(), 0);
 		auto arg0 = args.get(0);
@@ -118,7 +121,8 @@ static bool js_gui_textured_widget_set_hidden(JSContext* cx, unsigned argc, JS::
 		zobj->setHidden(arg0.toBoolean());
 		args.rval().set(arg0);
 		return true;
-	}, cx, argc, vp);
+	}, cx, argc, vp);*/
+	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::GUI::Widget::setHidden);
 };
 static bool js_gui_textured_widget_addproperty(JSContext* cx, JS::HandleObject obj,
 											   JS::HandleId id, JS::HandleValue v) {
