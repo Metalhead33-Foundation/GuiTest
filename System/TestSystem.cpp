@@ -358,18 +358,18 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 		SDL_ShowCursor(SDL_DISABLE);
 #endif
 	JsThread = std::thread([&, this]() {
-		JS::Core jscore(this->iosys);
+		this->jscore = std::make_unique<JS::Core>(this->iosys);
 		// registerTestSystemToJs
-		jscore.insertModule("_SystemType",[this](JSContext& ctx,JS::RootedObject& rootedObj) {
+		jscore->insertModule("_SystemType",[this](JSContext& ctx,JS::RootedObject& rootedObj) {
 			registerTestSystemToJs(this,&ctx,rootedObj);
 		});
-		jscore.insertModule("System",TestSystemJsInfo.protoClass,*TestSystemJsInfo.prototype,[this](JSContext& ctx,JS::RootedObject& rootedObj) {
+		jscore->insertModule("System",TestSystemJsInfo.protoClass,*TestSystemJsInfo.prototype,[this](JSContext& ctx,JS::RootedObject& rootedObj) {
 			JS_SetReservedSlot(rootedObj, 0, JS::PrivateValue( this ));
 		});
-		jscore.insertModule("GLOBAL_AUDIO_MIXER", JS::MhAudioMixerClass.protoClass, *JS::MhAudioMixerClass.prototype, [this](JSContext& context,JS::RootedObject& obj) {
+		jscore->insertModule("GLOBAL_AUDIO_MIXER", JS::MhAudioMixerClass.protoClass, *JS::MhAudioMixerClass.prototype, [this](JSContext& context,JS::RootedObject& obj) {
 			JS::storeSmartPointerToObj(obj,0,this->mixer);
 		});
-		jscore.insertModule("CONFIG", [&conf](JSContext& ctx,JS::RootedObject& obj) {
+		jscore->insertModule("CONFIG", [&conf](JSContext& ctx,JS::RootedObject& obj) {
 			for( auto it = std::begin(conf) ; it != std::end(conf) ; ++it ) {
 				JS::RootedObject section(&ctx, JS_NewPlainObject(&ctx));
 				for( auto zt = std::begin(it->second) ; zt != std::end(it->second) ; ++zt ) {
@@ -402,14 +402,14 @@ TestSystem::TestSystem(const MH33::Io::sSystem& iosys, const ResourceFactoryCrea
 				JS_DefineProperty(&ctx,obj, it->first.c_str(), section, JSPROP_READONLY | JSPROP_ENUMERATE);
 			}
 		});
-		jscore.insertModule("localization", [this](JSContext& ctx,JS::RootedObject& obj) {
+		jscore->insertModule("localization", [this](JSContext& ctx,JS::RootedObject& obj) {
 			for(auto it = std::begin(this->localizations); it != std::end(this->localizations); ++it) {
 				JS::UTF8Chars uChars(it->second.c_str(),it->second.size());
 				JS::RootedString rstr(&ctx, JS_NewStringCopyUTF8N(&ctx, uChars));
 				JS_DefineProperty(&ctx, obj, it->first.c_str(), rstr, JSPROP_READONLY | JSPROP_ENUMERATE);
 			}
 		});
-		jscore.run();
+		jscore->run();
 	});
 }
 

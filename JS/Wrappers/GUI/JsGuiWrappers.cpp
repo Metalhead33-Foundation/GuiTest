@@ -56,14 +56,21 @@ static bool js_gui_textured_button_constructor(JSContext* cx, unsigned argc, JS:
 		JS::PersistentRootedObject obj(cx, objPtr);
 		persistentMap[objecToInsert.get()] = obj;
 		objecToInsert->signal_onStateChanged.connect([cx](MH33::GUI::pWidget widg,uint32_t oldState,uint32_t newState) {
-			auto pers = persistentMap[widg];
-			JS::RootedObject obj(cx, persistentMap[widg]);
+			// Ensure the JSContext is valid (assuming cx is a valid JSContext for this thread)
+			auto it = persistentMap.find(widg);
+			if (it == persistentMap.end()) {
+				throw std::runtime_error("Object not found in the persistent map!");
+			}
+			auto& pers = it->second;
+			if (!pers) {
+				throw std::runtime_error("Persistent object is null");
+			}
 			JS::RootedValue rval(cx);
 			JS::RootedValue rva2l(cx);
 			bool hasProperty;
 			JS_HasProperty(cx,pers,"onStateChange",&hasProperty);
 			if(!hasProperty) return;
-			JS_GetProperty(cx,obj,"onStateChange",&rval);
+			JS_GetProperty(cx,pers,"onStateChange",&rval);
 			if(!rval.isObject()) return;
 			if(!JS_ObjectIsFunction(rval.toObjectOrNull())) return;
 			JS::RootedFunction rootedFunc(cx, JS_ValueToFunction(cx, rval));
@@ -74,8 +81,13 @@ static bool js_gui_textured_button_constructor(JSContext* cx, unsigned argc, JS:
 			/*valarr.elements[0].setNumber(reinterpret_cast<intptr_t>(widg));
 			valarr.elements[1].setInt32(oldState);
 			valarr.elements[2].setInt32(newState);*/
-			JS_CallFunction(cx,obj,rootedFunc,valarr,&rva2l);
+			JS_CallFunction(cx,pers,rootedFunc,valarr,&rva2l);
 		});
+		// Define a property for the callback, initialized to undefined
+		JS::RootedValue undefinedValue(cx, JS::UndefinedValue());
+		if (!JS_DefineProperty(cx, obj, "onStateChange", undefinedValue, JSPROP_ENUMERATE | JSPROP_PERMANENT)) {
+			return false;
+		}
 		storeSmartPointerToObj( obj, 0, std::move(objecToInsert));
 		args.rval().setObject(*obj);
 		return true;
