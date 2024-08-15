@@ -55,33 +55,19 @@ static bool js_gui_textured_button_constructor(JSContext* cx, unsigned argc, JS:
 		auto objPtr = JS_NewObjectWithGivenProto(cx,&MhTexturedButtonClass.protoClass,*MhTexturedButtonClass.prototype);
 		JS::PersistentRootedObject obj(cx, objPtr);
 		persistentMap[objecToInsert.get()] = obj;
-		objecToInsert->signal_onStateChanged.connect([cx](MH33::GUI::pWidget widg,uint32_t oldState,uint32_t newState) {
-			// Ensure the JSContext is valid (assuming cx is a valid JSContext for this thread)
-			auto it = persistentMap.find(widg);
-			if (it == persistentMap.end()) {
-				throw std::runtime_error("Object not found in the persistent map!");
+		objecToInsert->signal_onStateChanged.connect([cx](MH33::GUI::pWidget widg, uint32_t oldState, uint32_t newState) {
+			try {
+				auto it = persistentMap.find(widg);
+				if (it == persistentMap.end()) {
+					throw std::runtime_error("Object not found in the persistent map!");
+				}
+
+				auto& pers = it->second;
+				invokeJSCallback(cx, pers, "onStateChange", oldState, newState);
+
+			} catch (const std::exception& e) {
+				JS_ReportErrorASCII(cx, "Exception in signal handler: %s", e.what());
 			}
-			auto& pers = it->second;
-			if (!pers) {
-				throw std::runtime_error("Persistent object is null");
-			}
-			JS::RootedValue rval(cx);
-			JS::RootedValue rva2l(cx);
-			bool hasProperty;
-			JS_HasProperty(cx,pers,"onStateChange",&hasProperty);
-			if(!hasProperty) return;
-			JS_GetProperty(cx,pers,"onStateChange",&rval);
-			if(!rval.isObject()) return;
-			if(!JS_ObjectIsFunction(rval.toObjectOrNull())) return;
-			JS::RootedFunction rootedFunc(cx, JS_ValueToFunction(cx, rval));
-			JS::RootedValueVector valarr(cx);
-			valarr.resize(2);
-			valarr[0].setInt32(oldState);
-			valarr[1].setInt32(newState);
-			/*valarr.elements[0].setNumber(reinterpret_cast<intptr_t>(widg));
-			valarr.elements[1].setInt32(oldState);
-			valarr.elements[2].setInt32(newState);*/
-			JS_CallFunction(cx,pers,rootedFunc,valarr,&rva2l);
 		});
 		// Define a property for the callback, initialized to undefined
 		JS::RootedValue undefinedValue(cx, JS::UndefinedValue());

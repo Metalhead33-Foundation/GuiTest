@@ -273,21 +273,6 @@ bool unpackArgumentsImpl(JSContext* cx, const JS::CallArgs& args, Tuple& tuple, 
 	return (fromValue(cx, args[I], std::get<I>(tuple)) && ...);
 }
 
-/*template <typename... Args>
-bool unpackArguments(JSContext* cx, const JS::CallArgs& args, std::tuple<Args...>& tuple) {
-	return unpackArgumentsImpl(cx, args, tuple, std::index_sequence_for<Args...>{});
-}
-// Helper function to call a member function with unpacked arguments
-template <typename T, typename Ret, typename... Args, std::size_t... I>
-Ret callMethodImpl(T* obj, Ret (T::*Method)(Args...), std::tuple<Args...>& argsTuple, std::index_sequence<I...>) {
-	return (obj->*Method)(std::get<I>(argsTuple)...);
-}
-
-template <typename T, typename Ret, typename... Args>
-Ret callMethod(T* obj, Ret (T::*Method)(Args...), std::tuple<Args...>& argsTuple) {
-	return callMethodImpl(obj, Method, argsTuple, std::index_sequence_for<Args...>{});
-}*/
-
 template <typename... Args>
 std::tuple<Args...> getNativeArguments(JSContext* cx, const JS::CallArgs& args) {
 	return getNativeArgumentsImpl<Args...>(cx, args, std::index_sequence_for<Args...>{});
@@ -297,6 +282,19 @@ template <typename... Args, std::size_t... Is>
 std::tuple<Args...> getNativeArgumentsImpl(JSContext* cx, const JS::CallArgs& args, std::index_sequence<Is...>) {
 	return std::make_tuple(ReturnValueWrapper<Args>().fromValue(cx, args.get(Is))...);
 }
+
+// Helper function to convert C++ arguments to JS::Value
+template <typename T, typename... Args>
+std::enable_if_t<!std::is_void_v<T>, void> setJSValues(JSContext* cx, JS::RootedValueVector& valarr, T firstArg, Args... restArgs) {
+	setReturnValue(cx, valarr[sizeof...(Args)], firstArg);
+	if constexpr (sizeof...(Args) > 0) {
+		setJSValues(cx, valarr, restArgs...);
+	}
+}
+
+// Specialization for empty argument list
+template <typename T>
+std::enable_if_t<std::is_void_v<T>, void> setJSValues(JSContext* cx, JS::RootedValueVector&) {}
 
 // Template for wrapping free function calls
 template <typename Ret, typename... Args>
@@ -380,8 +378,6 @@ std::enable_if_t<std::is_void_v<Ret>, bool> jsMemberFunctionWrapper(JSContext* c
 
 	try {
 		std::tuple<Args...> nativeArgs = getNativeArguments<Args...>(cx, args);
-		//Ret result = std::apply(Method, ptr.get(), nativeArgs);
-		//Ret result = callMethod(ptr.get(), Method, nativeArgs);
 		std::apply([ptr, Method](Args... params) { return (ptr.get()->*Method)(params...); }, nativeArgs);
 		args.rval().setUndefined();
 		return true;
@@ -405,8 +401,6 @@ std::enable_if_t<!std::is_void_v<Ret>, bool> jsMemberFunctionWrapper(JSContext* 
 
 	try {
 		std::tuple<Args...> nativeArgs = getNativeArguments<Args...>(cx, args);
-		//Ret result = std::apply(Method, ptr.get(), nativeArgs);
-		//Ret result = callMethod(ptr.get(), Method, nativeArgs);
 		Ret result = std::apply([ptr, Method](Args... params) { return (ptr.get()->*Method)(params...); }, nativeArgs);
 		setReturnValue(cx, args.rval(), result);
 		return true;
@@ -438,6 +432,45 @@ std::enable_if_t<std::is_void_v<Ret>, bool> jsMemberFunctionWrapper(JSContext* c
 	} catch (const std::exception& e) {
 		JS_ReportErrorASCII(cx, "Exception: %s", e.what());
 		return false;
+	}
+}
+
+template <typename... Args>
+void invokeJSCallback(JSContext* cx, JS::HandleObject jsObject, const char* propertyName, Args... args) {
+	// Ensure the JS object is valid
+	if (!jsObject) {
+		throw std::runtime_error("JS object is null");
+	}
+
+	// Check if the property exists
+	bool hasProperty;
+	if (!JS_HasProperty(cx, jsObject, propertyName, &hasProperty)) {
+		throw std::runtime_error("Failed to check property");
+	}
+
+	if (!hasProperty) return;
+
+	// Get the property (assumed to be a function)
+	JS::RootedValue rval(cx);
+	if (!JS_GetProperty(cx, jsObject, propertyName, &rval)) {
+		throw std::runtime_error("Failed to get property");
+	}
+
+	if (!rval.isObject() || !JS_ObjectIsFunction(rval.toObjectOrNull())) {
+		return; // Not a callable function, return early
+	}
+
+	JS::RootedFunction rootedFunc(cx, JS_ValueToFunction(cx, rval));
+
+	// Convert the arguments to JS::Value
+	JS::RootedValueVector valarr(cx);
+	valarr.resize(sizeof...(args));
+	setJSValues(cx, valarr, args...);
+
+	// Call the JavaScript function
+	JS::RootedValue rva2l(cx);
+	if (!JS_CallFunction(cx, jsObject, rootedFunc, valarr, &rva2l)) {
+		throw std::runtime_error("Failed to call function");
 	}
 }
 
