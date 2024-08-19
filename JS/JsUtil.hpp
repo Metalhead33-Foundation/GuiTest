@@ -1,10 +1,21 @@
 #ifndef JSUTIL_MH33_HPP
 #define JSUTIL_MH33_HPP
 #include <jsapi.h>
+#include <mozjs-115/js/Object.h>
+#include <mozjs-115/js/Array.h>
+#include <mozjs-115/js/MapAndSet.h>
+#include <mozjs-115/js/Id.h>
 #include <string>
 #include <vector>
+#include <array>
+#include <unordered_map>
+#include <unordered_set>
+#include <map>
+#include <set>
 #include <functional>
 #include <memory>
+#include <MhLib/Util/MhIntegralIterator.hpp>
+#include <GUI/sigslot.h>
 
 namespace JS {
 
@@ -125,6 +136,24 @@ template <typename T> struct ReturnValueWrapper {
 	}
 	static T fromValue(JSContext* cx, const HandleValue& arg) {
 		throw std::runtime_error("Unknown type!");
+	}
+};
+template <typename T> struct ReturnValueWrapper<MH33::Util::IntegralIterable<T>> {
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, MH33::Util::IntegralIterable<T> value) {
+		// Default case for non-specialized types
+		rval.setInt32(static_cast<int32_t>(value.var));
+	}
+	static MH33::Util::IntegralIterable<T> fromValue(JSContext* cx, const HandleValue& arg) {
+		return MH33::Util::IntegralIterable<T>(static_cast<T>(arg.toInt32()));
+	}
+};
+template <typename T> struct ReturnValueWrapper<MH33::Util::IntegralIterator<T>> {
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, MH33::Util::IntegralIterator<T> value) {
+		// Default case for non-specialized types
+		rval.setInt32(static_cast<int32_t>(value.var));
+	}
+	static MH33::Util::IntegralIterator<T> fromValue(JSContext* cx, const HandleValue& arg) {
+		return MH33::Util::IntegralIterator<T>(static_cast<T>(arg.toInt32()));
 	}
 };
 template <> struct ReturnValueWrapper<bool> {
@@ -257,6 +286,166 @@ template <> struct ReturnValueWrapper<std::string_view> {
 		return JsToNativeString(cx, arg.toString());
 	}
 };
+// Fixed-size array
+template <typename T, size_t size> struct ReturnValueWrapper<std::array<T,size>> {
+	typedef std::array<T,size> DataType;
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, const DataType& value) {
+		JS::RootedObject robj(cx, JS::NewArrayObject(cx, size));
+		for(size_t i = 0; i < size; ++i) {
+			JS::RootedValue rootval(cx);
+			ReturnValueWrapper<T>::setReturnValue(cx, rootval, value[i]);
+			JS_SetElement(cx,robj,i,rootval);
+		}
+		rval.setObjectOrNull(robj);
+	}
+	static DataType fromValue(JSContext* cx, const HandleValue& arg) {
+		DataType nativeData;
+		bool isArray = false;
+		JS::IsArrayObject(cx, arg, &isArray);
+		if(!isArray) throw std::runtime_error("Argument is not an array!");
+		JS::RootedObject jsArray(cx, arg.toObject());
+		for(size_t i = 0; i < size; ++i) {
+			JS::RootedValue rval(cx);
+			JS_GetElement(cx,jsArray,i,&rval);
+			nativeData[i] = ReturnValueWrapper<T>::fromValue(cx, rval);
+		}
+		return nativeData;
+	}
+};
+// Variable-size vector
+template <typename T, typename Allocator> struct ReturnValueWrapper<std::vector<T,Allocator>> {
+	typedef std::vector<T,Allocator> DataType;
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, const DataType& value) {
+		JS::RootedObject robj(cx, JS::NewArrayObject(cx, value.size()));
+		for(size_t i = 0; i < value.size(); ++i) {
+			JS::RootedValue rootval(cx);
+			ReturnValueWrapper<T>::setReturnValue(cx, rootval, value[i]);
+			JS_SetElement(cx,robj,i,rootval);
+		}
+		rval.setObjectOrNull(robj);
+	}
+	static DataType fromValue(JSContext* cx, const HandleValue& arg) {
+		bool isArray = false;
+		JS::IsArrayObject(cx, arg, &isArray);
+		if(!isArray) throw std::runtime_error("Argument is not an array!");
+		JS::RootedObject jsArray(cx, arg.toObject());
+		uint32_t jsArrLength;
+		JS::GetArrayLength(cx,jsArray,&jsArrLength);
+		DataType nativeData(jsArrLength);
+		for(size_t i = 0; i < jsArrLength; ++i) {
+			JS::RootedValue rval(cx);
+			JS_GetElement(cx,jsArray,i,&rval);
+			nativeData[i] = ReturnValueWrapper<T>::fromValue(cx, rval);
+		}
+		return nativeData;
+	}
+};
+// Set
+template <typename Key, typename Compare, typename Allocator> struct ReturnValueWrapper<std::set<Key,Compare,Allocator>> {
+	typedef std::set<Key,Compare,Allocator> DataType;
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, const DataType& value) {
+		JS::RootedObject robj(cx, JS::NewSetObject(cx));
+		for(const auto& it : value) {
+			JS::RootedValue rootval(cx);
+			ReturnValueWrapper<Key>::setReturnValue(cx, rootval, it);
+			JS::SetAdd(cx,robj,rootval);
+		}
+		rval.setObjectOrNull(robj);
+	}
+	static DataType fromValue(JSContext* cx, const HandleValue& arg) {
+		bool isSet = false;
+		JS::RootedObject jsSet(cx, arg.toObject());
+		JS::IsSetObject(cx, jsSet, &isSet);
+		if(!isSet) throw std::runtime_error("Argument is not a set!");
+		JS::RootedValue rootvalForSet(cx);
+		JS::SetKeys(cx, jsSet, &rootvalForSet);
+		JS::RootedObject rootvalForSetObj(cx, rootvalForSet.toObject());
+		uint32_t jsArrLength;
+		JS::GetArrayLength(cx,rootvalForSetObj,&jsArrLength);
+		DataType nativeData;
+		for(size_t i = 0; i < jsArrLength; ++i) {
+			JS::RootedValue rval(cx);
+			JS_GetElement(cx,rootvalForSetObj,i,&rval);
+			nativeData.insert(ReturnValueWrapper<Key>::fromValue(cx, rval));
+		}
+		return nativeData;
+	}
+};
+// Unordered Set
+template <typename Key, typename Hash, typename KeyEqual, typename Allocator> struct ReturnValueWrapper<std::unordered_set<Key,Hash,KeyEqual,Allocator>> {
+	typedef std::unordered_set<Key,Hash,KeyEqual,Allocator> DataType;
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, const DataType& value) {
+		JS::RootedObject robj(cx, JS::NewSetObject(cx));
+		for(const auto& it : value) {
+			JS::RootedValue rootval(cx);
+			ReturnValueWrapper<Key>::setReturnValue(cx, rootval, it);
+			JS::SetAdd(cx,robj,rootval);
+		}
+		rval.setObjectOrNull(robj);
+	}
+	static DataType fromValue(JSContext* cx, const HandleValue& arg) {
+		bool isSet = false;
+		JS::RootedObject jsSet(cx, arg.toObject());
+		JS::IsSetObject(cx, jsSet, &isSet);
+		if(!isSet) throw std::runtime_error("Argument is not a set!");
+		JS::RootedValue rootvalForSet(cx);
+		JS::SetKeys(cx, jsSet, &rootvalForSet);
+		JS::RootedObject rootvalForSetObj(cx, rootvalForSet.toObject());
+		uint32_t jsArrLength;
+		JS::GetArrayLength(cx,rootvalForSetObj,&jsArrLength);
+		DataType nativeData;
+		for(size_t i = 0; i < jsArrLength; ++i) {
+			JS::RootedValue rval(cx);
+			JS_GetElement(cx,rootvalForSetObj,i,&rval);
+			nativeData.insert(ReturnValueWrapper<Key>::fromValue(cx, rval));
+		}
+		return nativeData;
+	}
+};
+// Map
+template <typename Key, typename T, typename Compare, typename Allocator> struct ReturnValueWrapper<std::map<Key,T,Compare,Allocator>> {
+	typedef std::map<Key,T,Compare,Allocator> DataType;
+	typedef DataType::const_iterator const_iterator;
+	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, const DataType& value) {
+		JS::RootedObject robj(cx, JS::NewMapObject(cx));
+		for(const_iterator it = std::begin(value); it != std::end(value); ++it) {
+			JS::RootedValue rootval1(cx);
+			ReturnValueWrapper<Key>::setReturnValue(cx, rootval1, it.first);
+			JS::RootedValue rootval2(cx);
+			ReturnValueWrapper<T>::setReturnValue(cx, rootval2, it.second);
+			JS::MapSet(cx,robj,rootval1,rootval2);
+		}
+		rval.setObjectOrNull(robj);
+	}
+	static DataType fromValue(JSContext* cx, const HandleValue& arg) {
+		bool isMap = false;
+		JS::RootedObject jsMap(cx, arg.toObject());
+		JS::IsMapObject(cx, jsMap, &isMap);
+		if(!jsMap) throw std::runtime_error("Argument is not a map!");
+		DataType nativeData;
+		JS::RootedValue keys(cx);
+		JS::RootedValue value(cx);
+		if (!JS::MapKeys(cx, jsMap, &keys)) {
+			throw std::runtime_error("Failed to get keys from the map");
+		}
+		if (!JS::MapValues(cx, jsMap, &value)) {
+			throw std::runtime_error("Failed to get values from the map");
+		}
+		JS::RootedObject keysObj(cx, keys.toObject());
+		uint32_t mapSize = JS::MapSize(cx, jsMap);
+		for(uint32_t i = 0; i < mapSize; ++i) {
+			JS::RootedValue key(cx);
+			JS::RootedValue value(cx);
+			JS_GetElement(cx,keysObj,i,&key);
+			JS::MapGet(cx,jsMap,key,&value);
+			Key nativeKey = ReturnValueWrapper<Key>::fromValue(cx,key);
+			T nativeValue = ReturnValueWrapper<T>::fromValue(cx,value);
+			nativeData.emplace(std::move(nativeKey),std::move(nativeValue));
+		}
+		return nativeData;
+	}
+};
+
 template <typename T> void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, const T& value) {
 	ReturnValueWrapper<T>::setReturnValue(cx, rval, value);
 }
@@ -473,6 +662,17 @@ void invokeJSCallback(JSContext* cx, JS::HandleObject jsObject, const char* prop
 		throw std::runtime_error("Failed to call function");
 	}
 }
+
+template <typename... SignalArgs>
+void connectSignalToJS(JSContext* cx, JS::PersistentRootedObject jsObject, const char* propertyName, sigslot::signal<SignalArgs...>& signal) {
+	signal.connect([cx, jsObject, propertyName](SignalArgs... args) {
+		try {
+			invokeJSCallback(cx, jsObject, propertyName, args...);
+		} catch (const std::exception& e) {
+			JS_ReportErrorASCII(cx, "Exception in signal handler: %s", e.what());
+		}
+	});
+};
 
 
 }

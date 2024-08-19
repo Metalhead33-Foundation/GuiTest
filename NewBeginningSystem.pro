@@ -112,6 +112,7 @@ SOURCES += \
         MhLib/Util/MhColourHelper.cpp \
         MhLib/Util/MhDynamicLib.cpp \
         MhLib/Util/MhEdgeFunction.cpp \
+        MhLib/Util/MhEventLoop.cpp \
         MhLib/Util/MhRNG.cpp \
         MhLib/Util/MhTextureHelpers.cpp \
         MhLib/Util/MhTimer.cpp \
@@ -265,6 +266,7 @@ HEADERS += \
     MhLib/Util/MhDynamicLib.hpp \
     MhLib/Util/MhEdgeFunction.hpp \
     MhLib/Util/MhEndianness.hpp \
+    MhLib/Util/MhEventLoop.hpp \
     MhLib/Util/MhFixedStack.hpp \
     MhLib/Util/MhGlobals.hpp \
     MhLib/Util/MhIntegralIterator.hpp \

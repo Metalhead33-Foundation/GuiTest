@@ -55,7 +55,8 @@ static bool js_gui_textured_button_constructor(JSContext* cx, unsigned argc, JS:
 		auto objPtr = JS_NewObjectWithGivenProto(cx,&MhTexturedButtonClass.protoClass,*MhTexturedButtonClass.prototype);
 		JS::PersistentRootedObject obj(cx, objPtr);
 		persistentMap[objecToInsert.get()] = obj;
-		objecToInsert->signal_onStateChanged.connect([cx](MH33::GUI::pWidget widg, uint32_t oldState, uint32_t newState) {
+		connectSignalToJS(cx,obj,"onStateChange", objecToInsert->signal_onStateChanged);
+		/*objecToInsert->signal_onStateChanged.connect([cx](MH33::GUI::pWidget widg, uint32_t oldState, uint32_t newState) {
 			try {
 				auto it = persistentMap.find(widg);
 				if (it == persistentMap.end()) {
@@ -68,7 +69,7 @@ static bool js_gui_textured_button_constructor(JSContext* cx, unsigned argc, JS:
 			} catch (const std::exception& e) {
 				JS_ReportErrorASCII(cx, "Exception in signal handler: %s", e.what());
 			}
-		});
+		});*/
 		// Define a property for the callback, initialized to undefined
 		JS::RootedValue undefinedValue(cx, JS::UndefinedValue());
 		if (!JS_DefineProperty(cx, obj, "onStateChange", undefinedValue, JSPROP_ENUMERATE | JSPROP_PERMANENT)) {
