@@ -113,6 +113,7 @@ SOURCES += \
         MhLib/Util/MhDynamicLib.cpp \
         MhLib/Util/MhEdgeFunction.cpp \
         MhLib/Util/MhEventLoop.cpp \
+        MhLib/Util/MhNoise.cpp \
         MhLib/Util/MhRNG.cpp \
         MhLib/Util/MhTextureHelpers.cpp \
         MhLib/Util/MhTimer.cpp \
@@ -270,6 +271,7 @@ HEADERS += \
     MhLib/Util/MhFixedStack.hpp \
     MhLib/Util/MhGlobals.hpp \
     MhLib/Util/MhIntegralIterator.hpp \
+    MhLib/Util/MhNoise.hpp \
     MhLib/Util/MhNormDenorm.hpp \
     MhLib/Util/MhPixelFormat.hpp \
     MhLib/Util/MhRNG.hpp \

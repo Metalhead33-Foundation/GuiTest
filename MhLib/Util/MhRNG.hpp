@@ -9,10 +9,19 @@
 #include <span>
 #endif
 #include <MhLib/Util/MhGlobals.hpp>
+#include <random>
 
 namespace MH33 {
 
 namespace Util {
+template <typename T> concept RandomNumberGenerator = requires(T a) {
+  { a() } -> std::same_as<typename T::result_type>;
+  { a.min() } -> std::same_as<typename T::result_type>;
+  { a.max() } -> std::same_as<typename T::result_type>;
+  { a.seed(std::declval<typename T::result_type>()) } -> std::same_as<void>;
+  { a.seed(std::declval<std::seed_seq>()) } -> std::same_as<void>;
+};
+
 DEFINE_CLASS(RNG)
 class MH_UTIL_API RNG
 {
