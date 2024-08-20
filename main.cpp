@@ -24,7 +24,12 @@ void tryPerlinNoise() {
 	frameInsert.stride = frameInsert.width;
 	frameInsert.imageData.resize(frameInsert.height * frameInsert.width);
 	std::vector<float> floatTest(frameInsert.height * frameInsert.width);
-	MH33::Util::Noise::rand_perlin2D(frameInsert.width,frameInsert.height,floatTest.data(),1000,16,2.0f);
+	const float topLeft = static_cast<float>(33) / static_cast<float>(255);
+	const float topRight = static_cast<float>(66) / static_cast<float>(255);
+	const float bottomLeft = static_cast<float>(99) / static_cast<float>(255);
+	const float bottomRight = static_cast<float>(254) / static_cast<float>(255);
+	std::mt19937 mt19937;
+	MH33::Util::Noise::rng_bilinearPerlin2D(frameInsert.width,frameInsert.height,floatTest.data(),mt19937,16,topLeft,topRight,bottomLeft,bottomRight,1.2f,0.95f);
 	std::span<uint8_t> out(reinterpret_cast<uint8_t*>(frameInsert.imageData.data()),frameInsert.height * frameInsert.width);
 	for(size_t i = 0; i < out.size(); ++i) {
 		out[i] = MH33::Util::fdenormalize<uint8_t>(floatTest[i]);

@@ -19,7 +19,7 @@ template <typename T> concept RandomNumberGenerator = requires(T a) {
   { a.min() } -> std::same_as<typename T::result_type>;
   { a.max() } -> std::same_as<typename T::result_type>;
   { a.seed(std::declval<typename T::result_type>()) } -> std::same_as<void>;
-  { a.seed(std::declval<std::seed_seq>()) } -> std::same_as<void>;
+  //{ a.seed(std::declval<std::seed_seq>()) } -> std::same_as<void>;
 };
 
 DEFINE_CLASS(RNG)
