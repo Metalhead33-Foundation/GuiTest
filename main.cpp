@@ -12,6 +12,7 @@
 #include <MhLib/Util/MhNoise.hpp>
 #include <MhLib/Io/MhFile.hpp>
 #include <MhLib/Media/Image/MhPNG.hpp>
+#include <MhLib/Media/Audio/MhSoundFile.hpp>
 #define USE_GLX
 
 void tryPerlinNoise() {
@@ -37,6 +38,22 @@ void tryPerlinNoise() {
 	}
 	MH33::Io::uFile ufile = std::make_unique<MH33::Io::File>("/tmp/perlin.png", MH33::Io::Mode::WRITE);
 	MH33::Image::PNG::encode(*ufile,decodeTarget, 1.0f);
+}
+void tryPinkNoise() {
+	//MH33::Io::uFile ufile = std::make_unique<MH33::Io::File>("/tmp/perlin.wav", MH33::Io::Mode::WRITE);
+	MH33::Audio::SoundFileCreateInfo sndCreateInfo;
+	sndCreateInfo.channelCount.var = 2;
+	sndCreateInfo.frameRate.var = 44100;
+	sndCreateInfo.channelCount.var = 1;
+	sndCreateInfo.format = MH33::Audio::SoundFormat::WAV_PCM_16;
+	MH33::Audio::SoundFile sfile([](MH33::Io::Mode mode){ return new MH33::Io::File("/tmp/perlin.wav", mode); }, MH33::Io::Mode::WRITE, &sndCreateInfo);
+	std::vector<float> testVec(sndCreateInfo.frameRate.var * 10);
+	std::mt19937 mt19937;
+	MH33::Util::Noise::rng_perlin1D(testVec,mt19937,128,1.05f,true);
+	for(auto& it : testVec) {
+		it = (it - 0.5f) * 2.0f;
+	}
+	sfile.write(testVec.data(),MH33::Audio::SampleCount(testVec.size()));
 }
 
 int main(int argc, char *argv[]) {
@@ -69,6 +86,7 @@ int main(int argc, char *argv[]) {
 	testSys.run();
 	JS::Core::shutdownJs();
 	}*/
-	tryPerlinNoise();
+	//tryPerlinNoise();
+	tryPinkNoise();
 	return 0;
 }

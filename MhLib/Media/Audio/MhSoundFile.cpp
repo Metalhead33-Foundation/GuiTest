@@ -44,6 +44,14 @@ SoundFile &SoundFile::operator=(SoundFile &&mov)
 	return *this;
 }
 
+void SoundFile::setCreateInfo(const SoundFileCreateInfo& createInfo)
+{
+	auto& handle = *(SFHNDL_B);
+	handle.format = static_cast<int>(createInfo.format);
+	handle.samplerate = createInfo.frameRate.var;
+	handle.channels = createInfo.channelCount.var;
+}
+
 
 SoundFile::~SoundFile()
 {
@@ -55,13 +63,14 @@ SoundFile::~SoundFile()
 	}
 }
 
-SoundFile::SoundFile(const Io::sDevice &iodev)
+SoundFile::SoundFile(const Io::sDevice &iodev, const SoundFileCreateInfo* createInfo)
 	: handleA(nullptr), handleB(nullptr), iodev(iodev)
 {
 	assert(this->iodev);
 	if(!this->iodev) return;
 	handleB = malloc(sizeof(SF_INFO));
 	memset( handleB, 0, sizeof( SF_INFO ) );
+	if(createInfo) setCreateInfo(*createInfo);
 	switch (this->iodev->getMode()) {
 	case MH33::Io::Mode::READ: handleA = sf_open_virtual(&sndFileIO,SFM_READ,SFHNDL_B,this->iodev.get()); break;
 	case MH33::Io::Mode::WRITE: handleA = sf_open_virtual(&sndFileIO,SFM_WRITE,SFHNDL_B,this->iodev.get()); break;
@@ -70,13 +79,14 @@ SoundFile::SoundFile(const Io::sDevice &iodev)
 	}
 }
 
-SoundFile::SoundFile(Io::sDevice &&iodev)
+SoundFile::SoundFile(Io::sDevice &&iodev, const SoundFileCreateInfo* createInfo)
 	: handleA(nullptr), handleB(nullptr), iodev(std::move(iodev))
 {
 	assert(this->iodev);
 	if(!this->iodev) return;
 	handleB = malloc(sizeof(SF_INFO));
 	memset( handleB, 0, sizeof( SF_INFO ) );
+	if(createInfo) setCreateInfo(*createInfo);
 	switch (this->iodev->getMode()) {
 	case MH33::Io::Mode::READ: handleA = sf_open_virtual(&sndFileIO,SFM_READ,SFHNDL_B,this->iodev.get()); break;
 	case MH33::Io::Mode::WRITE: handleA = sf_open_virtual(&sndFileIO,SFM_WRITE,SFHNDL_B,this->iodev.get()); break;
@@ -85,13 +95,14 @@ SoundFile::SoundFile(Io::sDevice &&iodev)
 	}
 }
 
-SoundFile::SoundFile(Io::DeviceCreator iodev_creator, Io::Mode mode)
+SoundFile::SoundFile(Io::DeviceCreator iodev_creator, Io::Mode mode, const SoundFileCreateInfo* createInfo)
 	: handleA(nullptr), handleB(nullptr), iodev(iodev_creator(mode))
 {
 	assert(this->iodev);
 	if(!this->iodev) return;
 	handleB = malloc(sizeof(SF_INFO));
 	memset( handleB, 0, sizeof( SF_INFO ) );
+	if(createInfo) setCreateInfo(*createInfo);
 	switch (this->iodev->getMode()) {
 	case MH33::Io::Mode::READ: handleA = sf_open_virtual(&sndFileIO,SFM_READ,SFHNDL_B,this->iodev.get()); break;
 	case MH33::Io::Mode::WRITE: handleA = sf_open_virtual(&sndFileIO,SFM_WRITE,SFHNDL_B,this->iodev.get()); break;
@@ -100,13 +111,14 @@ SoundFile::SoundFile(Io::DeviceCreator iodev_creator, Io::Mode mode)
 	}
 }
 
-SoundFile::SoundFile(Io::System &iosys, const char *path, Io::Mode mode)
+SoundFile::SoundFile(Io::System &iosys, const char *path, Io::Mode mode, const SoundFileCreateInfo* createInfo)
 	: handleA(nullptr), handleB(nullptr), iodev(iosys.open(path,mode))
 {
 	assert(this->iodev);
 	if(!this->iodev) return;
 	handleB = malloc(sizeof(SF_INFO));
 	memset( handleB, 0, sizeof( SF_INFO ) );
+	if(createInfo) setCreateInfo(*createInfo);
 	switch (iodev->getMode()) {
 	case MH33::Io::Mode::READ: handleA = sf_open_virtual(&sndFileIO,SFM_READ,SFHNDL_B,this->iodev.get()); break;
 	case MH33::Io::Mode::WRITE: handleA = sf_open_virtual(&sndFileIO,SFM_WRITE,SFHNDL_B,this->iodev.get()); break;
@@ -115,13 +127,14 @@ SoundFile::SoundFile(Io::System &iosys, const char *path, Io::Mode mode)
 	}
 }
 
-SoundFile::SoundFile(Io::System &iosys, const std::string &path, Io::Mode mode)
+SoundFile::SoundFile(Io::System &iosys, const std::string &path, Io::Mode mode, const SoundFileCreateInfo* createInfo)
 	: handleA(nullptr), handleB(nullptr), iodev(iosys.open(path,mode))
 {
 	assert(this->iodev);
 	if(!this->iodev) return;
 	handleB = malloc(sizeof(SF_INFO));
 	memset( handleB, 0, sizeof( SF_INFO ) );
+	if(createInfo) setCreateInfo(*createInfo);
 	switch (iodev->getMode()) {
 	case MH33::Io::Mode::READ: handleA = sf_open_virtual(&sndFileIO,SFM_READ,SFHNDL_B,this->iodev.get()); break;
 	case MH33::Io::Mode::WRITE: handleA = sf_open_virtual(&sndFileIO,SFM_WRITE,SFHNDL_B,this->iodev.get()); break;

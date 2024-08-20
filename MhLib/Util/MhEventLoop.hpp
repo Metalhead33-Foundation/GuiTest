@@ -6,10 +6,12 @@
 #include <condition_variable>
 #include <future>
 #include <thread>
+#include <MhLib/Util/MhGlobals.hpp>
 
 namespace MH33 {
 namespace Util {
-class EventLoop
+DEFINE_CLASS(EventLoop)
+class MH_UTIL_API EventLoop
 {
 public:
 	typedef std::function<void()> Command;
@@ -29,7 +31,7 @@ public:
 	~EventLoop();
 	bool running() const;
 	void enqueue(Command&& callable);
-	template<typename Func, typename... Args> auto enqueueSync(Func&& callable, Args&& ...args)
+	template<typename Func, typename... Args> inline auto enqueueSync(Func&& callable, Args&& ...args)
 	{
 		if (std::this_thread::get_id() == loopThread.get_id())
 		{
@@ -51,7 +53,7 @@ public:
 
 		return task.get_future().get();
 	}
-	template<typename Func, typename... Args> [[nodiscard]] auto enqueueAsync(Func&& callable, Args&& ...args)
+	template<typename Func, typename... Args> [[nodiscard]] inline auto enqueueAsync(Func&& callable, Args&& ...args)
 	{
 		using return_type = std::invoke_result_t<Func, Args...>;
 		using packaged_task_type = std::packaged_task<return_type()>;

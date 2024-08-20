@@ -7,7 +7,7 @@
 namespace MH33 {
 namespace Audio {
 
-enum SoundFormat {
+enum class SoundFormat : int {
 	AIFF_ALAC_16 = ( 0x020000 | 0x0070 ),
 	AIFF_ALAC_20 = ( 0x020000 | 0x0071 ),
 	AIFF_ALAC_24 = ( 0x020000 | 0x0072 ),
@@ -755,6 +755,12 @@ enum SoundFormat {
 	XI_VOX_ADPCM = ( 0x0F0000 | 0x0021 )
 };
 
+struct SoundFileCreateInfo {
+	SoundFormat format;
+	FrameRate frameRate;
+	ChannelCount channelCount;
+};
+
 class MH_AUDIO_API SoundFile
 {
 private:
@@ -763,17 +769,18 @@ private:
 	// No copy construction or assignment
 	SoundFile(const SoundFile& cpy) = delete;
 	SoundFile& operator=(const SoundFile& cpy) = delete;
+	void setCreateInfo(const SoundFileCreateInfo& createInfo);
 public:
 	// Move construction and assignment
 	SoundFile(SoundFile&& mov);
 	SoundFile& operator=(SoundFile&& mov);
 	// Actual constructor and destructor
 	~SoundFile();
-	SoundFile(const Io::sDevice& iodev);
-	SoundFile(Io::sDevice&& iodev);
-	SoundFile(Io::DeviceCreator iodev_creator, Io::Mode mode);
-	SoundFile(Io::System& iosys, const char* path, Io::Mode mode);
-	SoundFile(Io::System& iosys, const std::string& path, Io::Mode mode);
+	SoundFile(const Io::sDevice& iodev, const SoundFileCreateInfo* createInfo = nullptr);
+	SoundFile(Io::sDevice&& iodev, const SoundFileCreateInfo* createInfo = nullptr);
+	SoundFile(Io::DeviceCreator iodev_creator, Io::Mode mode, const SoundFileCreateInfo* createInfo = nullptr);
+	SoundFile(Io::System& iosys, const char* path, Io::Mode mode, const SoundFileCreateInfo* createInfo = nullptr);
+	SoundFile(Io::System& iosys, const std::string& path, Io::Mode mode, const SoundFileCreateInfo* createInfo = nullptr);
 	// IO
 	FrameIndex seekSet( FrameCount frames ) const;
 	FrameIndex seekCur( FrameCount frames ) const;
