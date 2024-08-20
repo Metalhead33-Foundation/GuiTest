@@ -4,23 +4,23 @@ namespace MH33 {
 namespace Util {
 namespace Noise {
 
-float perlin1D(const std::span<const float>& seed, int x, int pitch)
+float perlin1D(const std::span<const float>& seed, unsigned x, int pitch)
 {
-	const int sampleIndex1 = x - (x % pitch);
-	const int sampleIndex2 = (sampleIndex1 + pitch) % static_cast<int>(seed.size());
+	const unsigned sampleIndex1 = x - (x % pitch);
+	const unsigned sampleIndex2 = (sampleIndex1 + pitch) % static_cast<int>(seed.size());
 	const float blend = static_cast<float>(x - sampleIndex1) / static_cast<float>(pitch);
 	const float fade = blend * blend * (3 - 2 * blend); // Fade function
 	return ((1.0f - fade) * seed[sampleIndex1]) + (fade * seed[sampleIndex2]);
 }
 
-void perlin1D(std::span<float>& output, const std::span<const float>& seed, int octaves, float scaleBias)
+void perlin1D(std::span<float>& output, const std::span<const float>& seed, unsigned octaves, float scaleBias)
 {
 	for (size_t x = 0; x < output.size(); ++x) {
 		float noise = 0.0f;
 		float scale = 1.0f;
 		float scaleSum = 0.0f;
-		for (int o = 0; o < octaves; ++o) {
-			const int pitch = static_cast<int>(output.size()) >> o;
+		for (unsigned o = 0; o < octaves; ++o) {
+			const unsigned pitch = static_cast<unsigned>(output.size()) >> o;
 			if(!pitch) break;
 			const float sample = perlin1D(seed, x, pitch);
 			noise += sample * scale;
@@ -31,12 +31,12 @@ void perlin1D(std::span<float>& output, const std::span<const float>& seed, int 
 	}
 }
 
-float perlin2D(int width, int height, const float* seed, int x, int y, int horizontalPitch, int verticalPitch)
+float perlin2D(unsigned width, unsigned height, const float* seed, unsigned x, unsigned y, int horizontalPitch, int verticalPitch)
 {
-	const int sampleIndexX1 = x - (x % horizontalPitch);
-	const int sampleIndexY1 = y - (y % verticalPitch);
-	const int sampleIndexX2 = (sampleIndexX1 + horizontalPitch) % width;
-	const int sampleIndexY2 = (sampleIndexY1 + verticalPitch) % height;
+	const unsigned sampleIndexX1 = x - (x % horizontalPitch);
+	const unsigned sampleIndexY1 = y - (y % verticalPitch);
+	const unsigned sampleIndexX2 = (sampleIndexX1 + horizontalPitch) % width;
+	const unsigned sampleIndexY2 = (sampleIndexY1 + verticalPitch) % height;
 	const float fBlendX = static_cast<float>(x - sampleIndexX1) / static_cast<float>(horizontalPitch);
 	const float fBlendY = static_cast<float>(y - sampleIndexY1) / static_cast<float>(verticalPitch);
 	const float fadeX = fBlendX * fBlendX * (3 - 2 * fBlendX); // Fade function
@@ -54,17 +54,17 @@ float perlin2D(int width, int height, const float* seed, int x, int y, int horiz
 	// Now we calculate the actual bilinear weighted average
 	return ((sampleTopLeft * weightTopLeft) + (sampleTopRight * weightTopRight) + (sampleBottomLeft * weightBottomLeft) + (sampleBottomRight * weightBottomRight));
 }
-void perlin2D(int width, int height, float* output, const float* seed, int octaves, float scaleBias)
+void perlin2D(unsigned width, unsigned height, float* output, const float* seed, unsigned octaves, float scaleBias)
 {
-	for (int y = 0; y < height; ++y) {
+	for (unsigned y = 0; y < height; ++y) {
 		float* const outputRow = &output[y * width];
-		for (int x = 0; x < width; ++x) {
+		for (unsigned x = 0; x < width; ++x) {
 			float noise = 0.0f;
 			float scale = 1.0f;
 			float scaleSum = 0.0f;
-			for (int o = 0; o < octaves; ++o) {
-				const int horizontalPitch = width >> o;
-				const int verticalPitch = height >> o;
+			for (unsigned o = 0; o < octaves; ++o) {
+				const unsigned horizontalPitch = width >> o;
+				const unsigned verticalPitch = height >> o;
 				if(!(horizontalPitch && verticalPitch)) break;
 				const float sample = perlin2D(width,height,seed,x,y,horizontalPitch,verticalPitch);
 				noise += sample * scale;
@@ -76,7 +76,7 @@ void perlin2D(int width, int height, float* output, const float* seed, int octav
 	}
 }
 
-void rand_perlin1D(std::span<float>& output, unsigned seed, int octaves, float scaleBias)
+void rand_perlin1D(std::span<float>& output, unsigned seed, unsigned octaves, float scaleBias)
 {
 	std::vector<float> randVec(output.size());
 	srand(seed);
@@ -86,7 +86,7 @@ void rand_perlin1D(std::span<float>& output, unsigned seed, int octaves, float s
 	perlin1D(output,randVec,octaves,scaleBias);
 }
 
-void rand_perlin1D(std::span<float>& output, unsigned seed, int octaves, float valA, float valB, float scaleBias)
+void rand_perlin1D(std::span<float>& output, unsigned seed, unsigned octaves, float valA, float valB, float scaleBias)
 {
 	std::vector<float> randVec(output.size());
 	srand(seed);
@@ -98,7 +98,7 @@ void rand_perlin1D(std::span<float>& output, unsigned seed, int octaves, float v
 	perlin1D(output,randVec,octaves,scaleBias);
 }
 
-void rand_perlin2D(int width, int height, float* output, unsigned seed, int octaves, float scaleBias)
+void rand_perlin2D(unsigned width, unsigned height, float* output, unsigned seed, unsigned octaves, float scaleBias)
 {
 	std::vector<float> randVec(width * height);
 	srand(seed);
@@ -108,7 +108,7 @@ void rand_perlin2D(int width, int height, float* output, unsigned seed, int octa
 	perlin2D(width,height,output,randVec.data(),octaves,scaleBias);
 }
 
-void lehmer_perlin1D(std::span<float>& output, RNG& rng, int octaves, float scaleBias)
+void lehmer_perlin1D(std::span<float>& output, RNG& rng, unsigned octaves, float scaleBias)
 {
 	std::vector<float> randVec(output.size());
 	for(auto& it : randVec) {
@@ -118,7 +118,7 @@ void lehmer_perlin1D(std::span<float>& output, RNG& rng, int octaves, float scal
 }
 
 
-void lehmer_perlin2D(int width, int height, float* output, RNG& rng, int octaves, float scaleBias)
+void lehmer_perlin2D(unsigned width, unsigned height, float* output, RNG& rng, unsigned octaves, float scaleBias)
 {
 	std::vector<float> randVec(width * height);
 	for(auto& it : randVec) {
@@ -127,21 +127,21 @@ void lehmer_perlin2D(int width, int height, float* output, RNG& rng, int octaves
 	perlin2D(width,height,output,randVec.data(),octaves,scaleBias);
 }
 
-void bilinearPerlin1D(std::span<float>& output, const std::span<const float>& seed, int octaves, float valA, float valB, float scaleBias, float cornerBias)
+void bilinearPerlin1D(std::span<float>& output, const std::span<const float>& seed, unsigned octaves, float valA, float valB, float scaleBias, float cornerBias)
 {
 	const float inverseCornerBias = 1.0f - cornerBias;
 	for (size_t x = 0; x < output.size(); ++x) {
 		float noise = 0.0f;
 		float scale = 1.0f;
 		float scaleSum = 0.0f;
-		for (int o = 0; o < octaves; ++o) {
+		for (unsigned o = 0; o < octaves; ++o) {
 			if(o == 0) {
 				const float linearPos = static_cast<float>(x) / static_cast<float>(output.size() - 1);
 				const float interpolated = ((1.0f - linearPos) * valA) + (linearPos * valB);
 				noise = interpolated;
 				scaleSum += scale;
 			} else {
-				const int pitch = static_cast<int>(output.size()) >> o;
+				const unsigned pitch = static_cast<unsigned>(output.size()) >> o;
 				if(!pitch) break;
 				noise += perlin1D(seed, x, pitch) * (scale * inverseCornerBias);
 				scaleSum += scale * inverseCornerBias;
@@ -152,16 +152,16 @@ void bilinearPerlin1D(std::span<float>& output, const std::span<const float>& se
 	}
 }
 
-void bilinearPerlin2D(int width, int height, float* output, const float* seed, int octaves, float topLeft, float topRight, float bottomLeft, float bottomRight, float scaleBias, float cornerBias)
+void bilinearPerlin2D(unsigned width, unsigned height, float* output, const float* seed, unsigned octaves, float topLeft, float topRight, float bottomLeft, float bottomRight, float scaleBias, float cornerBias)
 {
 	const float inverseCornerBias = 1.0f - cornerBias;
-	for (int y = 0; y < height; ++y) {
+	for (unsigned y = 0; y < height; ++y) {
 		float* const outputRow = &output[y * width];
-		for (int x = 0; x < width; ++x) {
+		for (unsigned x = 0; x < width; ++x) {
 			float noise = 0.0f;
 			float scale = 1.0f;
 			float scaleSum = 0.0f;
-			for (int o = 0; o < octaves; ++o) {
+			for (unsigned o = 0; o < octaves; ++o) {
 				if(o == 0) {
 					const float scaleX = static_cast<float>(x) / static_cast<float>(width - 1);
 					const float scaleY = static_cast<float>(y) / static_cast<float>(height - 1);
@@ -174,8 +174,8 @@ void bilinearPerlin2D(int width, int height, float* output, const float* seed, i
 					scaleSum += scale;
 				}
 				else {
-					const int horizontalPitch = width >> o;
-					const int verticalPitch = height >> o;
+					const unsigned horizontalPitch = width >> o;
+					const unsigned verticalPitch = height >> o;
 					if(!(horizontalPitch && verticalPitch)) break;
 					noise += perlin2D(width,height,seed,x,y,horizontalPitch,verticalPitch) * (scale * inverseCornerBias);
 					scaleSum += scale * inverseCornerBias;
@@ -187,7 +187,7 @@ void bilinearPerlin2D(int width, int height, float* output, const float* seed, i
 	}
 }
 
-void rand_bilinearPerlin1D(std::span<float>& output, unsigned seed, int octaves, float valA, float valB, float scaleBias, float cornerBias)
+void rand_bilinearPerlin1D(std::span<float>& output, unsigned seed, unsigned octaves, float valA, float valB, float scaleBias, float cornerBias)
 {
 	std::vector<float> randVec(output.size());
 	srand(seed);
@@ -197,7 +197,7 @@ void rand_bilinearPerlin1D(std::span<float>& output, unsigned seed, int octaves,
 	bilinearPerlin1D(output,randVec,octaves,valA,valB,scaleBias,cornerBias);
 }
 
-void rand_bilinearPerlin2D(int width, int height, float* output, unsigned seed, int octaves, float topLeft, float topRight, float bottomLeft, float bottomRight, float scaleBias, float cornerBias)
+void rand_bilinearPerlin2D(unsigned width, unsigned height, float* output, unsigned seed, unsigned octaves, float topLeft, float topRight, float bottomLeft, float bottomRight, float scaleBias, float cornerBias)
 {
 	std::vector<float> randVec(width * height);
 	srand(seed);
@@ -207,7 +207,7 @@ void rand_bilinearPerlin2D(int width, int height, float* output, unsigned seed, 
 	bilinearPerlin2D(width,height,output,randVec.data(),octaves,topLeft,topRight,bottomLeft,bottomRight,scaleBias,cornerBias);
 }
 
-void lehmer_bilinearPerlin1D(std::span<float>& output, RNG& rng, int octaves, float valA, float valB, float scaleBias, float cornerBias)
+void lehmer_bilinearPerlin1D(std::span<float>& output, RNG& rng, unsigned octaves, float valA, float valB, float scaleBias, float cornerBias)
 {
 	std::vector<float> randVec(output.size());
 	for(auto& it : randVec) {
@@ -216,13 +216,109 @@ void lehmer_bilinearPerlin1D(std::span<float>& output, RNG& rng, int octaves, fl
 	bilinearPerlin1D(output,randVec,octaves,valA,valB,scaleBias,cornerBias);
 }
 
-void lehmer_bilinearPerlin2D(int width, int height, float* output, RNG& rng, int octaves, float topLeft, float topRight, float bottomLeft, float bottomRight, float scaleBias, float cornerBias)
+void lehmer_bilinearPerlin2D(unsigned width, unsigned height, float* output, RNG& rng, unsigned octaves, float topLeft, float topRight, float bottomLeft, float bottomRight, float scaleBias, float cornerBias)
 {
 	std::vector<float> randVec(width * height);
 	for(auto& it : randVec) {
 		it = rng.generateDouble();
 	}
 	bilinearPerlin2D(width,height,output,randVec.data(),octaves,topLeft,topRight,bottomLeft,bottomRight,scaleBias,cornerBias);
+}
+
+void voronoi1D(std::span<float>& output, const std::span<const unsigned>& points, bool invert)
+{
+	unsigned maxDistance = 0;
+	for(unsigned x = 0; x < output.size(); ++x) {
+		unsigned minDistance = std::numeric_limits<unsigned>::max();
+		for(const auto point : points) {
+			const unsigned distance = std::max(x,point) - std::min(x,point);
+			minDistance = std::min(minDistance,distance);
+		}
+		maxDistance = std::max(maxDistance,minDistance);
+		output[x] = static_cast<float>(minDistance);
+	}
+	// Normalize
+	for(float& it : output) {
+		it /= maxDistance;
+		if(invert) it = 1.0f - it;
+	}
+}
+
+void voronoi2D(unsigned width, unsigned height, float* output, const std::span<const glm::uvec2>& points, bool squared, bool invert)
+{
+	float maxDistance = 0.0f;
+	for(unsigned y = 0; y < height; ++y) {
+		float * const outputRow = &output[y * width];
+		for(unsigned x = 0; x < width; ++x) {
+			float& outputPoint = outputRow[x];
+			unsigned minDistance = std::numeric_limits<unsigned>::max();
+			for(const auto& point : points) {
+				const unsigned distanceX = std::max(x,point.x) - std::min(x,point.x);
+				const unsigned distanceY = std::max(y,point.y) - std::min(y,point.y);
+				const unsigned squaredDistance = (distanceX * distanceX) + (distanceY * distanceY);
+				minDistance = std::min(minDistance,squaredDistance);
+			}
+			outputPoint = squared ? static_cast<float>(minDistance) : std::sqrt(static_cast<float>(minDistance));
+			maxDistance = std::max(maxDistance,outputPoint);
+		}
+	}
+	std::span<float> outSpan(output,width * height);
+	for(float& it : outSpan) {
+		it /= maxDistance;
+		if(invert) it = 1.0f - it;
+	}
+}
+
+void rand_voronoi1D(std::span<float>& output, unsigned sectorSize, const RandFunction1D& seed, bool invert)
+{
+	std::vector<unsigned> randVec((output.size() % sectorSize) ? ((output.size() / sectorSize)+1) : (output.size() / sectorSize));
+	unsigned sectorOffset = 0;
+	for(auto& it : randVec) {
+		it = sectorOffset + seed(sectorSize);
+		sectorOffset += sectorSize;
+	}
+	voronoi1D(output,randVec,invert);
+}
+
+void rand_voronoi2D(unsigned width, unsigned height, float* output, unsigned sectorWidth, unsigned sectorHeight, const RandFunction2D& seed, bool squared, bool invert)
+{
+	const unsigned sectorCountX = (width % sectorWidth) ? ((width / sectorWidth)+1) : (width / sectorWidth);
+	const unsigned sectorCountY = (height % sectorHeight) ? ((height / sectorHeight)+1) : (height / sectorHeight);
+	std::vector<glm::uvec2> randVec(sectorCountX*sectorCountY);
+	for(unsigned y = 0; y < sectorCountY; ++y) {
+		auto * const rowPtr = &randVec[y * sectorCountX];
+		for(unsigned x = 0; x < sectorCountX; ++x) {
+			auto& dataRef = rowPtr[x];
+			dataRef = seed(glm::uvec2(sectorWidth,sectorHeight)) + (glm::uvec2(sectorWidth,sectorHeight) * glm::uvec2(x,y));
+		}
+	}
+	voronoi2D(width,height,output,randVec,squared,invert);
+}
+
+void rand_voronoi1D(std::span<float>& output, unsigned sectorSize, unsigned seed, bool invert)
+{
+	srand(seed);
+	rand_voronoi1D(output,sectorSize,[](unsigned max){ return rand() % max; }, invert);
+}
+
+void rand_voronoi2D(unsigned width, unsigned height, float* output, unsigned sectorWidth, unsigned sectorHeight, unsigned seed, bool squared, bool invert)
+{
+	srand(seed);
+	rand_voronoi2D(width,height,output,sectorWidth,sectorHeight,
+				   [](const glm::uvec2& sectorSize) { return glm::uvec2(rand() % sectorSize.x, rand() % sectorSize.y ); },
+	squared, invert);
+}
+
+void lehmer_voronoi1D(std::span<float>& output, unsigned sectorSize, RNG& rng, bool invert)
+{
+	rand_voronoi1D(output,sectorSize,[&rng](unsigned max){ return rng.generate(max); }, invert);
+}
+
+void lehmer_voronoi2D(unsigned width, unsigned height, float* output, unsigned sectorWidth, unsigned sectorHeight, RNG& rng, bool squared, bool invert)
+{
+	rand_voronoi2D(width,height,output,sectorWidth,sectorHeight,
+				   [&rng](const glm::uvec2& sectorSize) { return glm::uvec2(rng.generate(sectorSize.x), rng.generate(sectorSize.y) ); },
+	squared, invert);
 }
 
 }
