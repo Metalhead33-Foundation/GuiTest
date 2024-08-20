@@ -4,6 +4,44 @@ namespace MH33 {
 namespace Util {
 namespace Noise {
 
+void normalize(const std::span<float>& output)
+{
+	float min = std::numeric_limits<float>::max();
+	float max = 0.0f;
+	for (const float it : output) {
+		min = std::min(min,it);
+		max = std::max(max,it);
+	}
+	const float dist = max - min;
+	for (float& it : output) {
+		it = (it - min) / dist;
+	}
+}
+
+float bilinearAverage(float tX, float tY, float topLeft, float topRight, float bottomLeft, float bottomRight)
+{
+	const float weightTopLeft = (1 - tX) * (1 - tY);
+	const float weightTopRight = tX * (1 - tY);
+	const float weightBottomLeft = (1 - tX) * tY;
+	const float weightBottomRight = tX * tY;
+	// Now we calculate the actual bilinear weighted average
+	return ((topLeft * weightTopLeft) + (topRight * weightTopRight) + (bottomLeft * weightBottomLeft) + (bottomRight * weightBottomRight));
+}
+
+void remapToSigned(const std::span<float>& output)
+{
+	for(auto& it : output) {
+		it = (it - 0.5f) * 2.0f;
+	}
+}
+
+void remapToUnsigned(const std::span<float>& output)
+{
+	for(auto& it : output) {
+		it = ((it * 0.5f) + 1.0f) * 2.0f;
+	}
+}
+
 float perlin1D(const std::span<const float>& seed, unsigned x, int pitch)
 {
 	const unsigned sampleIndex1 = x - (x % pitch);
@@ -13,7 +51,7 @@ float perlin1D(const std::span<const float>& seed, unsigned x, int pitch)
 	return ((1.0f - fade) * seed[sampleIndex1]) + (fade * seed[sampleIndex2]);
 }
 
-void perlin1D(const std::span<float>& output, const std::span<const float>& seed, unsigned octaves, float scaleBias, bool normalize)
+void perlin1D(const std::span<float>& output, const std::span<const float>& seed, unsigned octaves, float scaleBias, bool shouldNormalize)
 {
 	for (size_t x = 0; x < output.size(); ++x) {
 		float noise = 0.0f;
@@ -29,17 +67,8 @@ void perlin1D(const std::span<float>& output, const std::span<const float>& seed
 		}
 		output[x] = noise / scaleSum;
 	}
-	if(normalize) {
-		float min = std::numeric_limits<float>::max();
-		float max = 0.0f;
-		for (const float it : output) {
-			min = std::min(min,it);
-			max = std::max(max,it);
-		}
-		const float dist = max - min;
-		for (float& it : output) {
-			it = (it - min) / dist;
-		}
+	if(shouldNormalize) {
+		normalize(output);
 	}
 }
 
@@ -59,14 +88,10 @@ float perlin2D(unsigned width, unsigned height, const float* seed, unsigned x, u
 	const float sampleBottomLeft = seed[(sampleIndexY2 * width) + sampleIndexX1];
 	const float sampleBottomRight = seed[(sampleIndexY2 * width) + sampleIndexX2];
 	// Sample weights
-	const float weightTopLeft = (1 - fadeX) * (1 - fadeY);
-	const float weightTopRight = fadeX * (1 - fadeY);
-	const float weightBottomLeft = (1 - fadeX) * fadeY;
-	const float weightBottomRight = fadeX * fadeY;
 	// Now we calculate the actual bilinear weighted average
-	return ((sampleTopLeft * weightTopLeft) + (sampleTopRight * weightTopRight) + (sampleBottomLeft * weightBottomLeft) + (sampleBottomRight * weightBottomRight));
+	return bilinearAverage(fadeX, fadeY, sampleTopLeft, sampleTopRight, sampleBottomLeft, sampleBottomRight);
 }
-void perlin2D(unsigned width, unsigned height, float* output, const float* seed, unsigned octaves, float scaleBias, bool normalize)
+void perlin2D(unsigned width, unsigned height, float* output, const float* seed, unsigned octaves, float scaleBias, bool shouldNormalize)
 {
 	for (unsigned y = 0; y < height; ++y) {
 		float* const outputRow = &output[y * width];
@@ -86,58 +111,38 @@ void perlin2D(unsigned width, unsigned height, float* output, const float* seed,
 			outputRow[x] = noise / scaleSum;
 		}
 	}
-	if(normalize) {
-		std::span<float> outSpan(output, width * height);
-		float min = std::numeric_limits<float>::max();
-		float max = 0.0f;
-		for (const float it : outSpan) {
-			min = std::min(min,it);
-			max = std::max(max,it);
-		}
-		const float dist = max - min;
-		for (float& it : outSpan) {
-			it = (it - min) / dist;
-		}
+	if(shouldNormalize) {
+		normalize(std::span<float>(output, width * height));
 	}
 }
 
-void rand_perlin1D(std::span<float>& output, unsigned seed, unsigned octaves, float scaleBias, bool normalize)
+void rand_perlin1D(const std::span<float>& output, unsigned seed, unsigned octaves, float scaleBias, bool shouldNormalize)
 {
 	std::vector<float> randVec(output.size());
-	srand(seed);
-	for(auto& it : randVec) {
-		it = static_cast<float>(rand()) / float(RAND_MAX);
-	}
-	perlin1D(output,randVec,octaves,scaleBias,normalize);
+	rand_whiteNoise(randVec, seed);
+	perlin1D(output,randVec,octaves,scaleBias,shouldNormalize);
 }
 
-void rand_perlin2D(unsigned width, unsigned height, float* output, unsigned seed, unsigned octaves, float scaleBias, bool normalize)
+void rand_perlin2D(unsigned width, unsigned height, float* output, unsigned seed, unsigned octaves, float scaleBias, bool shouldNormalize)
 {
 	std::vector<float> randVec(width * height);
-	srand(seed);
-	for(auto& it : randVec) {
-		it = static_cast<float>(rand()) / float(RAND_MAX);
-	}
-	perlin2D(width,height,output,randVec.data(),octaves,scaleBias,normalize);
+	rand_whiteNoise(randVec, seed);
+	perlin2D(width,height,output,randVec.data(),octaves,scaleBias,shouldNormalize);
 }
 
-void lehmer_perlin1D(const std::span<float>& output, RNG& rng, unsigned octaves, float scaleBias, bool normalize)
+void lehmer_perlin1D(const std::span<float>& output, RNG& rng, unsigned octaves, float scaleBias, bool shouldNormalize)
 {
 	std::vector<float> randVec(output.size());
-	for(auto& it : randVec) {
-		it = rng.generateFloat();
-	}
-	perlin1D(output,randVec,octaves,scaleBias,normalize);
+	lehmer_whiteNoise(randVec, rng);
+	perlin1D(output,randVec,octaves,scaleBias,shouldNormalize);
 }
 
 
-void lehmer_perlin2D(unsigned width, unsigned height, float* output, RNG& rng, unsigned octaves, float scaleBias, bool normalize)
+void lehmer_perlin2D(unsigned width, unsigned height, float* output, RNG& rng, unsigned octaves, float scaleBias, bool shouldNormalize)
 {
 	std::vector<float> randVec(width * height);
-	for(auto& it : randVec) {
-		it = rng.generateFloat();
-	}
-	perlin2D(width,height,output,randVec.data(),octaves,scaleBias,normalize);
+	lehmer_whiteNoise(randVec, rng);
+	perlin2D(width,height,output,randVec.data(),octaves,scaleBias,shouldNormalize);
 }
 
 void bilinearPerlin1D(const std::span<float>& output, const std::span<const float>& seed, unsigned octaves, float valA, float valB, float scaleBias, float cornerBias)
@@ -178,12 +183,7 @@ void bilinearPerlin2D(unsigned width, unsigned height, float* output, const floa
 				if(o == 0) {
 					const float scaleX = static_cast<float>(x) / static_cast<float>(width - 1);
 					const float scaleY = static_cast<float>(y) / static_cast<float>(height - 1);
-					// Sample weights
-					const float weightTopLeft = (1 - scaleX) * (1 - scaleY);
-					const float weightTopRight = scaleX * (1 - scaleY);
-					const float weightBottomLeft = (1 - scaleX) * scaleY;
-					const float weightBottomRight = scaleX * scaleY;
-					noise = ((topLeft * weightTopLeft) + (topRight * weightTopRight) + (bottomLeft * weightBottomLeft) + (bottomRight * weightBottomRight));
+					noise = bilinearAverage(scaleX, scaleY, topLeft, topRight, bottomLeft, bottomRight);
 					scaleSum += scale;
 				}
 				else {
@@ -203,38 +203,28 @@ void bilinearPerlin2D(unsigned width, unsigned height, float* output, const floa
 void rand_bilinearPerlin1D(const std::span<float>& output, unsigned seed, unsigned octaves, float valA, float valB, float scaleBias, float cornerBias)
 {
 	std::vector<float> randVec(output.size());
-	srand(seed);
-	for(auto& it : randVec) {
-		it = static_cast<float>(rand()) / float(RAND_MAX);
-	}
+	rand_whiteNoise(randVec, seed);
 	bilinearPerlin1D(output,randVec,octaves,valA,valB,scaleBias,cornerBias);
 }
 
 void rand_bilinearPerlin2D(unsigned width, unsigned height, float* output, unsigned seed, unsigned octaves, float topLeft, float topRight, float bottomLeft, float bottomRight, float scaleBias, float cornerBias)
 {
 	std::vector<float> randVec(width * height);
-	srand(seed);
-	for(auto& it : randVec) {
-		it = static_cast<float>(rand()) / float(RAND_MAX);
-	}
+	rand_whiteNoise(randVec, seed);
 	bilinearPerlin2D(width,height,output,randVec.data(),octaves,topLeft,topRight,bottomLeft,bottomRight,scaleBias,cornerBias);
 }
 
 void lehmer_bilinearPerlin1D(const std::span<float>& output, RNG& rng, unsigned octaves, float valA, float valB, float scaleBias, float cornerBias)
 {
 	std::vector<float> randVec(output.size());
-	for(auto& it : randVec) {
-		it = rng.generateFloat();
-	}
+	lehmer_whiteNoise(randVec, rng);
 	bilinearPerlin1D(output,randVec,octaves,valA,valB,scaleBias,cornerBias);
 }
 
 void lehmer_bilinearPerlin2D(unsigned width, unsigned height, float* output, RNG& rng, unsigned octaves, float topLeft, float topRight, float bottomLeft, float bottomRight, float scaleBias, float cornerBias)
 {
 	std::vector<float> randVec(width * height);
-	for(auto& it : randVec) {
-		it = rng.generateFloat();
-	}
+	lehmer_whiteNoise(randVec, rng);
 	bilinearPerlin2D(width,height,output,randVec.data(),octaves,topLeft,topRight,bottomLeft,bottomRight,scaleBias,cornerBias);
 }
 
@@ -250,7 +240,7 @@ void voronoi1D(const std::span<float>& output, const std::span<const unsigned>& 
 		maxDistance = std::max(maxDistance,minDistance);
 		output[x] = static_cast<float>(minDistance);
 	}
-	// Normalize
+	// normalize
 	for(float& it : output) {
 		it /= maxDistance;
 		if(invert) it = 1.0f - it;
@@ -347,6 +337,105 @@ void lehmer_whiteNoise(const std::span<float>& output, RNG& rng)
 	for(float& it : output) {
 		it = rng.generateFloat();
 	}
+}
+
+void valueNoise1D(const std::span<float>& output, const std::span<const float>& points, Interpolation interpolation)
+{
+	const float outputSizeReciprocal = 1.0f / static_cast<float>(output.size() - 1);
+	for(size_t x = 0; x < output.size(); ++x) {
+		const float texelIndex = (static_cast<float>(x) * outputSizeReciprocal) * static_cast<float>(points.size() - 1);
+		const float t = texelIndex - std::floor(texelIndex);
+		const unsigned lowerIndex = static_cast<unsigned>(std::floor(texelIndex));
+		const unsigned upperIndex = static_cast<unsigned>(std::ceil(texelIndex));
+		const float lowerValue = points[lowerIndex];
+		const float upperValue = points[upperIndex];
+		switch (interpolation) {
+			case MH33::Util::Noise::Interpolation::LINEAR: {
+				output[x] = std::lerp(lowerValue,upperValue, t);
+				break; }
+			case MH33::Util::Noise::Interpolation::COSINE: {
+				const float tRemapCosine = (1 - std::cos(t * M_PI)) * 0.5;
+				output[x] = std::lerp(lowerValue,upperValue, tRemapCosine);
+				break; }
+			case MH33::Util::Noise::Interpolation::SMOOTHSTEP: {
+				const float tRemapSmoothstep = t * t * (3.0f - 2.0f * t);
+				output[x] = std::lerp(lowerValue,upperValue, tRemapSmoothstep);
+				break; }
+		}
+	}
+}
+
+void valueNoise2D(float* output, unsigned outWidth, unsigned outHeight, const float* input, unsigned inWidth, unsigned inHeight, Interpolation interpolation)
+{
+	const float outWidthReciprocal = 1.0f / static_cast<float>(outWidth - 1);
+	const float outHeightReciprocal = 1.0f / static_cast<float>(outHeight - 1);
+	for(unsigned y = 0; y < outHeight; ++y) {
+		float * const outRow = &output[outWidth * y];
+		const float texelIndexY = (static_cast<float>(y) * outHeightReciprocal) * static_cast<float>(inHeight - 1);
+		const unsigned lowerIndexY = static_cast<unsigned>(std::floor(texelIndexY));
+		const unsigned upperIndexY = static_cast<unsigned>(std::ceil(texelIndexY));
+		float tY = texelIndexY - std::floor(texelIndexY);
+		switch (interpolation) {
+			case MH33::Util::Noise::Interpolation::LINEAR:
+				break;
+			case MH33::Util::Noise::Interpolation::COSINE:
+				tY = (1 - std::cos(tY * M_PI)) * 0.5;
+				break;
+			case MH33::Util::Noise::Interpolation::SMOOTHSTEP:
+				tY = tY * tY * (3.0f - 2.0f * tY);
+				break;
+		}
+		for(unsigned x = 0; x < outWidth; ++x) {
+			float& outPoint = outRow[x];
+			const float texelIndexX = (static_cast<float>(x) * outWidthReciprocal) * static_cast<float>(inWidth - 1);
+			const unsigned lowerIndexX = static_cast<unsigned>(std::floor(texelIndexX));
+			const unsigned upperIndexX = static_cast<unsigned>(std::ceil(texelIndexX));
+			float tX = texelIndexX - std::floor(texelIndexX);
+			switch (interpolation) {
+				case MH33::Util::Noise::Interpolation::LINEAR:
+					break;
+				case MH33::Util::Noise::Interpolation::COSINE:
+					tX = (1 - std::cos(tX * M_PI)) * 0.5;
+					break;
+				case MH33::Util::Noise::Interpolation::SMOOTHSTEP:
+					tX = tX * tX * (3.0f - 2.0f * tX);
+					break;
+			}
+			const float sampleTopLeft = input[(lowerIndexY * inWidth) + lowerIndexX];
+			const float sampleTopRight = input[(lowerIndexY * inWidth) + upperIndexX];
+			const float sampleBottomLeft = input[(upperIndexY * inWidth) + lowerIndexX];
+			const float sampleBottomRight = input[(upperIndexY * inWidth) + upperIndexX];
+			outPoint = bilinearAverage(tX,tY,sampleTopLeft,sampleTopRight,sampleBottomLeft,sampleBottomRight);
+		}
+	}
+}
+
+void rand_valueNoise1D(const std::span<float>& output, unsigned seed, unsigned pointCount, Interpolation interpolation)
+{
+	std::vector<float> randVec(pointCount);
+	rand_whiteNoise(randVec, seed);
+	valueNoise1D(output,randVec,interpolation);
+}
+
+void rand_valueNoise2D(float* output, unsigned outWidth, unsigned outHeight, unsigned seed, unsigned inWidth, unsigned inHeight, Interpolation interpolation)
+{
+	std::vector<float> randVec(inWidth * inHeight);
+	rand_whiteNoise(randVec, seed);
+	valueNoise2D(output, outWidth, outHeight, randVec.data(), inWidth, inHeight, interpolation);
+}
+
+void lehmer_valueNoise1D(const std::span<float>& output, RNG& rng, unsigned pointCount, Interpolation interpolation)
+{
+	std::vector<float> randVec(pointCount);
+	lehmer_whiteNoise(randVec, rng);
+	valueNoise1D(output,randVec,interpolation);
+}
+
+void lehmer_valueNoise2D(float* output, unsigned outWidth, unsigned outHeight, RNG& rng, unsigned inWidth, unsigned inHeight, Interpolation interpolation)
+{
+	std::vector<float> randVec(inWidth * inHeight);
+	lehmer_whiteNoise(randVec, rng);
+	valueNoise2D(output, outWidth, outHeight, randVec.data(), inWidth, inHeight, interpolation);
 }
 
 }
