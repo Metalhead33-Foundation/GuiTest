@@ -4,6 +4,7 @@
 #include <cmath>
 #include <type_traits>
 #include <MhLib/Util/half.hpp>
+#include <MhLib/Util/MhGlobals.hpp>
 namespace MH33 {
 namespace Util {
 
@@ -46,6 +47,12 @@ template <> struct _fnorm_fdenorm<double> {
 
 template <typename T> inline float fnormalize(const T& val) { return _fnorm_fdenorm<T>::normalize(val); }
 template <typename T> inline T fdenormalize(const float& val) { return _fnorm_fdenorm<T>::denormalize(val); }
+template <typename T> inline void fnormalize(const std::span<const T>& input, const std::span<float>& output) {
+	transform(input,output,[](const T& val) { return _fnorm_fdenorm<T>::normalize(val) ;});
+}
+template <typename T> inline void fdenormalize(const std::span<const float>& input, const std::span<T>& output) {
+	transform(input,output,[](const float& val) { return _fnorm_fdenorm<T>::denormalize(val) ;});
+}
 
 
 template <typename T> struct _dnorm_ddenorm {
@@ -87,7 +94,20 @@ template <> struct _dnorm_ddenorm<double> {
 
 template <typename T> inline double dnormalize(const T& val) { return _dnorm_ddenorm<T>::normalize(val); }
 template <typename T> inline T ddenormalize(const double& val) { return _dnorm_ddenorm<T>::denormalize(val); }
+template <typename T> inline void dnormalize(const std::span<const T>& input, const std::span<double>& output) {
+	transform(input,output,[](const T& val) { return _dnorm_ddenorm<T>::normalize(val) ;});
+}
+template <typename T> inline void ddenormalize(const std::span<const double>& input, const std::span<T>& output) {
+	transform(input,output,[](const float& val) { return _dnorm_ddenorm<T>::denormalize(val) ;});
+}
 
+template <typename T1, typename T2> void normalizing_cast(const std::span<const T1>& src, const std::span<T2>& dst) {
+	if constexpr(std::is_same<T1,T2>()) {
+		transform(src,dst,[](const T1& val) { return val; });
+	} else {
+		transform(src,dst,[](const T1& val) { return Util::fdenormalize<T2>(Util::fnormalize(val)); });
+	}
+}
 template <typename T1, typename T2> void normalizing_cast(const T1& src, T2& dst) {
 	if constexpr(std::is_same<T1,T2>()) dst = src;
 	else {

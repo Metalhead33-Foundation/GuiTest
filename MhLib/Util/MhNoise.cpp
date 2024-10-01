@@ -4,6 +4,10 @@ namespace MH33 {
 namespace Util {
 namespace Noise {
 
+static int fastfloor(float x) {
+	return x > 0 ? static_cast<int>(x) : static_cast<int>(x) - 1;
+}
+
 void normalize(const std::span<float>& output)
 {
 	float min = std::numeric_limits<float>::max();
@@ -38,7 +42,7 @@ void remapToSigned(const std::span<float>& output)
 void remapToUnsigned(const std::span<float>& output)
 {
 	for(auto& it : output) {
-		it = ((it * 0.5f) + 1.0f) * 2.0f;
+		it = (it * 0.5f) + 0.5f;
 	}
 }
 
@@ -436,6 +440,219 @@ void lehmer_valueNoise2D(float* output, unsigned outWidth, unsigned outHeight, R
 	std::vector<float> randVec(inWidth * inHeight);
 	lehmer_whiteNoise(randVec, rng);
 	valueNoise2D(output, outWidth, outHeight, randVec.data(), inWidth, inHeight, interpolation);
+}
+
+void sumOfSines1D(const std::span<float>& output, float periodicity, unsigned periods, const PeriodicFunction1D& perFunc, float periodicityBias, float amplitudeBias)
+{
+	const float outSizeReciprocal = 1.0f / static_cast<float>(output.size() - 1);
+	for(size_t x = 0; x < output.size(); ++x) {
+		float amplitude = 1.0f;
+		float valueSum = 0.0f;
+		float amplitudeSum = 0.0f;
+		float curPeriodicity = periodicity;
+		for(unsigned period = 0; period < periods; ++period) {
+			valueSum += amplitude * perFunc((x * outSizeReciprocal) * curPeriodicity);
+			amplitudeSum += amplitude;
+			curPeriodicity *= periodicityBias;
+			amplitude *= amplitudeBias;
+		}
+		output[x] = valueSum / amplitudeSum;
+	}
+}
+
+void sumOfSines1D(const std::span<float>& output, float periodicity, const std::span<const PeriodicFunction1D>& perFuncs, float periodicityBias, float amplitudeBias)
+{
+	const float outSizeReciprocal = 1.0f / static_cast<float>(output.size() - 1);
+	for(size_t x = 0; x < output.size(); ++x) {
+		float amplitude = 1.0f;
+		float valueSum = 0.0f;
+		float amplitudeSum = 0.0f;
+		float curPeriodicity = periodicity;
+		for(const auto& perfunc : perFuncs) {
+			valueSum += amplitude * perfunc((x * outSizeReciprocal) * curPeriodicity);
+			amplitudeSum += amplitude;
+			curPeriodicity *= periodicityBias;
+			amplitude *= amplitudeBias;
+		}
+		output[x] = valueSum / amplitudeSum;
+	}
+}
+
+void sumOfSines2D(float* output, unsigned outWidth, unsigned outHeight, float periodicity, unsigned periods, const PeriodicFunction2D& perFunc, float periodicityBias, float amplitudeBias)
+{
+	const float outWidthReciprocal = 1.0f / static_cast<float>(outWidth - 1);
+	const float outHeightReciprocal = 1.0f / static_cast<float>(outHeight - 1);
+	for(unsigned y = 0; y < outHeight; ++y) {
+		float * const outRow = &output[outWidth * y];
+		const float premultipliedY = static_cast<float>(y * outHeightReciprocal);
+		for(unsigned x = 0; x < outWidth; ++x) {
+			float& outPoint = outRow[x];
+			const float premultipliedX = static_cast<float>(x * outWidthReciprocal);
+			float amplitude = 1.0f;
+			float valueSum = 0.0f;
+			float amplitudeSum = 0.0f;
+			float curPeriodicity = periodicity;
+			for(unsigned period = 0; period < periods; ++period) {
+				valueSum += amplitude * perFunc(premultipliedX * curPeriodicity, premultipliedY * curPeriodicity);
+				amplitudeSum += amplitude;
+				curPeriodicity *= periodicityBias;
+				amplitude *= amplitudeBias;
+			}
+			outPoint = valueSum / amplitudeSum;
+		}
+	}
+}
+
+void sumOfSines2D(float* output, unsigned outWidth, unsigned outHeight, float periodicity, const std::span<const PeriodicFunction2D>& perFuncs, float periodicityBias, float amplitudeBias)
+{
+	const float outWidthReciprocal = 1.0f / static_cast<float>(outWidth - 1);
+	const float outHeightReciprocal = 1.0f / static_cast<float>(outHeight - 1);
+	for(unsigned y = 0; y < outHeight; ++y) {
+		float * const outRow = &output[outWidth * y];
+		const float premultipliedY = static_cast<float>(y * outHeightReciprocal);
+		for(unsigned x = 0; x < outWidth; ++x) {
+			float& outPoint = outRow[x];
+			const float premultipliedX = static_cast<float>(x * outWidthReciprocal);
+			float amplitude = 1.0f;
+			float valueSum = 0.0f;
+			float amplitudeSum = 0.0f;
+			float curPeriodicity = periodicity;
+			for(const auto& perfunc : perFuncs) {
+				valueSum += amplitude * perfunc(premultipliedX * curPeriodicity, premultipliedY * curPeriodicity);
+				amplitudeSum += amplitude;
+				curPeriodicity *= periodicityBias;
+				amplitude *= amplitudeBias;
+			}
+			outPoint = valueSum / amplitudeSum;
+		}
+	}
+}
+
+float simplexGrad1D(int hash, float x)
+{
+	int h = hash & 15;
+	float grad = 1.0f + static_cast<float>(h & 7);
+	if (h & 8) grad = -grad;
+	return grad * x;
+}
+
+float simplexGrad2D(int hash, float x, float y)
+{
+	int h = hash & 7;
+	float u = h < 4 ? x : y;
+	float v = h < 4 ? y : x;
+	return ((h & 1) ? -u : u) + ((h & 2) ? -2.0f * v : 2.0f * v);
+}
+
+float simplexNoise1D(const SimplexPermutationTable& perm, float xin)
+{
+	constexpr float F1 = 0.6180339887498949f; // (sqrt(5)-1)/2
+	constexpr float G1 = 0.3660254037844386f; // (3-sqrt(5))/6
+
+	int i0 = fastfloor(xin);
+	float x0 = xin - i0;
+	int i1 = i0 + 1;
+	float x1 = x0 - 1.0f + G1;
+
+	float n0, n1;
+
+	float t0 = 0.5f - x0 * x0;
+	if (t0 >= 0) {
+		t0 *= t0;
+		n0 = t0 * t0 * simplexGrad1D(perm[i0 & 255], x0);
+	} else {
+		n0 = 0.0f;
+	}
+
+	float t1 = 0.5f - x1 * x1;
+	if (t1 >= 0) {
+		t1 *= t1;
+		n1 = t1 * t1 * simplexGrad1D(perm[i1 & 255], x1);
+	} else {
+		n1 = 0.0f;
+	}
+
+	return 70.0f * (n0 + n1);
+}
+
+float simplexNoise2D(const SimplexPermutationTable& perm, float xin, float yin)
+{
+	constexpr float F2 = 0.3660254037844386f; // 0.5*(sqrt(3.0)-1.0)
+	constexpr float G2 = 0.21132486540518713f; // (3.0-sqrt(3.0))/6.0
+
+	float s = (xin + yin) * F2;
+	int i = fastfloor(xin + s);
+	int j = fastfloor(yin + s);
+
+	float t = (i + j) * G2;
+	float X0 = i - t;
+	float Y0 = j - t;
+
+	float x0 = xin - X0;
+	float y0 = yin - Y0;
+
+	int i1, j1;
+	if (x0 > y0) {
+		i1 = 1; j1 = 0;
+	} else {
+		i1 = 0; j1 = 1;
+	}
+
+	float x1 = x0 - i1 + G2;
+	float y1 = y0 - j1 + G2;
+	float x2 = x0 - 1.0f + 2.0f * G2;
+	float y2 = y0 - 1.0f + 2.0f * G2;
+
+	float n0, n1, n2;
+
+	float t0 = 0.5 - x0 * x0 - y0 * y0;
+	if (t0 >= 0) {
+		t0 *= t0;
+		n0 = t0 * t0 * simplexGrad2D(perm[i + perm[j & 255] & 255], x0, y0);
+	} else {
+		n0 = 0.0;
+	}
+
+	float t1 = 0.5 - x1 * x1 - y1 * y1;
+	if (t1 >= 0) {
+		t1 *= t1;
+		n1 = t1 * t1 * simplexGrad2D(perm[i + i1 + perm[(j + j1) & 255] & 255], x1, y1);
+	} else {
+		n1 = 0.0;
+	}
+
+	float t2 = 0.5 - x2 * x2 - y2 * y2;
+	if (t2 >= 0) {
+		t2 *= t2;
+		n2 = t2 * t2 * simplexGrad2D(perm[i + 1 + perm[(j + 1) & 255] & 255], x2, y2);
+	} else {
+		n2 = 0.0;
+	}
+
+	return 70.0f * (n0 + n1 + n2);
+}
+
+void simplexNoise1D(const SimplexPermutationTable& perm, const std::span<float>& output, float frequencyScale)
+{
+	const float outSizeReciprocal = 1.0f / static_cast<float>(output.size() - 1);
+	for(size_t x = 0; x < output.size(); ++x) {
+		output[x] = simplexNoise1D(perm, (static_cast<float>(x) * outSizeReciprocal) * frequencyScale);
+	}
+}
+
+void simplexNoise2D(const SimplexPermutationTable& perm, unsigned width, unsigned height, float* output, float frequencyScale)
+{
+	const float outWidthReciprocal = 1.0f / static_cast<float>(width - 1);
+	const float outHeightReciprocal = 1.0f / static_cast<float>(height - 1);
+	for(unsigned y = 0; y < width; ++y) {
+		float * const outRow = &output[width * y];
+		const float premultipliedY = static_cast<float>(y * outHeightReciprocal);
+		for(unsigned x = 0; x < width; ++x) {
+			float& outPoint = outRow[x];
+			const float premultipliedX = static_cast<float>(x * outWidthReciprocal);
+			outPoint = simplexNoise2D(perm, premultipliedX * frequencyScale, premultipliedY * frequencyScale);
+		}
+	}
 }
 
 }

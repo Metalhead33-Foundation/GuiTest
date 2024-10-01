@@ -11,7 +11,7 @@ namespace MH33 {
 namespace Util {
 namespace Noise {
 /// Convenience functions
-float bilinearAverage(float tX, float tY, float topLeft, float topRight, float bottomLeft, float bottomRight);
+float MH_UTIL_API bilinearAverage(float tX, float tY, float topLeft, float topRight, float bottomLeft, float bottomRight);
 void MH_UTIL_API normalize(const std::span<float>& output);
 void MH_UTIL_API remapToSigned(const std::span<float>& output);
 void MH_UTIL_API remapToUnsigned(const std::span<float>& output);
@@ -24,6 +24,14 @@ template <RandomNumberGenerator uintRng> void rng_whiteNoise(const std::span<flo
 		it = static_cast<float>(rng()) / static_cast<float>(rng.max ());
 	}
 }
+/// SIMPLEX NOISE
+typedef std::array<int, 512> SimplexPermutationTable;
+float MH_UTIL_API simplexGrad1D(int hash, float x);
+float MH_UTIL_API simplexGrad2D(int hash, float x, float y);
+float MH_UTIL_API simplexNoise1D(const SimplexPermutationTable& perm, float xin);
+float MH_UTIL_API simplexNoise2D(const SimplexPermutationTable& perm, float xin, float yin);
+void MH_UTIL_API simplexNoise1D(const SimplexPermutationTable& perm, const std::span<float>& output, float frequencyScale = 1.0f);
+void MH_UTIL_API simplexNoise2D(const SimplexPermutationTable& perm, unsigned width, unsigned height, float* output, float frequencyScale = 1.0f);
 /// REGULAR PERLIN NOISE
 float MH_UTIL_API perlin1D(const std::span<const float>& seed, unsigned x, int pitch);
 void MH_UTIL_API perlin1D(const std::span<float>& output, const std::span<const float>& seed, unsigned octaves, float scaleBias = 2.0f, bool shouldNormalize=false);
@@ -116,6 +124,14 @@ template <RandomNumberGenerator uintRng> void rng_valueNoise2D(float* output, un
 	rng_whiteNoise(randVec, rng);
 	valueNoise2D(output, outWidth, outHeight, randVec.data(), inWidth, inHeight, interpolation);
 }
+/// Sum of Sines / Fractional Brownian Motion
+typedef std::function<float(float)> PeriodicFunction1D;
+typedef std::function<float(float,float)> PeriodicFunction2D;
+// Periodicity Bias and Amplitude Bias can be any arbitrary number, but it is HEAVILY recommended to set the Amplitude Bias to the reciprocal of the Periodicity Bias
+void MH_UTIL_API sumOfSines1D(const std::span<float>& output, float periodicity, unsigned periods, const PeriodicFunction1D& perFunc, float periodicityBias = 2.0f, float amplitudeBias = 0.5f);
+void MH_UTIL_API sumOfSines1D(const std::span<float>& output, float periodicity, const std::span<const PeriodicFunction1D>& perFuncs, float periodicityBias = 2.0f, float amplitudeBias = 0.5f);
+void MH_UTIL_API sumOfSines2D(float* output, unsigned outWidth, unsigned outHeight, float periodicity, unsigned periods, const PeriodicFunction2D& perFunc, float periodicityBias = 2.0f, float amplitudeBias = 0.5f);
+void MH_UTIL_API sumOfSines2D(float* output, unsigned outWidth, unsigned outHeight, float periodicity, const std::span<const PeriodicFunction2D>& perFuncs, float periodicityBias = 2.0f, float amplitudeBias = 0.5f);
 
 }
 }

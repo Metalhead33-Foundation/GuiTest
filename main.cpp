@@ -24,48 +24,27 @@ void tryPerlinNoise() {
 	frameInsert.width = 1024;
 	frameInsert.stride = frameInsert.width;
 	frameInsert.imageData.resize(frameInsert.height * frameInsert.width);
-	/*const float topLeft = static_cast<float>(33) / static_cast<float>(255);
-	const float topRight = static_cast<float>(66) / static_cast<float>(255);
-	const float bottomLeft = static_cast<float>(99) / static_cast<float>(255);
-	const float bottomRight = static_cast<float>(254) / static_cast<float>(255);*/
 	std::mt19937 mt19937;
-	//MH33::Util::Noise::rng_bilinearPerlin2D(frameInsert.width,frameInsert.height,floatTest.data(),mt19937,16,topLeft,topRight,bottomLeft,bottomRight,1.2f,0.95f);
-	/*std::vector<float> voronoi(frameInsert.height * frameInsert.width);
-	std::vector<float> perlin(frameInsert.height * frameInsert.width);
-	MH33::Util::Noise::rng_voronoi2D(frameInsert.width,frameInsert.height,voronoi.data(),64,64,mt19937,false,false);
-	MH33::Util::Noise::rng_perlin2D(frameInsert.width,frameInsert.height,perlin.data(),mt19937,8,1.5f,true);*/
 	std::vector<float> valueNoise(frameInsert.height * frameInsert.width);
-	MH33::Util::Noise::rng_valueNoise2D(valueNoise.data(),frameInsert.width,frameInsert.height,mt19937,128,128,MH33::Util::Noise::Interpolation::SMOOTHSTEP);
-	std::span<uint8_t> out(reinterpret_cast<uint8_t*>(frameInsert.imageData.data()),frameInsert.height * frameInsert.width);
-	for(size_t i = 0; i < out.size(); ++i) {
-		//out[i] = MH33::Util::fdenormalize<uint8_t>(voronoi[i] * perlin[i]);
-		out[i] = MH33::Util::fdenormalize<uint8_t>(valueNoise[i]);
-	}
+	MH33::Util::Noise::sumOfSines2D(valueNoise.data(),frameInsert.width,frameInsert.height,4.0f,96,[](float x, float y) {
+		return std::sin(std::fmod(x, M_PI * 2.0f)) * std::sin(std::fmod(y, M_PI * 2.0f));
+	} );
+	MH33::Util::Noise::remapToUnsigned(valueNoise);
+	std::span<uint8_t> out = frameInsert.asDataSpan<uint8_t>();
+	MH33::Util::fdenormalize(valueNoise,out);
 	MH33::Io::uFile ufile = std::make_unique<MH33::Io::File>("/tmp/perlin.png", MH33::Io::Mode::WRITE);
 	MH33::Image::PNG::encode(*ufile,decodeTarget, 1.0f);
 }
 void tryPinkNoise() {
-	//MH33::Io::uFile ufile = std::make_unique<MH33::Io::File>("/tmp/perlin.wav", MH33::Io::Mode::WRITE);
 	MH33::Audio::SoundFileCreateInfo sndCreateInfo;
 	sndCreateInfo.channelCount.var = 2;
 	sndCreateInfo.frameRate.var = 44100;
 	sndCreateInfo.channelCount.var = 1;
 	sndCreateInfo.format = MH33::Audio::SoundFormat::WAV_PCM_16;
 	MH33::Audio::SoundFile sfile([](MH33::Io::Mode mode){ return new MH33::Io::File("/tmp/perlin.wav", mode); }, MH33::Io::Mode::WRITE, &sndCreateInfo);
-	//std::vector<float> perlin(sndCreateInfo.frameRate.var * 10);
-	//std::vector<float> voronoi(sndCreateInfo.frameRate.var * 10);
 	std::vector<float> output(sndCreateInfo.frameRate.var * 10);
 	std::mt19937 mt19937;
-	MH33::Util::Noise::rng_valueNoise1D(output,mt19937,44100/15,MH33::Util::Noise::Interpolation::SMOOTHSTEP);
-	MH33::Util::Noise::remapToSigned(output);
-	/*MH33::Util::Noise::rng_perlin1D(perlin,mt19937,128,1.05f,true);
-	MH33::Util::Noise::rng_voronoi1D(voronoi,1024,mt19937,false);
-	for(size_t i = 0; i < output.size(); ++i) {
-		output[i] = perlin[i] * voronoi[i];
-	}
-	for(auto& it : output) {
-		it = (it - 0.5f) * 2.0f;
-	}*/
+	MH33::Util::Noise::sumOfSines1D(output,1024.0f,64,[](float x){ return std::sin(std::fmod(x, M_PI * 2.0f)); });
 	sfile.write(output.data(),MH33::Audio::SampleCount(output.size()));
 }
 

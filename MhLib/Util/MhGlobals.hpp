@@ -2,6 +2,8 @@
 #define MHGLOBALS_HPP
 #include <memory>
 #include <span>
+#include <cassert>
+#include <functional>
 
 /*#ifdef _WIN32
 #define MH33_API_EXPORT __declspec(dllexport)
@@ -88,6 +90,41 @@ template <typename T> std::span<std::byte> as_byte_span(T* thingies, size_t size
 }
 template <typename T> const std::span<const std::byte> as_const_byte_span(const T* thingies, size_t size) {
 	return span_wrappers<T>::as_const_byte_span(thingies,size);
+}
+
+template <typename TIn, typename TOut> struct transform_wrappers {
+	void transform(const std::span<const TIn>& input, const std::span<TOut>& output)
+	{
+		assert(input.size() == output.size());
+		for(size_t i = 0; i < input.size(); ++i) {
+			output[i] = static_cast<TOut>(input[i]);
+		}
+	}
+	typedef std::function<TOut(const TIn&)> tf0_t;
+	void transform(const std::span<const TIn>& input, const std::span<TOut>& output, const tf0_t& transformFun)
+	{
+		assert(input.size() == output.size());
+		for(size_t i = 0; i < input.size(); ++i) {
+			output[i] = transformFun(input[i]);
+		}
+	}
+	typedef std::function<void(const TIn&,TOut&)> tf1_t;
+	void transform(const std::span<const TIn>& input, const std::span<TOut>& output, const tf1_t& transformFun)
+	{
+		assert(input.size() == output.size());
+		for(size_t i = 0; i < input.size(); ++i) {
+			transformFun(input[i],output[i]);
+		}
+	}
+};
+template <typename TIn, typename TOut> void transform(const std::span<const TIn>& input, const std::span<TOut>& output) {
+	transform_wrappers<TIn,TOut>::transform(input,output);
+}
+template <typename TIn, typename TOut> void transform(const std::span<const TIn>& input, const std::span<TOut>& output, const std::function<TOut(const TIn&)>& transFormFun) {
+	transform_wrappers<TIn,TOut>::transform(input,output,transFormFun);
+}
+template <typename TIn, typename TOut> void transform(const std::span<const TIn>& input, const std::span<TOut>& output, const std::function<void(const TIn&,TOut&)>& transFormFun) {
+	transform_wrappers<TIn,TOut>::transform(input,output,transFormFun);
 }
 
 

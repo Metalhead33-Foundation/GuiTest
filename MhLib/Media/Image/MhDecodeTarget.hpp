@@ -18,6 +18,12 @@ struct Palette {
 struct Frame {
 	std::vector<std::byte> imageData;
 	unsigned width,height,stride;
+	template <typename T> std::span<T> asDataSpan() {
+		return std::span<T>( reinterpret_cast<T*>( imageData.data() ), width * height);
+	}
+	template <typename T> std::span<const T> asDataSpan() const {
+		return std::span<const T>( reinterpret_cast<const T*>( imageData.data() ), width * height);
+	}
 };
 
 struct DecodeTarget {
