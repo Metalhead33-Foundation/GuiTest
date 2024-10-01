@@ -15,3 +15,21 @@ DEFINES += DESKTOP_GL
 debug {
   DEFINES += _DEBUG
 }
+
+SOURCES += \
+    Elvavena/Util/ElvEventLoop.cpp \
+    main.cpp
+
+HEADERS += \
+    Elvavena/Util/ElvChunkyArray.hpp \
+    Elvavena/Util/ElvCommandQueue.hpp \
+    Elvavena/Util/ElvContinuousIterator.hpp \
+    Elvavena/Util/ElvEventLoop.hpp \
+    Elvavena/Util/ElvHeapArray.hpp \
+    Elvavena/Util/ElvMathUtil.hpp \
+    Elvavena/Util/ElvNormDenorm.hpp \
+    Elvavena/Util/ElvSpanHelpers.hpp \
+    Elvavena/Util/ElvThreadsafeContainer.hpp \
+    Elvavena/Util/ElvThreadsafeQueue.hpp \
+    Elvavena/Util/ElvUtilGlobals.hpp \
+    Elvavena/Util/half.hpp
