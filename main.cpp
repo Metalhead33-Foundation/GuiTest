@@ -3,6 +3,7 @@
 #include <limits>
 #include <Elvavena/Util/ElvHeapArray.hpp>
 #include <Elvavena/Util/ElvChunkyArray.hpp>
+#include <Elvavena/Util/ElvIntegralIterator.hpp>
 
 template<class T>
 struct Mallocator
@@ -50,6 +51,16 @@ int main(void)
 		intarr.emplace_back(i);
 	}
 	/*for(const auto& it : intspan) {
+		std::cout << it << std::endl;
+	}
+	Elv::Util::IntegralIterable<int> range(10);
+	Elv::Util::IntegralIterable<int> range2(20);
+	range = range2;
+	for(auto it = std::rbegin(range); it != std::rend(range); ++it) {
+		std::cout << *it << std::endl;
+	}
+
+	/*for(const auto& it : range) {
 		std::cout << it << std::endl;
 	}*/
 	std::cout << "Hello world!" << std::endl;

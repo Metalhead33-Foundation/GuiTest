@@ -17,15 +17,21 @@ debug {
 }
 
 SOURCES += \
+    Elvavena/Util/ElvDynamicLib.cpp \
     Elvavena/Util/ElvEventLoop.cpp \
     main.cpp
 
 HEADERS += \
+    Elvavena/Util/ElvAllocator.hpp \
+    Elvavena/Util/ElvAllocatorBasic.hpp \
     Elvavena/Util/ElvChunkyArray.hpp \
     Elvavena/Util/ElvCommandQueue.hpp \
     Elvavena/Util/ElvContinuousIterator.hpp \
+    Elvavena/Util/ElvDynamicLib.hpp \
+    Elvavena/Util/ElvEndianness.hpp \
     Elvavena/Util/ElvEventLoop.hpp \
     Elvavena/Util/ElvHeapArray.hpp \
+    Elvavena/Util/ElvIntegralIterator.hpp \
     Elvavena/Util/ElvMathUtil.hpp \
     Elvavena/Util/ElvNormDenorm.hpp \
     Elvavena/Util/ElvSpanHelpers.hpp \

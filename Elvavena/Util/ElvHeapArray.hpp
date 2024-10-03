@@ -6,13 +6,14 @@
 #include <span>
 #include <atomic>
 #include <Elvavena/Util/ElvContinuousIterator.hpp>
+#include <Elvavena/Util/ElvAllocatorBasic.hpp>
 namespace Elv {
 namespace Util {
 
-template<class T, class Allocator = std::allocator<T>> class UniqueHeapArray {
+template<class T, class Alloc = std::allocator<T>> requires Allocator<Alloc, T> class UniqueHeapArray {
 public:
 	typedef T value_type;
-	typedef Allocator allocator_type;
+	typedef Alloc allocator_type;
 	typedef size_t size_type;
 	typedef ptrdiff_t difference_type;
 	typedef T& reference;
@@ -27,21 +28,31 @@ public:
 
 	typedef std::reverse_iterator<iterator> reverse_iterator;
 	typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
+	typedef std::allocator_traits<Alloc> AllocTraits;
 
 private:
 	T* m_data;
 	size_t m_size;
+	Alloc alloc;
 	// Copy constructor
 	UniqueHeapArray(const UniqueHeapArray& cpy) = delete;
 	UniqueHeapArray& operator=(const UniqueHeapArray& cpy) = delete;
 public:
 	// Constructor
 	UniqueHeapArray(size_t size) : m_size(size) {
-		m_data = Allocator().allocate(size);
+		m_data = alloc.allocate(size);
+		for (size_t i = 0; i < m_size; ++i) {
+			AllocTraits::construct(alloc, &m_data[i]); // Construct each element
+		}
 	}
 	// Destructor
 	~UniqueHeapArray() {
-		if(m_data) Allocator().deallocate(m_data, m_size);
+		if(m_data) {
+			for (size_t i = 0; i < m_size; ++i) {
+				AllocTraits::destroy(alloc, &m_data[i]); // Call the destructor
+			}
+			alloc.deallocate(m_data, m_size);
+		}
 	}
 	// Move constructor
 	UniqueHeapArray(UniqueHeapArray&& mov) {
@@ -89,10 +100,10 @@ public:
 	bool empty() const { return m_size == 0; }
 };
 
-template<class T, class Allocator = std::allocator<T>> class SharedHeapArray {
+template<class T, class Alloc = std::allocator<T>> requires Allocator<Alloc, T> class SharedHeapArray {
 public:
 	typedef T value_type;
-	typedef Allocator allocator_type;
+	typedef Alloc allocator_type;
 	typedef size_t size_type;
 	typedef ptrdiff_t difference_type;
 	typedef T& reference;
@@ -105,16 +116,24 @@ public:
 	typedef continuous_iterator<const T> const_iterator;
 	typedef std::reverse_iterator<iterator> reverse_iterator;
 	typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
+	typedef std::allocator_traits<Alloc> AllocTraits;
 private:
 	struct Container {
 		T* m_data;
 		size_t m_size;
+		Alloc alloc;
 		std::atomic<size_t> m_refCount;
 		Container(size_t size) : m_size(size), m_refCount(1) {
-			m_data = Allocator().allocate(size);
+			m_data = alloc.allocate(size);
+			for (size_t i = 0; i < m_size; ++i) {
+				AllocTraits::construct(alloc, &m_data[i]); // Construct each element
+			}
 		}
 		~Container() {
-			Allocator().deallocate(m_data, m_size);
+			for (size_t i = 0; i < m_size; ++i) {
+				AllocTraits::destroy(alloc, &m_data[i]); // Call the destructor
+			}
+			alloc.deallocate(m_data, m_size);
 		}
 	};
 	Container* m_container;

@@ -6,15 +6,17 @@
 #include <atomic>
 #include <Elvavena/Util/ElvContinuousIterator.hpp>
 #include <Elvavena/Util/ElvMathUtil.hpp>
+#include <Elvavena/Util/ElvAllocatorBasic.hpp>
 
 namespace Elv {
 namespace Util {
 
-template<class T, size_t ChunkSize = 256, class Allocator = std::allocator<std::array<T,ChunkSize>>> class UniqueChunkyArray {
+template<class T, size_t ChunkSize = 256, class Alloc = std::allocator<std::array<T,ChunkSize>>>
+requires Allocator<Alloc, std::array<T,ChunkSize>> class UniqueChunkyArray {
 public:
 	typedef std::array<T,ChunkSize> Chunk;
 	typedef T value_type;
-	typedef Allocator allocator_type;
+	typedef Alloc allocator_type;
 	typedef size_t size_type;
 	typedef ptrdiff_t difference_type;
 	typedef T& reference;
@@ -29,23 +31,25 @@ public:
 
 	typedef std::reverse_iterator<iterator> reverse_iterator;
 	typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
+	typedef std::allocator_traits<Alloc> AllocTraits;
 private:
+	Alloc alloc;
 	Chunk* m_data;
 	size_t m_chunkCount;
 	size_t m_size;
 	size_t m_capacity;
 	void grow(size_t newChunks) {
-		Chunk* newChunkStore = Allocator().allocate(m_chunkCount + newChunks);
+		Chunk* newChunkStore = Alloc().allocate(m_chunkCount + newChunks);
 		std::memcpy(newChunkStore,m_data,m_chunkCount * sizeof(Chunk));
-		Allocator().deallocate(m_data, m_chunkCount);
+		alloc.deallocate(m_data, m_chunkCount);
 		m_data = newChunkStore;
 		m_chunkCount += newChunks;
 		m_capacity = m_chunkCount * ChunkSize;
 	}
 	void shrink(size_t newChunkCount) {
-		Chunk* newChunkStore = Allocator().allocate(newChunkCount);
+		Chunk* newChunkStore = alloc.allocate(newChunkCount);
 		std::memcpy(newChunkStore,m_data,std::min(m_chunkCount,newChunkCount) * sizeof(Chunk));
-		Allocator().deallocate(m_data, m_chunkCount);
+		Alloc().deallocate(m_data, m_chunkCount);
 		m_data = newChunkStore;
 		m_chunkCount = newChunkCount;
 		m_capacity = m_chunkCount * ChunkSize;
@@ -59,12 +63,15 @@ public:
 		m_chunkCount(size),
 		m_capacity(size * ChunkSize),
 		m_size(countAsInitialized ? (size * ChunkSize) : 0) {
-		m_data = Allocator().allocate(size);
+		m_data = alloc.allocate(size);
 	}
 	// Destructor
 	~UniqueChunkyArray() {
 		if(m_data) {
-			Allocator().deallocate(m_data, m_chunkCount);
+			for (size_t i = 0; i < m_size; ++i) {
+				AllocTraits::destroy(alloc, &m_data[i]); // Call the destructor
+			}
+			alloc.deallocate(m_data, m_chunkCount);
 		}
 	}
 	UniqueChunkyArray(UniqueChunkyArray&& mov) {
@@ -148,11 +155,12 @@ public:
 	}
 };
 
-template<class T, size_t ChunkSize = 256, class Allocator = std::allocator<std::array<T,ChunkSize>>> class SharedChunkyArray {
+template<class T, size_t ChunkSize = 256, class Alloc = std::allocator<std::array<T,ChunkSize>>>
+requires Allocator<Alloc, std::array<T,ChunkSize>> class SharedChunkyArray {
 public:
 	typedef std::array<T,ChunkSize> Chunk;
 	typedef T value_type;
-	typedef Allocator allocator_type;
+	typedef Alloc allocator_type;
 	typedef size_t size_type;
 	typedef ptrdiff_t difference_type;
 	typedef T& reference;
@@ -167,8 +175,10 @@ public:
 
 	typedef std::reverse_iterator<iterator> reverse_iterator;
 	typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
+	typedef std::allocator_traits<Alloc> AllocTraits;
 private:
 	struct Container {
+		Alloc alloc;
 		Chunk* m_data;
 		size_t m_chunkCount;
 		size_t m_size;
@@ -179,23 +189,26 @@ private:
 			m_capacity(size * ChunkSize),
 			m_size(countAsInitialized ? (size * ChunkSize) : 0),
 			m_refCount(1) {
-			m_data = Allocator().allocate(m_chunkCount);
+			m_data = alloc.allocate(m_chunkCount);
 		}
 		~Container() {
-			Allocator().deallocate(m_data, m_chunkCount);
+			for (size_t i = 0; i < m_size; ++i) {
+				AllocTraits::destroy(alloc, &m_data[i]); // Call the destructor
+			}
+			alloc.deallocate(m_data, m_chunkCount);
 		}
 		void grow(size_t newChunks) {
-			Chunk* newChunkStore = Allocator().allocate(m_chunkCount + newChunks);
+			Chunk* newChunkStore = alloc.allocate(m_chunkCount + newChunks);
 			std::memcpy(newChunkStore,m_data,m_chunkCount * sizeof(Chunk));
-			Allocator().deallocate(m_data, m_chunkCount);
+			alloc.deallocate(m_data, m_chunkCount);
 			m_data = newChunkStore;
 			m_chunkCount += newChunks;
 			m_capacity = m_chunkCount * ChunkSize;
 		}
 		void shrink(size_t newChunkCount) {
-			Chunk* newChunkStore = Allocator().allocate(newChunkCount);
+			Chunk* newChunkStore = alloc.allocate(newChunkCount);
 			std::memcpy(newChunkStore,m_data,std::min(m_chunkCount,newChunkCount) * sizeof(Chunk));
-			Allocator().deallocate(m_data, m_chunkCount);
+			alloc.deallocate(m_data, m_chunkCount);
 			m_data = newChunkStore;
 			m_chunkCount = newChunkCount;
 			m_capacity = m_chunkCount * ChunkSize;
