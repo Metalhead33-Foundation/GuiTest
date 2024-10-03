@@ -32,7 +32,20 @@ template <typename Alloc> concept AlexandrescuAllocator = requires(Alloc alloc, 
 };
 
 template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> struct AlexandrescuAllocatorAdapter {
-	using value_type = T;   // Required by Allocator concept
+	typedef T& reference;
+	typedef const T& const_reference;
+	typedef T* pointer;
+	typedef const T* const_pointer;
+	typedef void* void_pointer;
+	typedef const void* const_void_pointer;
+	typedef T value_type;
+	typedef std::size_t size_type;
+	typedef std::ptrdiff_t difference_type;
+	typedef AlexandrescuAllocatorAdapter allocator_type;
+	typedef std::false_type propagate_on_container_copy_assignment;
+	typedef std::false_type propagate_on_container_move_assignment;
+	typedef std::false_type propagate_on_container_swap;
+	typedef std::true_type is_always_equal;
 	Alloc alloc_;           // The underlying AlexandrescuAllocator
 
 	AlexandrescuAllocatorAdapter() = default;
@@ -62,10 +75,34 @@ template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> stru
 		ptr->~T();  // Call the destructor of T
 	}
 	*/
+	template <typename U>
+	struct rebind {
+		using other = AlexandrescuAllocatorAdapter<Alloc, U>;
+	};
+	template <typename UAlloc, typename UT> requires AlexandrescuAllocator<UAlloc> constexpr AlexandrescuAllocatorAdapter(const AlexandrescuAllocatorAdapter <UAlloc, UT>&) noexcept {}
+	friend bool operator==(const AlexandrescuAllocatorAdapter& lhs, const AlexandrescuAllocatorAdapter& rhs) {
+		return true;
+	}
+	friend bool operator!=(const AlexandrescuAllocatorAdapter& lhs, const AlexandrescuAllocatorAdapter& rhs) {
+		return false;
+	}
 };
 
 template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> struct StaticAlexandrescuAllocatorAdapter {
-	using value_type = T;   // Required by Allocator concept
+	typedef T& reference;
+	typedef const T& const_reference;
+	typedef T* pointer;
+	typedef const T* const_pointer;
+	typedef void* void_pointer;
+	typedef const void* const_void_pointer;
+	typedef T value_type;
+	typedef std::size_t size_type;
+	typedef std::ptrdiff_t difference_type;
+	typedef StaticAlexandrescuAllocatorAdapter allocator_type;
+	typedef std::false_type propagate_on_container_copy_assignment;
+	typedef std::false_type propagate_on_container_move_assignment;
+	typedef std::false_type propagate_on_container_swap;
+	typedef std::true_type is_always_equal;
 	static Alloc alloc_;           // The underlying AlexandrescuAllocator
 
 	StaticAlexandrescuAllocatorAdapter() = default;
@@ -85,13 +122,24 @@ template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> stru
 	}
 
 	// Optional for ConstructingAllocator: construct an object of type T at the given pointer
-	void construct(T* ptr, const T& value) {
+	/*void construct(T* ptr, const T& value) {
 		::new(static_cast<void*>(ptr)) T(value);  // Placement new
-	}
+	}*/
 
 	// Optional for ConstructingAllocator: destroy an object of type T at the given pointer
-	void destroy(T* ptr) {
+	/*void destroy(T* ptr) {
 		ptr->~T();  // Call the destructor of T
+	}*/
+	template <typename U>
+	struct rebind {
+		using other = StaticAlexandrescuAllocatorAdapter<Alloc, U>;
+	};
+	template <typename UAlloc, typename UT> requires AlexandrescuAllocator<UAlloc> constexpr StaticAlexandrescuAllocatorAdapter(const StaticAlexandrescuAllocatorAdapter <UAlloc, UT>&) noexcept {}
+	friend bool operator==(const StaticAlexandrescuAllocatorAdapter& lhs, const StaticAlexandrescuAllocatorAdapter& rhs) {
+		return true;
+	}
+	friend bool operator!=(const StaticAlexandrescuAllocatorAdapter& lhs, const StaticAlexandrescuAllocatorAdapter& rhs) {
+		return false;
 	}
 };
 

@@ -4,6 +4,9 @@
 #include <Elvavena/Util/ElvHeapArray.hpp>
 #include <Elvavena/Util/ElvChunkyArray.hpp>
 #include <Elvavena/Util/ElvIntegralIterator.hpp>
+#include <Elvavena/Util/ElvFreelist.hpp>
+#include <Elvavena/Util/ElvBitmapAllocator.hpp>
+#include <vector>
 
 template<class T>
 struct Mallocator
@@ -43,22 +46,25 @@ private:
 	}
 };
 
+typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticBitmapAllocator<8,1024>,int> IntAllocator;
+
 int main(void)
 {
-	Elv::Util::UniqueChunkyArray<int,256,Mallocator<std::array<int,256>>> intarr(2);
-	std::span<int> intspan(intarr);
+	//Elv::Util::UniqueChunkyArray<int,256,Mallocator<std::array<int,256>>> intarr(2);
+	std::vector<int,IntAllocator> intarr(2);
 	for(int i = 0; i < 600;++i) {
 		intarr.emplace_back(i);
 	}
-	/*for(const auto& it : intspan) {
+	std::span<int> intspan(intarr);
+	for(const auto& it : intspan) {
 		std::cout << it << std::endl;
 	}
-	Elv::Util::IntegralIterable<int> range(10);
+	/*Elv::Util::IntegralIterable<int> range(10);
 	Elv::Util::IntegralIterable<int> range2(20);
 	range = range2;
 	for(auto it = std::rbegin(range); it != std::rend(range); ++it) {
 		std::cout << *it << std::endl;
-	}
+	}*/
 
 	/*for(const auto& it : range) {
 		std::cout << it << std::endl;

@@ -22,19 +22,21 @@ SOURCES += \
     main.cpp
 
 HEADERS += \
-    Elvavena/Util/ElvAllocator.hpp \
     Elvavena/Util/ElvAllocatorBasic.hpp \
+    Elvavena/Util/ElvBitmapAllocator.hpp \
     Elvavena/Util/ElvChunkyArray.hpp \
     Elvavena/Util/ElvCommandQueue.hpp \
     Elvavena/Util/ElvContinuousIterator.hpp \
     Elvavena/Util/ElvDynamicLib.hpp \
     Elvavena/Util/ElvEndianness.hpp \
     Elvavena/Util/ElvEventLoop.hpp \
+    Elvavena/Util/ElvFreelist.hpp \
     Elvavena/Util/ElvHeapArray.hpp \
     Elvavena/Util/ElvIntegralIterator.hpp \
     Elvavena/Util/ElvMathUtil.hpp \
     Elvavena/Util/ElvNormDenorm.hpp \
     Elvavena/Util/ElvSpanHelpers.hpp \
+    Elvavena/Util/ElvStackAllocator.hpp \
     Elvavena/Util/ElvThreadsafeContainer.hpp \
     Elvavena/Util/ElvThreadsafeQueue.hpp \
     Elvavena/Util/ElvUtilGlobals.hpp \
