@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <initializer_list>
 #include <iostream>
+#include <mutex>
+#include <memory>
 namespace Elv {
 namespace Util {
 
@@ -33,6 +35,8 @@ private:
 	static constexpr std::size_t MIN_BLOCK_SIZE = sizeof(FreeBlock);
 	alignas(std::max_align_t) char buffer_[Size];
 	FreeBlock* freeList_;
+	mutable std::recursive_mutex _mutex;
+	typedef std::lock_guard<std::recursive_mutex> Lock;
 
 public:
 	FixedFreeListAllocator() noexcept : freeList_(nullptr) {
@@ -40,6 +44,7 @@ public:
 	}
 
 	Blk allocateBlock(std::size_t n) noexcept {
+		Lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
 		n = alignUp(n);
 
@@ -81,6 +86,7 @@ public:
 	}
 
 	void deallocateBlock(const Blk& blk) noexcept {
+		Lock lock(_mutex);
 		if (!ownsBlock(blk)) {
 			return; // Silently ignore blocks that don't belong to us
 		}
@@ -101,6 +107,7 @@ public:
 	}
 
 	bool ownsBlock(const Blk& blk) const noexcept {
+		Lock lock(_mutex);
 		return blk.ptr >= buffer_ &&
 			   blk.ptr < (buffer_ + Size);
 	}
@@ -129,7 +136,7 @@ private:
 		return (n + sizeof(std::max_align_t) - 1) & ~(sizeof(std::max_align_t) - 1);
 	}
 };
-template <std::size_t Size> class StaticFreeListAllocator {
+template <std::size_t Size, int id> class StaticFreeListAllocator {
 private:
 	static FixedFreeListAllocator<Size> alloc;
 public:
@@ -143,7 +150,7 @@ public:
 		return alloc.ownsBlock(blk);
 	}
 };
-template <std::size_t Size> FixedFreeListAllocator<Size> StaticFreeListAllocator<Size>::alloc;
+template <std::size_t Size, int id> FixedFreeListAllocator<Size> StaticFreeListAllocator<Size, id>::alloc;
 
 // FreeListAllocator conforms to AlexandrescuAllocator
 template <typename BaseAlloc = std::allocator<std::byte>> requires Allocator<BaseAlloc,std::byte> struct DynamicFreeListAllocator {
@@ -158,6 +165,8 @@ private:
 	size_t totalSize_;
 	char* buffer_;
 	FreeBlock* freeList_;
+	mutable std::recursive_mutex _mutex;
+	typedef std::lock_guard<std::recursive_mutex> Lock;
 
 public:
 	DynamicFreeListAllocator(std::size_t totalSize)
@@ -171,6 +180,7 @@ public:
 	}
 
 	Blk allocateBlock(std::size_t n) noexcept {
+		Lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
 		n = alignUp(n);
 
@@ -212,6 +222,7 @@ public:
 	}
 
 	void deallocateBlock(const Blk& blk) noexcept {
+		Lock lock(_mutex);
 		if (!ownsBlock(blk)) {
 			return; // Silently ignore blocks that don't belong to us
 		}
@@ -232,6 +243,7 @@ public:
 	}
 
 	bool ownsBlock(const Blk& blk) const noexcept {
+		Lock lock(_mutex);
 		return blk.ptr >= buffer_ &&
 			   blk.ptr < (buffer_ + totalSize_);
 	}
@@ -273,15 +285,18 @@ private:
 	std::size_t totalSize_;
 	char* buffer_;
 	FreeBlock* freeList_;
+	mutable std::recursive_mutex _mutex;
+	typedef std::lock_guard<std::recursive_mutex> Lock;
 
 public:
-	ContiguousFreeListAllocator(std::size_t totalSize)
-		: totalSize_(totalSize), buffer_(reinterpret_cast<char*>(this) + sizeof(ContiguousFreeListAllocator))
+	ContiguousFreeListAllocator(std::size_t totalSize, char* buffer)
+		: totalSize_(totalSize), buffer_(buffer), freeList_(nullptr)
 	{
 		initializeFreeList();
 	}
 
 	Blk allocateBlock(std::size_t n) noexcept {
+		Lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
 		n = alignUp(n);
 
@@ -323,7 +338,11 @@ public:
 	}
 
 	void deallocateBlock(const Blk& blk) noexcept {
+		Lock lock(_mutex);
 		if (!ownsBlock(blk)) {
+			#ifndef NDEBUG
+			std::cerr << "Warning: Attempted to deallocate a block not owned by this allocator." << std::endl;
+			#endif
 			return; // Silently ignore blocks that don't belong to us
 		}
 
@@ -343,6 +362,7 @@ public:
 	}
 
 	bool ownsBlock(const Blk& blk) const noexcept {
+		Lock lock(_mutex);
 		return blk.ptr >= buffer_ &&
 			   blk.ptr < (buffer_ + totalSize_);
 	}
@@ -371,46 +391,64 @@ private:
 		return (n + sizeof(std::max_align_t) - 1) & ~(sizeof(std::max_align_t) - 1);
 	}
 };
+
 class FreelistMemoryManager {
 private:
 	void* memoryBlock;
 	std::vector<ContiguousFreeListAllocator*> allocators;
+	std::mutex allocMutex; // For thread safety
 
 public:
-	FreelistMemoryManager(const std::initializer_list<std::size_t>& subsystemSizes) {
-		std::size_t totalSize = sizeof(ContiguousFreeListAllocator) * subsystemSizes.size();
+	FreelistMemoryManager(const std::span<const std::size_t>& subsystemSizes) {
+		// Calculate total size with alignment
+		std::size_t totalSize = 0;
 		for (std::size_t size : subsystemSizes) {
-			totalSize += size;
+			totalSize += sizeof(ContiguousFreeListAllocator) + size;
 		}
 
-		memoryBlock = std::malloc(totalSize);
+		memoryBlock = std::aligned_alloc(alignof(ContiguousFreeListAllocator), totalSize);
 		if (!memoryBlock) {
 			throw std::bad_alloc();
 		}
 
 		char* currentPtr = static_cast<char*>(memoryBlock);
 		for (std::size_t size : subsystemSizes) {
-			ContiguousFreeListAllocator* allocator = new (currentPtr) ContiguousFreeListAllocator(size);
+			// Align the allocator's address
+			std::size_t space = totalSize - (currentPtr - static_cast<char*>(memoryBlock));
+			void* alignedAllocatorPtr = std::align(alignof(ContiguousFreeListAllocator), sizeof(ContiguousFreeListAllocator), reinterpret_cast<void*&>(currentPtr), space);
+			if (!alignedAllocatorPtr) {
+				throw std::bad_alloc(); // Alignment failed
+			}
+
+			ContiguousFreeListAllocator* allocator = new (alignedAllocatorPtr) ContiguousFreeListAllocator(size, currentPtr + sizeof(ContiguousFreeListAllocator));
 			allocators.push_back(allocator);
-			currentPtr += sizeof(ContiguousFreeListAllocator) + size;
+			currentPtr = static_cast<char*>(alignedAllocatorPtr) + sizeof(ContiguousFreeListAllocator) + size;
 		}
 	}
-	FreelistMemoryManager(const std::span<const std::size_t>& subsystemSizes) {
-		std::size_t totalSize = sizeof(ContiguousFreeListAllocator) * subsystemSizes.size();
+	FreelistMemoryManager(const std::initializer_list<std::size_t>& subsystemSizes) {
+		// Calculate total size with alignment
+		std::size_t totalSize = 0;
 		for (std::size_t size : subsystemSizes) {
-			totalSize += size;
+			totalSize += sizeof(ContiguousFreeListAllocator) + size;
 		}
 
-		memoryBlock = std::malloc(totalSize);
+		memoryBlock = std::aligned_alloc(alignof(ContiguousFreeListAllocator), totalSize);
 		if (!memoryBlock) {
 			throw std::bad_alloc();
 		}
 
 		char* currentPtr = static_cast<char*>(memoryBlock);
 		for (std::size_t size : subsystemSizes) {
-			ContiguousFreeListAllocator* allocator = new (currentPtr) ContiguousFreeListAllocator(size);
+			// Align the allocator's address
+			std::size_t space = totalSize - (currentPtr - static_cast<char*>(memoryBlock));
+			void* alignedAllocatorPtr = std::align(alignof(ContiguousFreeListAllocator), sizeof(ContiguousFreeListAllocator), reinterpret_cast<void*&>(currentPtr), space);
+			if (!alignedAllocatorPtr) {
+				throw std::bad_alloc(); // Alignment failed
+			}
+
+			ContiguousFreeListAllocator* allocator = new (alignedAllocatorPtr) ContiguousFreeListAllocator(size, currentPtr + sizeof(ContiguousFreeListAllocator));
 			allocators.push_back(allocator);
-			currentPtr += sizeof(ContiguousFreeListAllocator) + size;
+			currentPtr = static_cast<char*>(alignedAllocatorPtr) + sizeof(ContiguousFreeListAllocator) + size;
 		}
 	}
 
@@ -422,6 +460,7 @@ public:
 	}
 
 	ContiguousFreeListAllocator* getAllocator(std::size_t index) {
+		std::lock_guard<std::mutex> lock(allocMutex);
 		if (index >= allocators.size()) {
 			throw std::out_of_range("Allocator index out of range");
 		}
