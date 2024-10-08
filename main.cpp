@@ -46,12 +46,56 @@ private:
 	}
 };
 
-typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticBitmapAllocator<8,1024>,int> IntAllocator;
+enum class AllocatorSubsystem {
+	AUDIO,
+	VIDEO,
+	SCRIPT
+};
+struct WodMemoryManager {
+	typedef std::unique_ptr<Elv::Util::FreelistMemoryManager> uManager;
+private:
+	static uManager manager;
+public:
+	static Elv::Util::FreelistMemoryManager& getStaticManager() {
+		if(!manager) {
+			manager = uManager(new Elv::Util::FreelistMemoryManager(
+								   { 1024*8, 1024, 1024 }
+								   ));
+		}
+		return *manager;
+	}
+};
+WodMemoryManager::uManager WodMemoryManager::manager = nullptr;
+template <AllocatorSubsystem subsysId> struct WodMemoryManagerSubsystem {
+private:
+	static Elv::Util::ContiguousFreeListAllocator* alloc;
+public:
+	WodMemoryManagerSubsystem() {
+		if(!alloc) {
+			alloc = WodMemoryManager::getStaticManager().getAllocator(static_cast<size_t>(subsysId));
+		}
+	}
+	Elv::Util::Blk allocateBlock(std::size_t n) noexcept {
+		return alloc->allocateBlock(n);
+	}
+	void deallocateBlock(const Elv::Util::Blk& blk) noexcept {
+		alloc->deallocateBlock(blk);
+	}
+	bool ownsBlock(const Elv::Util::Blk& blk) const noexcept {
+		return alloc->ownsBlock(blk);
+	}
+};
+template <AllocatorSubsystem subsysId> Elv::Util::ContiguousFreeListAllocator* WodMemoryManagerSubsystem<subsysId>::alloc = nullptr;
+
+//typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticBitmapAllocator<8,1024>,int> IntAllocator;
+//typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticFreeListAllocator<sizeof(int)*20000>,int> IntAllocator;
+typedef Elv::Util::AlexandrescuAllocatorAdapter<WodMemoryManagerSubsystem<AllocatorSubsystem::AUDIO>,int> IntAllocator;
 
 int main(void)
 {
 	//Elv::Util::UniqueChunkyArray<int,256,Mallocator<std::array<int,256>>> intarr(2);
 	std::vector<int,IntAllocator> intarr(2);
+	intarr.reserve(600);
 	for(int i = 0; i < 600;++i) {
 		intarr.emplace_back(i);
 	}

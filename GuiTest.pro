@@ -35,6 +35,7 @@ HEADERS += \
     Elvavena/Util/ElvIntegralIterator.hpp \
     Elvavena/Util/ElvMathUtil.hpp \
     Elvavena/Util/ElvNormDenorm.hpp \
+    Elvavena/Util/ElvObserv.hpp \
     Elvavena/Util/ElvSpanHelpers.hpp \
     Elvavena/Util/ElvStackAllocator.hpp \
     Elvavena/Util/ElvThreadsafeContainer.hpp \
