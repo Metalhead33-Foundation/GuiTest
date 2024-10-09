@@ -55,8 +55,10 @@ struct WodMemoryManager {
 	typedef std::unique_ptr<Elv::Util::FreelistMemoryManager> uManager;
 private:
 	static uManager manager;
+	static std::mutex managerMutex;
 public:
 	static Elv::Util::FreelistMemoryManager& getStaticManager() {
+		std::lock_guard<std::mutex> lock(managerMutex);
 		if(!manager) {
 			manager = uManager(new Elv::Util::FreelistMemoryManager(
 								   { 1024*8, 1024, 1024 }
@@ -66,6 +68,8 @@ public:
 	}
 };
 WodMemoryManager::uManager WodMemoryManager::manager = nullptr;
+std::mutex WodMemoryManager::managerMutex;
+
 template <AllocatorSubsystem subsysId> struct WodMemoryManagerSubsystem {
 private:
 	static Elv::Util::ContiguousFreeListAllocator* alloc;
@@ -87,9 +91,17 @@ public:
 };
 template <AllocatorSubsystem subsysId> Elv::Util::ContiguousFreeListAllocator* WodMemoryManagerSubsystem<subsysId>::alloc = nullptr;
 
+
 //typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticBitmapAllocator<8,1024>,int> IntAllocator;
 //typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticFreeListAllocator<sizeof(int)*20000>,int> IntAllocator;
+struct RandomStruct;
 typedef Elv::Util::AlexandrescuAllocatorAdapter<WodMemoryManagerSubsystem<AllocatorSubsystem::AUDIO>,int> IntAllocator;
+typedef Elv::Util::AlexandrescuAllocatorAdapter<WodMemoryManagerSubsystem<AllocatorSubsystem::AUDIO>,RandomStruct> StructAllocator;
+DEFINE_STRUCT_PTRS_WITH_ALLOC(RandomStruct,StructAllocator)
+
+struct RandomStruct {
+	int whatever;
+};
 
 int main(void)
 {

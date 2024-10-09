@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <concepts>
 #include <new>
+#include <memory>
 namespace Elv {
 namespace Util {
 
@@ -14,10 +15,67 @@ template <typename Alloc, typename T> concept Allocator = requires(Alloc alloc, 
 	alloc.deallocate(ptr, n);                  // Must have deallocate function
 };
 
-template <typename Alloc, typename T> concept ConstructingAllocator = Allocator<Alloc, T> && requires(Alloc alloc, T* ptr, std::size_t n, T t) {
-	{ alloc.construct(ptr, t) };               // Optional: Must have construct function
-	{ alloc.destroy(ptr) };                    // Optional: Must have destroy function
+template <typename T, typename Alloc = std::allocator<T>> requires Allocator<Alloc, T> struct SmartPointerWrappersForAlloc {
+public:
+	// Deleter for unique_ptr
+	struct Deleter {
+		Alloc* allocator; // Pointer to allocator, nullptr if default
+		void operator()(T* ptr) const {
+			if (allocator) {
+				std::destroy_at(ptr);
+				allocator->deallocate(ptr, 1);
+			} else {
+				Alloc tempAlloc;
+				std::destroy_at(ptr);
+				tempAlloc.deallocate(ptr, 1);
+			}
+		}
+	};
+private:
+	template <typename... Args> static T* create(Args&&... args) {
+		Alloc allocator;
+		T* toReturn = allocator.allocate(1);
+		std::construct_at(toReturn, std::forward(args)...);
+		return toReturn;
+	}
+	template <typename... Args> static T* createWithAllocator(Alloc& allocator, Args&&... args) {
+		T* toReturn = allocator.allocate(1);
+		std::construct_at(toReturn, std::forward(args)...);
+		return toReturn;
+	}
+public:
+	typedef std::unique_ptr<T,Deleter> unique_ptr;
+	typedef std::shared_ptr<T> shared_ptr;
+	typedef std::weak_ptr<T> weak_ptr;
+	template <typename... Args > static unique_ptr make_unique(Alloc& allocator, Args&&... args) {
+		return unique_ptr(createWithAllocator(allocator,std::forward(args)...), Deleter{ &allocator } );
+	}
+	template <typename... Args > static unique_ptr make_unique(Args&&... args) {
+		return unique_ptr(create(std::forward(args)...), Deleter {nullptr} );
+	}
+	template <typename... Args > static shared_ptr make_shared(Alloc& allocator, Args&&... args) {
+		return shared_ptr(createWithAllocator(allocator,std::forward(args)...), Deleter{ &allocator });
+	}
+	template <typename... Args > static shared_ptr make_shared(Args&&... args) {
+		return shared_ptr(create(std::forward(args)...),  Deleter {nullptr} );
+	}
 };
+template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
+auto make_unique(Alloc & allocator, Args&&... args) {
+	return SmartPointerWrappersForAlloc<T,Alloc>::make_unique(allocator,std::forward(args)...);
+}
+template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
+auto make_unique(Args&&... args) {
+	return SmartPointerWrappersForAlloc<T,Alloc>::make_unique(std::forward(args)...);
+}
+template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
+auto make_shared(Alloc & allocator, Args&&... args) {
+	return SmartPointerWrappersForAlloc<T,Alloc>::make_shared(allocator,std::forward(args)...);
+}
+template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
+auto make_shared(Args&&... args) {
+	return SmartPointerWrappersForAlloc<T,Alloc>::make_shared(std::forward(args)...);
+}
 
 struct Blk
 {
@@ -176,5 +234,17 @@ struct SegregatorAllocator : private SmallAllocator, private LargeAllocator {
 
 }
 }
+
+#define DEFINE_STRUCT_PTRS_WITH_ALLOC(Klass,Alloc) struct Klass; \
+	typedef Elv::Util::SmartPointerWrappersForAlloc<Klass,Alloc> Klass##_Alloc; \
+	typedef Klass##_Alloc::unique_ptr u##Klass; \
+	typedef Klass##_Alloc::shared_ptr s##Klass; \
+	typedef Klass##_Alloc::weak_ptr w##Klass; \
+
+#define DEFINE_CLASS_PTRS_WITH_ALLOC(Klass,Alloc) class Klass; \
+	typedef Elv::Util::SmartPointerWrappersForAlloc<Klass,Alloc> Klass##_Alloc; \
+	typedef Klass##_Alloc::unique_ptr u##Klass; \
+	typedef Klass##_Alloc::shared_ptr s##Klass; \
+	typedef Klass##_Alloc::weak_ptr w##Klass; \
 
 #endif // ELVALLOCATORBASIC_HPP
