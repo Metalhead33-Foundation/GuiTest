@@ -7,7 +7,11 @@
 namespace Elv {
 namespace Util {
 
-// BitmapAllocator conforms to AlexandrescuAllocator
+//! An Andrei Alexandrescu-style memory allocator that uses a bitmap to record whether certain fixed-size blocks are occupied or free.
+/*!
+	\tparam BlockSize The size of each individual memory block.
+	\tparam NumBlocks The number of each memory block.
+*/
 template <std::size_t BlockSize, std::size_t NumBlocks>
 struct BitmapAllocator {
 	static_assert(BlockSize > 0, "BlockSize must be greater than 0");
@@ -26,11 +30,17 @@ public:
 	static constexpr size_t getBlockCount(std::size_t bytes) {
 		return div_ceil(bytes, BlockSize);
 	}
+	//! Constructor
 	BitmapAllocator()
 		: bitmap_() // All bits initialized to 0 (free)
 	{
 
 	}
+	//! Allocates memory.
+	/*!
+	\param n The amount of memory - in bytes - to allocate.
+	\return The allocated memory block. Contains a null-pointer and zero size if the allocation was unsuccessful.
+	*/
 	Blk allocateBlock(std::size_t n) {
 		const size_t blocksToAllocate = getBlockCount(n);
 		if (blocksToAllocate > NumBlocks) {
@@ -47,7 +57,10 @@ public:
 		}
 		return { nullptr, 0 }; // No free blocks available
 	}
-
+	//! Deallocates memory.
+	/*!
+	\param blk A reference to the memory block being allocated. Ensure that the block is owned by the given allocator!
+	*/
 	void deallocateBlock(const Blk& blk) {
 		if (!ownsBlock(blk)) {
 		}
@@ -60,7 +73,11 @@ public:
 			bitmap_.reset(index + i);
 		}
 	}
-
+	//! Checks if the allocator owns the memory.
+	/*!
+	\param blk A reference to the memory block being checked.
+	\return True if the allocator owns the block of memory, false otherwise.
+	*/
 	bool ownsBlock(const Blk& blk) {
 		return blk.ptr >= buffer_ &&
 			   blk.ptr < static_cast<char*>(buffer_) + (BlockSize * NumBlocks) &&
@@ -68,16 +85,36 @@ public:
 	}
 };
 
+//! An Andrei Alexandrescu-style memory allocator that uses a bitmap to record whether certain fixed-size blocks are occupied or free.
+/*!
+	\tparam BlockSize The size of each individual memory block.
+	\tparam NumBlocks The number of each memory block.
+*/
 template <std::size_t BlockSize, std::size_t NumBlocks> struct StaticBitmapAllocator {
 private:
+	//! The underlying allocator. Static.
 	static BitmapAllocator<BlockSize,NumBlocks> _allocator;
 public:
+	//! Allocates memory.
+	/*!
+	\param n The amount of memory - in bytes - to allocate.
+	\return The allocated memory block. Contains a null-pointer and zero size if the allocation was unsuccessful.
+	*/
 	Blk allocateBlock(std::size_t n) {
 		return _allocator.allocateBlock(n);
 	}
+	//! Deallocates memory.
+	/*!
+	\param blk A reference to the memory block being allocated. Ensure that the block is owned by the given allocator!
+	*/
 	void deallocateBlock(const Blk& blk) {
 		_allocator.deallocateBlock(blk);
 	}
+	//! Checks if the allocator owns the memory.
+	/*!
+	\param blk A reference to the memory block being checked.
+	\return True if the allocator owns the block of memory, false otherwise.
+	*/
 	bool ownsBlock(const Blk& blk) {
 		return _allocator.ownsBlock(blk);
 	}

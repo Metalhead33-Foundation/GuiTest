@@ -11,20 +11,10 @@
 #include <memory>
 namespace Elv {
 namespace Util {
-
-/*struct Freelist {
-	struct ll_head {
-		 ll_head *next;
-		 ll_head *prev;
-	};
-	struct alloc_node_t {
-		 ll_head node;
-		 size_t size;
-		 std::byte* block;
-	};
-};*/
-
-// FreeListAllocator conforms to AlexandrescuAllocator
+//! An Andrei Alexandrescu-style memory allocator that uses a freelist for keeping track of free blocks of memory within the entire memory space.
+/*!
+	\tparam Size The size of the entire memory space.
+*/
 template <std::size_t Size> class FixedFreeListAllocator {
 private:
 	struct FreeBlock {
@@ -39,10 +29,16 @@ private:
 	typedef std::lock_guard<std::recursive_mutex> Lock;
 
 public:
+	//! Constructor.
 	FixedFreeListAllocator() noexcept : freeList_(nullptr) {
 		initializeFreeList();
 	}
 
+	//! Allocates memory.
+	/*!
+	\param n The amount of memory - in bytes - to allocate.
+	\return The allocated memory block. Contains a null-pointer and zero size if the allocation was unsuccessful.
+	*/
 	Blk allocateBlock(std::size_t n) noexcept {
 		Lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
@@ -84,7 +80,10 @@ public:
 
 		return {nullptr, 0}; // Allocation failed
 	}
-
+	//! Deallocates memory.
+	/*!
+	\param blk A reference to the memory block being allocated. Ensure that the block is owned by the given allocator!
+	*/
 	void deallocateBlock(const Blk& blk) noexcept {
 		Lock lock(_mutex);
 		if (!ownsBlock(blk)) {
@@ -105,7 +104,11 @@ public:
 
 		mergeFreeBlocks();
 	}
-
+	//! Checks if the allocator owns the memory.
+	/*!
+	\param blk A reference to the memory block being checked.
+	\return True if the allocator owns the block of memory, false otherwise.
+	*/
 	bool ownsBlock(const Blk& blk) const noexcept {
 		Lock lock(_mutex);
 		return blk.ptr >= buffer_ &&
@@ -136,23 +139,45 @@ private:
 		return (n + sizeof(std::max_align_t) - 1) & ~(sizeof(std::max_align_t) - 1);
 	}
 };
+//! An Andrei Alexandrescu-style memory allocator that uses a freelist for keeping track of free blocks of memory within the entire memory space.
+/*!
+	\tparam Size The size of the entire memory space.
+	\tparam id Only used for having separate same-sized allocators.
+*/
 template <std::size_t Size, int id> class StaticFreeListAllocator {
 private:
 	static FixedFreeListAllocator<Size> alloc;
 public:
+	//! Allocates memory.
+	/*!
+	\param n The amount of memory - in bytes - to allocate.
+	\return The allocated memory block. Contains a null-pointer and zero size if the allocation was unsuccessful.
+	*/
 	Blk allocateBlock(std::size_t n) noexcept {
 		return alloc.allocateBlock(n);
 	}
+	//! Deallocates memory.
+	/*!
+	\param blk A reference to the memory block being allocated. Ensure that the block is owned by the given allocator!
+	*/
 	void deallocateBlock(const Blk& blk) noexcept {
 		alloc.deallocateBlock(blk);
 	}
+	//! Checks if the allocator owns the memory.
+	/*!
+	\param blk A reference to the memory block being checked.
+	\return True if the allocator owns the block of memory, false otherwise.
+	*/
 	bool ownsBlock(const Blk& blk) const noexcept {
 		return alloc.ownsBlock(blk);
 	}
 };
 template <std::size_t Size, int id> FixedFreeListAllocator<Size> StaticFreeListAllocator<Size, id>::alloc;
 
-// FreeListAllocator conforms to AlexandrescuAllocator
+//! An Andrei Alexandrescu-style memory allocator that uses a freelist for keeping track of free blocks of memory within the entire memory space.
+/*!
+	\tparam BaseAlloc The underlying allocator for allocating the memory space.
+*/
 template <typename BaseAlloc = std::allocator<std::byte>> requires Allocator<BaseAlloc,std::byte> struct DynamicFreeListAllocator {
 private:
 	struct FreeBlock {
@@ -160,15 +185,25 @@ private:
 		FreeBlock* next;
 	};
 
+	//! The underlying allocator for allocating the memory space.
 	BaseAlloc baseAlloc;
+	//! Size for alignment.
 	static constexpr std::size_t MIN_BLOCK_SIZE = sizeof(FreeBlock);
+	//! The total memory space's size.
 	size_t totalSize_;
+	//! Pointer to the size of the memory space.
 	char* buffer_;
+	//! Pointer to the first block of free memory.
 	FreeBlock* freeList_;
+	//! A mutex for keeping it all thread-safe.
 	mutable std::recursive_mutex _mutex;
+	//! A mutex for keeping it all thread-safe.
 	typedef std::lock_guard<std::recursive_mutex> Lock;
-
 public:
+	//! Constructor.
+	/*!
+	\param totalSize The size of the total memory space.
+	*/
 	DynamicFreeListAllocator(std::size_t totalSize)
 			: buffer_(baseAlloc.allocate(totalSize)),
 			  totalSize_(totalSize)
@@ -178,7 +213,11 @@ public:
 		freeList_->size = totalSize_;
 		freeList_->next = nullptr;
 	}
-
+	//! Allocates memory.
+	/*!
+	\param n The amount of memory - in bytes - to allocate.
+	\return The allocated memory block. Contains a null-pointer and zero size if the allocation was unsuccessful.
+	*/
 	Blk allocateBlock(std::size_t n) noexcept {
 		Lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
@@ -220,7 +259,10 @@ public:
 
 		return {nullptr, 0}; // Allocation failed
 	}
-
+	//! Deallocates memory.
+	/*!
+	\param blk A reference to the memory block being allocated. Ensure that the block is owned by the given allocator!
+	*/
 	void deallocateBlock(const Blk& blk) noexcept {
 		Lock lock(_mutex);
 		if (!ownsBlock(blk)) {
@@ -241,7 +283,11 @@ public:
 
 		mergeFreeBlocks();
 	}
-
+	//! Checks if the allocator owns the memory.
+	/*!
+	\param blk A reference to the memory block being checked.
+	\return True if the allocator owns the block of memory, false otherwise.
+	*/
 	bool ownsBlock(const Blk& blk) const noexcept {
 		Lock lock(_mutex);
 		return blk.ptr >= buffer_ &&

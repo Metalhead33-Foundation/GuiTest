@@ -10,11 +10,18 @@
 
 namespace Elv {
 namespace Util {
-
+//! A variable-size array that allocates data in chunks.
+/*!
+	\tparam T The type of data the array is filled with.
+	\tparam ChunkSize The size of chunks to allocate the data in.
+	\tparam Alloc Allocator to use for allocating memory for the data.
+*/
 template<class T, size_t ChunkSize = 256, class Alloc = std::allocator<std::array<T,ChunkSize>>>
 requires Allocator<Alloc, std::array<T,ChunkSize>> class UniqueChunkyArray {
 public:
+	//! A chunk
 	typedef std::array<T,ChunkSize> Chunk;
+	//! Value type
 	typedef T value_type;
 	typedef Alloc allocator_type;
 	typedef size_t size_type;
@@ -155,6 +162,12 @@ public:
 	}
 };
 
+//! A variable-size array that allocates data in chunks. This variant is shared, with reference-counting.
+/*!
+	\tparam T The type of data the array is filled with.
+	\tparam ChunkSize The size of chunks to allocate the data in.
+	\tparam Alloc Allocator to use for allocating memory for the data.
+*/
 template<class T, size_t ChunkSize = 256, class Alloc = std::allocator<std::array<T,ChunkSize>>>
 requires Allocator<Alloc, std::array<T,ChunkSize>> class SharedChunkyArray {
 public:
