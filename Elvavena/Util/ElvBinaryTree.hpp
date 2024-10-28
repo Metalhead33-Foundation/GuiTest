@@ -10,7 +10,7 @@ namespace Util {
 /*!
   \tparam T The type of element contained within the binary tree node.
 */
-template <typename T, typename Alloc = std::allocator<T>> requires Allocator<Alloc, T> struct BinaryTreeNode {
+template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*! A leaf in the binary tree node.*/
 	typedef SmartPointerWrappersForAlloc<BinaryTreeNode,Alloc>::unique_ptr Leaf;
 	/*! A traversal function*/
@@ -540,7 +540,7 @@ template <typename T, typename Alloc = std::allocator<T>> requires Allocator<All
 /*!
   \tparam T The type of element contained within the nodes of the binary tree.
 */
-template <typename T, typename Alloc = std::allocator<T>> requires Allocator<Alloc,T> struct BinaryTree {
+template <typename T, typename Alloc> struct BinaryTree {
 	/*! A node within the binary tree.*/
 	typedef BinaryTreeNode<T,Alloc> Node;
 	/*! A traversal function.*/
