@@ -12,7 +12,7 @@ namespace Util {
 */
 template <typename T, typename Alloc = std::allocator<T>> requires Allocator<Alloc, T> struct BinaryTreeNode {
 	/*! A leaf in the binary tree node.*/
-	typedef SmartPointerWrappersForAlloc<T,Alloc>::unique_ptr Leaf;
+	typedef SmartPointerWrappersForAlloc<BinaryTreeNode,Alloc>::unique_ptr Leaf;
 	/*! A traversal function*/
 	typedef std::function<void(T&)> TraversalFunction;
 	/*! A traversal function*/
