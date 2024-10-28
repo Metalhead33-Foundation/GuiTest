@@ -22,7 +22,10 @@ SOURCES += \
     main.cpp
 
 HEADERS += \
+    Elvavena/Io/ElvIoDevice.hpp \
+    Elvavena/Io/ElvIoSystem.hpp \
     Elvavena/Util/ElvAllocatorBasic.hpp \
+    Elvavena/Util/ElvBinaryTree.hpp \
     Elvavena/Util/ElvBitmapAllocator.hpp \
     Elvavena/Util/ElvChunkyArray.hpp \
     Elvavena/Util/ElvCommandQueue.hpp \
