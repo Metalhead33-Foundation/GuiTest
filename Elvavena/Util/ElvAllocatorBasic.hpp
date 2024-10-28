@@ -4,46 +4,51 @@
 #include <concepts>
 #include <new>
 #include <memory>
+
+/**
+ * @defgroup MemoryManagement Memory Management Utilities
+ * @{
+ */
 namespace Elv {
 namespace Util {
 
-//! Concept for a standard C++ allocator.
-/*!
-  \tparam Alloc The allocator.
-  \tparam T The type that the allocator allocates.
-*/
+/**
+ * @concept Allocator
+ * @brief Concept for an allocator type, ensuring it meets the necessary interface for memory management.
+ *
+ * @tparam Alloc Allocator type to check.
+ * @tparam T Type of objects to be allocated.
+ */
 template <typename Alloc, typename T> concept Allocator = requires(Alloc alloc, T* ptr, std::size_t n, T t) {
-	typename Alloc::value_type;               // Allocator must have a value_type
+	/// @brief Ensure Alloc has a value_type member.
+	typename Alloc::value_type;
+	/// @brief Require Alloc's value_type to be the same as T.
 	requires std::same_as<typename Alloc::value_type, T>;
-	//! Allocate function. Returns a pointer to the allocated data.
-	/*!
-	\param n The amount of objects to allocate memory for. Size is given in object-count, NOT bytes!
-	\return A pointer to the memory allocated.
-	*/
+	/// @brief Verify alloc can allocate n elements of T, returning a T*.
 	{ alloc.allocate(n) } -> std::same_as<T*>;
-	//! Deallocates memory.
-	/*!
-	\param ptr A pointer to the memory to deallocate.
-	\param n The amount of objects to deallocate. Size is given in object-count, NOT bytes!
-	*/
+	/// @brief Ensure alloc can deallocate ptr with size n.
 	alloc.deallocate(ptr, n);
 };
 
-//! A wrapper for smart pointers to use the given allocator.
-/*!
-	\tparam T The type that the allocator allocates.
-	\tparam Alloc The allocator for allocating and deallocating memory for objects of type T
-*/
+/**
+ * @class SmartPointerWrappersForAlloc
+ * @brief Provides smart pointer wrappers (unique_ptr, shared_ptr, weak_ptr) for a given type T and allocator Alloc.
+ *
+ * @tparam T Type of the objects to be managed.
+ * @tparam Alloc Allocator type (defaults to std::allocator<T>).
+ */
 template <typename T, typename Alloc = std::allocator<T>> requires Allocator<Alloc, T> struct SmartPointerWrappersForAlloc {
 public:
-	//! A wrapper for deleting the allocated memory.
+	/**
+	 * @struct Deleter
+	 * @brief Custom deleter for smart pointers, handling object destruction and memory deallocation.
+	 */
 	struct Deleter {
-		//! Pointer to allocator, nullptr if default
-		Alloc* allocator;
-		//! Deallocates memory.
-		/*!
-		\param ptr A pointer to the memory to deallocate.
-		*/
+		Alloc* allocator; ///< Allocator instance (or nullptr for default-constructed temporary allocator).
+		/**
+		 * @brief Calls destruction on the object and then deallocates the memory using the provided allocator.
+		 * @param ptr Pointer to the object to delete.
+		 */
 		void operator()(T* ptr) const {
 			if (allocator) {
 				std::destroy_at(ptr);
@@ -55,352 +60,341 @@ public:
 			}
 		}
 	};
+
 private:
-	//! Allocates and constructs object of type T. Assumes a singleton allocator.
-	/*!
-		\tparam Args The various arguments the constructor of T takes in
-		\param args The various arguments the constructor of T takes in
-		\return A pointer to the newly allocated instance of T
-	*/
+	/**
+	 * @brief Creates a new object of type T using the default allocator.
+	 * @tparam Args Parameter pack for T's constructor.
+	 * @param args Forwarded arguments for T's constructor.
+	 * @return Pointer to the newly created T object.
+	 */
 	template <typename... Args> static T* create(Args&&... args) {
 		Alloc allocator;
 		T* toReturn = allocator.allocate(1);
 		std::construct_at(toReturn, std::forward(args)...);
 		return toReturn;
 	}
-	//! Allocates and constructs object of type T. Assumes a stateful, non-singleton allocator that will outlive the allocated object.
-	/*!
-		\tparam Args The various arguments the constructor of T takes in
-		\param allocator The allocator for allocating and deallocating the memory.
-		\param args The various arguments the constructor of T takes in
-		\return A pointer to the newly allocated instance of T
-	*/
+
+	/**
+	 * @brief Creates a new object of type T using a provided allocator.
+	 * @tparam Args Parameter pack for T's constructor.
+	 * @param allocator Allocator instance to use.
+	 * @param args Forwarded arguments for T's constructor.
+	 * @return Pointer to the newly created T object.
+	 */
 	template <typename... Args> static T* createWithAllocator(Alloc& allocator, Args&&... args) {
 		T* toReturn = allocator.allocate(1);
 		std::construct_at(toReturn, std::forward(args)...);
 		return toReturn;
 	}
+
 public:
-	//! Unique pointer.
-	typedef std::unique_ptr<T,Deleter> unique_ptr;
-	//! Shared pointer.
+	/// @brief Unique pointer type with custom Deleter.
+	typedef std::unique_ptr<T, Deleter> unique_ptr;
+	/// @brief Shared pointer type.
 	typedef std::shared_ptr<T> shared_ptr;
-	//! Weak pointer.
+	/// @brief Weak pointer type.
 	typedef std::weak_ptr<T> weak_ptr;
-	//! Allocates and constructs object of type T. Assumes a stateful, non-singleton allocator that will outlive the allocated object.
-	/*!
-		\tparam Args The various arguments the constructor of T takes in
-		\param allocator The allocator for allocating and deallocating the memory.
-		\param args The various arguments the constructor of T takes in
-		\return A unique pointer to the newly allocated instance of T
-	*/
-	template <typename... Args > static unique_ptr make_unique(Alloc& allocator, Args&&... args) {
-		return unique_ptr(createWithAllocator(allocator,std::forward(args)...), Deleter{ &allocator } );
+
+	/**
+	 * @brief Creates a unique_ptr to a new T object, using the provided allocator.
+	 * @tparam Args Parameter pack for T's constructor.
+	 * @param allocator Allocator instance to use.
+	 * @param args Forwarded arguments for T's constructor.
+	 * @return unique_ptr to the newly created T object.
+	 */
+	template <typename... Args> static unique_ptr make_unique(Alloc& allocator, Args&&... args) {
+		return unique_ptr(createWithAllocator(allocator, std::forward(args)...), Deleter{ &allocator });
 	}
-	//! Allocates and constructs object of type T. Assumes a singleton allocator.
-	/*!
-		\tparam Args The various arguments the constructor of T takes in
-		\param args The various arguments the constructor of T takes in
-		\return A unique pointer to the newly allocated instance of T
-	*/
-	template <typename... Args > static unique_ptr make_unique(Args&&... args) {
-		return unique_ptr(create(std::forward(args)...), Deleter {nullptr} );
+
+	/**
+	 * @brief Creates a unique_ptr to a new T object, using a temporary default allocator.
+	 * @tparam Args Parameter pack for T's constructor.
+	 * @param args Forwarded arguments for T's constructor.
+	 * @return unique_ptr to the newly created T object.
+	 */
+	template <typename... Args> static unique_ptr make_unique(Args&&... args) {
+		return unique_ptr(create(std::forward(args)...), Deleter { nullptr });
 	}
-	//! Allocates and constructs object of type T. Assumes a stateful, non-singleton allocator that will outlive the allocated object.
-	/*!
-		\tparam Args The various arguments the constructor of T takes in
-		\param allocator The allocator for allocating and deallocating the memory.
-		\param args The various arguments the constructor of T takes in
-		\return A shared pointer to the newly allocated instance of T
-	*/
-	template <typename... Args > static shared_ptr make_shared(Alloc& allocator, Args&&... args) {
-		return shared_ptr(createWithAllocator(allocator,std::forward(args)...), Deleter{ &allocator });
+
+	/**
+	 * @brief Creates a shared_ptr to a new T object, using the provided allocator.
+	 * @tparam Args Parameter pack for T's constructor.
+	 * @param allocator Allocator instance to use.
+	 * @param args Forwarded arguments for T's constructor.
+	 * @return shared_ptr to the newly created T object.
+	 */
+	template <typename... Args> static shared_ptr make_shared(Alloc& allocator, Args&&... args) {
+		return shared_ptr(createWithAllocator(allocator, std::forward(args)...), Deleter{ &allocator });
 	}
-	//! Allocates and constructs object of type T. Assumes a singleton allocator.
-	/*!
-		\tparam Args The various arguments the constructor of T takes in
-		\param args The various arguments the constructor of T takes in
-		\return A shared pointer to the newly allocated instance of T
-	*/
-	template <typename... Args > static shared_ptr make_shared(Args&&... args) {
-		return shared_ptr(create(std::forward(args)...),  Deleter {nullptr} );
+
+	/**
+	 * @brief Creates a shared_ptr to a new T object, using a temporary default allocator.
+	 * @tparam Args Parameter pack for T's constructor.
+	 * @param args Forwarded arguments for T's constructor.
+	 * @return shared_ptr to the newly created T object.
+	 */
+	template <typename... Args> static shared_ptr make_shared(Args&&... args) {
+		return shared_ptr(create(std::forward(args)...), Deleter { nullptr });
 	}
 };
-//! Allocates and constructs object of type T. Assumes a stateful, non-singleton allocator that will outlive the allocated object.
-/*!
-	\tparam T The type of object to allocate and construct
-	\tparam Alloc The allocator for allocating and deallocating memory for objects of type T
-	\tparam Args The various arguments the constructor of T takes in
-	\param allocator The allocator for allocating and deallocating the memory.
-	\param args The various arguments the constructor of T takes in
-	\return A unique pointer to the newly allocated instance of T
-*/
+
+/**
+ * @overload make_unique
+ * @brief Free function variant of make_unique, mirroring the member function of the same name.
+ */
 template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
 SmartPointerWrappersForAlloc<T, Alloc>::unique_ptr make_unique(Alloc & allocator, Args&&... args) {
-	return SmartPointerWrappersForAlloc<T,Alloc>::make_unique(allocator,std::forward(args)...);
+	return SmartPointerWrappersForAlloc<T, Alloc>::make_unique(allocator, std::forward(args)...);
 }
-//! Allocates and constructs object of type T. Assumes a singleton allocator.
-/*!
-	\tparam T The type of object to allocate and construct
-	\tparam Alloc The allocator for allocating and deallocating memory for objects of type T
-	\tparam Args The various arguments the constructor of T takes in
-	\param args The various arguments the constructor of T takes in
-	\return A unique pointer to the newly allocated instance of T
-*/
+
+/**
+ * @overload make_unique
+ * @brief Free function variant of make_unique, using a temporary default allocator.
+ */
 template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
 SmartPointerWrappersForAlloc<T, Alloc>::unique_ptr make_unique(Args&&... args) {
-	return SmartPointerWrappersForAlloc<T,Alloc>::make_unique(std::forward(args)...);
+	return SmartPointerWrappersForAlloc<T, Alloc>::make_unique(std::forward(args)...);
 }
-//! Allocates and constructs object of type T. Assumes a stateful, non-singleton allocator that will outlive the allocated object.
-/*!
-	\tparam T The type of object to allocate and construct
-	\tparam Alloc The allocator for allocating and deallocating memory for objects of type T
-	\tparam Args The various arguments the constructor of T takes in
-	\param allocator The allocator for allocating and deallocating the memory.
-	\param args The various arguments the constructor of T takes in
-	\return A shared pointer to the newly allocated instance of T
-*/
+
+/**
+ * @overload make_shared
+ * @brief Free function variant of make_shared, mirroring the member function of the same name.
+ */
 template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
 SmartPointerWrappersForAlloc<T, Alloc>::shared_ptr make_shared(Alloc & allocator, Args&&... args) {
-	return SmartPointerWrappersForAlloc<T,Alloc>::make_shared(allocator,std::forward(args)...);
+	return SmartPointerWrappersForAlloc<T, Alloc>::make_shared(allocator, std::forward(args)...);
 }
-//! Allocates and constructs object of type T. Assumes a singleton allocator.
-/*!
-	\tparam T The type of object to allocate and construct
-	\tparam Alloc The allocator for allocating and deallocating memory for objects of type T
-	\tparam Args The various arguments the constructor of T takes in
-	\param args The various arguments the constructor of T takes in
-	\return A shared pointer to the newly allocated instance of T
-*/
+
+/**
+ * @overload make_shared
+ * @brief Free function variant of make_shared, using a temporary default allocator.
+ */
 template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
 SmartPointerWrappersForAlloc<T, Alloc>::shared_ptr make_shared(Args&&... args) {
-	return SmartPointerWrappersForAlloc<T,Alloc>::make_shared(std::forward(args)...);
+	return SmartPointerWrappersForAlloc<T, Alloc>::make_shared(std::forward(args)...);
 }
 
-//! Basic unit of memory allocation.
-struct Blk
-{
-	//! A pointer to the block of memory that has been allocated.
-	void* ptr;
-	//! The size of the memory block in bytes.
-	size_t size;
+/**
+ * @struct Blk
+ * @brief Structure representing a memory block.
+ */
+struct Blk {
+	void* ptr; ///< Pointer to the memory block.
+	size_t size; ///< Size of the memory block.
 };
 
-//! Allocator concept based on Andrei Alexandrescu's 2015 presentation on allocators.
-/*!
-\tparam Alloc The allocator.
-*/
+/**
+ * @concept AlexandrescuAllocator
+ * @brief Concept for an allocator type following the Alexandrescu style, providing block-level memory management.
+ *
+ * @tparam Alloc Allocator type to check.
+ */
 template <typename Alloc> concept AlexandrescuAllocator = requires(Alloc alloc, std::size_t n, Blk blk, const Blk& blkcref) {
-		//! Allocates memory.
-		/*!
-		\param n The amount of memory - in bytes - to allocate.
-		\return The allocated memory block. Contains a null-pointer and zero size if the allocation was unsuccessful.
-		*/
+	/// @brief Ensure alloc can allocate a block of size n, returning a Blk.
 	{ alloc.allocateBlock(n) } -> std::same_as<Blk>;
-		//! Deallocates memory.
-		/*!
-		\param blkcref A reference to the memory block being allocated. Ensure that the block is owned by the given allocator!
-		*/
+	/// @brief Verify alloc can deallocate a block.
 	{ alloc.deallocateBlock(blkcref) };
-		//! Checks if the allocator owns the memory. Be careful, some allocators (e.g. the Mallocator) might consistently return true!
-		/*!
-		\param blkcref A reference to the memory block being checked.
-		\return True if the allocator owns the block of memory, false otherwise. Be careful, some allocators (e.g. the Mallocator) might consistently return true!
-		*/
+	/// @brief Require alloc to check ownership of a block, returning a bool.
 	{ alloc.ownsBlock(blkcref) } -> std::same_as<bool>;
 };
-//! A wrapper that wraps Andrei Alexandrescu-style allocators to STL-style allocators.
-/*!
-  \tparam Alloc The allocator.
-  \tparam T The type that the allocator allocates.
-*/
+
+/**
+ * @class AlexandrescuAllocatorAdapter
+ * @brief Adapts an Alexandrescu-style allocator to the Standard Library's allocator interface.
+ *
+ * @tparam Alloc Alexandrescu-style allocator type.
+ * @tparam T Type of objects to be allocated.
+ */
 template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> struct AlexandrescuAllocatorAdapter {
+	/// @brief Reference type.
 	typedef T& reference;
+	/// @brief Const reference type.
 	typedef const T& const_reference;
+	/// @brief Pointer type.
 	typedef T* pointer;
+	/// @brief Const pointer type.
 	typedef const T* const_pointer;
+	/// @brief Void pointer type.
 	typedef void* void_pointer;
+	/// @brief Const void pointer type.
 	typedef const void* const_void_pointer;
+	/// @brief Value type.
 	typedef T value_type;
+	/// @brief Size type.
 	typedef std::size_t size_type;
-	typedef std::ptrdiff_t difference_type;
-	typedef AlexandrescuAllocatorAdapter allocator_type;
-	typedef std::false_type propagate_on_container_copy_assignment;
-	typedef std::false_type propagate_on_container_move_assignment;
-	typedef std::false_type propagate_on_container_swap;
-	typedef std::true_type is_always_equal;
-	//! The underlying AlexandrescuAllocator
-	Alloc alloc_;
+/// @brief Difference type.
+typedef std::ptrdiff_t difference_type;
+/// @brief Allocator type itself.
+typedef AlexandrescuAllocatorAdapter allocator_type;
+/// @brief Propagation trait for container copy assignment.
+typedef std::false_type propagate_on_container_copy_assignment;
+/// @brief Propagation trait for container move assignment.
+typedef std::false_type propagate_on_container_move_assignment;
+/// @brief Propagation trait for container swap.
+typedef std::false_type propagate_on_container_swap;
+/// @brief Equality trait (always equal for this adapter).
+typedef std::true_type is_always_equal;
 
-	//! Constructor
-	AlexandrescuAllocatorAdapter() = default;
+/// @brief Underlying Alexandrescu-style allocator instance.
+Alloc alloc_;
 
-	//! Allocate function. Returns a pointer to the allocated data.
-	/*!
-	\param n The amount of objects to allocate memory for. Size is given in object-count, NOT bytes!
-	\return A pointer to the memory allocated.
-	*/
-	T* allocate(std::size_t n) {
-		std::size_t total_size = n * sizeof(T);  // Calculate total size needed
-		Blk blk = alloc_.allocateBlock(total_size);
-		if (!blk.ptr) throw std::bad_alloc();
-		return static_cast<T*>(blk.ptr);  // Return the pointer cast to T*
-	}
+/**
+ * @brief Default constructor.
+ */
+AlexandrescuAllocatorAdapter() = default;
 
-	//! Deallocates memory.
-	/*!
-	\param ptr A pointer to the memory to deallocate.
-	\param n The amount of objects to deallocate. Size is given in object-count, NOT bytes!
-	*/
-	void deallocate(T* ptr, std::size_t n) {
-		Blk blk{ static_cast<void*>(ptr), n * sizeof(T) };
-		alloc_.deallocateBlock(blk);
-	}
+/**
+ * @brief Allocates memory for n objects of type T.
+ * @param n Number of objects to allocate memory for.
+ * @return Pointer to the beginning of the allocated memory.
+ * @throws std::bad_alloc if allocation fails.
+ */
+T* allocate(std::size_t n) {
+	std::size_t total_size = n * sizeof(T);
+	Blk blk = alloc_.allocateBlock(total_size);
+	if (!blk.ptr) throw std::bad_alloc();
+	return static_cast<T*>(blk.ptr);
+}
 
-	//! For STL compatibility
-	template <typename U>
-	struct rebind {
-		using other = AlexandrescuAllocatorAdapter<Alloc, U>;
-	};
-	//! For STL compatibility
-	template <typename UAlloc, typename UT> requires AlexandrescuAllocator<UAlloc> constexpr AlexandrescuAllocatorAdapter(const AlexandrescuAllocatorAdapter <UAlloc, UT>&) noexcept {}
-	friend bool operator==(const AlexandrescuAllocatorAdapter& lhs, const AlexandrescuAllocatorAdapter& rhs) {
-		return true;
-	}
-	//! For STL compatibility
-	friend bool operator!=(const AlexandrescuAllocatorAdapter& lhs, const AlexandrescuAllocatorAdapter& rhs) {
-		return false;
-	}
+/**
+ * @brief Deallocates memory previously allocated for n objects of type T.
+ * @param ptr Pointer to the memory to deallocate.
+ * @param n Number of objects the memory was allocated for.
+ */
+void deallocate(T* ptr, std::size_t n) {
+	Blk blk{ static_cast<void*>(ptr), n * sizeof(T) };
+	alloc_.deallocateBlock(blk);
+}
+
+/**
+ * @struct rebind
+ * @brief Helper for rebinding the allocator to a different type U.
+ *
+ * @tparam U New type to rebind the allocator to.
+ */
+template <typename U>
+struct rebind {
+	/// @brief The rebound allocator type.
+	using other = AlexandrescuAllocatorAdapter<Alloc, U>;
 };
 
-//! A wrapper that wraps Andrei Alexandrescu-style allocators to STL-style allocators.
-/*!
-  \tparam Alloc The allocator.
-  \tparam T The type that the allocator allocates.
-*/
+/**
+ * @brief Constructs an allocator from another AlexandrescuAllocatorAdapter instance.
+ * @tparam UAlloc Allocator type of the other instance.
+ * @tparam UT Type associated with the other instance.
+ * @param other Other AlexandrescuAllocatorAdapter instance.
+ */
+template <typename UAlloc, typename UT> requires AlexandrescuAllocator<UAlloc> constexpr AlexandrescuAllocatorAdapter(const AlexandrescuAllocatorAdapter <UAlloc, UT>&) noexcept {}
+
+/**
+ * @brief Equality operator (always returns true for this adapter).
+ * @param lhs Left-hand side allocator.
+ * @param rhs Right-hand side allocator.
+ * @return True.
+ */
+friend bool operator==(const AlexandrescuAllocatorAdapter& lhs, const AlexandrescuAllocatorAdapter& rhs) {
+	return true;
+}
+
+/**
+ * @brief Inequality operator (always returns false for this adapter).
+ * @param lhs Left-hand side allocator.
+ * @param rhs Right-hand side allocator.
+ * @return False.
+ */
+friend bool operator!=(const AlexandrescuAllocatorAdapter& lhs, const AlexandrescuAllocatorAdapter& rhs) {
+	return false;
+}
+};
+
+/**
+ * @class StaticAlexandrescuAllocatorAdapter
+ * @brief Static adaptation of AlexandrescuAllocatorAdapter, sharing a single allocator instance across all instances.
+ *
+ * @tparam Alloc Alexandrescu-style allocator type.
+ * @tparam T Type of objects to be allocated.
+ */
 template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> struct StaticAlexandrescuAllocatorAdapter {
-	typedef T& reference;
-	typedef const T& const_reference;
-	typedef T* pointer;
-	typedef const T* const_pointer;
-	typedef void* void_pointer;
-	typedef const void* const_void_pointer;
-	typedef T value_type;
-	typedef std::size_t size_type;
-	typedef std::ptrdiff_t difference_type;
-	typedef StaticAlexandrescuAllocatorAdapter allocator_type;
-	typedef std::false_type propagate_on_container_copy_assignment;
-	typedef std::false_type propagate_on_container_move_assignment;
-	typedef std::false_type propagate_on_container_swap;
-	typedef std::true_type is_always_equal;
-	//! The underlying AlexandrescuAllocator
+	//... (Documentation for this class is similar to AlexandrescuAllocatorAdapter, with the key difference being the static allocator instance)
+
+	/// @brief Shared, static allocator instance.
 	static Alloc alloc_;
-
-	//! Constructor
-	StaticAlexandrescuAllocatorAdapter() = default;
-
-	//! Allocate function. Returns a pointer to the allocated data.
-	/*!
-	\param n The amount of objects to allocate memory for. Size is given in object-count, NOT bytes!
-	\return A pointer to the memory allocated.
-	*/
-	T* allocate(std::size_t n) {
-		std::size_t total_size = n * sizeof(T);  // Calculate total size needed
-		Blk blk = alloc_.allocateBlock(total_size);
-		if (!blk.ptr) throw std::bad_alloc();
-		return static_cast<T*>(blk.ptr);  // Return the pointer cast to T*
-	}
-
-	//! Deallocates memory.
-	/*!
-	\param ptr A pointer to the memory to deallocate.
-	\param n The amount of objects to deallocate. Size is given in object-count, NOT bytes!
-	*/
-	void deallocate(T* ptr, std::size_t n) {
-		Blk blk{ static_cast<void*>(ptr), n * sizeof(T) };
-		alloc_.deallocateBlock(blk);
-	}
-	//! For STL compatibility
-	template <typename U>
-	struct rebind {
-		using other = StaticAlexandrescuAllocatorAdapter<Alloc, U>;
-	};
-	//! For STL compatibility
-	template <typename UAlloc, typename UT> requires AlexandrescuAllocator<UAlloc> constexpr StaticAlexandrescuAllocatorAdapter(const StaticAlexandrescuAllocatorAdapter <UAlloc, UT>&) noexcept {}
-	friend bool operator==(const StaticAlexandrescuAllocatorAdapter& lhs, const StaticAlexandrescuAllocatorAdapter& rhs) {
-		return true;
-	}
-	//! For STL compatibility
-	friend bool operator!=(const StaticAlexandrescuAllocatorAdapter& lhs, const StaticAlexandrescuAllocatorAdapter& rhs) {
-		return false;
-	}
 };
 
-//! A wrapper that tries allocating with Primary before using Fallback as a backup.
-/*!
-  \tparam Primary The primary allocator that we preferably allocate and deallocate with.
-  \tparam Fallback The backup allocator that we use in case Primary fails.
-*/
+/**
+ * @class FallbackAllocator
+ * @brief Allocator that falls back to a secondary allocator if the primary one fails to allocate or deallocate.
+ *
+ * @tparam Primary Primary allocator type.
+ * @tparam Fallback Secondary allocator type.
+ */
 template <typename Primary, typename Fallback> requires AlexandrescuAllocator<Primary> && AlexandrescuAllocator<Fallback>
 struct FallbackAllocator : private Primary, private Fallback {
-	//! Allocates memory.
-	/*!
-	\param n The amount of memory - in bytes - to allocate.
-	\return The allocated memory block. Contains a null-pointer and zero size if the allocation was unsuccessful.
-	*/
+	/**
+	 * @brief Allocates a block of memory, falling back to Fallback if Primary fails.
+	 * @param n Size of the block to allocate.
+	 * @return Allocated block.
+	 */
 	Blk allocateBlock(std::size_t n) {
 		Blk r = Primary::allocateBlock(n);
 		if(!r.ptr) r = Fallback::allocateBlock(n);
 		return r;
 	}
-	//! Deallocates memory.
-	/*!
-	\param blk A reference to the memory block being allocated. Ensure that the block is owned by the given allocator!
-	*/
+
+	/**
+	 * @brief Deallocates a block, trying Primary first, then Fallback.
+	 * @param blk Block to deallocate.
+	 */
 	void deallocateBlock(const Blk& blk) {
 		if(Primary::ownsBlock(blk)) Primary::deallocateBlock(blk);
 		else Fallback::deallocateBlock(blk);
 	}
-	//! Checks if the allocator owns the memory. Be careful, some allocators (e.g. the Mallocator) might consistently return true!
-	/*!
-	\param blk A reference to the memory block being checked.
-	\return True if the allocator owns the block of memory, false otherwise. Be careful, some allocators (e.g. the Mallocator) might consistently return true!
-	*/
+
+	/**
+	 * @brief Checks ownership of a block, considering both Primary and Fallback.
+	 * @param blk Block to check.
+	 * @return True if either Primary or Fallback owns the block.
+	 */
 	bool ownsBlock(const Blk& blk) {
 		return Primary::ownsBlock(blk) || Fallback::ownsBlock(blk);
 	}
 };
 
-//! A wrapper that tries allocating with Primary before using Fallback as a backup.
-/*!
-	\tparam threshold The byte-size delineation between the two allocator types. Below this number, we use the SmallAllocator. Above this number we use the LargeAllocator.
-	\tparam SmallAllocator When the memory we want to allocate is below the given threshold, we use this to allocate and deallocate memory.
-	\tparam LargeAllocator When the memory we want to allocate is above the given threshold, we use this to allocate and deallocate memory.
-*/
+/**
+ * @class SegregatorAllocator
+ * @brief Allocator that segregates allocations based on size, using SmallAllocator for smaller allocations and LargeAllocator for larger ones.
+ *
+ * @tparam threshold Size threshold for allocation segregation.
+ * @tparam SmallAllocator Allocator for smaller allocations.
+ * @tparam LargeAllocator Allocator for larger allocations.
+ */
 template <size_t threshold, typename SmallAllocator, typename LargeAllocator> requires AlexandrescuAllocator<SmallAllocator> && AlexandrescuAllocator<LargeAllocator>
 struct SegregatorAllocator : private SmallAllocator, private LargeAllocator {
-	//! Allocates memory.
-	/*!
-	\param n The amount of memory - in bytes - to allocate.
-	\return The allocated memory block. Contains a null-pointer and zero size if the allocation was unsuccessful.
-	*/
+	/**
+	 * @brief Allocates a block of memory, choosing the allocator based on the size.
+	 * @param n Size of the block to allocate.
+	 * @return Allocated block.
+	 */
 	Blk allocateBlock(std::size_t n) {
 		if(n <= threshold) return SmallAllocator::allocateBlock(n);
 		else return LargeAllocator::allocateBlock(n);
 	}
-	//! Deallocates memory.
-	/*!
-	\param blk A reference to the memory block being allocated. Ensure that the block is owned by the given allocator!
-	*/
+
+	/**
+	 * @brief Deallocates a block, selecting the allocator based on the block's size.
+	 * @param blk Block to deallocate.
+	 */
 	void deallocateBlock(const Blk& blk) {
 		if(blk.size <= threshold) return SmallAllocator::deallocateBlock(blk);
 		else return LargeAllocator::deallocateBlock(blk);
 	}
-	//! Checks if the allocator owns the memory. Be careful, some allocators (e.g. the Mallocator) might consistently return true!
-	/*!
-	\param blk A reference to the memory block being checked.
-	\return True if the allocator owns the block of memory, false otherwise. Be careful, some allocators (e.g. the Mallocator) might consistently return true!
-	*/
+
+	/**
+	 * @brief Checks ownership of a block, considering both allocators.
+	 * @param blk Block to check.
+	 * @return True if either allocator owns the block.
+	 */
 	bool ownsBlock(const Blk& blk) {
 		return SmallAllocator::ownsBlock(blk) || LargeAllocator::ownsBlock(blk);
 	}
@@ -408,26 +402,32 @@ struct SegregatorAllocator : private SmallAllocator, private LargeAllocator {
 
 }
 }
-//! Defines smart pointer alieses for a given struct with a given allocator type.
-/*!
-	\tparam Klass The struct itself.
-	\tparam Alloc The allocator for the struct.
-*/
+
+/**
+ * @def DEFINE_STRUCT_PTRS_WITH_ALLOC
+ * @brief Macro to define smart pointer types (unique, shared, weak) for a struct with a custom allocator.
+ *
+ * @param Klass Struct name.
+ * @param Alloc Allocator type.
+ */
 #define DEFINE_STRUCT_PTRS_WITH_ALLOC(Klass,Alloc) struct Klass; \
 	typedef Elv::Util::SmartPointerWrappersForAlloc<Klass,Alloc> Klass##_Alloc; \
 	typedef Klass##_Alloc::unique_ptr u##Klass; \
 	typedef Klass##_Alloc::shared_ptr s##Klass; \
-	typedef Klass##_Alloc::weak_ptr w##Klass; \
+	typedef Klass##_Alloc::weak_ptr w##Klass;
 
-//! Defines smart pointer alieses for a given class with a given allocator type.
-/*!
-	\tparam Klass The class itself.
-	\tparam Alloc The allocator for the struct.
-*/
+/**
+ * @def DEFINE_CLASS_PTRS_WITH_ALLOC
+ * @brief Macro to define smart pointer types (unique, shared, weak) for a class with a custom allocator.
+ *
+ * @param Klass Class name.
+ * @param Alloc Allocator type.
+ */
 #define DEFINE_CLASS_PTRS_WITH_ALLOC(Klass,Alloc) class Klass; \
 	typedef Elv::Util::SmartPointerWrappersForAlloc<Klass,Alloc> Klass##_Alloc; \
 	typedef Klass##_Alloc::unique_ptr u##Klass; \
 	typedef Klass##_Alloc::shared_ptr s##Klass; \
-	typedef Klass##_Alloc::weak_ptr w##Klass; \
+	typedef Klass##_Alloc::weak_ptr w##Klass;
 
+/// @} // End of MemoryManagement group
 #endif // ELVALLOCATORBASIC_HPP

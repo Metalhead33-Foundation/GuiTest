@@ -10,28 +10,115 @@
 namespace Elv {
 namespace Util {
 
-DEFINE_CLASS(EventLoop)
+/**
+ * @class EventLoop
+ * @brief Manages a thread for executing commands (functions) in a sequential manner.
+ *
+ * This class provides a thread-safe way to enqueue and execute commands from multiple threads.
+ * It ensures that all commands are executed in the order they were enqueued, within a dedicated thread.
+ *
+ * @note This class is non-copyable and non-movable to prevent unintended behavior.
+ */
 class MH_UTIL_API EventLoop
 {
 public:
+	/**
+	 * @typedef Command
+	 * @brief Type alias for a callable function with no arguments and no return value.
+	 */
 	typedef std::function<void()> Command;
+
 private:
+	/**
+	 * @var writeBuffer
+	 * @brief Buffer to store commands waiting to be executed.
+	 */
 	std::vector<Command> writeBuffer;
+
+	/**
+	 * @var commandsMutex
+	 * @brief Mutex to synchronize access to the command buffer.
+	 */
 	mutable std::mutex commandsMutex;
+
+	/**
+	 * @var condVar
+	 * @brief Condition variable to signal when new commands are available.
+	 */
 	std::condition_variable condVar;
+
+	/**
+	 * @var isRunning
+	 * @brief Flag indicating whether the event loop is currently running.
+	 */
 	bool isRunning;
+
+	/**
+	 * @var loopThread
+	 * @brief Dedicated thread for executing the event loop.
+	 */
 	std::thread loopThread;
+
+	/**
+	 * @fn loopFunction
+	 * @brief Internal function executed by the dedicated thread to process commands.
+	 *
+	 * This function runs in an infinite loop until the event loop is stopped.
+	 * It executes commands from the buffer in the order they were enqueued.
+	 */
 	void loopFunction();
+
+	// Non-copyable and non-movable
 	EventLoop(const EventLoop&) = delete;
 	EventLoop(EventLoop&&) noexcept = delete;
-	EventLoop& operator= (const EventLoop&) = delete;
-	EventLoop& operator= (EventLoop&&) noexcept = delete;
+	EventLoop& operator=(const EventLoop&) = delete;
+	EventLoop& operator=(EventLoop&&) noexcept = delete;
+
 public:
+	/**
+	 * @fn EventLoop
+	 * @brief Constructor, initializes the event loop and starts the dedicated thread.
+	 */
 	EventLoop();
+
+	/**
+	 * @fn ~EventLoop
+	 * @brief Destructor, stops the event loop and joins the dedicated thread.
+	 */
 	~EventLoop();
+
+	/**
+	 * @fn running
+	 * @brief Checks whether the event loop is currently running.
+	 *
+	 * @return True if the event loop is running, false otherwise.
+	 */
 	bool running() const;
+
+	/**
+	 * @fn enqueue
+	 * @brief Enqueues a command to be executed by the event loop.
+	 *
+	 * The command will be executed in the order it was received, within the dedicated thread.
+	 *
+	 * @param callable Command to be executed (rvalue reference to allow for temporary objects).
+	 */
 	void enqueue(Command&& callable);
-	template<typename Func, typename... Args> inline auto enqueueSync(Func&& callable, Args&& ...args)
+
+	/**
+	 * @fn enqueueSync
+	 * @brief Enqueues a command with arguments and waits for its completion.
+	 *
+	 * If called from the same thread as the event loop, the command is executed immediately.
+	 * Otherwise, the command is enqueued and the function waits for its completion.
+	 *
+	 * @tparam Func Type of the callable function.
+	 * @tparam Args Types of the function arguments.
+	 * @param callable Callable function to be executed (forwarding reference).
+	 * @param args Function arguments (forwarding references).
+	 * @return The result of the executed function.
+	 */
+	template<typename Func, typename... Args> inline auto enqueueSync(Func&& callable, Args&&...args)
 	{
 		if (std::this_thread::get_id() == loopThread.get_id())
 		{
@@ -53,7 +140,20 @@ public:
 
 		return task.get_future().get();
 	}
-	template<typename Func, typename... Args> [[nodiscard]] inline auto enqueueAsync(Func&& callable, Args&& ...args)
+
+	/**
+	 * @fn enqueueAsync
+	 * @brief Enqueues a command with arguments and returns a future for its result.
+	 *
+	 * The command is executed asynchronously, and the returned future can be used to retrieve the result.
+	 *
+	 * @tparam Func Type of the callable function.
+	 * @tparam Args Types of the function arguments.
+	 * @param callable Callable function to be executed (forwarding reference).
+	 * @param args Function arguments (forwarding references).
+	 * @return A future representing the result of the executed function.
+	 */
+	template<typename Func, typename... Args> [[nodiscard]] inline auto enqueueAsync(Func&& callable, Args&&...args)
 	{
 		using return_type = std::invoke_result_t<Func, Args...>;
 		using packaged_task_type = std::packaged_task<return_type()>;
