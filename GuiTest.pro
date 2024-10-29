@@ -33,6 +33,8 @@ HEADERS += \
     Elvavena/Util/ElvDynamicLib.hpp \
     Elvavena/Util/ElvEndianness.hpp \
     Elvavena/Util/ElvEventLoop.hpp \
+    Elvavena/Util/ElvFixedPoint.hpp \
+    Elvavena/Util/ElvFixedPointMath.hpp \
     Elvavena/Util/ElvFreelist.hpp \
     Elvavena/Util/ElvHeapArray.hpp \
     Elvavena/Util/ElvIntegralIterator.hpp \

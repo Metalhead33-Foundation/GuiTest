@@ -4,106 +4,330 @@
 namespace Elv {
 namespace Util {
 
+/**
+ * @brief Template struct representing an Integral Iterator.
+ *
+ * This class provides an iterator-like interface for integral types (e.g., int, long, etc.),
+ * enabling operations similar to those of STL iterators, along with basic arithmetic operations.
+ *
+ * @tparam T Integral type (e.g., int, long, etc.)
+ */
 template <typename T> struct IntegralIterator {
+	/**
+	 * @brief Type definition for the data type stored in the iterator.
+	 */
 	typedef T dataType;
+
+	/**
+	 * @brief Type definition for a reference to the data type.
+	 */
 	typedef T& dataTypeRef;
+
+	/**
+	 * @brief Type definition for a constant reference to the data type.
+	 */
 	typedef const T& dataTypeConstRef;
+
+	/**
+	 * @brief The integral value stored in the iterator.
+	 */
 	dataType var;
-	IntegralIterator(dataType nvar=0) : var(nvar) {
 
-	}
-	IntegralIterator(const IntegralIterator& cpy) : var(cpy.var) {
+	/**
+	 * @brief Constructor initializing the iterator with an optional starting value.
+	 *
+	 * @param nvar Initial value for the iterator (defaults to 0 if not provided).
+	 */
+	IntegralIterator(dataType nvar = 0) : var(nvar) {}
 
-	}
+	/**
+	 * @brief Copy constructor for creating a new iterator from an existing one.
+	 *
+	 * @param cpy The IntegralIterator instance to copy.
+	 */
+	IntegralIterator(const IntegralIterator& cpy) : var(cpy.var) {}
+
 	// Overloaded operators - assignment
+	/**
+	 * @brief Assignment operator for copying values from another IntegralIterator.
+	 *
+	 * @param other The IntegralIterator instance to copy values from.
+	 * @return Reference to this iterator after assignment.
+	 */
 	inline IntegralIterator& operator=(const IntegralIterator& other) {
 		this->var = other.var;
 		return *this;
 	}
+
+	/**
+	 * @brief Assignment operator for assigning a value of the dataType.
+	 *
+	 * @param other The value to assign to this iterator.
+	 * @return Reference to this iterator after assignment.
+	 */
 	inline IntegralIterator& operator=(const dataType& other) {
 		this->var = other;
 		return *this;
 	}
+
+	/**
+	 * @brief Addition assignment operator.
+	 *
+	 * @param other The value to add to this iterator's current value.
+	 * @return Reference to this iterator after addition.
+	 */
 	inline IntegralIterator& operator+=(const dataType& other) {
 		this->var += other;
 		return *this;
 	}
+
+	/**
+	 * @brief Subtraction assignment operator.
+	 *
+	 * @param other The value to subtract from this iterator's current value.
+	 * @return Reference to this iterator after subtraction.
+	 */
 	inline IntegralIterator& operator-=(const dataType& other) {
 		this->var -= other;
 		return *this;
 	}
+
+	/**
+	 * @brief Multiplication assignment operator.
+	 *
+	 * @param other The value to multiply with this iterator's current value.
+	 * @return Reference to this iterator after multiplication.
+	 */
 	inline IntegralIterator& operator*=(const dataType& other) {
 		this->var *= other;
 		return *this;
 	}
+
+	/**
+	 * @brief Division assignment operator.
+	 *
+	 * @param other The value to divide this iterator's current value by.
+	 * @return Reference to this iterator after division.
+	 */
 	inline IntegralIterator& operator/=(const dataType& other) {
 		this->var /= other;
 		return *this;
 	}
+
+	/**
+	 * @brief Modulus assignment operator.
+	 *
+	 * @param other The value to compute the modulus with this iterator's current value.
+	 * @return Reference to this iterator after modulus operation.
+	 */
 	inline IntegralIterator& operator%=(const dataType& other) {
 		this->var %= other;
 		return *this;
 	}
+
 	// Overloaded operators - new data
+	/**
+	 * @brief Addition operator creating a new iterator with the sum.
+	 *
+	 * @param other The value to add to this iterator's current value.
+	 * @return A new IntegralIterator with the result of the addition.
+	 */
 	inline IntegralIterator operator+(const dataType& other) const {
 		IntegralIterator a(*this);
 		a.var += other;
 		return a;
 	}
+
+	/**
+	 * @brief Subtraction operator creating a new iterator with the difference.
+	 *
+	 * @param other The value to subtract from this iterator's current value.
+	 * @return A new IntegralIterator with the result of the subtraction.
+	 */
 	inline IntegralIterator operator-(const dataType& other) const {
 		IntegralIterator a(*this);
 		a.var -= other;
 		return a;
 	}
+
+	/**
+	 * @brief Multiplication operator creating a new iterator with the product.
+	 *
+	 * @param other The value to multiply with this iterator's current value.
+	 * @return A new IntegralIterator with the result of the multiplication.
+	 */
 	inline IntegralIterator operator*(const dataType& other) const {
 		IntegralIterator a(*this);
 		a.var *= other;
 		return a;
 	}
+
+	/**
+	 * @brief Division operator creating a new iterator with the quotient.
+	 *
+	 * @param other The value to divide this iterator's current value by.
+	 * @return A new IntegralIterator with the result of the division.
+	 */
 	inline IntegralIterator operator/(const dataType& other) const {
 		IntegralIterator a(*this);
 		a.var /= other;
 		return a;
 	}
+
+	/**
+	 * @brief Modulus operator creating a new iterator with the remainder.
+	 *
+	 * @param other The value to compute the modulus with this iterator's current value.
+	 * @return A new IntegralIterator with the result of the modulus operation.
+	 */
 	inline IntegralIterator operator%(const dataType& other) const {
 		IntegralIterator a(*this);
 		a.var %= other;
 		return a;
 	}
+
 	// Iterator-like functionality
+	/**
+	 * @brief Prefix increment operator.
+	 *
+	 * @return Reference to this iterator after incrementing.
+	 */
 	inline IntegralIterator& operator++() { ++var; return *this;}
+
+	/**
+	 * @brief Prefix decrement operator.
+	 *
+	 * @return Reference to this iterator after decrementing.
+	 */
 	inline IntegralIterator& operator--() { --var; return *this;}
+
+	/**
+	 * @brief Postfix increment operator.
+	 *
+	 * @return A temporary IntegralIterator with the value before incrementing.
+	 */
 	inline IntegralIterator operator++(int) { IntegralIterator tmp(*this); ++var; return tmp;}
+
+	/**
+	 * @brief Postfix decrement operator.
+	 *
+	 * @return A temporary IntegralIterator with the value before decrementing.
+	 */
 	inline IntegralIterator operator--(int) { IntegralIterator tmp(*this); --var; return tmp;}
+
+	/**
+	 * @brief Dereference operator for non-const access.
+	 *
+	 * @return Reference to the stored value.
+	 */
 	inline dataType& operator*() { return var; }
+
+	/**
+	 * @brief Dereference operator for const access.
+	 *
+	 * @return Constant reference to the stored value.
+	 */
 	inline const dataType& operator*() const { return var; }
+
+	/**
+	 * @brief Implicit conversion operator to dataTypeRef.
+	 *
+	 * @return Reference to the stored value.
+	 */
 	inline operator dataTypeRef() { return var; }
+
+	/**
+	 * @brief Implicit conversion operator to dataTypeConstRef for const instances.
+	 *
+	 * @return Constant reference to the stored value.
+	 */
 	inline operator dataTypeConstRef() const { return var; }
+
+	/**
+	 * @name Iterator Traits
+	 * @{
+	 */
 	using iterator_category = std::bidirectional_iterator_tag;
 	using value_type = T;
 	using difference_type = T;
 	using pointer = T*;
 	using reference = T&;
+	/** @} */
 };
+
 // Overloaded operators - Comparisons
+/**
+ * @brief Equality comparison operator.
+ *
+ * @tparam T Integral type.
+ * @param lhs Left-hand side IntegralIterator.
+ * @param rhs Right-hand side IntegralIterator.
+ * @return True if both iterators hold the same value, false otherwise.
+ */
 template <typename T> inline bool operator==(const IntegralIterator<T>& lhs, const IntegralIterator<T>& rhs) {
 	return lhs.var == rhs.var;
 }
+
+/**
+ * @brief Inequality comparison operator.
+ *
+ * @tparam T Integral type.
+ * @param lhs Left-hand side IntegralIterator.
+ * @param rhs Right-hand side IntegralIterator.
+ * @return True if the iterators hold different values, false otherwise.
+ */
 template <typename T> inline bool operator!=(const IntegralIterator<T>& lhs, const IntegralIterator<T>& rhs) {
-	return lhs.var != rhs.var;
+	return lhs.var!= rhs.var;
 }
+
+/**
+ * @brief Less-than comparison operator.
+ *
+ * @tparam T Integral type.
+ * @param lhs Left-hand side IntegralIterator.
+ * @param rhs Right-hand side IntegralIterator.
+ * @return True if the left iterator's value is less than the right's, false otherwise.
+ */
 template <typename T> inline bool operator<(const IntegralIterator<T>& lhs, const IntegralIterator<T>& rhs) {
 	return lhs.var < rhs.var;
 }
+
+/**
+ * @brief Less-than-or-equal comparison operator.
+ *
+ * @tparam T Integral type.
+ * @param lhs Left-hand side IntegralIterator.
+ * @param rhs Right-hand side IntegralIterator.
+ * @return True if the left iterator's value is less than or equal to the right's, false otherwise.
+ */
 template <typename T> inline bool operator<=(const IntegralIterator<T>& lhs, const IntegralIterator<T>& rhs) {
 	return lhs.var <= rhs.var;
 }
+
+/**
+ * @brief Greater-than comparison operator.
+ *
+ * @tparam T Integral type.
+ * @param lhs Left-hand side IntegralIterator.
+ * @param rhs Right-hand side IntegralIterator.
+ * @return True if the left iterator's value is greater than the right's, false otherwise.
+ */
 template <typename T> inline bool operator>(const IntegralIterator<T>& lhs, const IntegralIterator<T>& rhs) {
 	return lhs.var > rhs.var;
 }
+
+/**
+ * @brief Greater-than-or-equal comparison operator.
+ *
+ * @tparam T Integral type.
+ * @param lhs Left-hand side IntegralIterator.
+ * @param rhs Right-hand side IntegralIterator.
+ * @return True if the left iterator's value is greater than or equal to the right's, false otherwise.
+ */
 template <typename T> inline bool operator>=(const IntegralIterator<T>& lhs, const IntegralIterator<T>& rhs) {
 	return lhs.var >= rhs.var;
 }
+
 /**
  * @brief Template struct representing an Integral Iterable.
  *
