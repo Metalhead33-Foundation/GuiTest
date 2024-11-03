@@ -5,6 +5,7 @@
 #include <Elvavena/Util/ElvMathUtil.hpp>
 #include <span>
 #include <string>
+#include <sstream>
 #include <vector>
 
 namespace Elv {
@@ -91,6 +92,7 @@ DEFINE_CLASS(Device)
  * implement these operations as needed for specific file types.
  */
 class Device {
+	public:
 	/**
 	 * @brief Reads data from the open file into a buffer.
 	 *

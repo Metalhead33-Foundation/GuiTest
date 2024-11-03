@@ -19,9 +19,15 @@ debug {
 SOURCES += \
     Elvavena/Util/ElvDynamicLib.cpp \
     Elvavena/Util/ElvEventLoop.cpp \
+    Euphemy/Io/EuphBufferDevice.cpp \
+    Euphemy/Io/EuphFile.cpp \
+    Euphemy/Io/EuphNullDevice.cpp \
+    Euphemy/Io/EuphSocket.cpp \
+    Euphemy/Io/EuphTempFile.cpp \
     main.cpp
 
 HEADERS += \
+    Elvavena/Io/ElvDataStream.hpp \
     Elvavena/Io/ElvIoDevice.hpp \
     Elvavena/Io/ElvIoSystem.hpp \
     Elvavena/Util/ElvAllocatorBasic.hpp \
@@ -29,10 +35,12 @@ HEADERS += \
     Elvavena/Util/ElvBitmapAllocator.hpp \
     Elvavena/Util/ElvChunkyArray.hpp \
     Elvavena/Util/ElvCommandQueue.hpp \
+    Elvavena/Util/ElvContainerBasic.hpp \
     Elvavena/Util/ElvContinuousIterator.hpp \
     Elvavena/Util/ElvDynamicLib.hpp \
     Elvavena/Util/ElvEndianness.hpp \
     Elvavena/Util/ElvEventLoop.hpp \
+    Elvavena/Util/ElvException.hpp \
     Elvavena/Util/ElvFixedPoint.hpp \
     Elvavena/Util/ElvFixedPointMath.hpp \
     Elvavena/Util/ElvFreelist.hpp \
@@ -46,4 +54,9 @@ HEADERS += \
     Elvavena/Util/ElvThreadsafeContainer.hpp \
     Elvavena/Util/ElvThreadsafeQueue.hpp \
     Elvavena/Util/ElvUtilGlobals.hpp \
-    Elvavena/Util/half.hpp
+    Elvavena/Util/half.hpp \
+    Euphemy/Io/EuphBufferDevice.hpp \
+    Euphemy/Io/EuphFile.hpp \
+    Euphemy/Io/EuphNullDevice.hpp \
+    Euphemy/Io/EuphSocket.hpp \
+    Euphemy/Io/EuphTempFile.hpp

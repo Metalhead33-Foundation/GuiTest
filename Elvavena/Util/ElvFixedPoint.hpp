@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cmath>
 #include <compare>
+#include <Elvavena/Io/ElvDataStream.hpp>
 #if __cplusplus <= 199711L
   #error This library needs at least a C++11 compliant compiler
 #endif
@@ -525,6 +526,15 @@ struct fixed_point {
 
 	/** @} */
 };
+
+template <typename container_t, container_t fraction_bits, Endian endianness>
+Io::DataStream<endianness>& operator<<(Io::DataStream<endianness>& left, const fixed_point<container_t, fraction_bits>& right) {
+	return left << right._container;
+}
+template <typename container_t, container_t fraction_bits, Endian endianness>
+Io::DataStream<endianness>& operator>>(Io::DataStream<endianness>& left, fixed_point<container_t, fraction_bits>& right) {
+	return left >> right._container;
+}
 
 typedef fixed_point<std::int16_t> fixed16;
 typedef fixed_point<std::int32_t> fixed32;

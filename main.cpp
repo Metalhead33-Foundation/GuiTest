@@ -7,6 +7,9 @@
 #include <Elvavena/Util/ElvFreelist.hpp>
 #include <Elvavena/Util/ElvBitmapAllocator.hpp>
 #include <vector>
+#include <Euphemy/Io/EuphBufferDevice.hpp>
+#include <Elvavena/Io/ElvDataStream.hpp>
+#include <map>
 
 template<class T>
 struct Mallocator
@@ -46,7 +49,7 @@ private:
 	}
 };
 
-enum class AllocatorSubsystem {
+/*enum class AllocatorSubsystem {
 	AUDIO,
 	VIDEO,
 	SCRIPT
@@ -101,12 +104,32 @@ DEFINE_STRUCT_PTRS_WITH_ALLOC(RandomStruct,StructAllocator)
 
 struct RandomStruct {
 	int whatever;
+};*/
+
+const std::map<int,std::string> baseMap {
+	{ 2, "Hello World!" },
+	{ 4, "Hello 4!" },
+	{ 6, "Hello 6!" },
+	{ 8, "Hello 8!" },
+	{ 10, "Hello 10!" },
 };
 
 int main(void)
 {
+	Euph::Io::UniqueChunkedArrayBuffer<256,Mallocator<std::array<std::byte,256>>> buff;
+	Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(buff);
+	datastream << baseMap;
+	{
+		std::map<int,std::string> newMap;
+		buff.seek(0, Elv::Io::SeekOrigin::SET);
+		datastream >> newMap;
+		for(auto it = newMap.begin(); it != newMap.end(); ++it)
+		{
+			std::cout << it->first << ' ' << it->second << std::endl;
+		}
+	}
 	//Elv::Util::UniqueChunkyArray<int,256,Mallocator<std::array<int,256>>> intarr(2);
-	std::vector<int,IntAllocator> intarr(2);
+	/*std::vector<int,IntAllocator> intarr(2);
 	intarr.reserve(600);
 	for(int i = 0; i < 600;++i) {
 		intarr.emplace_back(i);
@@ -114,7 +137,7 @@ int main(void)
 	std::span<int> intspan(intarr);
 	for(const auto& it : intspan) {
 		std::cout << it << std::endl;
-	}
+	}*/
 	/*Elv::Util::IntegralIterable<int> range(10);
 	Elv::Util::IntegralIterable<int> range2(20);
 	range = range2;
