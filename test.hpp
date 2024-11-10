@@ -9,5 +9,7 @@ void testZstdWithMaps();
 void testZstdWithLargeData();
 void testEncryptionWithMaps();
 void testEncryptionWithLargeData();
+void testCompressionAndEncryptionWithMaps();
+void testCompressionAndEncryptionWithLargeData();
 
 #endif // TEST_HPP

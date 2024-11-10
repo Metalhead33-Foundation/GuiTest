@@ -209,8 +209,33 @@ CryptoWriteDeviceProxy::CryptoWriteDeviceProxy(Device* underlyingDevice, size_t 
 
 CryptoWriteDeviceProxy::~CryptoWriteDeviceProxy()
 {
-	onFinish();
-	EVP_CIPHER_CTX_free(encryptCtx);
+	if(encryptCtx) {
+		onFinish();
+		EVP_CIPHER_CTX_free(encryptCtx);
+	}
+}
+
+CryptoWriteDeviceProxy::CryptoWriteDeviceProxy(CryptoWriteDeviceProxy&& mov)
+	: Elv::Io::BufferedWriteDeviceProxy(std::move(mov)), key(std::move(mov.key)), finalized(mov.finalized), firstWrite(mov.firstWrite), cipherType(mov.cipherType)
+{
+	std::memcpy(iv.data(), mov.iv.data(), mov.iv.size());
+	mov.finalized = true;
+	this->encryptCtx = mov.encryptCtx;
+	mov.encryptCtx = nullptr;
+}
+
+CryptoWriteDeviceProxy& CryptoWriteDeviceProxy::operator=(CryptoWriteDeviceProxy&& mov)
+{
+	this->cipherType = mov.cipherType;
+	this->firstWrite = mov.firstWrite;
+	this->finalized = mov.finalized;
+	mov.finalized = true;
+	this->key = std::move(mov.key);
+	std::memcpy(iv.data(), mov.iv.data(), mov.iv.size());
+	this->encryptCtx = mov.encryptCtx;
+	mov.encryptCtx = nullptr;
+	BufferedWriteDeviceProxy::operator=(std::move(mov));
+	return *this;
 }
 
 void CryptoWriteDeviceProxy::onFinish()
@@ -264,8 +289,28 @@ CryptoReadDeviceProxy::CryptoReadDeviceProxy(Device* underlyingDevice, size_t in
 
 CryptoReadDeviceProxy::~CryptoReadDeviceProxy()
 {
-	EVP_CIPHER_CTX_free(decryptCtx);
+	if(decryptCtx) EVP_CIPHER_CTX_free(decryptCtx);
 }
+
+CryptoReadDeviceProxy::CryptoReadDeviceProxy(CryptoReadDeviceProxy&& mov)
+	: Elv::Io::BufferedReadDeviceProxy(std::move(mov)), key(std::move(mov.key)), cipherType(mov.cipherType)
+{
+	std::memcpy(iv.data(), mov.iv.data(), mov.iv.size());
+	this->decryptCtx = mov.decryptCtx;
+	mov.decryptCtx = nullptr;
+}
+
+CryptoReadDeviceProxy& CryptoReadDeviceProxy::operator=(CryptoReadDeviceProxy&& mov)
+{
+	this->cipherType = mov.cipherType;
+	this->key = std::move(mov.key);
+	std::memcpy(iv.data(), mov.iv.data(), mov.iv.size());
+	this->decryptCtx = mov.decryptCtx;
+	mov.decryptCtx = nullptr;
+	BufferedReadDeviceProxy::operator=(std::move(mov));
+	return *this;
+}
+
 
 }
 }

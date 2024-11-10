@@ -1,4 +1,5 @@
 #include "EuphFile.hpp"
+#include <filesystem>
 #ifdef _WIN32
 	#include <windows.h>
 #elif defined (__unix)
@@ -193,5 +194,78 @@ bool File::isValid() const
 #endif
 }
 
+Elv::Io::Device* Filesystem::open(const char* path, Elv::Io::Mode mode)
+{
+	return new File(path,mode);
+}
+
+bool Filesystem::exists(const char* path)
+{
+	return std::filesystem::exists(path);
+}
+
+char Filesystem::separator() const
+{
+#if defined(_WIN32)
+	return '\\';
+#elif defined(__unix)
+	return '/';
+#else
+#error "Unknown operating system, we don't know what the OS separator is!"
+#endif
+}
+
+void Filesystem::enumerate(const char* path, bool withPath, FilenameCallback functor)
+{
+	auto tmpath = std::filesystem::directory_iterator(path);
+	if(withPath) {
+		for(const auto& p : tmpath ) {
+			const auto tmp = p.path();
+			functor(tmp.c_str());
+		}
+	} else {
+		for(const auto& p : tmpath ) {
+			const auto tmp = p.path().filename();
+			functor(tmp.c_str());
+		}
+	}
+}
+
+void Filesystem::enumerate(const char* path, FilesystemCallback functor)
+{
+	auto tmpath = std::filesystem::directory_iterator(path);
+	for(const auto& p : tmpath ) {
+		const auto tmpA = p.path();
+		const auto tmpB = tmpA.filename();
+		functor(this,tmpA.c_str(),tmpB.c_str());
+	}
+}
+
+bool Filesystem::isDirectory(const char* path)
+{
+	return std::filesystem::is_directory(path);
+}
+
+bool Filesystem::isSymlink(const char* path)
+{
+	return std::filesystem::is_symlink(path);
+}
+
+bool Filesystem::isFile(const char* path)
+{
+	return std::filesystem::is_regular_file(path);
+}
+
+bool Filesystem::mkdir(const char* dir)
+{
+	return std::filesystem::create_directory(dir);
+}
+
+bool Filesystem::remove(const char* path)
+{
+	return std::filesystem::remove_all(path);
+}
+
 }
 }
+

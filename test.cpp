@@ -195,6 +195,31 @@ template <class WriteDataClass, class ReadDataClass> void testProxyWithMaps() {
 		}
 	}
 }
+template <class WriteDataClassA, class WirteDataClassB, class ReadDataClassA, class ReadDataClassB> void testProxyWithMaps2() {
+	Euph::Io::UniqueChunkedArrayBuffer<1024,Mallocator<std::array<std::byte,1024>>> buff;
+	// Stage 1: Writing into our buffer
+	{
+		WirteDataClassB encryptor(&buff);
+		WriteDataClassA compressor(&encryptor);
+		Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(compressor);
+		datastream << baseMap;
+		compressor.flush();
+		encryptor.flush();
+	}
+	// Stage 2: Reading back
+	{
+		std::map<int,std::string> newMap;
+		buff.seek(0, Elv::Io::SeekOrigin::SET);
+		ReadDataClassB decryptor(&buff);
+		ReadDataClassA decompressor(&decryptor);
+		Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(decompressor);
+		datastream >> newMap;
+		for(auto it = newMap.begin(); it != newMap.end(); ++it)
+		{
+			std::cout << it->first << ' ' << it->second << std::endl;
+		}
+	}
+}
 template <class WriteDataClass, class ReadDataClass> void testProxyWithLargeData() {
 	Euph::Io::UniqueChunkedArrayBuffer<1024,Mallocator<std::array<std::byte,1024>>> buff;
 	std::vector<int> integers(492768);
@@ -216,6 +241,44 @@ template <class WriteDataClass, class ReadDataClass> void testProxyWithLargeData
 	{
 		buff.seek(0, Elv::Io::SeekOrigin::SET);
 		ReadDataClass decompressor(&buff);
+		Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(decompressor);
+		datastream >> integers2;
+	}
+	// Stage 3: Comparing the values
+	if(integers.size() != integers2.size()) throw std::runtime_error("Their sizes are supposed to be the same element count!!");
+	for(size_t i = 0; i < integers.size(); ++i)
+	{
+		if(integers[i] != integers2[i]) {
+			std::cout << "Fail! " << integers[i] << " and " << integers2[i] << " are not the same! Decompression/decryption went wrong at index [" << i << "]!" << std::endl;
+			return;
+		}
+	}
+	std::cout << "Success!" << std::endl;
+}
+template <class WriteDataClassA, class WirteDataClassB, class ReadDataClassA, class ReadDataClassB> void testProxyWithLargeData2() {
+	Euph::Io::UniqueChunkedArrayBuffer<1024,Mallocator<std::array<std::byte,1024>>> buff;
+	std::vector<int> integers(492768);
+	std::vector<int> integers2;
+	// Stage 0: Filling the vector
+	{
+		Euph::Io::RandomDevice randdev(Euph::Io::RandomSource::URANDOM);
+		Elv::Io::DataStream<Elv::Util::Endian::Native> datastream(randdev);
+		datastream.readElementsInto<int>(integers.begin(),integers.end());
+	}
+	// Stage 1: Writing into our buffer
+	{
+		WirteDataClassB encryptor(&buff);
+		WriteDataClassA compressor(&encryptor);
+		Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(compressor);
+		datastream << integers;
+		compressor.flush();
+		encryptor.flush();
+	}
+	// Stage 2: Reading back
+	{
+		buff.seek(0, Elv::Io::SeekOrigin::SET);
+		ReadDataClassB decryptor(&buff);
+		ReadDataClassA decompressor(&decryptor);
 		Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(decompressor);
 		datastream >> integers2;
 	}
@@ -257,4 +320,14 @@ void testEncryptionWithMaps()
 void testEncryptionWithLargeData()
 {
 	testProxyWithLargeData<EncryptionTest,DecryptionTest>();
+}
+
+void testCompressionAndEncryptionWithMaps()
+{
+	testProxyWithMaps2<Euph::Io::ZstdCompressor,EncryptionTest,Euph::Io::ZstdDecompressor,DecryptionTest>();
+}
+
+void testCompressionAndEncryptionWithLargeData()
+{
+	testProxyWithLargeData2<Euph::Io::ZstdCompressor,EncryptionTest,Euph::Io::ZstdDecompressor,DecryptionTest>();
 }

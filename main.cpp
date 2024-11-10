@@ -6,7 +6,7 @@
 int main(void)
 {
 	//std::cout << "Hello world!" << std::endl;
-	testEncryptionWithLargeData();
+	testCompressionAndEncryptionWithLargeData();
 	return 0;
 }
 

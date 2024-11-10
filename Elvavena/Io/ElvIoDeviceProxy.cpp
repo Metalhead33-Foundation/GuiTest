@@ -16,6 +16,18 @@ bool BufferedWriteDeviceProxy::flushBufferToUnderlyingDevice()
 	return underlyingDevice->flush();
 }
 
+BufferedWriteDeviceProxy::BufferedWriteDeviceProxy(BufferedWriteDeviceProxy&& mov)
+	: BufferedDeviceProxy(std::move(mov))
+{
+
+}
+
+BufferedWriteDeviceProxy& BufferedWriteDeviceProxy::operator=(BufferedWriteDeviceProxy&& mov)
+{
+	BufferedDeviceProxy::operator=(std::move(mov));
+	return *this;
+}
+
 BufferedWriteDeviceProxy::BufferedWriteDeviceProxy(Device* underlyingDevice, size_t inBufferSize, size_t outBufferSize)
 	: BufferedDeviceProxy(underlyingDevice, inBufferSize, outBufferSize)
 {
@@ -105,10 +117,23 @@ bool BufferedReadDeviceProxy::fillBuffer()
 	return outBufferFence != 0;
 }
 
+BufferedReadDeviceProxy::BufferedReadDeviceProxy(BufferedReadDeviceProxy&& mov)
+	: BufferedDeviceProxy(std::move(mov)), outBufferFence(mov.outBufferFence)
+{
+	mov.outBufferFence = 0;
+}
+
+BufferedReadDeviceProxy& BufferedReadDeviceProxy::operator=(BufferedReadDeviceProxy&& mov)
+{
+	this->outBufferFence = mov.outBufferFence;
+	mov.outBufferFence = 0;
+	BufferedDeviceProxy::operator=(std::move(mov));
+	return *this;
+}
+
 BufferedReadDeviceProxy::BufferedReadDeviceProxy(Device* underlyingDevice, size_t inBufferSize, size_t outBufferSize)
 	: BufferedDeviceProxy(underlyingDevice, inBufferSize, outBufferSize), outBufferFence(0)
 {
-
 }
 
 size_t BufferedReadDeviceProxy::read(void* buffer, size_t size, size_t count)
@@ -155,6 +180,30 @@ BufferedDeviceProxy::BufferedDeviceProxy(Device* underlyingDevice, size_t inBuff
 	: underlyingDevice(underlyingDevice), inBuffer(inBufferSize), outBuffer(outBufferSize), bufferCursor(0)
 {
 
+}
+
+/*
+	Device* underlyingDevice;
+	std::vector<std::byte> inBuffer, outBuffer;
+	intptr_t bufferCursor;
+*/
+
+BufferedDeviceProxy::BufferedDeviceProxy(BufferedDeviceProxy&& mov)
+	: underlyingDevice(mov.underlyingDevice), inBuffer(std::move(mov.inBuffer)), outBuffer(std::move(mov.outBuffer)), bufferCursor(mov.bufferCursor)
+{
+	mov.underlyingDevice = nullptr;
+	mov.bufferCursor = 0;
+}
+
+BufferedDeviceProxy& BufferedDeviceProxy::operator=(BufferedDeviceProxy&& mov)
+{
+	this->underlyingDevice = mov.underlyingDevice;
+	mov.underlyingDevice = nullptr;
+	this->bufferCursor = mov.bufferCursor;
+	mov.bufferCursor = 0;
+	this->inBuffer = std::move(mov.inBuffer);
+	this->outBuffer = std::move(mov.outBuffer);
+	return *this;
 }
 
 

@@ -29,6 +29,7 @@ SOURCES += \
     Euphemy/Io/EuphStdfileWrapper.cpp \
     Euphemy/Io/EuphTempFile.cpp \
     Euphemy/Io/EuphZstd.cpp \
+    Euphemy/Io/PhysFS.cpp \
     main.cpp \
     test.cpp
 
@@ -71,4 +72,5 @@ HEADERS += \
     Euphemy/Io/EuphStdfileWrapper.hpp \
     Euphemy/Io/EuphTempFile.hpp \
     Euphemy/Io/EuphZstd.hpp \
+    Euphemy/Io/PhysFS.hpp \
     test.hpp

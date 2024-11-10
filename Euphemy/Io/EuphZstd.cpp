@@ -54,8 +54,29 @@ ZstdCompressor::ZstdCompressor(Device* underlyingDevice)
 
 ZstdCompressor::~ZstdCompressor()
 {
-	onFinish();
-	if(handle) ZSTD_freeCCtx(MCHANDLE);
+	if(handle) {
+		onFinish();
+		ZSTD_freeCCtx(MCHANDLE);
+	}
+}
+
+ZstdCompressor::ZstdCompressor(ZstdCompressor&& mov)
+	: BufferedWriteDeviceProxy(std::move(mov))
+{
+	this->finalized = mov.finalized;
+	mov.finalized = true;
+	this->handle = mov.handle;
+	mov.handle = nullptr;
+}
+
+ZstdCompressor& ZstdCompressor::operator=(ZstdCompressor&& mov)
+{
+	this->finalized = mov.finalized;
+	mov.finalized = true;
+	this->handle = mov.handle;
+	mov.handle = nullptr;
+	BufferedWriteDeviceProxy::operator=(std::move(mov));
+	return *this;
 }
 
 void ZstdCompressor::setCompressionLevel(float value)
@@ -96,7 +117,7 @@ size_t ZstdDecompressor::processInBufferToOutBuffer(size_t bytesRead)
 }
 
 ZstdDecompressor::ZstdDecompressor(Device* underlyingDevice)
-	: Elv::Io::BufferedReadDeviceProxy(underlyingDevice, ZSTD_DStreamInSize(), ZSTD_DStreamOutSize()), handle(ZSTD_createDCtx())
+	: BufferedReadDeviceProxy(underlyingDevice, ZSTD_DStreamInSize(), ZSTD_DStreamOutSize()), handle(ZSTD_createDCtx())
 {
 
 }
@@ -104,6 +125,21 @@ ZstdDecompressor::ZstdDecompressor(Device* underlyingDevice)
 ZstdDecompressor::~ZstdDecompressor()
 {
 	if(handle) ZSTD_freeDCtx(MHDHANDLE);
+}
+
+ZstdDecompressor::ZstdDecompressor(ZstdDecompressor&& mov)
+	: BufferedReadDeviceProxy(std::move(mov))
+{
+	this->handle = mov.handle;
+	mov.handle = nullptr;
+}
+
+ZstdDecompressor& ZstdDecompressor::operator=(ZstdDecompressor&& mov)
+{
+	this->handle = mov.handle;
+	mov.handle = nullptr;
+	BufferedReadDeviceProxy::operator=(std::move(mov));
+	return *this;
 }
 
 }
