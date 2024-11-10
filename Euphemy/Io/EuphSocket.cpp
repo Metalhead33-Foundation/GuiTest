@@ -255,7 +255,7 @@ bool Socket::flush()
 	return true;
 }
 
-bool Socket::isValid()
+bool Socket::isValid() const
 {
 	return sockfd_ >= 0;
 }

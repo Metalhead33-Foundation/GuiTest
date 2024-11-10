@@ -1,26 +1,18 @@
-#ifndef EUPHTEMPFILE_HPP
-#define EUPHTEMPFILE_HPP
+#ifndef STDFILEWRAPPER_HPP
+#define STDFILEWRAPPER_HPP
 #include <Elvavena/Io/ElvIoDevice.hpp>
+#include <cstdio>
 namespace Euph {
 namespace Io {
-
-class TempFile : public Elv::Io::Device
+class StdfileWrapper : public Elv::Io::Device
 {
 private:
-#ifdef _WIN32
-	HANDLE fileHandle = INVALID_HANDLE_VALUE;
-#else
-	int fileDescriptor = -1;
-#endif
-	std::string filePath;
-	TempFile(const TempFile& cpy) = delete;
-	TempFile& operator=(const TempFile& cpy) = delete;
-	std::string path;
+	FILE* cfile;
+	Elv::Io::Mode mode;
 public:
-	TempFile();
-	~TempFile();
-	TempFile(TempFile&& mov);
-	TempFile& operator=(TempFile&& mov);
+	StdfileWrapper(FILE* cfile, Elv::Io::Mode mode);
+	StdfileWrapper(const StdfileWrapper& cpy);
+	StdfileWrapper& operator=(const StdfileWrapper& cpy);
 	size_t read(void* buffer, size_t size, size_t count) override;
 	size_t write(const void* buffer, size_t size, size_t count) override;
 	int seek(long offset, Elv::Io::SeekOrigin whence) override;
@@ -31,8 +23,9 @@ public:
 	bool flush() override;
 	bool isValid() const override;
 };
-
+#ifndef NODECLARE_STANDARD_OUTPUTS
+extern StdfileWrapper STDIN, STDOUT, STDERR;
+#endif
 }
 }
-
-#endif // EUPHTEMPFILE_HPP
+#endif // STDFILEWRAPPER_HPP

@@ -11,7 +11,7 @@ NullDevice::NullDevice()
 size_t NullDevice::read(void* buffer, size_t size, size_t count)
 {
 	memset(buffer,0,count * size);
-	return size * count;
+	return count;
 }
 
 size_t NullDevice::write(const void* buffer, size_t size, size_t count)
@@ -46,7 +46,7 @@ bool NullDevice::eof()
 
 Elv::Io::Mode NullDevice::getMode() const
 {
-	return Elv::Io::Mode::READ_WRITE;
+	return Elv::Io::Mode::READ;
 }
 
 bool NullDevice::flush()
@@ -54,7 +54,7 @@ bool NullDevice::flush()
 	return true;
 }
 
-bool NullDevice::isValid()
+bool NullDevice::isValid() const
 {
 	return true;
 }

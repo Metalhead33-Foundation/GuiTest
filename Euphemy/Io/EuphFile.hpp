@@ -31,7 +31,7 @@ public:
 	bool eof() override;
 	Elv::Io::Mode getMode() const override;
 	bool flush() override;
-	bool isValid() override;
+	bool isValid() const override;
 };
 
 }

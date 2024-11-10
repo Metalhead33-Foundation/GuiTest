@@ -17,10 +17,10 @@ ReadOnlyBufferWrapper::ReadOnlyBufferWrapper(const std::span<const std::byte>& s
 
 size_t ReadOnlyBufferWrapper::read(void* buffer, size_t size, size_t count)
 {
-	const size_t bytesToRead = size * count;
+	const size_t bytesToRead = std::min(size * count, buffSize - cursor);
 	std::memcpy(buffer, &ptr[cursor], bytesToRead);
 	cursor += bytesToRead;
-	return count;
+	return bytesToRead / size;
 }
 
 size_t ReadOnlyBufferWrapper::write(const void* buffer, size_t size, size_t count)
@@ -72,7 +72,7 @@ bool ReadOnlyBufferWrapper::flush()
 	return true;
 }
 
-bool ReadOnlyBufferWrapper::isValid()
+bool ReadOnlyBufferWrapper::isValid() const
 {
 	return true;
 }
@@ -85,10 +85,10 @@ StaticBufferWrapper::StaticBufferWrapper(void* ptr, size_t buffSize)
 
 size_t StaticBufferWrapper::read(void* buffer, size_t size, size_t count)
 {
-	const size_t bytesToRead = size * count;
+	const size_t bytesToRead = std::min(size * count, buffSize - cursor);
 	std::memcpy(buffer, &ptr[cursor], bytesToRead);
 	cursor += bytesToRead;
-	return count;
+	return bytesToRead / size;
 }
 
 size_t StaticBufferWrapper::write(const void* buffer, size_t size, size_t count)
@@ -140,7 +140,7 @@ bool StaticBufferWrapper::flush()
 	return true;
 }
 
-bool StaticBufferWrapper::isValid()
+bool StaticBufferWrapper::isValid() const
 {
 	return true;
 }

@@ -300,11 +300,11 @@ template <Util::Endian io_endianness = Util::Endian::Big> struct DataStream {
 	template <typename Container> requires Util::VectorLike<Container>
 	inline DataStream& operator<<(const Container& data) {
 		*this << static_cast<uint32_t>( data.size () );
-		if constexpr(sizeof(Container::value_type) == sizeof(std::byte)) {
+		if constexpr(sizeof(typename Container::value_type) == sizeof(std::byte)) {
 			device.write(data.data (), 1, data.size () );
 			return *this;
 		} else {
-			return writeElements<Container::value_type>(data.begin(), data.end(), false);
+			return writeElements<typename Container::value_type>(data.begin(), data.end(), false);
 		}
 	}
 	template <typename Container> requires Util::VectorLike<Container>

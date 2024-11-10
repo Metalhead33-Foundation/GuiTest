@@ -17,18 +17,23 @@ debug {
 }
 
 SOURCES += \
+    Elvavena/Io/ElvIoDeviceProxy.cpp \
     Elvavena/Util/ElvDynamicLib.cpp \
     Elvavena/Util/ElvEventLoop.cpp \
     Euphemy/Io/EuphBufferDevice.cpp \
     Euphemy/Io/EuphFile.cpp \
     Euphemy/Io/EuphNullDevice.cpp \
+    Euphemy/Io/EuphRandomDevice.cpp \
     Euphemy/Io/EuphSocket.cpp \
+    Euphemy/Io/EuphStdfileWrapper.cpp \
     Euphemy/Io/EuphTempFile.cpp \
+    Euphemy/Io/EuphZstd.cpp \
     main.cpp
 
 HEADERS += \
     Elvavena/Io/ElvDataStream.hpp \
     Elvavena/Io/ElvIoDevice.hpp \
+    Elvavena/Io/ElvIoDeviceProxy.hpp \
     Elvavena/Io/ElvIoSystem.hpp \
     Elvavena/Util/ElvAllocatorBasic.hpp \
     Elvavena/Util/ElvBinaryTree.hpp \
@@ -58,5 +63,8 @@ HEADERS += \
     Euphemy/Io/EuphBufferDevice.hpp \
     Euphemy/Io/EuphFile.hpp \
     Euphemy/Io/EuphNullDevice.hpp \
+    Euphemy/Io/EuphRandomDevice.hpp \
     Euphemy/Io/EuphSocket.hpp \
-    Euphemy/Io/EuphTempFile.hpp
+    Euphemy/Io/EuphStdfileWrapper.hpp \
+    Euphemy/Io/EuphTempFile.hpp \
+    Euphemy/Io/EuphZstd.hpp

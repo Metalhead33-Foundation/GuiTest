@@ -168,7 +168,7 @@ class Device {
 	 *
 	 * @return True if the file device is valid, false otherwise.
 	 */
-	virtual bool isValid() = 0;
+	virtual bool isValid() const = 0;
 
 	/**
 	 * @brief Virtual destructor to ensure proper cleanup by derived classes.

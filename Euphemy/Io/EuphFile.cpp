@@ -184,7 +184,7 @@ bool File::flush()
 #endif
 }
 
-bool File::isValid()
+bool File::isValid() const
 {
 #ifdef _WIN32
 		return fileHandle != INVALID_HANDLE_VALUE;

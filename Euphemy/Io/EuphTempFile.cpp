@@ -176,7 +176,7 @@ bool TempFile::flush()
 #endif
 }
 
-bool TempFile::isValid()
+bool TempFile::isValid() const
 {
 #ifdef _WIN32
 		return fileHandle != INVALID_HANDLE_VALUE;

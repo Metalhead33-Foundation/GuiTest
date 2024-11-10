@@ -315,7 +315,7 @@ public:
 	 *
 	 * @return         True if the socket is valid, false otherwise.
 	 */
-	bool isValid() override;
+	bool isValid() const override;
 
 	// Socket-specific methods
 

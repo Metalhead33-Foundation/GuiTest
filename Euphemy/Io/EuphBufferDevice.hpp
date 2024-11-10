@@ -118,7 +118,7 @@ public:
 	 *
 	 * @return Always true.
 	 */
-	bool isValid() override;
+	bool isValid() const override;
 };
 
 
@@ -226,7 +226,7 @@ public:
 	 *
 	 * @return Always true.
 	 */
-	bool isValid() override;
+	bool isValid() const override;
 };
 
 /**
@@ -283,10 +283,10 @@ public:
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override
 	{
-		const size_t bytesToRead = size * count;
+		const size_t bytesToRead = std::min(size * count, storage.size() - cursor);
 		std::memcpy(buffer, &storage[cursor], bytesToRead);
 		cursor += bytesToRead;
-		return count;
+		return bytesToRead / size;
 	}
 
 	/**
@@ -393,7 +393,7 @@ public:
 	 *
 	 * @return True, indicating the buffer is valid.
 	 */
-	bool isValid() override
+	bool isValid() const override
 	{
 		return true;
 	}
@@ -470,10 +470,10 @@ public:
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override
 	{
-		const size_t bytesToRead = size * count;
+		const size_t bytesToRead = std::min(size * count, storage.size() - cursor);
 		std::memcpy(buffer, &storage[cursor], bytesToRead);
 		cursor += bytesToRead;
-		return count;
+		return bytesToRead / size;
 	}
 
 	/**
@@ -580,7 +580,7 @@ public:
 	 *
 	 * @return True, indicating the device is in a valid state.
 	 */
-	bool isValid() override
+	bool isValid() const override
 	{
 		return true;
 	}
@@ -652,10 +652,10 @@ public:
 	 * @return         Number of elements successfully read.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override {
-		const size_t bytesToRead = size * count;
+		const size_t bytesToRead = std::min(size * count, storage.size() - cursor);
 		std::memcpy(buffer, &storage[cursor], bytesToRead);
 		cursor += bytesToRead;
-		return count;
+		return bytesToRead / size;
 	}
 
 	/**
@@ -736,7 +736,7 @@ public:
 	/**
 	 * @brief Flushes the file buffer to ensure written data is committed.
 	 *
-	 * @return True if the flush operation was successful,false otherwise.
+	 * @return Always true, because it is a memory-only buffer.
 	 */
 	bool flush() override {
 		return true;
@@ -747,7 +747,7 @@ public:
 	 *
 	 * @return True if the file device is valid,false otherwise.
 	 */
-	bool isValid() override {
+	bool isValid() const override {
 		// TODO: Implement actual validation logic here
 		return true; // Placeholder for actual implementation
 	}

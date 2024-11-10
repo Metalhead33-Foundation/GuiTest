@@ -10,6 +10,8 @@
 #include <Euphemy/Io/EuphBufferDevice.hpp>
 #include <Elvavena/Io/ElvDataStream.hpp>
 #include <map>
+#include <Euphemy/Io/EuphRandomDevice.hpp>
+#include <Euphemy/Io/EuphZstd.hpp>
 
 template<class T>
 struct Mallocator
@@ -114,8 +116,38 @@ const std::map<int,std::string> baseMap {
 	{ 10, "Hello 10!" },
 };
 
+void testMapDatastream();
+void randomDeviceTest();
+void testMemoryAllocator();
+void testIntegralIterable();
+void testZstdWithMaps();
+void testZstdWithLargeData();
+
 int main(void)
 {
+	//std::cout << "Hello world!" << std::endl;
+	testZstdWithLargeData();
+	return 0;
+}
+
+void randomDeviceTest() {
+	std::vector<int> intVec(12,0);
+	std::cout << "Before random: ";
+	for(const auto& it : intVec) {
+		std::cout << it << ' ';
+	}
+	Euph::Io::RandomDevice randdev(Euph::Io::RandomSource::URANDOM);
+	Elv::Io::DataStream<Elv::Util::Endian::Native> randStream(randdev);
+	for(auto& it : intVec)
+	{
+		randStream >> it;
+	}
+	std::cout << "\nAfter random: ";
+	for(const auto& it : intVec) {
+		std::cout << it << ' ';
+	}
+	std::cout << std::endl;}
+void testMapDatastream() {
 	Euph::Io::UniqueChunkedArrayBuffer<256,Mallocator<std::array<std::byte,256>>> buff;
 	Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(buff);
 	datastream << baseMap;
@@ -128,8 +160,10 @@ int main(void)
 			std::cout << it->first << ' ' << it->second << std::endl;
 		}
 	}
-	//Elv::Util::UniqueChunkyArray<int,256,Mallocator<std::array<int,256>>> intarr(2);
-	/*std::vector<int,IntAllocator> intarr(2);
+}
+void testMemoryAllocator() {
+	typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticBitmapAllocator<8,1024>,int> IntAllocator;
+	std::vector<int,IntAllocator> intarr(2);
 	intarr.reserve(600);
 	for(int i = 0; i < 600;++i) {
 		intarr.emplace_back(i);
@@ -137,17 +171,73 @@ int main(void)
 	std::span<int> intspan(intarr);
 	for(const auto& it : intspan) {
 		std::cout << it << std::endl;
-	}*/
-	/*Elv::Util::IntegralIterable<int> range(10);
+	}
+}
+void testIntegralIterable() {
+	Elv::Util::IntegralIterable<int> range(10);
 	Elv::Util::IntegralIterable<int> range2(20);
 	range = range2;
 	for(auto it = std::rbegin(range); it != std::rend(range); ++it) {
 		std::cout << *it << std::endl;
-	}*/
-
-	/*for(const auto& it : range) {
+	}
+	for(const auto& it : range) {
 		std::cout << it << std::endl;
-	}*/
-	std::cout << "Hello world!" << std::endl;
-	return 0;
+	}
+}
+void testZstdWithMaps() {
+	Euph::Io::UniqueChunkedArrayBuffer<1024,Mallocator<std::array<std::byte,1024>>> buff;
+	// Stage 1: Writing into our buffer
+	{
+		Euph::Io::ZstdCompressor compressor(&buff);
+		Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(compressor);
+		datastream << baseMap;
+		compressor.flush();
+	}
+	// Stage 2: Reading back
+	{
+		std::map<int,std::string> newMap;
+		buff.seek(0, Elv::Io::SeekOrigin::SET);
+		Euph::Io::ZstdDecompressor decompressor(&buff);
+		Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(decompressor);
+		datastream >> newMap;
+		for(auto it = newMap.begin(); it != newMap.end(); ++it)
+		{
+			std::cout << it->first << ' ' << it->second << std::endl;
+		}
+	}
+}
+void testZstdWithLargeData() {
+	Euph::Io::UniqueChunkedArrayBuffer<1024,Mallocator<std::array<std::byte,1024>>> buff;
+	std::vector<int> integers(392768);
+	std::vector<int> integers2;
+	// Stage 0: Filling the vector
+	{
+		Euph::Io::RandomDevice randdev(Euph::Io::RandomSource::URANDOM);
+		Elv::Io::DataStream<Elv::Util::Endian::Native> datastream(randdev);
+		datastream.readElementsInto<int>(integers.begin(),integers.end());
+	}
+	// Stage 1: Writing into our buffer
+	{
+		Euph::Io::ZstdCompressor compressor(&buff);
+		Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(compressor);
+		datastream << integers;
+		compressor.flush();
+	}
+	// Stage 2: Reading back
+	{
+		buff.seek(0, Elv::Io::SeekOrigin::SET);
+		Euph::Io::ZstdDecompressor decompressor(&buff);
+		Elv::Io::DataStream<Elv::Util::Endian::Big> datastream(decompressor);
+		datastream >> integers2;
+	}
+	// Stage 3: Comparing the values
+	if(integers.size() != integers2.size()) throw std::runtime_error("Their sizes are supposed to be the same element count!!");
+	for(size_t i = 0; i < integers.size(); ++i)
+	{
+		if(integers[i] != integers2[i]) {
+			std::cout << "Fail! " << integers[i] << " and " << integers2[i] << " are not the same! Decompression went wrong at index [" << i << "]!" << std::endl;
+			return;
+		}
+	}
+	std::cout << "Success!" << std::endl;
 }
