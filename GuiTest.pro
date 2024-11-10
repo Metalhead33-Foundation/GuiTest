@@ -21,6 +21,7 @@ SOURCES += \
     Elvavena/Util/ElvDynamicLib.cpp \
     Elvavena/Util/ElvEventLoop.cpp \
     Euphemy/Io/EuphBufferDevice.cpp \
+    Euphemy/Io/EuphCryptoProxyDevice.cpp \
     Euphemy/Io/EuphFile.cpp \
     Euphemy/Io/EuphNullDevice.cpp \
     Euphemy/Io/EuphRandomDevice.cpp \
@@ -28,7 +29,8 @@ SOURCES += \
     Euphemy/Io/EuphStdfileWrapper.cpp \
     Euphemy/Io/EuphTempFile.cpp \
     Euphemy/Io/EuphZstd.cpp \
-    main.cpp
+    main.cpp \
+    test.cpp
 
 HEADERS += \
     Elvavena/Io/ElvDataStream.hpp \
@@ -61,10 +63,12 @@ HEADERS += \
     Elvavena/Util/ElvUtilGlobals.hpp \
     Elvavena/Util/half.hpp \
     Euphemy/Io/EuphBufferDevice.hpp \
+    Euphemy/Io/EuphCryptoProxyDevice.hpp \
     Euphemy/Io/EuphFile.hpp \
     Euphemy/Io/EuphNullDevice.hpp \
     Euphemy/Io/EuphRandomDevice.hpp \
     Euphemy/Io/EuphSocket.hpp \
     Euphemy/Io/EuphStdfileWrapper.hpp \
     Euphemy/Io/EuphTempFile.hpp \
-    Euphemy/Io/EuphZstd.hpp
+    Euphemy/Io/EuphZstd.hpp \
+    test.hpp
