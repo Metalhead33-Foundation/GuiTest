@@ -10,6 +10,7 @@
 #include <Elvavena/Util/ElvUtilGlobals.hpp>
 #include <string>
 #include <type_traits>
+typedef void(*funcptr)();
 namespace Elv {
 namespace Util {
 
@@ -112,6 +113,31 @@ public:
 	 * @return Pointer to the linked symbol, or nullptr if linking fails.
 	 */
 	void* link(const std::string& sname);
+
+
+	// Separate function because
+	//  The ISO C standard does not require that pointers to functions can be cast back and forth to pointers to data.
+	//  -- POSIX dlsym, http://pubs.opengroup.org/onlinepubs/009695399/functions/dlsym.html#tag_03_112_08
+	// But the trivial implementation works on everything I'm aware of.
+	// (C spec does guarantee you can cast every function pointer to any other.)
+	funcptr sym_func(const char * name)
+	{
+		static_assert(sizeof(void*) == sizeof(funcptr));
+		return (funcptr)this->link(name);
+	}
+	template<typename T>
+	auto sym(const char * name)
+	{
+		static_assert(std::is_function_v<T> || std::is_pointer_v<T>);
+		if constexpr (std::is_function_v<T>) return reinterpret_cast<T*>(sym_func(name));
+		else if constexpr (std::is_function_v<std::remove_pointer_t<T>>) return reinterpret_cast<T>(sym_func(name));
+		else return reinterpret_cast<T>(link(name));
+	}
+	template<auto T>
+	auto sym(const char * name)
+	{
+		return sym<decltype(T)>(name);
+	}
 };
 
 }

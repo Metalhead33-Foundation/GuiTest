@@ -338,7 +338,7 @@ void testCompressionAndEncryptionWithLargeData()
 void testMemoryMapped()
 {
 	std::unique_ptr<Euph::Io::MemoryMapped> mapped(new Euph::Io::MemoryMappedFile("/home/legacy/allpages_remain.txt", Elv::Io::Mode::READ));
-	std::string strToRead(static_cast<char*>(mapped->data()), mapped->size());
+	std::string_view strToRead(static_cast<char*>(mapped->data()), mapped->size());
 	std::cout << strToRead << std::endl;
 }
 
@@ -375,11 +375,10 @@ void testMemoryMappedTempDlopenNoClose()
 	/*void* glClearFunc = dynLib.link("glClear");
 	if(glClearFunc != nullptr) std::cout << "Success! glClear is at address [" << glClearFunc << "]." << std::endl;
 	else std::cout << "Failure! glClear is a nullptr! Linking failed!" << std::endl;*/
-	void* hello_world = dynLib.link("get_hello_world");
+	myfunc hello_world =  dynLib.sym<myfunc>("get_hello_world");
 	if(hello_world != nullptr) std::cout << "Success! get_hello_world is at address [" << hello_world << "]." << std::endl;
 	else std::cout << "Failure! hello_world is a nullptr! Linking failed!" << std::endl;
-	myfunc HelloWorld = reinterpret_cast<myfunc>(hello_world);
-	std::cout << HelloWorld() << std::endl;
+	std::cout << hello_world() << std::endl;
 }
 
 void testMemoryMappedTempDlopenClose()
@@ -395,9 +394,8 @@ void testMemoryMappedTempDlopenClose()
 		}
 		dynLib = std::unique_ptr<Elv::Util::DynamicLibrary>(new Elv::Util::DynamicLibrary(tempFile->getFilePath()));
 	}
-	void* hello_world = dynLib->link("get_hello_world");
+	myfunc hello_world =  dynLib->sym<myfunc>("get_hello_world");
 	if(hello_world != nullptr) std::cout << "Success! get_hello_world is at address [" << hello_world << "]." << std::endl;
 	else std::cout << "Failure! hello_world is a nullptr! Linking failed!" << std::endl;
-	myfunc HelloWorld = reinterpret_cast<myfunc>(hello_world);
-	std::cout << HelloWorld() << std::endl;
+	std::cout << hello_world() << std::endl;
 }
