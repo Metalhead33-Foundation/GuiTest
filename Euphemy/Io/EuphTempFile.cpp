@@ -1,6 +1,9 @@
 #include "EuphTempFile.hpp"
+#include <system_error>
 #ifdef _WIN32
 #include <windows.h>
+#include <io.h>
+#include <fcntl.h>
 #elif defined (__unix)
 #include <unistd.h>
 #include <fcntl.h>
@@ -185,7 +188,7 @@ bool TempFile::isValid() const
 #endif
 }
 
-MemoryMappedTempFile::MemoryMappedTempFile(size_t fileSize) : fileSize(fileSize)
+MemoryMappedTempFile::MemoryMappedTempFile(size_t fileSize) : MemoryMapped(fileSize)
 {
 #ifdef _WIN32
 	// Generate temporary filename
@@ -235,7 +238,7 @@ MemoryMappedTempFile::MemoryMappedTempFile(size_t fileSize) : fileSize(fileSize)
 		throw std::runtime_error("Failed to set file size.");
 	}
 	// Map file into memory
-	mappedAddress = mmap(nullptr, fileSize, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_SHARED, fileDescriptor, 0);
+	mappedAddress = mmap(nullptr, fileSize, PROT_READ | PROT_WRITE, MAP_SHARED, fileDescriptor, 0);
 	if (mappedAddress == MAP_FAILED) {
 		throw std::runtime_error("Failed to map file into memory.");
 	}
@@ -244,171 +247,31 @@ MemoryMappedTempFile::MemoryMappedTempFile(size_t fileSize) : fileSize(fileSize)
 
 MemoryMappedTempFile::~MemoryMappedTempFile()
 {
+	if (!filePath.empty()) {
 #ifdef _WIN32
-		if (mappedView) UnmapViewOfFile(mappedView);
-		if (mappingHandle) CloseHandle(mappingHandle);
-		if (fileHandle!= INVALID_HANDLE_VALUE) CloseHandle(fileHandle);
+		// We created the file with the flags FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, and the file is closed in the base class's destructor, so no need to do anything here
 #else
-		if (mappedAddress!= MAP_FAILED) munmap(mappedAddress, fileSize);
-		if (fileDescriptor!= -1) close(fileDescriptor);
+		unlink(filePath.c_str());
 #endif
+	}
 }
 
 MemoryMappedTempFile::MemoryMappedTempFile(MemoryMappedTempFile&& mov)
+	: MemoryMapped(std::move(mov))
 {
-#ifdef _WIN32
-		this->mappedView = mov.mappedView;
-		mov.mappedView = nullptr;
-		this->mappingHandle = mov.mappingHandle;
-		mov.mappingHandle = nullptr;
-		this->fileHandle = mov.fileHandle;
-		mov.fileHandle = INVALID_HANDLE_VALUE;
-#else
-		this->mappedAddress = mov.mappedAddress;
-		mov.mappedAddress = MAP_FAILED;
-		this->fileDescriptor = mov.fileDescriptor;
-		mov.fileDescriptor = -1;
-#endif
-		this->fileSize = mov.fileSize;
-		mov.fileSize = 0;
-		this->filePath = std::move(mov.filePath);
+	this->filePath = std::move(mov.filePath);
 }
 
 MemoryMappedTempFile& MemoryMappedTempFile::operator=(MemoryMappedTempFile&& mov)
 {
-	// First, let's clean up
-#ifdef _WIN32
-		if (mappedView) UnmapViewOfFile(mappedView);
-		if (mappingHandle) CloseHandle(mappingHandle);
-		if (fileHandle!= INVALID_HANDLE_VALUE) CloseHandle(fileHandle);
-#else
-		if (mappedAddress!= MAP_FAILED) munmap(mappedAddress, fileSize);
-		if (fileDescriptor!= -1) close(fileDescriptor);
-#endif
-	// Now let's move stuff
-#ifdef _WIN32
-		this->mappedView = mov.mappedView;
-		mov.mappedView = nullptr;
-		this->mappingHandle = mov.mappingHandle;
-		mov.mappingHandle = nullptr;
-		this->fileHandle = mov.fileHandle;
-		mov.fileHandle = INVALID_HANDLE_VALUE;
-#else
-		this->mappedAddress = mov.mappedAddress;
-		mov.mappedAddress = MAP_FAILED;
-		this->fileDescriptor = mov.fileDescriptor;
-		mov.fileDescriptor = -1;
-#endif
-		this->fileSize = mov.fileSize;
-		mov.fileSize = 0;
-		this->filePath = std::move(mov.filePath);
+	this->filePath = std::move(mov.filePath);
+	MemoryMapped::operator=(std::move(mov));
 	return *this;
 }
 
 const std::string& MemoryMappedTempFile::getFilePath() const
 {
 	return filePath;
-}
-
-size_t MemoryMappedTempFile::size() const
-{
-	return fileSize;
-}
-
-std::span<std::byte> MemoryMappedTempFile::as_span()
-{
-#ifdef _WIN32
-	return std::span<std::byte>(static_cast<std::byte*>(mappedView), fileSize);
-#else
-	return std::span<std::byte>(static_cast<std::byte*>(mappedAddress), fileSize);
-#endif
-}
-
-std::span<const std::byte> MemoryMappedTempFile::as_span() const
-{
-#ifdef _WIN32
-	return std::span<const std::byte>(static_cast<const std::byte*>(mappedView), fileSize);
-#else
-	return std::span<const std::byte>(static_cast<const std::byte*>(mappedAddress), fileSize);
-#endif
-}
-
-MemoryMappedTempFile::operator std::span<std::byte>()
-{
-	return as_span();
-}
-
-MemoryMappedTempFile::operator std::span<const std::byte>() const
-{
-	return as_span();
-}
-
-void* MemoryMappedTempFile::data()
-{
-#ifdef _WIN32
-	return mappedView;
-#else
-	return mappedAddress;
-#endif
-}
-
-const void* MemoryMappedTempFile::data() const
-{
-#ifdef _WIN32
-	return mappedView;
-#else
-	return mappedAddress;
-#endif
-}
-
-MemoryMappedTempFile::iterator MemoryMappedTempFile::begin()
-{
-	return as_span().begin();
-}
-
-MemoryMappedTempFile::const_iterator MemoryMappedTempFile::begin() const
-{
-	return as_span().begin();
-}
-
-MemoryMappedTempFile::reverse_iterator MemoryMappedTempFile::rbegin()
-{
-	return as_span().rbegin();
-}
-
-MemoryMappedTempFile::reverse_const_iterator MemoryMappedTempFile::rbegin() const
-{
-	return as_span().rbegin();
-}
-
-MemoryMappedTempFile::iterator MemoryMappedTempFile::end()
-{
-	return as_span().end();
-}
-
-MemoryMappedTempFile::const_iterator MemoryMappedTempFile::end() const
-{
-	return as_span().end();
-}
-
-MemoryMappedTempFile::reverse_iterator MemoryMappedTempFile::rend()
-{
-	return as_span().rend();
-}
-
-MemoryMappedTempFile::reverse_const_iterator MemoryMappedTempFile::rend() const
-{
-	return as_span().rend();
-}
-
-MemoryMappedTempFile::reference MemoryMappedTempFile::operator[](size_t i)
-{
-	return static_cast<std::byte*>(data())[i];
-}
-
-MemoryMappedTempFile::const_reference MemoryMappedTempFile::operator[](size_t i) const
-{
-	return static_cast<const std::byte*>(data())[i];
 }
 
 }

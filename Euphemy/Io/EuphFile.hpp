@@ -2,6 +2,7 @@
 #define FILE_HPP
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Elvavena/Io/ElvIoSystem.hpp>
+#include <Euphemy/Io/EuphMemoryMapped.hpp>
 #ifdef _WIN32
 	#include <windows.h>
 #endif
@@ -120,9 +121,65 @@ public:
 };
 
 /**
+ * @warning **THIS CLASS IS NOT A SUBCLASS OF `File` AND DOES NOT IMPLEMENT `Elv::Io::Device`!**
+ *          **IT IS A COMPLETELY SEPARATE CLASS, USE ACCORDINGLY!**
+ *
+ * @class MemoryMappedFile
+ * @brief A class representing a regular file mapped into memory for efficient access.
+ */
+class MemoryMappedFile : public MemoryMapped
+{
+private:
+
+	Elv::Io::Mode mode;
+
+	/**
+	 * @name Disabled copy constructor and assignment operator
+	 * @{
+	 */
+	MemoryMappedFile(const MemoryMappedFile& cpy) = delete;
+	MemoryMappedFile& operator=(const MemoryMappedFile& cpy) = delete;
+	/// @}
+
+public:
+	/**
+	 * @brief Constructs a MemoryMappedFile with the specified size.
+	 *
+	 * Creates a temporary file of the given size, maps it into memory, and sets up the object for access.
+	 *
+	 * @param fileSize The size of the temporary file to create.
+	 * @throws std::runtime_error or std::system_error if file creation, mapping, or setup fails.
+	 */
+	MemoryMappedFile(const char* path, Elv::Io::Mode mode, size_t minSize=0);
+
+	/**
+	 * @brief Move constructor for MemoryMappedFile.
+	 *
+	 * Transfers ownership of the temporary file and its mapping from another instance.
+	 *
+	 * @param mov The instance to move from.
+	 */
+	MemoryMappedFile(MemoryMappedFile&& mov);
+
+	/**
+	 * @brief Move assignment operator for MemoryMappedFile.
+	 *
+	 * Transfers ownership of the temporary file and its mapping from another instance, releasing any previously held resources.
+	 *
+	 * @param mov The instance to move from.
+	 * @return Reference to the assigned instance.
+	 */
+	MemoryMappedFile& operator=(MemoryMappedFile&& mov);
+
+	/**
+	 * @copydoc Elv::Io::Device::getMode
+	 */
+	Elv::Io::Mode getMode() const;
+};
+
+/**
  * @class Filesystem
  * @brief Implementation of Elv::Io::System for filesystem operations.
- * @继承 Elv::Io::System
  */
 class Filesystem : public Elv::Io::System
 {
@@ -134,6 +191,13 @@ public:
 	 * @return Pointer to the opened file device.
 	 */
 	Elv::Io::Device* open(const char* path, Elv::Io::Mode mode) override;
+	/**
+	 * @brief Opens a memory-mapped file within the filesystem.
+	 * @param path Path to the file.
+	 * @param mode Mode in which to open the file (see Elv::Io::Mode).
+	 * @return Pointer to the opened memory-mapped file device.
+	 */
+	MemoryMappedFile* openMemoryMapped(const char* path, Elv::Io::Mode mode);
 
 	/**
 	 * @brief Checks if a path exists within the filesystem.

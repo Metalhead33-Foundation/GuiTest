@@ -1,15 +1,22 @@
 #include "EuphFile.hpp"
 #include <filesystem>
+#include <system_error>
 #ifdef _WIN32
-	#include <windows.h>
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
 #elif defined (__unix)
-	#include <fcntl.h>
-	#include <unistd.h>
-	#include <sys/types.h>
-	#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <cstdlib>
+#include <cerrno>
 #else
 #error "Unsupported operating system type!"
 #endif
+#include <cstring>
 #include <Elvavena/Util/ElvException.hpp>
 namespace Euph {
 namespace Io {
@@ -20,12 +27,12 @@ File::File(const char* path, Elv::Io::Mode mode)
 #ifdef _WIN32
 		DWORD access = 0;
 		DWORD creation = OPEN_EXISTING;
-		if (static_cast<int>(mode) & static_cast<int>(Mode::READ)) access |= GENERIC_READ;
-		if (static_cast<int>(mode) & static_cast<int>(Mode::WRITE)) {
+		if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ)) access |= GENERIC_READ;
+		if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE)) {
 			access |= GENERIC_WRITE;
 			creation = OPEN_ALWAYS;
 		}
-		if (static_cast<int>(mode) & static_cast<int>(Mode::APPEND)) creation = OPEN_ALWAYS;
+		if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::APPEND)) creation = OPEN_ALWAYS;
 
 		fileHandle = CreateFile(path, access, 0, NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (fileHandle == INVALID_HANDLE_VALUE) {
@@ -34,15 +41,28 @@ File::File(const char* path, Elv::Io::Mode mode)
 			} );
 		}
 #else
-		int flags = 0;
-		if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ) ) flags |= O_RDONLY;
-		if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE) ) flags |= O_WRONLY | O_CREAT | O_TRUNC;
-		if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::APPEND) ) flags |= O_WRONLY | O_CREAT | O_APPEND;
+	int flags = 0;
+	if ((static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ)) &&
+		(static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE))) {
+		// Both READ and WRITE are set
+		flags |= O_RDWR | O_CREAT;
+	} else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ)) {
+		flags |= O_RDONLY;
+	} else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE)) {
+		flags |= O_WRONLY | O_CREAT | O_TRUNC;
+	} else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::APPEND)) {
+		flags |= O_WRONLY | O_CREAT | O_APPEND;
+	}
 
+		// Add O_SYNC only if not in read-only mode
+		if (flags & (O_WRONLY | O_RDWR)) {
+			flags |= O_SYNC;
+		}
 		fileDescriptor = open(path, flags, 0644);
 		if (fileDescriptor == -1) {
 			throw BasicException([](BasicException::StringStream& cerr) {
 				cerr << "Failed to open file. Error: " << errno << std::endl;
+				cerr << strerror(errno) << std::endl;
 			} );
 		}
 #endif
@@ -199,6 +219,11 @@ Elv::Io::Device* Filesystem::open(const char* path, Elv::Io::Mode mode)
 	return new File(path,mode);
 }
 
+MemoryMappedFile* Filesystem::openMemoryMapped(const char* path, Elv::Io::Mode mode)
+{
+	return new MemoryMappedFile(path, mode);
+}
+
 bool Filesystem::exists(const char* path)
 {
 	return std::filesystem::exists(path);
@@ -264,6 +289,119 @@ bool Filesystem::mkdir(const char* dir)
 bool Filesystem::remove(const char* path)
 {
 	return std::filesystem::remove_all(path);
+}
+
+MemoryMappedFile::MemoryMappedFile(const char* path, Elv::Io::Mode mode, size_t minSize) : mode(mode)
+{
+#ifdef _WIN32
+
+	DWORD access = 0;
+	DWORD creation = OPEN_EXISTING;
+	if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ)) access |= GENERIC_READ;
+	if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE)) {
+		access |= GENERIC_WRITE;
+		creation = OPEN_ALWAYS;
+	}
+	if (static_cast<int>(mode) & static_cast<int>(Mode::APPEND)) creation = OPEN_ALWAYS;
+
+	fileHandle = CreateFile(path, access, 0, NULL, creation, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (fileHandle == INVALID_HANDLE_VALUE) {
+		throw BasicException([](BasicException::StringStream& cerr) {
+			cerr << "Failed to open file. Error: " << GetLastError() << std::endl;
+		} );
+	}
+	// Get file size
+	LARGE_INTEGER tmpFileSize;
+	if (GetFileSizeEx(fileHandle, &fileSize)) {
+		fileSize = tmpFileSize;
+	}
+	// Set file size
+	if(fileSize < minSize && (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE)) ) {
+		fileSize = minSize;
+		if (SetFileValidData(fileHandle, minSize) == FALSE) {
+			throw std::system_error(GetLastError(), std::system_category(), "Failed to set valid data length.");
+		}
+		if (SetEndOfFile(fileHandle) == FALSE) {
+			throw std::system_error(GetLastError(), std::system_category(), "Failed to set end of file.");
+		}
+	}
+
+	// Create file mapping
+	DWORD pageAccess;
+	if (static_cast<int>(mode) & ( static_cast<int>(Elv::Io::Mode::READ) | static_cast<int>(Elv::Io::Mode::WRITE) )) pageAccess = PAGE_EXECUTE_READWRITE;
+	else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ)) pageAccess = PAGE_EXECUTE_READ;
+	else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE)) pageAccess = PAGE_EXECUTE_READWRITE;
+	mappingHandle = CreateFileMappingA(fileHandle, NULL, pageAccess, 0, 0, NULL);
+	if (mappingHandle == NULL) {
+		throw std::system_error(GetLastError(), std::system_category(), "Failed to create file mapping.");
+	}
+	DWORD memoryMapAccess;
+	if (static_cast<int>(mode) & ( static_cast<int>(Elv::Io::Mode::READ) | static_cast<int>(Elv::Io::Mode::WRITE) )) memoryMapAccess = FILE_MAP_ALL_ACCESS;
+	else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ)) memoryMapAccess = FILE_MAP_READ;
+	else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE)) memoryMapAccess = FILE_MAP_WRITE;
+	// Map view of file
+	mappedView = MapViewOfFile(mappingHandle, memoryMapAccess, 0, 0, 0);
+	if (mappedView == nullptr) {
+		throw std::system_error(GetLastError(), std::system_category(), "Failed to map view of file.");
+	}
+#else
+	int flags = 0;
+	if ((static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ)) &&
+		(static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE))) flags |= O_RDWR | O_CREAT;
+	else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ) ) flags |= O_RDONLY;
+	else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE) ) flags |= O_WRONLY | O_CREAT | O_TRUNC;
+	else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::APPEND) ) flags |= O_WRONLY | O_CREAT | O_APPEND;
+	flags |= O_SYNC; // For synchronous I/O (optional, adjust as needed)
+
+	fileDescriptor = open(path, flags, 0644);
+	if (fileDescriptor == -1) {
+		throw BasicException([](BasicException::StringStream& cerr) {
+			cerr << "Failed to open file. Error: " << errno << std::endl;
+		} );
+	}
+
+	// Get file size
+	struct stat statBuf;
+	if (fstat(fileDescriptor, &statBuf)!= 0) {
+		throw std::runtime_error("Failed to get file size.");
+	}
+	fileSize = statBuf.st_size;
+	// Set file size
+	if(fileSize < minSize && (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE)) ) {
+		if (ftruncate(fileDescriptor, fileSize)!= 0) {
+			throw std::runtime_error("Failed to set file size.");
+		}
+		fileSize = minSize;
+	}
+	// Map file into memory
+	int mmapFlags = 0;
+	if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ) ) mmapFlags |= PROT_READ;
+	if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE) ) mmapFlags |= PROT_WRITE;
+
+	mappedAddress = mmap(nullptr, fileSize, mmapFlags, MAP_SHARED, fileDescriptor, 0);
+	if (mappedAddress == MAP_FAILED || mappedAddress == nullptr) {
+		throw std::runtime_error("Failed to map file into memory.");
+	}
+#endif
+}
+
+
+MemoryMappedFile::MemoryMappedFile(MemoryMappedFile&& mov)
+	: MemoryMapped(std::move(mov))
+{
+	this->mode = mov.mode;
+}
+
+MemoryMappedFile& MemoryMappedFile::operator=(MemoryMappedFile&& mov)
+{
+	this->mode = mov.mode;
+	MemoryMapped::operator=(std::move(mov));
+	return *this;
+}
+
+Elv::Io::Mode MemoryMappedFile::getMode() const
+{
+	return mode;
 }
 
 }

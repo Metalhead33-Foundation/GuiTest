@@ -11,5 +11,9 @@ void testEncryptionWithMaps();
 void testEncryptionWithLargeData();
 void testCompressionAndEncryptionWithMaps();
 void testCompressionAndEncryptionWithLargeData();
+void testMemoryMapped();
+void testMemoryMappedTemp();
+void testMemoryMappedTempDlopenNoClose();
+void testMemoryMappedTempDlopenClose();
 
 #endif // TEST_HPP

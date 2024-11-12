@@ -11,6 +11,9 @@
 #include <Euphemy/Io/EuphRandomDevice.hpp>
 #include <Euphemy/Io/EuphZstd.hpp>
 #include <Euphemy/Io/EuphCryptoProxyDevice.hpp>
+#include <Euphemy/Io/EuphFile.hpp>
+#include <Euphemy/Io/EuphTempFile.hpp>
+#include <Elvavena/Util/ElvDynamicLib.hpp>
 template<class T>
 struct Mallocator
 {
@@ -330,4 +333,71 @@ void testCompressionAndEncryptionWithMaps()
 void testCompressionAndEncryptionWithLargeData()
 {
 	testProxyWithLargeData2<Euph::Io::ZstdCompressor,EncryptionTest,Euph::Io::ZstdDecompressor,DecryptionTest>();
+}
+
+void testMemoryMapped()
+{
+	std::unique_ptr<Euph::Io::MemoryMapped> mapped(new Euph::Io::MemoryMappedFile("/home/legacy/allpages_remain.txt", Elv::Io::Mode::READ));
+	std::string strToRead(static_cast<char*>(mapped->data()), mapped->size());
+	std::cout << strToRead << std::endl;
+}
+
+void testMemoryMappedTemp()
+{
+	Euph::Io::MemoryMappedTempFile mmapped(1024);
+	std::memset(mmapped.data(),0,1024);
+	static_cast<char*>(mmapped.data())[0] = 'H';
+	static_cast<char*>(mmapped.data())[1] = 'e';
+	static_cast<char*>(mmapped.data())[2] = 'l';
+	static_cast<char*>(mmapped.data())[3] = 'l';
+	static_cast<char*>(mmapped.data())[4] = 'o';
+	static_cast<char*>(mmapped.data())[5] = '\n';
+	mmapped.flushSync(true);
+	std::cout << static_cast<char*>(mmapped.data()) << std::endl;
+}
+
+typedef const char* (*myfunc)();
+void testMemoryMappedTempDlopenNoClose()
+{
+	std::unique_ptr<Euph::Io::MemoryMappedTempFile> tempFile(nullptr);
+	{
+		//Euph::Io::File dllFile("/usr/lib64/libGL.so", Elv::Io::Mode::READ);
+		// libsimple.so
+		Euph::Io::File dllFile("/home/legacy/libsimple.so", Elv::Io::Mode::READ);
+		tempFile = std::unique_ptr<Euph::Io::MemoryMappedTempFile>(new Euph::Io::MemoryMappedTempFile(dllFile.size()));
+		dllFile.read(tempFile->data(),1,tempFile->size());
+		tempFile->flushSync();
+	}
+	std::cout << "Beginning of mapped region: [" << tempFile->data() << ']' << std::endl;
+	std::cout << "End of mapped region: [" << static_cast<void*>(static_cast<std::byte*>(tempFile->data()) + tempFile->size()) << ']' << std::endl;
+
+	Elv::Util::DynamicLibrary dynLib(tempFile->getFilePath());
+	/*void* glClearFunc = dynLib.link("glClear");
+	if(glClearFunc != nullptr) std::cout << "Success! glClear is at address [" << glClearFunc << "]." << std::endl;
+	else std::cout << "Failure! glClear is a nullptr! Linking failed!" << std::endl;*/
+	void* hello_world = dynLib.link("get_hello_world");
+	if(hello_world != nullptr) std::cout << "Success! get_hello_world is at address [" << hello_world << "]." << std::endl;
+	else std::cout << "Failure! hello_world is a nullptr! Linking failed!" << std::endl;
+	myfunc HelloWorld = reinterpret_cast<myfunc>(hello_world);
+	std::cout << HelloWorld() << std::endl;
+}
+
+void testMemoryMappedTempDlopenClose()
+{
+	std::unique_ptr<Elv::Util::DynamicLibrary> dynLib(nullptr);
+	{
+		std::unique_ptr<Euph::Io::MemoryMappedTempFile> tempFile(nullptr);
+		{
+			Euph::Io::File dllFile("/home/legacy/libsimple.so", Elv::Io::Mode::READ);
+			tempFile = std::unique_ptr<Euph::Io::MemoryMappedTempFile>(new Euph::Io::MemoryMappedTempFile(dllFile.size()));
+			dllFile.read(tempFile->data(),1,tempFile->size());
+			tempFile->flushSync();
+		}
+		dynLib = std::unique_ptr<Elv::Util::DynamicLibrary>(new Elv::Util::DynamicLibrary(tempFile->getFilePath()));
+	}
+	void* hello_world = dynLib->link("get_hello_world");
+	if(hello_world != nullptr) std::cout << "Success! get_hello_world is at address [" << hello_world << "]." << std::endl;
+	else std::cout << "Failure! hello_world is a nullptr! Linking failed!" << std::endl;
+	myfunc HelloWorld = reinterpret_cast<myfunc>(hello_world);
+	std::cout << HelloWorld() << std::endl;
 }
