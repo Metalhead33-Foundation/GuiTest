@@ -25,6 +25,7 @@ SOURCES += \
     Euphemy/Io/EuphFile.cpp \
     Euphemy/Io/EuphMemoryMapped.cpp \
     Euphemy/Io/EuphNullDevice.cpp \
+    Euphemy/Io/EuphPlatformDependentFileBase.cpp \
     Euphemy/Io/EuphRandomDevice.cpp \
     Euphemy/Io/EuphSocket.cpp \
     Euphemy/Io/EuphStdfileWrapper.cpp \
@@ -69,6 +70,7 @@ HEADERS += \
     Euphemy/Io/EuphFile.hpp \
     Euphemy/Io/EuphMemoryMapped.hpp \
     Euphemy/Io/EuphNullDevice.hpp \
+    Euphemy/Io/EuphPlatformDependentFileBase.hpp \
     Euphemy/Io/EuphRandomDevice.hpp \
     Euphemy/Io/EuphSocket.hpp \
     Euphemy/Io/EuphStdfileWrapper.hpp \

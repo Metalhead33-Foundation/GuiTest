@@ -115,26 +115,41 @@ public:
 	void* link(const std::string& sname);
 
 
-	// Separate function because
-	//  The ISO C standard does not require that pointers to functions can be cast back and forth to pointers to data.
-	//  -- POSIX dlsym, http://pubs.opengroup.org/onlinepubs/009695399/functions/dlsym.html#tag_03_112_08
-	// But the trivial implementation works on everything I'm aware of.
-	// (C spec does guarantee you can cast every function pointer to any other.)
+	/**
+	 * @brief Retrieves a function pointer to a symbol within the loaded library.
+	 * @param name Name of the symbol to link.
+	 * @return Function pointer to the linked symbol, or nullptr if linking fails.
+	 * @note Casting is performed under the assumption that sizeof(void*) == sizeof(funcptr), as per POSIX dlsym documentation.
+	 * @warning This function assumes the symbol is a function; use with caution for non-function symbols.
+	 */
 	funcptr sym_func(const char * name)
 	{
 		static_assert(sizeof(void*) == sizeof(funcptr));
 		return (funcptr)this->link(name);
 	}
-	template<typename T>
-	auto sym(const char * name)
+	/**
+	 * @brief Template function for retrieving a symbol (function or pointer) within the loaded library.
+	 * @tparam T Type of the symbol to link (function, function pointer, or pointer).
+	 * @param name Name of the symbol to link.
+	 * @return Linked symbol of type T, or nullptr if linking fails.
+	 * @note Performs necessary casting based on the template type parameter T.
+	 * @warning Be cautious when using this function, as incorrect type specifications can lead to undefined behavior.
+	 */
+	template<typename T> auto sym(const char * name)
 	{
 		static_assert(std::is_function_v<T> || std::is_pointer_v<T>);
 		if constexpr (std::is_function_v<T>) return reinterpret_cast<T*>(sym_func(name));
 		else if constexpr (std::is_function_v<std::remove_pointer_t<T>>) return reinterpret_cast<T>(sym_func(name));
 		else return reinterpret_cast<T>(link(name));
 	}
-	template<auto T>
-	auto sym(const char * name)
+	/**
+	 * @brief Template function for retrieving a symbol (function or pointer) within the loaded library, with auto-deduced type.
+	 * @tparam T Type of the symbol to link (automatically deduced from the provided template parameter).
+	 * @param name Name of the symbol to link.
+	 * @return Linked symbol of the deduced type, or nullptr if linking fails.
+	 * @note Simply calls sym<T> with the auto-deduced type.
+	 */
+	template<auto T> auto sym(const char * name)
 	{
 		return sym<decltype(T)>(name);
 	}

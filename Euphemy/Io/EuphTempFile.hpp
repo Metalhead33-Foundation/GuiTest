@@ -5,6 +5,23 @@
 namespace Euph {
 namespace Io {
 
+struct PlatformDependentFileHandleBase {
+public:
+#ifdef _WIN32
+	HANDLE fileHandle = INVALID_HANDLE_VALUE; ///< Handle for the temporary file on Windows.
+#else
+	int fileDescriptor = -1; ///< File descriptor for the temporary file on Unix-like systems.
+#endif
+	std::string filePath; ///< Path of the temporary file.
+private:
+	PlatformDependentFileHandleBase(const PlatformDependentFileHandleBase& cpy) = delete;
+	PlatformDependentFileHandleBase& operator=(const PlatformDependentFileHandleBase& cpy) = delete;
+public:
+	PlatformDependentFileHandleBase(size_t fileSize = 0);
+	PlatformDependentFileHandleBase(PlatformDependentFileHandleBase&& mov);
+	PlatformDependentFileHandleBase& operator=(PlatformDependentFileHandleBase&& mov) = delete;
+};
+
 /**
  * @class TempFile
  * @brief Represents a temporary file that supports basic file operations.
