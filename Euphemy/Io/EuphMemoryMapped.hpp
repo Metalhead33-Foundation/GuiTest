@@ -2,6 +2,7 @@
 #define MEMORYMAPPED_HPP
 #include <cstddef>
 #include <span>
+#include <Euphemy/Io/EuphPlatformDependentFileBase.hpp>
 #ifdef _WIN32
 	#include <windows.h>
 #endif
@@ -43,6 +44,28 @@ protected:
 	 * @brief Default constructor.
 	 */
 	MemoryMapped(size_t fileSize = 0);
+	/**
+	 * @brief Gets the platform-dependent basic file handle.
+	 *
+	 * @return The platform-dependent basic file handle.
+	 */
+	virtual PlatformDependentFileHandleBase& getFileHandle() = 0;
+	/**
+	 * @brief Gets the platform-dependent basic file handle.
+	 *
+	 * @return The platform-dependent basic file handle.
+	 */
+	virtual const PlatformDependentFileHandleBase& getFileHandle() const = 0;
+	/**
+	 * @brief Maps the file to memory.
+	 *
+	 * @param readOnly Whether the file is opened in read-only mode or not.
+	 */
+	void mapFile(bool readOnly);
+	/**
+	 * @brief Unmaps the memory-mapped file. Useful for remapping.
+	 */
+	void unmapFile();
 public:
 	/**
 	 * @name Type aliases for convenience and clarity
@@ -63,13 +86,25 @@ public:
 	typedef const_span::reverse_iterator reverse_const_iterator; ///< Constant reverse iterator for the file's bytes.
 	/// @}
 	virtual ~MemoryMapped();
-
+	/**
+	 * @brief Gets whether this memory-mapping is read-only or not.
+	 *
+	 * @return Whether the memory-mapping is read-only or not.
+	 */
+	virtual bool readOnly() const = 0;
 	/**
 	 * @brief Retrieves the size of the temporary file.
 	 *
 	 * @return The file size.
 	 */
 	size_t size() const;
+
+	/**
+	 * @brief Resizes the memory-mapped file to the given size.
+	 * @param newSize The new size to be resized to.
+	 * @warning This invalidates the pointer originally pointed to!
+	 */
+	void resize(size_t newSize);
 
 	/**
 	 * @brief Returns a span of bytes representing the entire file.

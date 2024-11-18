@@ -93,9 +93,50 @@ MemoryMapped::MemoryMapped(size_t fileSize)
 
 }
 
+void MemoryMapped::mapFile(bool readOnly = false)
+{
+	const PlatformDependentFileHandleBase& fileHandle = getFileHandle();
+#ifdef _WIN32
+	DWORD memoryMapAccess;
+	if(readOnly) memoryMapAccess = FILE_MAP_READ;
+	else memoryMapAccess = FILE_MAP_ALL_ACCESS;
+	// Map view of file
+	mappedView = MapViewOfFile(mappingHandle, memoryMapAccess, 0, 0, 0);
+	if (mappedView == nullptr) {
+		throw std::system_error(GetLastError(), std::system_category(), "Failed to map view of file.");
+	}
+#else
+	// Map file into memory
+	int mmapFlags = PROT_READ;
+	if (!readOnly) mmapFlags |= PROT_WRITE;
+
+	mappedAddress = mmap(nullptr, fileSize, mmapFlags, MAP_SHARED, fileHandle.fileDescriptor, 0);
+	if (mappedAddress == MAP_FAILED || mappedAddress == nullptr) {
+		throw std::runtime_error("Failed to map file into memory.");
+	};
+#endif
+}
+
+void MemoryMapped::unmapFile()
+{
+#ifdef _WIN32
+		if (mappedView) UnmapViewOfFile(mappedView);
+#else
+		if (mappedAddress!= MAP_FAILED) munmap(mappedAddress, fileSize);
+#endif
+}
+
 size_t MemoryMapped::size() const
 {
 	return fileSize;
+}
+
+void MemoryMapped::resize(size_t newSize)
+{
+	unmapFile();
+	getFileHandle().truncate(newSize);
+	mapFile(readOnly());
+	fileSize = newSize;
 }
 
 std::span<std::byte> MemoryMapped::as_span()

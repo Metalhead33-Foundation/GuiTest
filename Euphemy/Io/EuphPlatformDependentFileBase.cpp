@@ -299,6 +299,11 @@ void PlatformDependentFileBase::initializeViaMkstemp()
 #endif
 }
 
+static void smh_unlink_wrapper(const char* cpath)
+{
+	shm_unlink(&cpath[8]);
+}
+
 void PlatformDependentFileBase::initialiteViaShmOpen(const char* cpath)
 {
 #ifdef _WIN32
@@ -309,7 +314,8 @@ void PlatformDependentFileBase::initialiteViaShmOpen(const char* cpath)
 	if (fileDescriptor == -1) {
 		throw std::runtime_error("Failed to create temporary file.");
 	}
-	deleter = shm_unlink;
+	path = cpath;
+	deleter = smh_unlink_wrapper;
 #endif
 }
 
@@ -328,7 +334,7 @@ void PlatformDependentFileBase::initializeViaMemfdCreate(const char* cpath)
 	sprintf(tmpath,"/proc/%jd/fd/%d",static_cast<intmax_t>(getpid()),fileDescriptor);
 	path = tmpath;
 #else
-	initialiteViaShmOpen(cpath);
+	initializeViaMkstemp(cpath);
 #endif
 #endif
 }

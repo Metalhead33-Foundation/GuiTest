@@ -32,7 +32,7 @@ public:
 	 *
 	 * Throws an exception if the temporary file cannot be created.
 	 */
-	TempFile();
+	TempFile(TemporaryFileCreationMode creationMode = TemporaryFileCreationMode::MKSTEMP, const char* npath = nullptr);
 
 	/**
 	 * @brief Move constructor.
@@ -152,7 +152,19 @@ private:
 	MemoryMappedTempFile(const MemoryMappedTempFile& cpy) = delete;
 	MemoryMappedTempFile& operator=(const MemoryMappedTempFile& cpy) = delete;
 	/// @}
-
+protected:
+	/**
+	 * @brief Gets the platform-dependent basic file handle.
+	 *
+	 * @return The platform-dependent basic file handle.
+	 */
+	PlatformDependentFileHandleBase& getFileHandle() override;
+	/**
+	 * @brief Gets the platform-dependent basic file handle.
+	 *
+	 * @return The platform-dependent basic file handle.
+	 */
+	const PlatformDependentFileHandleBase& getFileHandle() const override;
 public:
 	/**
 	 * @brief Constructs a MemoryMappedTempFile with the specified size.
@@ -162,7 +174,7 @@ public:
 	 * @param fileSize The size of the temporary file to create.
 	 * @throws std::runtime_error or std::system_error if file creation, mapping, or setup fails.
 	 */
-	MemoryMappedTempFile(size_t fileSize);
+	MemoryMappedTempFile(size_t fileSize, TemporaryFileCreationMode creationMode = TemporaryFileCreationMode::MKSTEMP, const char* npath = nullptr);
 
 	/**
 	 * @brief Move constructor for MemoryMappedTempFile.
@@ -189,6 +201,12 @@ public:
 	 * @return The file path as a constant string reference.
 	 */
 	const std::string& getFilePath() const;
+	/**
+	 * @brief Gets whether this memory-mapping is read-only or not.
+	 *
+	 * @return Whether the memory-mapping is read-only or not.
+	 */
+	bool readOnly() const override;
 };
 
 }

@@ -183,26 +183,8 @@ MemoryMappedFile::MemoryMappedFile(const char* path, Elv::Io::Mode mode, size_t 
 	if (mappingHandle == NULL) {
 		throw std::system_error(GetLastError(), std::system_category(), "Failed to create file mapping.");
 	}
-	DWORD memoryMapAccess;
-	if (static_cast<int>(mode) & ( static_cast<int>(Elv::Io::Mode::READ) | static_cast<int>(Elv::Io::Mode::WRITE) )) memoryMapAccess = FILE_MAP_ALL_ACCESS;
-	else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ)) memoryMapAccess = FILE_MAP_READ;
-	else if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE)) memoryMapAccess = FILE_MAP_WRITE;
-	// Map view of file
-	mappedView = MapViewOfFile(mappingHandle, memoryMapAccess, 0, 0, 0);
-	if (mappedView == nullptr) {
-		throw std::system_error(GetLastError(), std::system_category(), "Failed to map view of file.");
-	}
-#else
-	// Map file into memory
-	int mmapFlags = 0;
-	if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::READ) ) mmapFlags |= PROT_READ;
-	if (static_cast<int>(mode) & static_cast<int>(Elv::Io::Mode::WRITE) ) mmapFlags |= PROT_WRITE;
-
-	mappedAddress = mmap(nullptr, fileSize, mmapFlags, MAP_SHARED, fileHandle.fileDescriptor, 0);
-	if (mappedAddress == MAP_FAILED || mappedAddress == nullptr) {
-		throw std::runtime_error("Failed to map file into memory.");
-	}
 #endif
+	mapFile(mode == Elv::Io::Mode::READ);
 }
 
 
@@ -219,9 +201,24 @@ MemoryMappedFile& MemoryMappedFile::operator=(MemoryMappedFile&& mov)
 	return *this;
 }
 
+PlatformDependentFileHandleBase& MemoryMappedFile::getFileHandle()
+{
+	return fileHandle;
+}
+
+const PlatformDependentFileHandleBase& MemoryMappedFile::getFileHandle() const
+{
+	return fileHandle;
+}
+
 Elv::Io::Mode MemoryMappedFile::getMode() const
 {
 	return mode;
+}
+
+bool MemoryMappedFile::readOnly() const
+{
+	return mode == Elv::Io::Mode::READ;
 }
 
 }

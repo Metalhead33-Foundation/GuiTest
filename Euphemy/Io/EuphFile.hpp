@@ -134,7 +134,19 @@ private:
 	MemoryMappedFile(const MemoryMappedFile& cpy) = delete;
 	MemoryMappedFile& operator=(const MemoryMappedFile& cpy) = delete;
 	/// @}
-
+protected:
+	/**
+	 * @brief Gets the platform-dependent basic file handle.
+	 *
+	 * @return The platform-dependent basic file handle.
+	 */
+	PlatformDependentFileHandleBase& getFileHandle() override;
+	/**
+	 * @brief Gets the platform-dependent basic file handle.
+	 *
+	 * @return The platform-dependent basic file handle.
+	 */
+	const PlatformDependentFileHandleBase& getFileHandle() const override;
 public:
 	/**
 	 * @brief Constructs a MemoryMappedFile with the specified size.
@@ -169,6 +181,13 @@ public:
 	 * @copydoc Elv::Io::Device::getMode
 	 */
 	Elv::Io::Mode getMode() const;
+
+	/**
+	 * @brief Gets whether this memory-mapping is read-only or not.
+	 *
+	 * @return Whether the memory-mapping is read-only or not.
+	 */
+	bool readOnly() const override;
 };
 
 /**

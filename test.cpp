@@ -356,15 +356,28 @@ void testMemoryMappedTemp()
 	std::cout << static_cast<char*>(mmapped.data()) << std::endl;
 }
 
+static const char* FileModeToPath(Euph::Io::TemporaryFileCreationMode mode)
+{
+	switch (mode) {
+		case Euph::Io::TemporaryFileCreationMode::MKSTEMP:
+			return "";
+		case Euph::Io::TemporaryFileCreationMode::SHM_OPEN:
+			return "/hello";
+		case Euph::Io::TemporaryFileCreationMode::MEMFD_CREATE:
+			return "hello";
+	}
+	return nullptr;
+}
+
 typedef const char* (*myfunc)();
-void testMemoryMappedTempDlopenNoClose()
+void testMemoryMappedTempDlopenNoClose(Euph::Io::TemporaryFileCreationMode mode)
 {
 	std::unique_ptr<Euph::Io::MemoryMappedTempFile> tempFile(nullptr);
 	{
 		//Euph::Io::File dllFile("/usr/lib64/libGL.so", Elv::Io::Mode::READ);
 		// libsimple.so
 		Euph::Io::File dllFile("/home/legacy/libsimple.so", Elv::Io::Mode::READ);
-		tempFile = std::unique_ptr<Euph::Io::MemoryMappedTempFile>(new Euph::Io::MemoryMappedTempFile(dllFile.size()));
+		tempFile = std::unique_ptr<Euph::Io::MemoryMappedTempFile>(new Euph::Io::MemoryMappedTempFile(dllFile.size(),mode,FileModeToPath(mode) ));
 		dllFile.read(tempFile->data(),1,tempFile->size());
 		tempFile->flushSync();
 	}
@@ -381,14 +394,15 @@ void testMemoryMappedTempDlopenNoClose()
 	std::cout << hello_world() << std::endl;
 }
 
-void testMemoryMappedTempDlopenClose()
+void testMemoryMappedTempDlopenClose(Euph::Io::TemporaryFileCreationMode mode)
 {
 	std::unique_ptr<Elv::Util::DynamicLibrary> dynLib(nullptr);
 	{
 		std::unique_ptr<Euph::Io::MemoryMappedTempFile> tempFile(nullptr);
 		{
 			Euph::Io::File dllFile("/home/legacy/libsimple.so", Elv::Io::Mode::READ);
-			tempFile = std::unique_ptr<Euph::Io::MemoryMappedTempFile>(new Euph::Io::MemoryMappedTempFile(dllFile.size()));
+			tempFile = std::unique_ptr<Euph::Io::MemoryMappedTempFile>(new Euph::Io::MemoryMappedTempFile(dllFile.size(),mode,FileModeToPath(mode)));
+			std::cout << tempFile->getFilePath() << std::endl;
 			dllFile.read(tempFile->data(),1,tempFile->size());
 			tempFile->flushSync();
 		}

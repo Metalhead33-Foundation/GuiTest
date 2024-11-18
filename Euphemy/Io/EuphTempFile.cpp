@@ -16,8 +16,8 @@
 namespace Euph {
 namespace Io {
 
-TempFile::TempFile()
-	: fileHandle(nullptr,TemporaryFileCreationMode::MKSTEMP)
+TempFile::TempFile(TemporaryFileCreationMode creationMode, const char* npath)
+	: fileHandle(npath,creationMode)
 {
 
 }
@@ -83,7 +83,7 @@ bool TempFile::isValid() const
 #endif
 }
 
-MemoryMappedTempFile::MemoryMappedTempFile(size_t fileSize) : MemoryMapped(fileSize), fileHandle(nullptr,TemporaryFileCreationMode::MKSTEMP)
+MemoryMappedTempFile::MemoryMappedTempFile(size_t fileSize, TemporaryFileCreationMode creationMode, const char* npath) : MemoryMapped(fileSize), fileHandle(npath,creationMode)
 {
 	fileHandle.truncate(fileSize);
 #ifdef _WIN32
@@ -92,19 +92,8 @@ MemoryMappedTempFile::MemoryMappedTempFile(size_t fileSize) : MemoryMapped(fileS
 	if (mappingHandle == NULL) {
 		throw std::system_error(GetLastError(), std::system_category(), "Failed to create file mapping.");
 	}
-
-	// Map view of file
-	mappedView = MapViewOfFile(mappingHandle, FILE_MAP_WRITE, 0, 0, 0);
-	if (mappedView == nullptr) {
-		throw std::system_error(GetLastError(), std::system_category(), "Failed to map view of file.");
-	}
-#else
-	// Map file into memory
-	mappedAddress = mmap(nullptr, fileSize, PROT_READ | PROT_WRITE, MAP_SHARED, fileHandle.fileDescriptor, 0);
-	if (mappedAddress == MAP_FAILED) {
-		throw std::runtime_error("Failed to map file into memory.");
-	}
 #endif
+	mapFile(false);
 }
 
 MemoryMappedTempFile::MemoryMappedTempFile(MemoryMappedTempFile&& mov)
@@ -120,9 +109,24 @@ MemoryMappedTempFile& MemoryMappedTempFile::operator=(MemoryMappedTempFile&& mov
 	return *this;
 }
 
+PlatformDependentFileHandleBase& MemoryMappedTempFile::getFileHandle()
+{
+	return fileHandle;
+}
+
+const PlatformDependentFileHandleBase& MemoryMappedTempFile::getFileHandle() const
+{
+	return fileHandle;
+}
+
 const std::string& MemoryMappedTempFile::getFilePath() const
 {
 	return fileHandle.path;
+}
+
+bool MemoryMappedTempFile::readOnly() const
+{
+	return false;
 }
 
 }

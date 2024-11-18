@@ -6,7 +6,7 @@
 int main(void)
 {
 	//std::cout << "Hello world!" << std::endl;
-	testMemoryMappedTempDlopenClose();
+	testMemoryMappedTempDlopenClose(Euph::Io::TemporaryFileCreationMode::MEMFD_CREATE);
 	return 0;
 }
 
