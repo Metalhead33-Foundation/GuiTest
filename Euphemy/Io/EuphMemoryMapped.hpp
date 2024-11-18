@@ -16,11 +16,9 @@ protected:
 	 * @{
 	 */
 #ifdef _WIN32
-	HANDLE fileHandle; ///< Handle for the temporary file on Windows.
 	HANDLE mappingHandle; ///< Handle for the file mapping on Windows.
 	void* mappedView; ///< Mapped view of the file on Windows.
 #else
-	int fileDescriptor; ///< File descriptor for the temporary file on Unix-like systems.
 	void* mappedAddress; ///< Mapped address of the file on Unix-like systems.
 #endif
 	/// @}

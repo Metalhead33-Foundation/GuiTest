@@ -3,9 +3,8 @@
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Elvavena/Io/ElvIoSystem.hpp>
 #include <Euphemy/Io/EuphMemoryMapped.hpp>
-#ifdef _WIN32
-	#include <windows.h>
-#endif
+#include <Euphemy/Io/EuphPlatformDependentFileBase.hpp>
+
 /**
  * @namespace Euph::Io
  * @brief Input/Output operations namespace for the Euph project.
@@ -23,17 +22,9 @@ class File : public Elv::Io::Device
 private:
 	/**
 	 * @var fileHandle
-	 * @brief Handle to the file (Windows-specific).
+	 * @brief Handle to the file.
 	 */
-#ifdef _WIN32
-	HANDLE fileHandle;
-#else
-	/**
-	 * @var fileDescriptor
-	 * @brief Descriptor for the file (non-Windows).
-	 */
-	int fileDescriptor;
-#endif
+	PlatformDependentFileBase fileHandle;
 
 	/**
 	 * @var mode
@@ -58,11 +49,6 @@ public:
 	 * @param mode Mode in which to open the file (see Elv::Io::Mode).
 	 */
 	File(const char* path, Elv::Io::Mode mode);
-
-	/**
-	 * @brief Destructor.
-	 */
-	~File();
 
 	/**
 	 * @brief Move constructor.
@@ -130,7 +116,15 @@ public:
 class MemoryMappedFile : public MemoryMapped
 {
 private:
-
+	/**
+	 * @var fileHandle
+	 * @brief Handle to the file.
+	 */
+	PlatformDependentFileBase fileHandle;
+	/**
+	 * @var mode
+	 * @brief Mode in which the file was opened.
+	 */
 	Elv::Io::Mode mode;
 
 	/**

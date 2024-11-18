@@ -2,25 +2,9 @@
 #define EUPHTEMPFILE_HPP
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Euphemy/Io/EuphMemoryMapped.hpp>
+#include <Euphemy/Io/EuphPlatformDependentFileBase.hpp>
 namespace Euph {
 namespace Io {
-
-struct PlatformDependentFileHandleBase {
-public:
-#ifdef _WIN32
-	HANDLE fileHandle = INVALID_HANDLE_VALUE; ///< Handle for the temporary file on Windows.
-#else
-	int fileDescriptor = -1; ///< File descriptor for the temporary file on Unix-like systems.
-#endif
-	std::string filePath; ///< Path of the temporary file.
-private:
-	PlatformDependentFileHandleBase(const PlatformDependentFileHandleBase& cpy) = delete;
-	PlatformDependentFileHandleBase& operator=(const PlatformDependentFileHandleBase& cpy) = delete;
-public:
-	PlatformDependentFileHandleBase(size_t fileSize = 0);
-	PlatformDependentFileHandleBase(PlatformDependentFileHandleBase&& mov);
-	PlatformDependentFileHandleBase& operator=(PlatformDependentFileHandleBase&& mov) = delete;
-};
 
 /**
  * @class TempFile
@@ -33,12 +17,11 @@ public:
 class TempFile : public Elv::Io::Device
 {
 private:
-#ifdef _WIN32
-	HANDLE fileHandle = INVALID_HANDLE_VALUE; ///< Handle for the temporary file on Windows.
-#else
-	int fileDescriptor = -1; ///< File descriptor for the temporary file on Unix-like systems.
-#endif
-	std::string filePath; ///< Path of the temporary file.
+	/**
+	 * @var fileHandle
+	 * @brief Handle to the file.
+	 */
+	PlatformDependentFileBase fileHandle;
 
 	TempFile(const TempFile& cpy) = delete;
 	TempFile& operator=(const TempFile& cpy) = delete;
@@ -50,11 +33,6 @@ public:
 	 * Throws an exception if the temporary file cannot be created.
 	 */
 	TempFile();
-
-	/**
-	 * @brief Destroys the TempFile and deletes the temporary file.
-	 */
-	~TempFile();
 
 	/**
 	 * @brief Move constructor.
@@ -161,8 +139,11 @@ public:
 class MemoryMappedTempFile : public MemoryMapped
 {
 private:
-
-	std::string filePath; ///< Path of the temporary file.
+	/**
+	 * @var fileHandle
+	 * @brief Handle to the file.
+	 */
+	PlatformDependentFileBase fileHandle;
 
 	/**
 	 * @name Disabled copy constructor and assignment operator
@@ -182,10 +163,6 @@ public:
 	 * @throws std::runtime_error or std::system_error if file creation, mapping, or setup fails.
 	 */
 	MemoryMappedTempFile(size_t fileSize);
-	/**
-	 * @brief Destructor
-	 */
-	~MemoryMappedTempFile();
 
 	/**
 	 * @brief Move constructor for MemoryMappedTempFile.

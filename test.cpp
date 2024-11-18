@@ -395,7 +395,7 @@ void testMemoryMappedTempDlopenClose()
 		dynLib = std::unique_ptr<Elv::Util::DynamicLibrary>(new Elv::Util::DynamicLibrary(tempFile->getFilePath()));
 	}
 	myfunc hello_world =  dynLib->sym<myfunc>("get_hello_world");
-	if(hello_world != nullptr) std::cout << "Success! get_hello_world is at address [" << hello_world << "]." << std::endl;
+	if(hello_world != nullptr) std::cout << "Success! get_hello_world is at address [" << reinterpret_cast<void*>(hello_world) << "]." << std::endl;
 	else std::cout << "Failure! hello_world is a nullptr! Linking failed!" << std::endl;
 	std::cout << hello_world() << std::endl;
 }

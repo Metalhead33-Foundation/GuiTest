@@ -23,10 +23,8 @@ MemoryMapped::~MemoryMapped()
 #ifdef _WIN32
 		if (mappedView) UnmapViewOfFile(mappedView);
 		if (mappingHandle) CloseHandle(mappingHandle);
-		if (fileHandle!= INVALID_HANDLE_VALUE) CloseHandle(fileHandle);
 #else
 		if (mappedAddress!= MAP_FAILED) munmap(mappedAddress, fileSize);
-		if (fileDescriptor!= -1) close(fileDescriptor);
 #endif
 }
 
@@ -37,13 +35,9 @@ MemoryMapped::MemoryMapped(MemoryMapped&& mov)
 		mov.mappedView = nullptr;
 		this->mappingHandle = mov.mappingHandle;
 		mov.mappingHandle = nullptr;
-		this->fileHandle = mov.fileHandle;
-		mov.fileHandle = INVALID_HANDLE_VALUE;
 #else
 		this->mappedAddress = mov.mappedAddress;
 		mov.mappedAddress = MAP_FAILED;
-		this->fileDescriptor = mov.fileDescriptor;
-		mov.fileDescriptor = -1;
 #endif
 		this->fileSize = mov.fileSize;
 		mov.fileSize = 0;
@@ -55,10 +49,8 @@ MemoryMapped& MemoryMapped::operator=(MemoryMapped&& mov)
 #ifdef _WIN32
 		if (mappedView) UnmapViewOfFile(mappedView);
 		if (mappingHandle) CloseHandle(mappingHandle);
-		if (fileHandle!= INVALID_HANDLE_VALUE) CloseHandle(fileHandle);
 #else
 		if (mappedAddress!= MAP_FAILED) munmap(mappedAddress, fileSize);
-		if (fileDescriptor!= -1) close(fileDescriptor);
 #endif
 	// Now let's move stuff
 #ifdef _WIN32
@@ -66,13 +58,9 @@ MemoryMapped& MemoryMapped::operator=(MemoryMapped&& mov)
 		mov.mappedView = nullptr;
 		this->mappingHandle = mov.mappingHandle;
 		mov.mappingHandle = nullptr;
-		this->fileHandle = mov.fileHandle;
-		mov.fileHandle = INVALID_HANDLE_VALUE;
 #else
 		this->mappedAddress = mov.mappedAddress;
 		mov.mappedAddress = MAP_FAILED;
-		this->fileDescriptor = mov.fileDescriptor;
-		mov.fileDescriptor = -1;
 #endif
 		this->fileSize = mov.fileSize;
 		mov.fileSize = 0;
@@ -96,9 +84,9 @@ MemoryMapped& MemoryMapped::operator=(MemoryMapped&& mov)
 MemoryMapped::MemoryMapped(size_t fileSize)
 	:
 	  #ifdef _WIN32
-		fileHandle(nullptr), mappingHandle(nullptr), mappedAddress(MAP_FAILED),
+		mappingHandle(nullptr), mappedAddress(MAP_FAILED),
 	  #else
-		fileDescriptor(-1), mappedAddress(nullptr),
+		mappedAddress(nullptr),
 	  #endif
 	  fileSize(fileSize)
 {

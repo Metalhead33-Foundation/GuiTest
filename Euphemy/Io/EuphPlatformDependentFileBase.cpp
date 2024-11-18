@@ -22,6 +22,124 @@ namespace Euph {
 namespace Io {
 
 typedef Elv::Util::Exception<std::allocator<char>> BasicException;
+
+size_t PlatformDependentFileHandleBase::read(void* buffer, size_t size, size_t count)
+{
+#ifdef _WIN32
+		DWORD bytesRead;
+		if (!ReadPlatformDependentFileHandleBase(fileHandle, buffer, size * count, &bytesRead, NULL)) {
+			return 0;
+		}
+		return bytesRead / size;
+#else
+		ssize_t bytesRead = ::read(fileDescriptor, buffer, size * count);
+		return (bytesRead >= 0) ? bytesRead / size : 0;
+#endif
+}
+
+size_t PlatformDependentFileHandleBase::write(const void* buffer, size_t size, size_t count)
+{
+#ifdef _WIN32
+		DWORD bytesWritten;
+		if (!WritePlatformDependentFileHandleBase(fileHandle, buffer, size * count, &bytesWritten, NULL)) {
+			return 0;
+		}
+		return bytesWritten / size;
+#else
+		ssize_t bytesWritten = ::write(fileDescriptor, buffer, size * count);
+		return (bytesWritten >= 0) ? bytesWritten / size : 0;
+#endif
+}
+
+int PlatformDependentFileHandleBase::seek(long offset, Elv::Io::SeekOrigin whence)
+{
+#ifdef _WIN32
+		DWORD moveMethod;
+		switch (whence) {
+			case Elv::Io::SeekOrigin::SET: moveMethod = FILE_BEGIN; break;
+			case Elv::Io::SeekOrigin::CUR: moveMethod = FILE_CURRENT; break;
+			case Elv::Io::SeekOrigin::END: moveMethod = FILE_END; break;
+			default: return -1;
+		}
+		return SetPlatformDependentFileHandleBasePointer(fileHandle, offset, NULL, moveMethod) == INVALID_SET_FILE_POINTER ? -1 : 0;
+#else
+		int origin;
+		switch (whence) {
+			case Elv::Io::SeekOrigin::SET: origin = SEEK_SET; break;
+			case Elv::Io::SeekOrigin::CUR: origin = SEEK_CUR; break;
+			case Elv::Io::SeekOrigin::END: origin = SEEK_END; break;
+			default: return -1;
+		}
+		return lseek(fileDescriptor, offset, origin) == -1 ? -1 : 0;
+#endif
+}
+
+long PlatformDependentFileHandleBase::tell()
+{
+#ifdef _WIN32
+		return SetPlatformDependentFileHandleBasePointer(fileHandle, 0, NULL, FILE_CURRENT);
+#else
+		return lseek(fileDescriptor, 0, SEEK_CUR);
+#endif
+}
+
+size_t PlatformDependentFileHandleBase::size()
+{
+#ifdef _WIN32
+		LARGE_INTEGER fileSize;
+		if (GetPlatformDependentFileHandleBaseSizeEx(fileHandle, &fileSize)) {
+			return static_cast<size_t>(fileSize.QuadPart);
+		}
+		return 0;
+#else
+		struct stat st;
+		if (fstat(fileDescriptor, &st) == 0) {
+			return static_cast<size_t>(st.st_size);
+		}
+		return 0;
+#endif
+}
+
+bool PlatformDependentFileHandleBase::eof()
+{
+#ifdef _WIN32
+		return tell() >= size();
+#else
+		off_t currPos = lseek(fileDescriptor, 0, SEEK_CUR);
+		off_t fileSize = lseek(fileDescriptor, 0, SEEK_END);
+		lseek(fileDescriptor, currPos, SEEK_SET); // restore original position
+		return currPos >= fileSize;
+#endif
+}
+
+bool PlatformDependentFileHandleBase::flush()
+{
+#ifdef _WIN32
+		return FlushPlatformDependentFileHandleBaseBuffers(fileHandle) != 0;
+#else
+		return fsync(fileDescriptor) == 0;
+#endif
+}
+
+void PlatformDependentFileHandleBase::truncate(size_t newSize)
+{
+#ifdef _WIN32
+	// Set file size
+	if (SetFileValidData(fileHandle, newSize) == FALSE) {
+		throw std::system_error(GetLastError(), std::system_category(), "Failed to set valid data length.");
+	}
+	if (SetEndOfFile(fileHandle) == FALSE) {
+		throw std::system_error(GetLastError(), std::system_category(), "Failed to set end of file.");
+	}
+#else
+	// Set file size
+	if (ftruncate(fileDescriptor, newSize)!= 0) {
+		throw std::runtime_error("Failed to set file size.");
+	}
+#endif
+}
+
+
 PlatformDependentFileHandleBase::PlatformDependentFileHandleBase()
 	:
 #ifdef _WIN32
