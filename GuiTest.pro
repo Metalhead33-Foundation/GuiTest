@@ -20,6 +20,8 @@ SOURCES += \
     Elvavena/Io/ElvIoDeviceProxy.cpp \
     Elvavena/Util/ElvDynamicLib.cpp \
     Elvavena/Util/ElvEventLoop.cpp \
+    Euphemy/Config/EuphConfiguration.cpp \
+    Euphemy/Config/EuphConfigurationElement.cpp \
     Euphemy/Io/EuphBufferDevice.cpp \
     Euphemy/Io/EuphCryptoProxyDevice.cpp \
     Euphemy/Io/EuphFile.cpp \
@@ -65,6 +67,9 @@ HEADERS += \
     Elvavena/Util/ElvThreadsafeQueue.hpp \
     Elvavena/Util/ElvUtilGlobals.hpp \
     Elvavena/Util/half.hpp \
+    Euphemy/Config/EuphConfiguration.hpp \
+    Euphemy/Config/EuphConfigurationElement.hpp \
+    Euphemy/Config/EuphLib.hpp \
     Euphemy/Io/EuphBufferDevice.hpp \
     Euphemy/Io/EuphCryptoProxyDevice.hpp \
     Euphemy/Io/EuphFile.hpp \

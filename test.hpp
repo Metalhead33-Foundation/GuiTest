@@ -16,5 +16,6 @@ void testMemoryMapped();
 void testMemoryMappedTemp();
 void testMemoryMappedTempDlopenNoClose(Euph::Io::TemporaryFileCreationMode mode = Euph::Io::TemporaryFileCreationMode::MKSTEMP);
 void testMemoryMappedTempDlopenClose(Euph::Io::TemporaryFileCreationMode mode = Euph::Io::TemporaryFileCreationMode::MKSTEMP);
+void testConfigFile();
 
 #endif // TEST_HPP

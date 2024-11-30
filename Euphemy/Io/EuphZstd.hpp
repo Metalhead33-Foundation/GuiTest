@@ -1,5 +1,6 @@
 #ifndef EUPHZSTD_H
 #define EUPHZSTD_H
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDeviceProxy.hpp>
 namespace Euph {
 namespace Io {
@@ -12,7 +13,7 @@ namespace Io {
  * underlying device. This class is useful for efficiently compressing data while writing to files or
  * other devices.
  */
-class ZstdCompressor : public Elv::Io::BufferedWriteDeviceProxy {
+class MH_EUPH_API ZstdCompressor : public Elv::Io::BufferedWriteDeviceProxy {
 private:
 	/**
 	 * @brief Handle to the Zstandard compression context.
@@ -133,7 +134,7 @@ public:
  * read from an underlying Device. It decompresses data in blocks and provides the decompressed data to the
  * caller. This class is useful for efficiently decompressing data while reading from files or other devices.
  */
-class ZstdDecompressor : public Elv::Io::BufferedReadDeviceProxy {
+class MH_EUPH_API ZstdDecompressor : public Elv::Io::BufferedReadDeviceProxy {
 private:
 	/**
 	 * @brief Handle to the Zstandard decompression context.

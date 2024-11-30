@@ -1,5 +1,6 @@
 #ifndef SOCKET_HPP
 #define SOCKET_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <cstdint>
 #ifdef _WIN32
@@ -126,7 +127,7 @@ enum class SocketType {
  *
  * Provides an interface for working with network sockets.
  */
-class Socket : public Elv::Io::Device {
+class MH_EUPH_API Socket : public Elv::Io::Device {
 private:
 	/**
 	 * @brief Shared pointer to the socket system initializer.

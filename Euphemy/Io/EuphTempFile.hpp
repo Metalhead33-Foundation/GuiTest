@@ -1,5 +1,6 @@
 #ifndef EUPHTEMPFILE_HPP
 #define EUPHTEMPFILE_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Euphemy/Io/EuphMemoryMapped.hpp>
 #include <Euphemy/Io/EuphPlatformDependentFileBase.hpp>
@@ -14,7 +15,7 @@ namespace Io {
  * when the object is destroyed. This class is platform-independent and works on both
  * Windows and Unix-like systems.
  */
-class TempFile : public Elv::Io::Device
+class MH_EUPH_API TempFile : public Elv::Io::Device
 {
 private:
 	/**
@@ -136,7 +137,7 @@ public:
  * This class provides an interface for creating, managing, and accessing a temporary file
  * that is mapped into the process's memory space, allowing for fast and efficient data manipulation.
  */
-class MemoryMappedTempFile : public MemoryMapped
+class MH_EUPH_API MemoryMappedTempFile : public MemoryMapped
 {
 private:
 	/**

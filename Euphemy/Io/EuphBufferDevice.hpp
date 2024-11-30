@@ -1,5 +1,6 @@
 #ifndef EUPHBUFFERDEVICE_HPP
 #define EUPHBUFFERDEVICE_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <cstring>
 #include <vector>
@@ -16,7 +17,7 @@ namespace Io {
  *
  * @inherits Elv::Io::Device
  */
-class ReadOnlyBufferWrapper : public Elv::Io::Device {
+class MH_EUPH_API ReadOnlyBufferWrapper : public Elv::Io::Device {
 private:
 	/**
 	 * @brief Pointer to the beginning of the read-only buffer.
@@ -131,7 +132,7 @@ public:
  *
  * @inherits Elv::Io::Device
  */
-class StaticBufferWrapper : public Elv::Io::Device {
+class MH_EUPH_API StaticBufferWrapper : public Elv::Io::Device {
 private:
 	/**
 	 * @brief Pointer to the beginning of the writable buffer.

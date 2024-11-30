@@ -1,5 +1,6 @@
 #ifndef EUPHCRYPTOPROXYDEVICE_HPP
 #define EUPHCRYPTOPROXYDEVICE_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDeviceProxy.hpp>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -654,7 +655,7 @@ enum class CipherType {
  *
  * @warning This class is non-copyable. Use move semantics for transfers.
  */
-class CryptoWriteDeviceProxy : public Elv::Io::BufferedWriteDeviceProxy
+class MH_EUPH_API CryptoWriteDeviceProxy : public Elv::Io::BufferedWriteDeviceProxy
 {
 private:
 	EVP_CIPHER_CTX* encryptCtx; ///< Encryption context for OpenSSL operations.
@@ -783,7 +784,7 @@ public:
  *
  * @warning This class is non-copyable. Use move semantics for transfers.
  */
-class CryptoReadDeviceProxy : public Elv::Io::BufferedReadDeviceProxy
+class MH_EUPH_API CryptoReadDeviceProxy : public Elv::Io::BufferedReadDeviceProxy
 {
 private:
 	EVP_CIPHER_CTX* decryptCtx; ///< Decryption context for OpenSSL operations.

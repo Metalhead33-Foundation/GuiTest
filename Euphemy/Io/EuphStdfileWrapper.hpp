@@ -1,5 +1,6 @@
 #ifndef STDFILEWRAPPER_HPP
 #define STDFILEWRAPPER_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <cstdio>
 namespace Euph {
@@ -14,7 +15,7 @@ namespace Io {
  * (FILE*) and the Elv::Io::Device abstract interface, enabling the use of
  * standard input/output streams within the Elv::Io framework.
  */
-class StdfileWrapper : public Elv::Io::Device
+class MH_EUPH_API StdfileWrapper : public Elv::Io::Device
 {
 private:
 	/**

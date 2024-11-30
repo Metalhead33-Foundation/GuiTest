@@ -1,5 +1,6 @@
 #ifndef FILE_HPP
 #define FILE_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Elvavena/Io/ElvIoSystem.hpp>
 #include <Euphemy/Io/EuphMemoryMapped.hpp>
@@ -17,7 +18,7 @@ namespace Io {
  * @brief Implementation of Elv::Io::Device for file operations.
  * @继承 Elv::Io::Device
  */
-class File : public Elv::Io::Device
+class MH_EUPH_API File : public Elv::Io::Device
 {
 private:
 	/**
@@ -113,7 +114,7 @@ public:
  * @class MemoryMappedFile
  * @brief A class representing a regular file mapped into memory for efficient access.
  */
-class MemoryMappedFile : public MemoryMapped
+class MH_EUPH_API MemoryMappedFile : public MemoryMapped
 {
 private:
 	/**
@@ -194,7 +195,7 @@ public:
  * @class Filesystem
  * @brief Implementation of Elv::Io::System for filesystem operations.
  */
-class Filesystem : public Elv::Io::System
+class MH_EUPH_API Filesystem : public Elv::Io::System
 {
 public:
 	/**

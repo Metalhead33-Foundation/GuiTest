@@ -1,5 +1,6 @@
 #ifndef MEMORYMAPPED_HPP
 #define MEMORYMAPPED_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <cstddef>
 #include <span>
 #include <Euphemy/Io/EuphPlatformDependentFileBase.hpp>
@@ -9,7 +10,7 @@
 namespace Euph {
 namespace Io {
 
-class MemoryMapped
+class MH_EUPH_API MemoryMapped
 {
 protected:
 	/**

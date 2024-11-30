@@ -1,5 +1,6 @@
 #ifndef EUPHNULLDEVICE_HPP
 #define EUPHNULLDEVICE_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 namespace Euph {
 namespace Io {
@@ -13,7 +14,7 @@ namespace Io {
  *
  * @inherits Elv::Io::Device
  */
-class NullDevice : public Elv::Io::Device
+class MH_EUPH_API NullDevice : public Elv::Io::Device
 {
 public:
 	/**

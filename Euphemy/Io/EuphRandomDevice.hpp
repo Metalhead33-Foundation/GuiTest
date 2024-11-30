@@ -1,5 +1,6 @@
 #ifndef RANDOMDEVICE_HPP
 #define RANDOMDEVICE_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #ifdef _WIN32
 #include <Wincrypt.h>
@@ -38,7 +39,7 @@ enum class RandomSource : uint8_t {
  * This class provides an interface for reading random numbers from the system, while adhering to the Elv::Io::Device API.
  * Note that certain operations (e.g., seeking, writing) are not applicable to random devices and will fail or return default values.
  */
-class RandomDevice : public Elv::Io::Device
+class MH_EUPH_API RandomDevice : public Elv::Io::Device
 {
 private:
 	/**

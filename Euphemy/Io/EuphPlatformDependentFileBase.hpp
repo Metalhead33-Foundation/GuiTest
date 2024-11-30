@@ -1,5 +1,6 @@
 #ifndef EUPHPLATFORMDEPENDENTFILEBASE_HPP
 #define EUPHPLATFORMDEPENDENTFILEBASE_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <cstddef>
 #include <span>
@@ -16,7 +17,7 @@ namespace Io {
  *
  * This class encapsulates the platform-specific file handle or file descriptor.
  */
-struct PlatformDependentFileHandleBase {
+class MH_EUPH_API PlatformDependentFileHandleBase {
 public:
 #ifdef _WIN32
 	HANDLE fileHandle; ///< Handle for the file on Windows.
@@ -137,7 +138,7 @@ enum class TemporaryFileCreationMode : uint8_t {
  *
  * This class encapsulates the platform-specific file handle or file descriptor along with additional file information.
  */
-struct PlatformDependentFileBase : public PlatformDependentFileHandleBase {
+class MH_EUPH_API PlatformDependentFileBase : public PlatformDependentFileHandleBase {
 public:
 	typedef std::function<void(const char*)> Deleter; ///< Type alias for the file deleter function.
 	std::string path;                                 ///< Path to the file.

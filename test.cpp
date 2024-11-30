@@ -14,6 +14,9 @@
 #include <Euphemy/Io/EuphFile.hpp>
 #include <Euphemy/Io/EuphTempFile.hpp>
 #include <Elvavena/Util/ElvDynamicLib.hpp>
+#include <Euphemy/Config/EuphConfiguration.hpp>
+#include <fstream>
+
 template<class T>
 struct Mallocator
 {
@@ -412,4 +415,12 @@ void testMemoryMappedTempDlopenClose(Euph::Io::TemporaryFileCreationMode mode)
 	if(hello_world != nullptr) std::cout << "Success! get_hello_world is at address [" << reinterpret_cast<void*>(hello_world) << "]." << std::endl;
 	else std::cout << "Failure! hello_world is a nullptr! Linking failed!" << std::endl;
 	std::cout << hello_world() << std::endl;
+}
+
+void testConfigFile()
+{
+	std::ifstream ifs;
+	ifs.open("hello.ini");
+	Euph::Conf::Configuration config(ifs);
+	std::cout << config;
 }

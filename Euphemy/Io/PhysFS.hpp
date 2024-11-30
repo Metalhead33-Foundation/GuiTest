@@ -1,5 +1,6 @@
 #ifndef PHYSFS_HPP
 #define PHYSFS_HPP
+#include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Elvavena/Io/ElvIoSystem.hpp>
 namespace PhysFS {
@@ -11,7 +12,7 @@ namespace PhysFS {
  * This class provides a concrete implementation of the Elv::Io::Device interface,
  * utilizing the PhysicsFS library for file operations.
  */
-class Device : public Elv::Io::Device {
+class MH_EUPH_API Device : public Elv::Io::Device {
 private:
 	/**
 	 * @var handle
