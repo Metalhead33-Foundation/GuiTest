@@ -5,10 +5,17 @@
 #include <vector>
 #include <optional>
 #include <span>
+#define ALT_IMPLEMENTATION_FOR_IMAGE_DECODE_TARGET
+
+#ifdef ALT_IMPLEMENTATION_FOR_IMAGE_DECODE_TARGET
+#include <memory_resource>
+#else
 #include <functional>
+#endif
+
 namespace Euph {
 namespace Media {
-
+#ifndef ALT_IMPLEMENTATION_FOR_IMAGE_DECODE_TARGET
 struct PaletteRef {
 	std::span<std::byte> palette;
 	ImageFormat format;
@@ -128,7 +135,63 @@ struct DecodeTarget {
 		};
 	}
 };
+#else
+struct Palette {
+	std::pmr::vector<std::byte> palette;
+	ImageFormat format;
+	int transparentColorIndex;
+	template <typename T> inline std::span<T> asDataSpan() {
+		return std::span<T>( reinterpret_cast<T*>( palette.data() ), palette.size() / sizeof(T) );
+	}
+	template <typename T> inline std::span<const T> asDataSpan() const {
+		return std::span<const T>( reinterpret_cast<const T*>( palette.data() ), palette.size() / sizeof(T) );
+	}
+	Palette(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+			: palette(memResource) {
 
+	}
+	Palette(const Palette& cpy) = default;
+	Palette(Palette&& mov) = default;
+	Palette& operator=(const Palette& cpy) = default;
+	Palette& operator=(Palette&& mov) = default;
+};
+
+struct Frame {
+	std::pmr::vector<std::byte> imageData;
+	unsigned width,height,stride;
+	template <typename T> inline std::span<T> asDataSpan() {
+		return std::span<T>( reinterpret_cast<T*>( imageData.data() ), width * height);
+	}
+	template <typename T> inline std::span<const T> asDataSpan() const {
+		return std::span<const T>( reinterpret_cast<const T*>( imageData.data() ), width * height);
+	}
+	Frame(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+			: imageData(memResource) {
+
+	}
+	Frame(const Frame& cpy) = default;
+	Frame(Frame&& mov) = default;
+	Frame& operator=(const Frame& cpy) = default;
+	Frame& operator=(Frame&& mov) = default;
+};
+struct DecodeTarget {
+	std::pmr::vector<Frame> frames;
+	std::optional<Palette> palette; // Used for INDEXED only.
+	std::optional<float> delayTime; // Used for animated pictures only.
+	bool isAnimated; // If false, then the frames are mipmaps. If true, then we except width and height to remain constant.
+	ImageFormat format;
+	std::pmr::memory_resource* memResource;
+	DecodeTarget(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+			: frames(memResource), memResource(memResource) {
+
+	}
+	DecodeTarget(const DecodeTarget& cpy) = default;
+	DecodeTarget(DecodeTarget&& mov) = default;
+	DecodeTarget& operator=(const DecodeTarget& cpy) = default;
+	DecodeTarget& operator=(DecodeTarget&& mov) = default;
+
+};
+#endif
 }
 }
 #endif // EUPHIMAGEDECODETARGET_HPP
