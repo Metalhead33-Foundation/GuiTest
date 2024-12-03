@@ -2,12 +2,18 @@
 #include <span>
 #include <limits>
 #include "test.hpp"
+#include <fstream>
+#include <Euphemy/Config/GlobalConfig.hpp>
+
+Euph::Conf::Configuration GLOBAL_CONFIGURATION;
 
 int main(void)
 {
-	//std::cout << "Hello world!" << std::endl;
-	//testMemoryMappedTempDlopenClose(Euph::Io::TemporaryFileCreationMode::MEMFD_CREATE);
-	testConfigFile();
+	std::ifstream ifs;
+	ifs.open("hello.ini");
+	GLOBAL_CONFIGURATION.fromString(ifs);
+	//testGlobalConfigFile();
+	testCustomAllocator();
 	return 0;
 }
 

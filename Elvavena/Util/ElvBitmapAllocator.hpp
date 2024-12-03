@@ -20,7 +20,7 @@ private:
 	std::bitset<NumBlocks> bitmap_;
 	char buffer_[BlockSize * NumBlocks];
 	bool canFitIntoSpace(size_t startingIndex, size_t blockCount) {
-		if((startingIndex+blockCount) <= NumBlocks) return false;
+		if((startingIndex+blockCount) >= NumBlocks) return false;
 		for(size_t i = 0; (i < blockCount) && ((startingIndex+i) < NumBlocks); ++i) {
 			if(bitmap_.test(startingIndex+i)) return false;
 		}

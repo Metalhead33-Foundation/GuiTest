@@ -189,7 +189,82 @@ Configuration::iterator Configuration::find(const std::string_view& key)
 
 Configuration::const_iterator Configuration::find(const std::string_view& key) const
 {
-	return sections.find(key);
+    return sections.find(key);
+}
+
+std::string_view Configuration::getString(const std::string_view& section, const std::string_view& key, const std::string_view& def)
+{
+	auto it = sections.find(section);
+	if(it == std::end(sections))
+	{
+		ConfigurationSection tmpSect;
+		tmpSect.setString(key,def);
+		sections.emplace(section, std::move(tmpSect));
+		return def;
+	}
+	else {
+		return it->second.getString(key,def);
+	}
+}
+
+ConfFloat Configuration::getFloat(const std::string_view& section, const std::string_view& key, ConfFloat def)
+{
+	auto it = sections.find(section);
+	if(it == std::end(sections))
+	{
+		ConfigurationSection tmpSect;
+		tmpSect.setFloat(key,def);
+		sections.emplace(section, std::move(tmpSect));
+		return def;
+	}
+	else {
+		return it->second.getFloat(key,def);
+	}
+}
+
+ConfInt Configuration::getInteger(const std::string_view& section, const std::string_view& key, ConfInt def)
+{
+	auto it = sections.find(section);
+	if(it == std::end(sections))
+	{
+		ConfigurationSection tmpSect;
+		tmpSect.setInt(key,def);
+		sections.emplace(section, std::move(tmpSect));
+		return def;
+	}
+	else {
+		return it->second.getInteger(key,def);
+	}
+}
+
+ConfUint Configuration::getUInteger(const std::string_view& section, const std::string_view& key, ConfUint def)
+{
+	auto it = sections.find(section);
+	if(it == std::end(sections))
+	{
+		ConfigurationSection tmpSect;
+		tmpSect.setUint(key,def);
+		sections.emplace(section, std::move(tmpSect));
+		return def;
+	}
+	else {
+		return it->second.getUInteger(key,def);
+	}
+}
+
+bool Configuration::getBool(const std::string_view& section, const std::string_view& key, bool def)
+{
+	auto it = sections.find(section);
+	if(it == std::end(sections))
+	{
+		ConfigurationSection tmpSect;
+		tmpSect.setBool(key,def);
+		sections.emplace(section, std::move(tmpSect));
+		return def;
+	}
+	else {
+		return it->second.getBool(key,def);
+	}
 }
 
 Configuration::Configuration()

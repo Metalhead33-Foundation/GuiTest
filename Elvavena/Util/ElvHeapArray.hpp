@@ -87,7 +87,7 @@ public:
 	 *
 	 * @param size The number of elements to allocate.
 	 */
-	UniqueHeapArray(size_t size) : m_size(size) {
+	template <class... Args> UniqueHeapArray(size_t size, Args&&... args) : m_size(size), alloc(std::forward(args)...) {
 		m_data = alloc.allocate(size);
 		for (size_t i = 0; i < m_size; ++i) {
 			AllocTraits::construct(alloc, &m_data[i]); // Construct each element
@@ -354,7 +354,18 @@ private:
 		 * @brief Constructor for the internal container.
 		 * @param size The size of the array to allocate.
 		 */
-		Container(size_t size) : m_size(size), m_refCount(1) {
+		template <class... Args> Container(size_t size, Args&&... args) : m_size(size), m_refCount(1), alloc(std::forward(args)...) {
+			m_data = alloc.allocate(size);
+			for (size_t i = 0; i < m_size; ++i) {
+				/// Construct each element in the allocated array.
+				AllocTraits::construct(alloc, &m_data[i]);
+			}
+		}
+		/**
+		 * @brief Constructor for the internal container.
+		 * @param size The size of the array to allocate.
+		 */
+		Container(size_t size, Alloc&& allocMov) : m_size(size), m_refCount(1), alloc(std::move(allocMov)) {
 			m_data = alloc.allocate(size);
 			for (size_t i = 0; i < m_size; ++i) {
 				/// Construct each element in the allocated array.
@@ -374,6 +385,8 @@ private:
 			alloc.deallocate(m_data, m_size);
 		}
 	};
+	typedef AllocTraits::template rebind_alloc<Container> ContainerAllocator;
+	typedef std::allocator_traits<ContainerAllocator> ContainerAllocatorTraits;
 
 	/// Pointer to the internal container instance.
 	Container* m_container;
@@ -383,8 +396,13 @@ public:
 	 * @brief Constructor for SharedHeapArray.
 	 * @param size The size of the array to allocate.
 	 */
-	SharedHeapArray(size_t size) {
-		m_container = new Container(size);
+	template<typename... Args> SharedHeapArray(size_t size, Args&&... args) {
+		Alloc tmpAlloc(std::forward(args)...);
+		const Alloc& tmpAllocRef = tmpAlloc;
+		ContainerAllocator cntr(tmpAllocRef);
+		m_container = ContainerAllocatorTraits::allocate(cntr, 1);
+		ContainerAllocatorTraits::construct(cntr,m_container, size, std::move(tmpAlloc));
+		//m_container = cntr.allocate(size, std::move(tmpAlloc));
 	}
 
 	/**
@@ -395,8 +413,10 @@ public:
 			/// Decrement the reference count.
 			--m_container->m_refCount;
 			if (m_container->m_refCount <= 0) {
+				ContainerAllocator cntr(std::move(m_container->alloc));
 				/// Delete the container if no longer shared.
-				delete m_container;
+				ContainerAllocatorTraits::destroy(cntr,m_container);
+				ContainerAllocatorTraits::deallocate(cntr,m_container,1);
 			}
 		}
 	}

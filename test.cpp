@@ -16,6 +16,7 @@
 #include <Elvavena/Util/ElvDynamicLib.hpp>
 #include <Euphemy/Config/EuphConfiguration.hpp>
 #include <fstream>
+#include <Euphemy/Config/GlobalConfig.hpp>
 
 template<class T>
 struct Mallocator
@@ -423,4 +424,22 @@ void testConfigFile()
 	ifs.open("hello.ini");
 	Euph::Conf::Configuration config(ifs);
 	std::cout << config;
+}
+void testGlobalConfigFile()
+{
+	std::cout << GLOBAL_CONFIGURATION;
+}
+
+typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticBitmapAllocator<32,1024>,int> IntAllocator;
+//typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticFreeListAllocator<sizeof(int)*20000>,int> IntAllocator;
+
+void testCustomAllocator()
+{
+	Elv::Util::SharedHeapArray<int,IntAllocator> heapArr(1024);
+	for(size_t i = 0; i < heapArr.size(); ++i) {
+		heapArr[i] = i;
+	}
+	for(const auto& it : heapArr) {
+		std::cout << it << std::endl;
+	}
 }

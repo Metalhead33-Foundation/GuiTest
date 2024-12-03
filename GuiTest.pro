@@ -34,6 +34,7 @@ SOURCES += \
     Euphemy/Io/EuphTempFile.cpp \
     Euphemy/Io/EuphZstd.cpp \
     Euphemy/Io/PhysFS.cpp \
+    Euphemy/Memory/EuphMemory.cpp \
     main.cpp \
     test.cpp
 
@@ -42,6 +43,7 @@ HEADERS += \
     Elvavena/Io/ElvIoDevice.hpp \
     Elvavena/Io/ElvIoDeviceProxy.hpp \
     Elvavena/Io/ElvIoSystem.hpp \
+    Elvavena/Util/ElvAlexandrescuResource.hpp \
     Elvavena/Util/ElvAllocatorBasic.hpp \
     Elvavena/Util/ElvBinaryTree.hpp \
     Elvavena/Util/ElvBitmapAllocator.hpp \
@@ -70,6 +72,7 @@ HEADERS += \
     Euphemy/Config/EuphConfiguration.hpp \
     Euphemy/Config/EuphConfigurationElement.hpp \
     Euphemy/Config/EuphLib.hpp \
+    Euphemy/Config/GlobalConfig.hpp \
     Euphemy/Io/EuphBufferDevice.hpp \
     Euphemy/Io/EuphCryptoProxyDevice.hpp \
     Euphemy/Io/EuphFile.hpp \
@@ -82,4 +85,7 @@ HEADERS += \
     Euphemy/Io/EuphTempFile.hpp \
     Euphemy/Io/EuphZstd.hpp \
     Euphemy/Io/PhysFS.hpp \
+    Euphemy/Media/EuphImageDecodeTarget.hpp \
+    Euphemy/Media/EuphImageType.hpp \
+    Euphemy/Memory/EuphMemory.hpp \
     test.hpp

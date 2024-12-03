@@ -83,6 +83,12 @@ public:
 	const_reverse_iterator rend() const;
 	iterator find(const std::string_view& key);
 	const_iterator find(const std::string_view& key) const;
+	// Getters
+	std::string_view getString(const std::string_view& section, const std::string_view& key, const std::string_view& def="");
+	ConfFloat getFloat(const std::string_view& section, const std::string_view& key, ConfFloat def=static_cast<ConfFloat>(0));
+	ConfInt getInteger(const std::string_view& section, const std::string_view& key, ConfInt def=static_cast<ConfInt>(0));
+	ConfUint getUInteger(const std::string_view& section, const std::string_view& key, ConfUint def=static_cast<ConfUint>(0));
+	bool getBool(const std::string_view& section, const std::string_view& key, bool def=false);
 };
 
 }

@@ -28,6 +28,10 @@ template <typename Alloc, typename T> concept Allocator = requires(Alloc alloc, 
 	{ alloc.allocate(n) } -> std::same_as<T*>;
 	/// @brief Ensure alloc can deallocate ptr with size n.
 	alloc.deallocate(ptr, n);
+	/// @brief Ensure Alloc can rebind to a different type U.
+	//typename Alloc::template rebind<int>::other;
+	/// @brief Verify the rebind result has a value_type of int.
+	//requires std::same_as<typename Alloc::template rebind<int>::other::value_type, int>;
 };
 
 /**
@@ -223,89 +227,114 @@ template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> stru
 	typedef T value_type;
 	/// @brief Size type.
 	typedef std::size_t size_type;
-/// @brief Difference type.
-typedef std::ptrdiff_t difference_type;
-/// @brief Allocator type itself.
-typedef AlexandrescuAllocatorAdapter allocator_type;
-/// @brief Propagation trait for container copy assignment.
-typedef std::false_type propagate_on_container_copy_assignment;
-/// @brief Propagation trait for container move assignment.
-typedef std::false_type propagate_on_container_move_assignment;
-/// @brief Propagation trait for container swap.
-typedef std::false_type propagate_on_container_swap;
-/// @brief Equality trait (always equal for this adapter).
-typedef std::true_type is_always_equal;
+	/// @brief Difference type.
+	typedef std::ptrdiff_t difference_type;
+	/// @brief Allocator type itself.
+	typedef AlexandrescuAllocatorAdapter allocator_type;
+	/// @brief Propagation trait for container copy assignment.
+	typedef std::false_type propagate_on_container_copy_assignment;
+	/// @brief Propagation trait for container move assignment.
+	typedef std::false_type propagate_on_container_move_assignment;
+	/// @brief Propagation trait for container swap.
+	typedef std::false_type propagate_on_container_swap;
+	/// @brief Equality trait (always equal for this adapter).
+	typedef std::true_type is_always_equal;
 
-/// @brief Underlying Alexandrescu-style allocator instance.
-Alloc alloc_;
+	/// @brief Underlying Alexandrescu-style allocator instance.
+	Alloc alloc_;
 
-/**
- * @brief Default constructor.
- */
-AlexandrescuAllocatorAdapter() = default;
+	/**
+	 * @brief Default constructor.
+	 */
+	AlexandrescuAllocatorAdapter() = default;
+	AlexandrescuAllocatorAdapter(const Alloc& cpy) : alloc_(cpy) {
 
-/**
- * @brief Allocates memory for n objects of type T.
- * @param n Number of objects to allocate memory for.
- * @return Pointer to the beginning of the allocated memory.
- * @throws std::bad_alloc if allocation fails.
- */
-T* allocate(std::size_t n) {
-	std::size_t total_size = n * sizeof(T);
-	Blk blk = alloc_.allocateBlock(total_size);
-	if (!blk.ptr) throw std::bad_alloc();
-	return static_cast<T*>(blk.ptr);
-}
+	}
+	AlexandrescuAllocatorAdapter(Alloc&& mov) : alloc_(std::move(mov)) {
 
-/**
- * @brief Deallocates memory previously allocated for n objects of type T.
- * @param ptr Pointer to the memory to deallocate.
- * @param n Number of objects the memory was allocated for.
- */
-void deallocate(T* ptr, std::size_t n) {
-	Blk blk{ static_cast<void*>(ptr), n * sizeof(T) };
-	alloc_.deallocateBlock(blk);
-}
+	}
+	template<typename U> AlexandrescuAllocatorAdapter(const AlexandrescuAllocatorAdapter<Alloc,U>& cpy) : alloc_(cpy.alloc_) {
 
-/**
- * @struct rebind
- * @brief Helper for rebinding the allocator to a different type U.
- *
- * @tparam U New type to rebind the allocator to.
- */
-template <typename U>
-struct rebind {
-	/// @brief The rebound allocator type.
-	using other = AlexandrescuAllocatorAdapter<Alloc, U>;
-};
+	}
+	template<typename U> AlexandrescuAllocatorAdapter(AlexandrescuAllocatorAdapter<Alloc,U>&& mov) : alloc_(std::move(mov.alloc_)) {
 
-/**
- * @brief Constructs an allocator from another AlexandrescuAllocatorAdapter instance.
- * @tparam UAlloc Allocator type of the other instance.
- * @tparam UT Type associated with the other instance.
- * @param other Other AlexandrescuAllocatorAdapter instance.
- */
-template <typename UAlloc, typename UT> requires AlexandrescuAllocator<UAlloc> constexpr AlexandrescuAllocatorAdapter(const AlexandrescuAllocatorAdapter <UAlloc, UT>&) noexcept {}
+	}
+	template<typename U> AlexandrescuAllocatorAdapter& operator=(const AlexandrescuAllocatorAdapter<Alloc,U>& cpy) {
+		this->alloc_ = cpy.alloc_;
+		return *this;
+	}
+	template<typename U> AlexandrescuAllocatorAdapter& operator=(AlexandrescuAllocatorAdapter<Alloc,U>&& mov) {
+		this->alloc_ = std::move(mov.alloc_);
+		return *this;
+	}
+	template <typename... Args> AlexandrescuAllocatorAdapter(Args&&... args)
+		: alloc_(std::forward(args)...)
+	{
 
-/**
- * @brief Equality operator (always returns true for this adapter).
- * @param lhs Left-hand side allocator.
- * @param rhs Right-hand side allocator.
- * @return True.
- */
-friend bool operator==(const AlexandrescuAllocatorAdapter& lhs, const AlexandrescuAllocatorAdapter& rhs) {
-	return true;
-}
+	}
 
-/**
- * @brief Inequality operator (always returns false for this adapter).
- * @param lhs Left-hand side allocator.
- * @param rhs Right-hand side allocator.
- * @return False.
- */
-friend bool operator!=(const AlexandrescuAllocatorAdapter& lhs, const AlexandrescuAllocatorAdapter& rhs) {
-	return false;
-}
+	/**
+	 * @brief Allocates memory for n objects of type T.
+	 * @param n Number of objects to allocate memory for.
+	 * @return Pointer to the beginning of the allocated memory.
+	 * @throws std::bad_alloc if allocation fails.
+	 */
+	T* allocate(std::size_t n) {
+		std::size_t total_size = n * sizeof(T);
+		Blk blk = alloc_.allocateBlock(total_size);
+		if (!blk.ptr) throw std::bad_alloc();
+		return static_cast<T*>(blk.ptr);
+	}
+
+	/**
+	 * @brief Deallocates memory previously allocated for n objects of type T.
+	 * @param ptr Pointer to the memory to deallocate.
+	 * @param n Number of objects the memory was allocated for.
+	 */
+	void deallocate(T* ptr, std::size_t n) {
+		Blk blk{ static_cast<void*>(ptr), n * sizeof(T) };
+		alloc_.deallocateBlock(blk);
+	}
+
+	/**
+	 * @struct rebind
+	 * @brief Helper for rebinding the allocator to a different type U.
+	 *
+	 * @tparam U New type to rebind the allocator to.
+	 */
+	template <typename U>
+	struct rebind {
+		/// @brief The rebound allocator type.
+		using other = AlexandrescuAllocatorAdapter<Alloc, U>;
+	};
+
+	/**
+	 * @brief Constructs an allocator from another AlexandrescuAllocatorAdapter instance.
+	 * @tparam UAlloc Allocator type of the other instance.
+	 * @tparam UT Type associated with the other instance.
+	 * @param other Other AlexandrescuAllocatorAdapter instance.
+	 */
+	template <typename UAlloc, typename UT> requires AlexandrescuAllocator<UAlloc> constexpr AlexandrescuAllocatorAdapter(const AlexandrescuAllocatorAdapter <UAlloc, UT>&) noexcept {}
+
+	/**
+	 * @brief Equality operator (always returns true for this adapter).
+	 * @param lhs Left-hand side allocator.
+	 * @param rhs Right-hand side allocator.
+	 * @return True.
+	 */
+	friend bool operator==(const AlexandrescuAllocatorAdapter& lhs, const AlexandrescuAllocatorAdapter& rhs) {
+		return true;
+	}
+
+	/**
+	 * @brief Inequality operator (always returns false for this adapter).
+	 * @param lhs Left-hand side allocator.
+	 * @param rhs Right-hand side allocator.
+	 * @return False.
+	 */
+	friend bool operator!=(const AlexandrescuAllocatorAdapter& lhs, const AlexandrescuAllocatorAdapter& rhs) {
+		return false;
+	}
 };
 
 /**

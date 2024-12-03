@@ -96,10 +96,12 @@ public:
 		\param size Initial size of the array (number of chunks).
 		\param countAsInitialized If true, initializes size with allocated elements.
 	*/
-	UniqueChunkyArray(size_t size, bool countAsInitialized = false) :
+	template <typename... Args> UniqueChunkyArray(size_t size, bool countAsInitialized = false, Args&&... args) :
 		m_chunkCount(size),
 		m_capacity(size * ChunkSize),
-		m_size(countAsInitialized ? (size * ChunkSize) : 0) {
+		m_size(countAsInitialized ? (size * ChunkSize) : 0),
+		alloc(std::forward(args)...)
+	{
 		m_data = alloc.allocate(size);
 	}
 
@@ -360,11 +362,27 @@ private:
 			\param size Initial number of chunks.
 			\param countAsInitialized Flag indicating if the array is initialized.
 		*/
-		Container(size_t size, bool countAsInitialized = false) :
+		template <typename... Args> Container(size_t size, bool countAsInitialized = false, Args&&... args) :
 			m_chunkCount(size),
 			m_capacity(size * ChunkSize),
 			m_size(countAsInitialized ? (size * ChunkSize) : 0),
-			m_refCount(1) {
+			m_refCount(1),
+			alloc(std::forward(args)...)
+		{
+			m_data = alloc.allocate(m_chunkCount);
+		}
+		/*!
+			Constructor for the container.
+			\param size Initial number of chunks.
+			\param countAsInitialized Flag indicating if the array is initialized.
+		*/
+		Container(Alloc&& movAlloc, size_t size, bool countAsInitialized = false) :
+			m_chunkCount(size),
+			m_capacity(size * ChunkSize),
+			m_size(countAsInitialized ? (size * ChunkSize) : 0),
+			m_refCount(1),
+			alloc(std::move(movAlloc))
+		{
 			m_data = alloc.allocate(m_chunkCount);
 		}
 
@@ -451,6 +469,8 @@ private:
 			else if(idealSize > m_chunkCount) grow(idealSize);
 		}
 	};
+	typedef AllocTraits::template rebind_alloc<Container> ContainerAllocator;
+	typedef std::allocator_traits<ContainerAllocator> ContainerAllocatorTraits;
 
 	Container* m_container; //!< Pointer to the container.
 
@@ -461,8 +481,13 @@ public:
 		\param size Initial number of chunks.
 		\param countAsInitialized Flag indicating if the array is initialized.
 	*/
-	SharedChunkyArray(size_t size, bool countAsInitialized = false) {
-		m_container = new Container(size,countAsInitialized);
+	template<typename... Args> SharedChunkyArray(size_t size, bool countAsInitialized = false, Args&&... args) {
+		Alloc tmpAlloc(std::forward(args)...);
+		const Alloc& tmpAllocRef = tmpAlloc;
+		ContainerAllocator cntr(tmpAllocRef);
+		m_container = ContainerAllocatorTraits::allocate(cntr, 1);
+		ContainerAllocatorTraits::construct(cntr,m_container, size, countAsInitialized, std::move(tmpAlloc));
+		//m_container = new Container(size,countAsInitialized, std::move(tmpAlloc));
 	}
 
 	//! Destructor for SharedChunkyArray.
@@ -470,7 +495,10 @@ public:
 		if(m_container) {
 			--m_container->m_refCount;
 			if(m_container->m_refCount <= 0) {
-				delete m_container;
+				ContainerAllocator cntr(std::move(m_container->alloc));
+				/// Delete the container if no longer shared.
+				ContainerAllocatorTraits::destroy(cntr,m_container);
+				ContainerAllocatorTraits::deallocate(cntr,m_container);
 			}
 		}
 	}

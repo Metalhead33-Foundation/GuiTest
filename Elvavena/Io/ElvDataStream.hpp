@@ -13,6 +13,14 @@ template <Util::Endian io_endianness = Util::Endian::Big> struct DataStream {
 
 	}
 	// Primitives
+	inline DataStream& operator<<(std::nullptr_t ptr) {
+		(void)ptr;
+		return *this;
+	}
+	inline DataStream& operator>>(std::nullptr_t& ptr) {
+		(void)ptr;
+		return *this;
+	}
 	inline DataStream& operator<<(std::nullopt_t ptr) {
 		(void)ptr;
 		return *this;
@@ -257,6 +265,16 @@ template <Util::Endian io_endianness = Util::Endian::Big> struct DataStream {
 		return *this;
 	}
 #endif
+	template< class CharT, class Traits = std::char_traits<CharT>>
+	inline DataStream& operator<<(const std::basic_string_view<CharT, Traits>& data) {
+		*this << static_cast<uint32_t>( data.size () );
+		if constexpr(sizeof(CharT) == sizeof(std::byte)) {
+			device.write(data.data (), 1, data.size () );
+			return *this;
+		} else {
+			return writeElements<CharT>(data.begin(), data.end(), false);
+		}
+	}
 	template< class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
 	inline DataStream& operator<<(const std::basic_string<CharT, Traits, Allocator>& data) {
 		*this << static_cast<uint32_t>( data.size () );
@@ -278,6 +296,26 @@ template <Util::Endian io_endianness = Util::Endian::Big> struct DataStream {
 		} else {
 			return readElementsInto<CharT>(data.begin(), data.end());
 		}
+	}
+	template <typename T> inline DataStream& operator<<(const std::optional<T>& opt) {
+		bool hasValue = opt.has_value();
+		*this << hasValue;
+		if(hasValue) {
+			this << opt.value();
+		}
+		return *this;
+	}
+	template <typename T> inline DataStream& operator>>(std::optional<T>& opt) {
+		bool hasValue;
+		*this >> hasValue;
+		if(hasValue) {
+			T value;
+			*this >> value;
+			opt.emplace(std::move(value));
+		} else {
+			opt = std::nullopt;
+		}
+		return *this;
 	}
 	template <typename T1, typename T2> inline DataStream& operator<<(const std::pair<T1,T2>& pair) {
 		return *this << pair.first << pair.second;
