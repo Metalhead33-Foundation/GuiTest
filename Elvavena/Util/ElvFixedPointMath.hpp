@@ -61,9 +61,9 @@ FP_TEMPLATE_INTRO struct fixed_norm {
 		 * @return The normalized fixed-point number.
 		 */
 		static constexpr fixed_type _normalize(const integer_type& integer) {
-			return { integer?
+			return fixed_type::from_raw(integer?
 							(integer > 0? ((static_cast<container_t>(integer) + 1)  << int_bitgap) : ((static_cast<container_t>(integer)-1) << int_bitgap))
-						  : 0 };
+						  : 0 );
 		}
 
 		/**

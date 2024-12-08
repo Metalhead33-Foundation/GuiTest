@@ -13,7 +13,8 @@ int main(void)
 	ifs.open("hello.ini");
 	GLOBAL_CONFIGURATION.fromString(ifs);
 	//testGlobalConfigFile();
-	testCustomAllocator();
+	//testCustomAllocator();
+	testInterpolationFixed();
 	return 0;
 }
 

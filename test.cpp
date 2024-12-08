@@ -17,6 +17,8 @@
 #include <Euphemy/Config/EuphConfiguration.hpp>
 #include <fstream>
 #include <Euphemy/Config/GlobalConfig.hpp>
+#include <Elvavena/Util/ElvInterpolation.hpp>
+#include <Elvavena/Util/ElvFixedPoint.hpp>
 
 template<class T>
 struct Mallocator
@@ -442,4 +444,39 @@ void testCustomAllocator()
 	for(const auto& it : heapArr) {
 		std::cout << it << std::endl;
 	}
+}
+
+template <typename T> void testInterpolator() {
+	// Testing simple linear interpolation
+	{
+		T d0 = static_cast<T>(0.0);
+		T d1 = static_cast<T>(0.66);
+		T w = static_cast<T>(0.5);
+		T wMinusOne = static_cast<T>(1.0)-w;
+
+		std::cout << "d0 = " << d0 << std::endl;
+		std::cout << "d1 = " << d1 << std::endl;
+		std::cout << "w = " << w << std::endl;
+		std::cout << "1-w = " << wMinusOne << std::endl;
+		std::cout << "d0 * (1-w) = " << d0*wMinusOne << std::endl;
+		std::cout << "d1 * w = " << d1*w << std::endl;
+		T output = Elv::Util::lerp(d0,d1,w);
+		std::cout << "(d0 * (1-w)) + (d1 * w) = " << output << std::endl;
+	}
+}
+
+void IsFixedPoint(const Elv::Util::FixedPoint auto& value)
+{
+	float flt = value.to_float();
+}
+
+void testInterpolationFloat()
+{
+	testInterpolator<float>();
+}
+
+void testInterpolationFixed()
+{
+	IsFixedPoint(Elv::Util::fixed32::from_float(0.33f));
+	testInterpolator<Elv::Util::fixed32>();
 }

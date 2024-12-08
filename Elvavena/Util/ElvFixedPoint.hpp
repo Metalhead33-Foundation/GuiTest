@@ -4,6 +4,8 @@
 #include <cmath>
 #include <compare>
 #include <Elvavena/Io/ElvDataStream.hpp>
+#include <concepts>
+#include <type_traits>
 #if __cplusplus <= 199711L
   #error This library needs at least a C++11 compliant compiler
 #endif
@@ -26,6 +28,95 @@ namespace Util {
  * @{
  */
 
+// Concept for fixed_point
+template <typename T>
+concept FixedPoint = requires(T a, T b, typename T::container_type c, long double ld) {
+	// Typedefs
+	typename T::container_type;
+
+	// Constants and Bit Masks
+	/*{ T::bits } -> std::same_as<const std::uint8_t>;
+	{ T::fraction_shifter } -> std::same_as<const typename T::container_type>;
+	{ T::half_shifter } -> std::same_as<const typename T::container_type>;
+	{ T::quarter_shifter } -> std::same_as<const typename T::container_type>;
+	{ T::multiplier } -> std::same_as<const typename T::container_type>;
+	{ T::fractionmask } -> std::same_as<const typename T::container_type>;
+	{ T::wholemask } -> std::same_as<const typename T::container_type>;
+	{ T::halfraw } -> std::same_as<const typename T::container_type>;
+	{ T::multiplierF } -> std::same_as<const float>;
+	{ T::multiplierD } -> std::same_as<const double>;
+	{ T::multiplierLD } -> std::same_as<const long double>;
+	{ T::dividerF } -> std::same_as<const float>;
+	{ T::dividerD } -> std::same_as<const double>;
+	{ T::dividerLD } -> std::same_as<const long double>;*/
+
+	// Value Extraction
+	{ a.fraction_part() } -> std::same_as<T>;
+	{ a.whole_part() } -> std::same_as<T>;
+	{ a.abs() } -> std::same_as<T>;
+	{ a.floor() } -> std::same_as<T>;
+	{ a.ceil() } -> std::same_as<T>;
+	{ a.round() } -> std::same_as<T>;
+
+	// Construction from Various Types
+	{ T::from_raw(c) } -> std::same_as<T>;
+	{ T::from_integer(c) } -> std::same_as<T>;
+	{ T::from_float(static_cast<float>(ld)) } -> std::same_as<T>;
+	{ T::from_double(static_cast<double>(ld)) } -> std::same_as<T>;
+	{ T::from_long_double(ld) } -> std::same_as<T>;
+
+	// Conversions
+	{ a.to_raw() } -> std::same_as<typename T::container_type>;
+	{ a.to_integer() } -> std::same_as<typename T::container_type>;
+	{ a.to_float() } -> std::same_as<float>;
+	{ a.to_double() } -> std::same_as<double>;
+	{ a.to_long_double() } -> std::same_as<long double>;
+
+	// Implicit Conversions
+	{ static_cast<bool>(a) } -> std::same_as<bool>;
+	{ static_cast<typename T::container_type>(a) } -> std::same_as<typename T::container_type>;
+	{ static_cast<float>(a) } -> std::same_as<float>;
+	{ static_cast<double>(a) } -> std::same_as<double>;
+
+	// Arithmetic Operators
+	{ a + b } -> std::same_as<T>;
+	{ a - b } -> std::same_as<T>;
+	{ a * b } -> std::same_as<T>;
+	{ a / b } -> std::same_as<T>;
+	{ a += b } -> std::same_as<T&>;
+	{ a -= b } -> std::same_as<T&>;
+	{ a *= b } -> std::same_as<T&>;
+	{ a /= b } -> std::same_as<T&>;
+
+	// Comparison Operators
+		#if __cplusplus >= 202002L
+	{ a <=> b } -> std::same_as<std::strong_ordering>;
+		#else
+	{ a == b } -> std::same_as<bool>;
+	{ a != b } -> std::same_as<bool>;
+	{ a > b } -> std::same_as<bool>;
+	{ a >= b } -> std::same_as<bool>;
+	{ a < b } -> std::same_as<bool>;
+	{ a <= b } -> std::same_as<bool>;
+		#endif
+
+	// Bitwise Operators
+	{ ~a } -> std::same_as<T>;
+	{ a & b } -> std::same_as<T>;
+	{ a & c } -> std::same_as<T>;
+	{ a | b } -> std::same_as<T>;
+	{ a | c } -> std::same_as<T>;
+	{ a ^ b } -> std::same_as<T>;
+	{ a ^ c } -> std::same_as<T>;
+	{ a >> c } -> std::same_as<T>;
+	{ a << c } -> std::same_as<T>;
+
+	// Increment and Decrement Operators
+	{ ++a } -> std::same_as<T&>;
+	{ a++ } -> std::same_as<T>;
+	{ --a } -> std::same_as<T&>;
+	{ a-- } -> std::same_as<T>;
+};
 
 /**
  * @class fixed_point
@@ -36,6 +127,8 @@ namespace Util {
  */
 FP_TEMPLATE_INTRO
 struct fixed_point {
+	using is_fixed_point = void;
+	typedef container_t container_type;
 	/**
 	 * @var _container
 	 * @brief The underlying container to store the fixed-point value.
@@ -109,7 +202,7 @@ struct fixed_point {
 	 */
 	static constexpr const float dividerF = 1.0f / multiplierF;
 	static constexpr const double dividerD = 1.0 / multiplierD;
-	static constexpr const double dividerLD = 1.0L / multiplierLD;
+	static constexpr const long double dividerLD = 1.0L / multiplierLD;
 
 	/** @} */
 
@@ -174,12 +267,89 @@ struct fixed_point {
 	 */
 
 	/**
+	 * @brief Default constructor
+	 */
+	inline constexpr explicit fixed_point() : _container(0) {
+	}
+	/**
+	 * @brief Copy constructor
+	 * @param cpy Value to be copied.
+	 */
+	inline constexpr explicit fixed_point(const fixed_point& cpy) : _container(cpy._container) {
+	}
+	/**
+	 * @brief Copy assignment operator.
+	 * @param cpy Value to be copied.
+	 */
+	inline constexpr fixed_point& operator=(const fixed_point& cpy) {
+		this->_container = cpy._container;
+		return *this;
+	}
+	/**
+	 * @brief Constructs a fixed_point from an integer value.
+	 * @param input The integer value.
+	 * @param isRaw Whether the integer should be treated as a raw fixed-point number or not. Default is false.
+	 */
+	inline constexpr explicit fixed_point(container_t input, bool isRaw=false) : _container(isRaw ? input : (input << fraction_bits) ) {
+	}
+	/**
+	 * @brief Copy assignment operator.
+	 * @param input The integer value.
+	 */
+	inline constexpr fixed_point& operator=(container_t input) {
+		this->_container = input << fraction_bits;
+		return *this;
+	}
+	/**
+	 * @brief Constructs a fixed_point from a float value.
+	 * @param input The float value.
+	 */
+	inline constexpr explicit fixed_point(float input) : _container(static_cast<container_t>(input * multiplierF)) {
+	}
+	/**
+	 * @brief Copy assignment operator.
+	 * @param input The float value.
+	 */
+	inline constexpr fixed_point& operator=(float input) {
+		this->_container = static_cast<container_t>(input * multiplierF);
+		return *this;
+	}
+	/**
+	 * @brief Constructs a fixed_point from a double value.
+	 * @param input The double value.
+	 */
+	inline constexpr explicit fixed_point(double input) : _container(static_cast<container_t>(input * multiplierD)) {
+	}
+	/**
+	 * @brief Copy assignment operator.
+	 * @param input The double value.
+	 */
+	inline constexpr fixed_point& operator=(double input) {
+		this->_container = static_cast<container_t>(input * multiplierD);
+		return *this;
+	}
+	/**
+	 * @brief Constructs a fixed_point from a long double value.
+	 * @param input The long double value.
+	 */
+	inline constexpr explicit fixed_point(long double input) : _container(static_cast<container_t>(input * multiplierLD)) {
+	}
+	/**
+	 * @brief Copy assignment operator.
+	 * @param input The long double value.
+	 */
+	inline constexpr fixed_point& operator=(long double input) {
+		this->_container = static_cast<container_t>(input * multiplierLD);
+		return *this;
+	}
+
+	/**
 	 * @brief Constructs a fixed_point from a raw container value.
 	 * @param input The raw container value.
 	 * @return fixed_point The constructed fixed-point object.
 	 */
 	inline static constexpr fixed_point from_raw(container_t input) {
-		return { input };
+		return fixed_point(input, true);
 	}
 
 	/**
@@ -188,7 +358,7 @@ struct fixed_point {
 	 * @return fixed_point The constructed fixed-point object.
 	 */
 	inline static constexpr fixed_point from_integer(container_t input) {
-		return { input << fraction_bits };
+		return fixed_point(input, false);
 	}
 
 	/**
@@ -197,7 +367,7 @@ struct fixed_point {
 	 * @return fixed_point The constructed fixed-point object.
 	 */
 	inline static constexpr fixed_point from_float(float input) {
-		return { static_cast<container_t>(input * multiplierF) };
+		return fixed_point(input);
 	}
 
 	/**
@@ -206,7 +376,7 @@ struct fixed_point {
 	 * @return fixed_point The constructed fixed-point object.
 	 */
 	inline static constexpr fixed_point from_double(double input) {
-		return { static_cast<container_t>(input * multiplierD) };
+		return fixed_point(input);
 	}
 
 	/**
@@ -215,7 +385,7 @@ struct fixed_point {
 	 * @return fixed_point The constructed fixed-point object.
 	 */
 	inline static constexpr fixed_point from_long_double(long double input) {
-		return { static_cast<container_t>(input * multiplierLD) };
+		return fixed_point(input);
 	}
 
 	/** @} */
@@ -311,7 +481,435 @@ struct fixed_point {
 	 * @{
 	 */
 
-	//... (Operators are documented similarly, for brevity, their documentation is not fully included here)
+	/**
+	 * @brief Addition operator
+	 * @param b The other fixed_point object.
+	 * @return Addition result.
+	 */
+	inline constexpr fixed_point& operator+=(const fixed_point& b) {
+		_container += b._container;
+		return *this;
+	}
+	/**
+	 * @brief Addition operator
+	 * @param b The other fixed_point object.
+	 * @return Addition result.
+	 */
+	inline constexpr fixed_point operator+(const fixed_point& b) const {
+		return from_raw(_container + b._container);
+	}
+	/**
+	 * @brief Subtraction operator
+	 * @param b The other fixed_point object.
+	 * @return Subtraction result.
+	 */
+	inline constexpr fixed_point& operator-=(const fixed_point& b) {
+		_container -= b._container;
+		return *this;
+	}
+	/**
+	 * @brief Subtraction operator
+	 * @param b The other fixed_point object.
+	 * @return Subtraction result.
+	 */
+	inline constexpr fixed_point operator-(const fixed_point& b) const {
+		return from_raw(_container - b._container);
+	}
+	/**
+	 * @brief Modulo operator
+	 * @param b The other fixed_point object.
+	 * @return Modulo result.
+	 */
+	inline constexpr fixed_point& operator%=(const fixed_point& b) {
+		_container %= b._container;
+		return *this;
+	}
+	/**
+	 * @brief Modulo operator
+	 * @param b The other fixed_point object.
+	 * @return Modulo result.
+	 */
+	inline constexpr fixed_point operator%(const fixed_point& b) const {
+		return from_raw(_container % b._container);
+	}
+	/**
+	 * @brief Multiplication operator
+	 * @param b The other fixed_point object.
+	 * @return Multiplication result.
+	 */
+	inline constexpr fixed_point& operator*=(const fixed_point& b) {
+		this->_container = (_container >> quarter_shifter) * (b._container >> quarter_shifter);
+		return *this;
+	}
+	/**
+	 * @brief Multiplication operator
+	 * @param b The other fixed_point object.
+	 * @return Multiplication result.
+	 */
+	inline constexpr fixed_point operator*(const fixed_point& b) const {
+		return from_raw((_container >> quarter_shifter) * (b._container >> quarter_shifter));
+	}
+	/**
+	 * @brief Division operator
+	 * @param b The other fixed_point object.
+	 * @return Division result.
+	 */
+	inline constexpr fixed_point& operator/=(const fixed_point& b) {
+		this->_container = ((_container << quarter_shifter) / b._container) << quarter_shifter;
+		return *this;
+	}
+	/**
+	 * @brief Division operator
+	 * @param b The other fixed_point object.
+	 * @return Division result.
+	 */
+	inline constexpr fixed_point operator/(const fixed_point& b) const {
+		return from_raw((_container >> ((_container << quarter_shifter) / b._container) << quarter_shifter));
+	}
+
+	/**
+	 * @brief Addition operator
+	 * @param b The other container_t object.
+	 * @return Addition result.
+	 */
+	inline constexpr fixed_point& operator+=(container_t b) {
+		*this += from_integer(b);
+		return *this;
+	}
+	/**
+	 * @brief Addition operator
+	 * @param b The other container_t object.
+	 * @return Addition result.
+	 */
+	inline constexpr fixed_point operator+(container_t b) const {
+		return *this + from_integer(b);
+	}
+	/**
+	 * @brief Subtraction operator
+	 * @param b The other container_t object.
+	 * @return Subtraction result.
+	 */
+	inline constexpr fixed_point& operator-=(container_t b) {
+		*this -= from_integer(b);
+		return *this;
+	}
+	/**
+	 * @brief Subtraction operator
+	 * @param b The other container_t object.
+	 * @return Subtraction result.
+	 */
+	inline constexpr fixed_point operator-(container_t b) const {
+		return *this - from_integer(b);
+	}
+	/**
+	 * @brief Modulo operator
+	 * @param b The other container_t object.
+	 * @return Modulo result.
+	 */
+	inline constexpr fixed_point& operator%=(container_t b) {
+		*this %= from_integer(b);
+		return *this;
+	}
+	/**
+	 * @brief Modulo operator
+	 * @param b The other container_t object.
+	 * @return Modulo result.
+	 */
+	inline constexpr fixed_point operator%(container_t b) const {
+		return *this % from_integer(b);
+	}
+	/**
+	 * @brief Multiplication operator
+	 * @param b The other container_t object.
+	 * @return Multiplication result.
+	 */
+	inline constexpr fixed_point& operator*=(container_t b) {
+		*this *= from_integer(b);
+		return *this;
+	}
+	/**
+	 * @brief Multiplication operator
+	 * @param b The other container_t object.
+	 * @return Multiplication result.
+	 */
+	inline constexpr fixed_point operator*(container_t b) const {
+		return *this * from_integer(b);
+	}
+	/**
+	 * @brief Division operator
+	 * @param b The other container_t object.
+	 * @return Division result.
+	 */
+	inline constexpr fixed_point& operator/=(container_t b) {
+		*this /= from_integer(b);
+		return *this;
+	}
+	/**
+	 * @brief Division operator
+	 * @param b The other container_t object.
+	 * @return Division result.
+	 */
+	inline constexpr fixed_point operator/(container_t b) const {
+		return *this / from_integer(b);
+	}
+
+	/**
+	 * @brief Addition operator
+	 * @param b The other float object.
+	 * @return Addition result.
+	 */
+	inline constexpr fixed_point& operator+=(float b) {
+		*this += from_float(b);
+		return *this;
+	}
+	/**
+	 * @brief Addition operator
+	 * @param b The other float object.
+	 * @return Addition result.
+	 */
+	inline constexpr fixed_point operator+(float b) const {
+		return *this + from_float(b);
+	}
+	/**
+	 * @brief Subtraction operator
+	 * @param b The other float object.
+	 * @return Subtraction result.
+	 */
+	inline constexpr fixed_point& operator-=(float b) {
+		*this -= from_float(b);
+		return *this;
+	}
+	/**
+	 * @brief Subtraction operator
+	 * @param b The other float object.
+	 * @return Subtraction result.
+	 */
+	inline constexpr fixed_point operator-(float b) const {
+		return *this - from_float(b);
+	}
+	/**
+	 * @brief Modulo operator
+	 * @param b The other float object.
+	 * @return Modulo result.
+	 */
+	inline constexpr fixed_point& operator%=(float b) {
+		*this %= from_float(b);
+		return *this;
+	}
+	/**
+	 * @brief Modulo operator
+	 * @param b The other float object.
+	 * @return Modulo result.
+	 */
+	inline constexpr fixed_point operator%(float b) const {
+		return *this % from_float(b);
+	}
+	/**
+	 * @brief Multiplication operator
+	 * @param b The other float object.
+	 * @return Multiplication result.
+	 */
+	inline constexpr fixed_point& operator*=(float b) {
+		*this *= from_float(b);
+		return *this;
+	}
+	/**
+	 * @brief Multiplication operator
+	 * @param b The other float object.
+	 * @return Multiplication result.
+	 */
+	inline constexpr fixed_point operator*(float b) const {
+		return *this * from_float(b);
+	}
+	/**
+	 * @brief Division operator
+	 * @param b The other float object.
+	 * @return Division result.
+	 */
+	inline constexpr fixed_point& operator/=(float b) {
+		*this /= from_float(b);
+		return *this;
+	}
+	/**
+	 * @brief Division operator
+	 * @param b The other float object.
+	 * @return Division result.
+	 */
+	inline constexpr fixed_point operator/(float b) const {
+		return *this / from_float(b);
+	}
+
+	/**
+	 * @brief Addition operator
+	 * @param b The other double object.
+	 * @return Addition result.
+	 */
+	inline constexpr fixed_point& operator+=(double b) {
+		*this += from_double(b);
+		return *this;
+	}
+	/**
+	 * @brief Addition operator
+	 * @param b The other double object.
+	 * @return Addition result.
+	 */
+	inline constexpr fixed_point operator+(double b) const {
+		return *this + from_double(b);
+	}
+	/**
+	 * @brief Subtraction operator
+	 * @param b The other double object.
+	 * @return Subtraction result.
+	 */
+	inline constexpr fixed_point& operator-=(double b) {
+		*this -= from_double(b);
+		return *this;
+	}
+	/**
+	 * @brief Subtraction operator
+	 * @param b The other double object.
+	 * @return Subtraction result.
+	 */
+	inline constexpr fixed_point operator-(double b) const {
+		return *this - from_double(b);
+	}
+	/**
+	 * @brief Modulo operator
+	 * @param b The other double object.
+	 * @return Modulo result.
+	 */
+	inline constexpr fixed_point& operator%=(double b) {
+		*this %= from_double(b);
+		return *this;
+	}
+	/**
+	 * @brief Modulo operator
+	 * @param b The other double object.
+	 * @return Modulo result.
+	 */
+	inline constexpr fixed_point operator%(double b) const {
+		return *this % from_double(b);
+	}
+	/**
+	 * @brief Multiplication operator
+	 * @param b The other double object.
+	 * @return Multiplication result.
+	 */
+	inline constexpr fixed_point& operator*=(double b) {
+		*this *= from_double(b);
+		return *this;
+	}
+	/**
+	 * @brief Multiplication operator
+	 * @param b The other double object.
+	 * @return Multiplication result.
+	 */
+	inline constexpr fixed_point operator*(double b) const {
+		return *this * from_double(b);
+	}
+	/**
+	 * @brief Division operator
+	 * @param b The other double object.
+	 * @return Division result.
+	 */
+	inline constexpr fixed_point& operator/=(double b) {
+		*this /= from_double(b);
+		return *this;
+	}
+	/**
+	 * @brief Division operator
+	 * @param b The other double object.
+	 * @return Division result.
+	 */
+	inline constexpr fixed_point operator/(double b) const {
+		return *this / from_double(b);
+	}
+
+	/**
+	 * @brief Addition operator
+	 * @param b The other long double object.
+	 * @return Addition result.
+	 */
+	inline constexpr fixed_point& operator+=(long double b) {
+		*this += from_long_double(b);
+		return *this;
+	}
+	/**
+	 * @brief Addition operator
+	 * @param b The other long double object.
+	 * @return Addition result.
+	 */
+	inline constexpr fixed_point operator+(long double b) const {
+		return *this + from_long_double(b);
+	}
+	/**
+	 * @brief Subtraction operator
+	 * @param b The other long double object.
+	 * @return Subtraction result.
+	 */
+	inline constexpr fixed_point& operator-=(long double b) {
+		*this -= from_long_double(b);
+		return *this;
+	}
+	/**
+	 * @brief Subtraction operator
+	 * @param b The other long double object.
+	 * @return Subtraction result.
+	 */
+	inline constexpr fixed_point operator-(long double b) const {
+		return *this - from_long_double(b);
+	}
+	/**
+	 * @brief Modulo operator
+	 * @param b The other long double object.
+	 * @return Modulo result.
+	 */
+	inline constexpr fixed_point& operator%=(long double b) {
+		*this %= from_long_double(b);
+		return *this;
+	}
+	/**
+	 * @brief Modulo operator
+	 * @param b The other long double object.
+	 * @return Modulo result.
+	 */
+	inline constexpr fixed_point operator%(long double b) const {
+		return *this % from_long_double(b);
+	}
+	/**
+	 * @brief Multiplication operator
+	 * @param b The other long double object.
+	 * @return Multiplication result.
+	 */
+	inline constexpr fixed_point& operator*=(long double b) {
+		*this *= from_long_double(b);
+		return *this;
+	}
+	/**
+	 * @brief Multiplication operator
+	 * @param b The other long double object.
+	 * @return Multiplication result.
+	 */
+	inline constexpr fixed_point operator*(long double b) const {
+		return *this * from_long_double(b);
+	}
+	/**
+	 * @brief Division operator
+	 * @param b The other long double object.
+	 * @return Division result.
+	 */
+	inline constexpr fixed_point& operator/=(long double b) {
+		*this /= from_long_double(b);
+		return *this;
+	}
+	/**
+	 * @brief Division operator
+	 * @param b The other long double object.
+	 * @return Division result.
+	 */
+	inline constexpr fixed_point operator/(long double b) const {
+		return *this / from_long_double(b);
+	}
 
 	/** @} */
 
@@ -403,8 +1001,8 @@ struct fixed_point {
 	 * @brief Bitwise NOT operator.
 	 * @return fixed_point The bitwise NOT of the fixed-point number.
 	 */
-	inline constexpr fixed_point& operator~() const {
-		return { ~_container };
+	inline constexpr fixed_point operator~() const {
+		return from_raw(~_container);
 	}
 
 	/**
@@ -413,7 +1011,17 @@ struct fixed_point {
 	 * @return fixed_point The bitwise AND result.
 	 */
 	inline constexpr fixed_point operator&(const fixed_point& b) const {
-		return { _container & b._container };
+		return from_raw(_container & b._container);
+	}
+
+	/**
+	 * @brief Bitwise AND operator with another fixed_point.
+	 * @param b The other fixed_point object.
+	 * @return fixed_point The bitwise AND result.
+	 */
+	inline constexpr fixed_point& operator&=(const fixed_point& b) {
+		_container = _container & b._container;
+		return *this;
 	}
 
 	/**
@@ -422,7 +1030,17 @@ struct fixed_point {
 	 * @return fixed_point The bitwise AND result.
 	 */
 	inline constexpr fixed_point operator&(container_t b) const {
-		return { _container & b };
+		return from_raw(_container & b );
+	}
+
+	/**
+	 * @brief Bitwise AND operator with a container_t.
+	 * @param b The container_t value.
+	 * @return fixed_point The bitwise AND result.
+	 */
+	inline constexpr fixed_point& operator&=(container_t b) {
+		_container = _container & b;
+		return *this;
 	}
 
 	/**
@@ -431,7 +1049,17 @@ struct fixed_point {
 	 * @return fixed_point The bitwise OR result.
 	 */
 	inline constexpr fixed_point operator|(const fixed_point& b) const {
-		return { _container | b._container };
+		return from_raw(_container | b._container);
+	}
+
+	/**
+	 * @brief Bitwise OR operator with another fixed_point.
+	 * @param b The other fixed_point object.
+	 * @return fixed_point The bitwise OR result.
+	 */
+	inline constexpr fixed_point& operator|=(const fixed_point& b) {
+		_container = _container | b._container;
+		return *this;
 	}
 
 	/**
@@ -440,7 +1068,17 @@ struct fixed_point {
 	 * @return fixed_point The bitwise OR result.
 	 */
 	inline constexpr fixed_point operator|(container_t b) const {
-		return { _container | b };
+		return from_raw(_container | b );
+	}
+
+	/**
+	 * @brief Bitwise OR operator with a container_t.
+	 * @param b The container_t value.
+	 * @return fixed_point The bitwise OR result.
+	 */
+	inline constexpr fixed_point& operator|=(container_t b) {
+		_container = _container | b;
+		return *this;
 	}
 
 	/**
@@ -449,7 +1087,16 @@ struct fixed_point {
 	 * @return fixed_point The bitwise XOR result.
 	 */
 	inline constexpr fixed_point operator^(const fixed_point& b) const {
-		return { _container ^ b._container };
+		return from_raw(_container ^ b._container);
+	}
+	/**
+	 * @brief Bitwise XOR operator with another fixed_point.
+	 * @param b The other fixed_point object.
+	 * @return fixed_point The bitwise XOR result.
+	 */
+	inline constexpr fixed_point& operator^=(const fixed_point& b) {
+		_container = _container ^ b._container;
+		return *this;
 	}
 
 	/**
@@ -458,7 +1105,18 @@ struct fixed_point {
 	 * @return fixed_point The bitwise XOR result.
 	 */
 	inline constexpr fixed_point operator^(container_t b) const {
-		return { _container ^ b };
+		return from_raw(_container ^ b );
+	}
+
+
+	/**
+	 * @brief Bitwise XOR operator with a container_t.
+	 * @param b The container_t value.
+	 * @return fixed_point The bitwise XOR result.
+	 */
+	inline constexpr fixed_point& operator^=(container_t b) {
+		_container = _container ^ b;
+		return *this;
 	}
 
 	/**
@@ -467,7 +1125,17 @@ struct fixed_point {
 	 * @return fixed_point The result after right shifting.
 	 */
 	inline constexpr fixed_point operator>>(container_t b) const {
-		return { _container >> b };
+		return from_raw(_container >> b);
+	}
+
+	/**
+	 * @brief Right shift operator.
+	 * @param b The number of bits to shift.
+	 * @return fixed_point The result after right shifting.
+	 */
+	inline constexpr fixed_point& operator>>=(container_t b) {
+		_container = _container >> b;
+		return *this;
 	}
 
 	/**
@@ -476,7 +1144,17 @@ struct fixed_point {
 	 * @return fixed_point The result after left shifting.
 	 */
 	inline constexpr fixed_point operator<<(container_t b) const {
-		return { _container << b };
+		return from_raw(_container << b );
+	}
+
+	/**
+	 * @brief Left shift operator.
+	 * @param b The number of bits to shift.
+	 * @return fixed_point The result after left shifting.
+	 */
+	inline constexpr fixed_point& operator<<=(container_t b) {
+		_container = _container << b;
+		return *this;
 	}
 
 	/** @} */
@@ -502,7 +1180,7 @@ struct fixed_point {
 	inline constexpr fixed_point operator++(int) {
 		container_t temp = _container;
 		_container += multiplier;
-		return { temp };
+		return from_raw(temp);
 	}
 
 	/**
@@ -521,12 +1199,23 @@ struct fixed_point {
 	inline constexpr fixed_point operator--(int) {
 		container_t temp = _container;
 		_container -= multiplier;
-		return { temp };
+		return from_raw(temp);
 	}
 
 	/** @} */
 };
 
+template <typename container_t, container_t fraction_bits, class CharT, class Traits = std::char_traits<CharT>>
+std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& left, const fixed_point<container_t, fraction_bits>& right) {
+	return left << right.to_double();
+}
+template <typename container_t, container_t fraction_bits, class CharT, class Traits = std::char_traits<CharT>>
+std::basic_istream<CharT,Traits>& operator>>(std::basic_istream<CharT,Traits>& left, const fixed_point<container_t, fraction_bits>& right) {
+	double tmp;
+	left >> tmp;
+	right = fixed_point<container_t, fraction_bits>::from_double(tmp);
+	return left;
+}
 template <typename container_t, container_t fraction_bits, Endian endianness>
 Io::DataStream<endianness>& operator<<(Io::DataStream<endianness>& left, const fixed_point<container_t, fraction_bits>& right) {
 	return left << right._container;

@@ -19,5 +19,7 @@ void testMemoryMappedTempDlopenNoClose(Euph::Io::TemporaryFileCreationMode mode 
 void testMemoryMappedTempDlopenClose(Euph::Io::TemporaryFileCreationMode mode = Euph::Io::TemporaryFileCreationMode::MKSTEMP);
 void testConfigFile();
 void testGlobalConfigFile();
+void testInterpolationFloat();
+void testInterpolationFixed();
 
 #endif // TEST_HPP
