@@ -21,7 +21,7 @@ requires Interpolable<TData, TWeight> && InterpolationWeight<TWeight>
 struct Interpolation {
 	static constexpr TWeight getOneMinus(const TWeight& minus)
 	{
-		return static_cast<TWeight>(1) - minus;
+		return static_cast<TWeight>(1.0) - minus;
 	}
 	inline static TData lerp(const TData& a, const TData& b, const TWeight& wA, const TWeight& wB) {
 		return (a * wA) + (b * wB);

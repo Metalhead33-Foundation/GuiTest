@@ -405,6 +405,21 @@ template <Util::Endian io_endianness = Util::Endian::Big> struct DataStream {
 			return *this;
 		} else readElementsInto<T>(data.begin(), data.end());
 	}
+	template <typename T, size_t N> inline DataStream& operator<<(const std::array<T,N>& data) {
+		//*this << static_cast<uint32_t>( data.size () );
+		if constexpr(sizeof(T) == sizeof(std::byte)) {
+			device.write(data.data (), 1, data.size () );
+		} else {
+			return writeElements<T>(data.begin(), data.end(), false);
+		}
+		return *this;
+	}
+	template <typename T, size_t N> inline DataStream& operator>>(std::array<T,N>& data) {
+		if constexpr(sizeof(T) == sizeof(std::byte)) {
+			device.read(data.data (), 1, data.size () );
+			return *this;
+		} else readElementsInto<T>(data.begin(), data.end());
+	}
 };
 
 }

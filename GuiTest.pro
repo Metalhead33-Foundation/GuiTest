@@ -3,7 +3,7 @@ CONFIG += console c++2a
 CONFIG -= app_bundle
 CONFIG -= qt
 
-QMAKE_CXXFLAGS += -fconcepts-diagnostics-depth=16
+# QMAKE_CXXFLAGS += -fconcepts-diagnostics-depth=16
 
 LIBS += -lmozjs-115 -lX11 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 -lgif -lturbojpeg -lsndfile -lsamplerate -lopenmpt -lwebp -lwebpdecoder -lwebpdemux  -lwebpmux -lzstd -lsnappy -lphysfs -lssl -lcrypto -lglslang -lSPIRV -lspirv-cross-core -lspirv-cross-glsl -lspirv-cross-reflect -lyaml-cpp
 INCLUDEPATH += /usr/include/mozjs-115
@@ -36,6 +36,13 @@ SOURCES += \
     Euphemy/Io/EuphTempFile.cpp \
     Euphemy/Io/EuphZstd.cpp \
     Euphemy/Io/PhysFS.cpp \
+    Euphemy/Media/Image/EuphDDS.cpp \
+    Euphemy/Media/Image/EuphGIF.cpp \
+    Euphemy/Media/Image/EuphImageDecodeTarget.cpp \
+    Euphemy/Media/Image/EuphJPEG.cpp \
+    Euphemy/Media/Image/EuphPNG.cpp \
+    Euphemy/Media/Image/EuphTGA.cpp \
+    Euphemy/Media/Image/EuphWEBP.cpp \
     Euphemy/Memory/EuphMemory.cpp \
     main.cpp \
     test.cpp
@@ -53,6 +60,7 @@ HEADERS += \
     Elvavena/Util/ElvCommandQueue.hpp \
     Elvavena/Util/ElvContainerBasic.hpp \
     Elvavena/Util/ElvContinuousIterator.hpp \
+    Elvavena/Util/ElvDither.hpp \
     Elvavena/Util/ElvDynamicLib.hpp \
     Elvavena/Util/ElvEndianness.hpp \
     Elvavena/Util/ElvEventLoop.hpp \
@@ -60,6 +68,7 @@ HEADERS += \
     Elvavena/Util/ElvFixedPoint.hpp \
     Elvavena/Util/ElvFixedPointMath.hpp \
     Elvavena/Util/ElvFreelist.hpp \
+    Elvavena/Util/ElvFuzzy.hpp \
     Elvavena/Util/ElvHeapArray.hpp \
     Elvavena/Util/ElvIntegralIterator.hpp \
     Elvavena/Util/ElvInterpolation.hpp \
@@ -88,7 +97,14 @@ HEADERS += \
     Euphemy/Io/EuphTempFile.hpp \
     Euphemy/Io/EuphZstd.hpp \
     Euphemy/Io/PhysFS.hpp \
-    Euphemy/Media/EuphImageDecodeTarget.hpp \
-    Euphemy/Media/EuphImageType.hpp \
+    Euphemy/Media/Image/EuphDDS.hpp \
+    Euphemy/Media/Image/EuphGIF.hpp \
+    Euphemy/Media/Image/EuphImageDecodeTarget.hpp \
+    Euphemy/Media/Image/EuphImageType.hpp \
+    Euphemy/Media/Image/EuphJPEG.hpp \
+    Euphemy/Media/Image/EuphPNG.hpp \
+    Euphemy/Media/Image/EuphPixelFormat.hpp \
+    Euphemy/Media/Image/EuphTGA.hpp \
+    Euphemy/Media/Image/EuphWEBP.hpp \
     Euphemy/Memory/EuphMemory.hpp \
     test.hpp

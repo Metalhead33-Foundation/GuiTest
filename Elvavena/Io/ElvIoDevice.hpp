@@ -204,12 +204,12 @@ class Device {
 	 * @tparam Alloc   Allocator type used for the array.
 	 * @return         A unique heap array containing the file's content.
 	 */
-	template <typename T = std::byte, typename Alloc = std::allocator<T>>
+	template <typename T = std::byte, typename Alloc = std::allocator<T>, class... Args>
 	requires Util::Allocator<Alloc, T>
-	inline Util::UniqueHeapArray<T, Alloc> readAllAsUHA() {
+	inline Util::UniqueHeapArray<T, Alloc> readAllAsUHA(Args&&... args) {
 		const size_t fsize = size() - tell();
-		Util::UniqueHeapArray<T, Alloc> arr(fsize, Util::div_ceil(fsize, sizeof(T)));
-		read(arr);
+		Util::UniqueHeapArray<T, Alloc> arr(Util::div_ceil(fsize, sizeof(T)), std::forward(args)...);
+		read(arr.data(),sizeof(T),fsize / sizeof(T));
 		return arr;
 	}
 
@@ -220,12 +220,12 @@ class Device {
 	 * @tparam Alloc   Allocator type used for the array.
 	 * @return         A shared heap array containing the file's content.
 	 */
-	template <typename T = std::byte, typename Alloc = std::allocator<T>>
+	template <typename T = std::byte, typename Alloc = std::allocator<T>, class... Args>
 	requires Util::Allocator<Alloc, T>
-	inline Util::SharedHeapArray<T, Alloc> readAllAsSHA() {
+	inline Util::SharedHeapArray<T, Alloc> readAllAsSHA(Args&&... args) {
 		const size_t fsize = size() - tell();
-		Util::SharedHeapArray<T, Alloc> arr(fsize, Util::div_ceil(fsize, sizeof(T)));
-		read(arr);
+		Util::SharedHeapArray<T, Alloc> arr(Util::div_ceil(fsize, sizeof(T)), std::forward(args)...);
+		read(arr.data(),sizeof(T),fsize / sizeof(T));
 		return arr;
 	}
 
@@ -272,7 +272,7 @@ class Device {
 	inline void readAllAsString(std::basic_string<CharT, Traits, Alloc>& dst) {
 		auto sz = Util::div_ceil(size_t(size() - tell()), sizeof(CharT));
 		dst.resize(sz, 0);
-		read(&dst[0], sz);
+		read(&dst[0], sizeof(CharT), sz);
 		dst.shrink_to_fit();
 	}
 
@@ -306,7 +306,7 @@ class Device {
 	requires Util::Allocator<Alloc, CharT>
 	inline void readLine(std::basic_stringstream<CharT, Traits, Alloc>& sstrm) {
 		CharT tmp = 0;
-		while (read(&tmp, sizeof(CharT)) && tmp != '\n') {
+		while (read(&tmp, sizeof(CharT), 1) && tmp != '\n') {
 			sstrm << tmp;
 		}
 	}
