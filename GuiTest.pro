@@ -38,9 +38,11 @@ SOURCES += \
     Euphemy/Io/PhysFS.cpp \
     Euphemy/Media/Image/EuphDDS.cpp \
     Euphemy/Media/Image/EuphGIF.cpp \
+    Euphemy/Media/Image/EuphImage.cpp \
     Euphemy/Media/Image/EuphImageDecodeTarget.cpp \
     Euphemy/Media/Image/EuphJPEG.cpp \
     Euphemy/Media/Image/EuphPNG.cpp \
+    Euphemy/Media/Image/EuphStandardColour.cpp \
     Euphemy/Media/Image/EuphTGA.cpp \
     Euphemy/Media/Image/EuphWEBP.cpp \
     Euphemy/Memory/EuphMemory.cpp \
@@ -62,6 +64,7 @@ HEADERS += \
     Elvavena/Util/ElvContinuousIterator.hpp \
     Elvavena/Util/ElvDither.hpp \
     Elvavena/Util/ElvDynamicLib.hpp \
+    Elvavena/Util/ElvEdgeFunction.hpp \
     Elvavena/Util/ElvEndianness.hpp \
     Elvavena/Util/ElvEventLoop.hpp \
     Elvavena/Util/ElvException.hpp \
@@ -99,11 +102,13 @@ HEADERS += \
     Euphemy/Io/PhysFS.hpp \
     Euphemy/Media/Image/EuphDDS.hpp \
     Euphemy/Media/Image/EuphGIF.hpp \
+    Euphemy/Media/Image/EuphImage.hpp \
     Euphemy/Media/Image/EuphImageDecodeTarget.hpp \
     Euphemy/Media/Image/EuphImageType.hpp \
     Euphemy/Media/Image/EuphJPEG.hpp \
     Euphemy/Media/Image/EuphPNG.hpp \
     Euphemy/Media/Image/EuphPixelFormat.hpp \
+    Euphemy/Media/Image/EuphStandardColour.hpp \
     Euphemy/Media/Image/EuphTGA.hpp \
     Euphemy/Media/Image/EuphWEBP.hpp \
     Euphemy/Memory/EuphMemory.hpp \
