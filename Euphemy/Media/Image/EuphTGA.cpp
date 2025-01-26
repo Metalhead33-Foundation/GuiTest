@@ -69,7 +69,7 @@ Elv::Io::DataStream<endianness>& operator<<(Elv::Io::DataStream<endianness>& lef
 	left << right.jobId;
 	left << right.jobTime;
 	left << right.softwareID;
-	left << right.softwareVersion.VersionNUmberX100 << right.softwareVersion.VersionLetter;
+	left << right.softwareVersion.VersionNumberX100 << right.softwareVersion.VersionLetter;
 	left << right.keyColour;
 	left << right.pixelAspectRatio;
 	left << right.gammaValue;
@@ -88,7 +88,7 @@ Elv::Io::DataStream<endianness>& operator>>(Elv::Io::DataStream<endianness>& lef
 	left >> right.jobId;
 	left >> right.jobTime;
 	left >> right.softwareID;
-	left >> right.softwareVersion.VersionNUmberX100 >> right.softwareVersion.VersionLetter;
+	left >> right.softwareVersion.VersionNumberX100 >> right.softwareVersion.VersionLetter;
 	left >> right.keyColour;
 	left >> right.pixelAspectRatio;
 	left >> right.gammaValue;

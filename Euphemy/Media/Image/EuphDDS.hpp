@@ -8,6 +8,11 @@ namespace Media {
 namespace Image {
 namespace DDS {
 
+/**
+ * @brief Decodes a DDS image.
+ * @param iodev The IO device to read the DDS image from.
+ * @param destination Decode target, where the image will be stored at.
+ */
 void MH_EUPH_API decode(Elv::Io::Device& iodev, DecodeTarget& destination);
 
 }

@@ -10,6 +10,12 @@ namespace Euph {
 namespace Media {
 namespace Image {
 
+/**
+ * @brief Enumeration of standard colors.
+ *
+ * This enum class represents a set of standard colors with their corresponding names.
+ * Each color is mapped to a unique value of type uint8_t.
+ */
 enum class StandardColourEnum : uint8_t {
 	aliceblue,
 	antiquewhite,
@@ -153,9 +159,37 @@ enum class StandardColourEnum : uint8_t {
 	yellow,
 	yellowgreen
 };
+
+/**
+ * @brief Type alias for a map associating color names to their corresponding enum values.
+ *
+ * This map uses std::string as the key and StandardColourEnum as the value.
+ * The keys are compared using std::less<> which provides a lexicographical ordering.
+ */
 typedef std::map<std::string, StandardColourEnum, std::less<>> StringToStandardColourEnumMap;
+
+/**
+ * @brief Retrieves the RGB color value for a given StandardColourEnum.
+ *
+ * @param index The StandardColourEnum value representing the desired color.
+ * @return A constant reference to a PixelRGB_U8 object containing the RGB values.
+ */
 const PixelRGB_U8& MH_EUPH_API getStandardColour(StandardColourEnum index);
+
+/**
+ * @brief Retrieves the RGB color value for a given color name.
+ *
+ * @param name The name of the color as a std::string_view.
+ * @return A constant reference to a PixelRGB_U8 object containing the RGB values.
+ * @throws An exception if the color name is not found in the map.
+ */
 const PixelRGB_U8& MH_EUPH_API getStandardColour(const std::string_view name);
+
+/**
+ * @brief Retrieves a map of all valid color names to their corresponding StandardColourEnum values.
+ *
+ * @return A constant reference to a StringToStandardColourEnumMap containing all valid color names.
+ */
 const StringToStandardColourEnumMap& MH_EUPH_API getAllValidColorNames();
 
 }

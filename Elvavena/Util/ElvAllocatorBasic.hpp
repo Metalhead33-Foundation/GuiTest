@@ -2,6 +2,7 @@
 #define ELVALLOCATORBASIC_HPP
 #include <cstddef>
 #include <concepts>
+#include <memory_resource>
 #include <new>
 #include <memory>
 
@@ -179,6 +180,67 @@ SmartPointerWrappersForAlloc<T, Alloc>::shared_ptr make_shared(Args&&... args) {
 	return SmartPointerWrappersForAlloc<T, Alloc>::make_shared(std::forward(args)...);
 }
 
+template <typename T> struct PolyMorphicSmartPointerFactory {
+public:
+	// Nested struct for the deleter that uses polymorphic_allocator
+	struct PMRDeleter {
+		std::pmr::memory_resource* resource;
+
+		PMRDeleter() : resource(std::pmr::get_default_resource()) {}
+
+		PMRDeleter(std::pmr::memory_resource* res) : resource(res) {}
+
+		void operator()(T* ptr) const {
+			if (ptr) {
+				// Call the destructor
+				ptr->~T();
+				// Deallocate the memory
+				std::pmr::polymorphic_allocator<T> alloc(resource);
+				alloc.deallocate(ptr, 1);
+			}
+		}
+	};
+	// Typedefs for the smart pointers using polymorphic_allocator
+	using unique_ptr_type = std::unique_ptr<T, PMRDeleter>;
+	using shared_ptr_type = std::shared_ptr<T>;
+
+	// Static function to create a unique_ptr<T>
+	template <typename... Args> static unique_ptr_type make_unique(std::pmr::memory_resource* resource = std::pmr::get_default_resource(), Args&&... args) {
+		std::pmr::polymorphic_allocator<T> alloc(resource);
+		T* ptr = alloc.allocate(1);
+		try {
+			alloc.construct(ptr, std::forward<Args>(args)...);
+		} catch (...) {
+			alloc.deallocate(ptr, 1);
+			throw;
+		}
+		return unique_ptr_type(ptr, PMRDeleter(resource));
+	}
+
+	// Static function to create a shared_ptr<T>
+	template <typename... Args> static shared_ptr_type make_shared(std::pmr::memory_resource* resource = std::pmr::get_default_resource(), Args&&... args) {
+		std::pmr::polymorphic_allocator<T> alloc(resource);
+		T* ptr = alloc.allocate(1);
+		try {
+			alloc.construct(ptr, std::forward<Args>(args)...);
+		} catch (...) {
+			alloc.deallocate(ptr, 1);
+			throw;
+		}
+		return shared_ptr_type(ptr, PMRDeleter(resource), alloc);
+	}
+};
+template <typename T, typename... Args>
+PolyMorphicSmartPointerFactory<T>::unique_ptr_type pmr_make_unique(std::pmr::memory_resource* resource = std::pmr::get_default_resource(), Args&&... args) {
+	return PolyMorphicSmartPointerFactory<T>::make_unique(resource, std::forward<Args>(args)... );
+}
+template <typename T, typename... Args>
+PolyMorphicSmartPointerFactory<T>::shared_ptr_type pmr_make_shared(std::pmr::memory_resource* resource = std::pmr::get_default_resource(), Args&&... args) {
+	return PolyMorphicSmartPointerFactory<T>::make_shared(resource, std::forward<Args>(args)... );
+}
+
+
+
 /**
  * @struct Blk
  * @brief Structure representing a memory block.
@@ -337,18 +399,162 @@ template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> stru
 	}
 };
 
-/**
- * @class StaticAlexandrescuAllocatorAdapter
- * @brief Static adaptation of AlexandrescuAllocatorAdapter, sharing a single allocator instance across all instances.
- *
- * @tparam Alloc Alexandrescu-style allocator type.
- * @tparam T Type of objects to be allocated.
- */
 template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> struct StaticAlexandrescuAllocatorAdapter {
-	//... (Documentation for this class is similar to AlexandrescuAllocatorAdapter, with the key difference being the static allocator instance)
-
-	/// @brief Shared, static allocator instance.
+	typedef T& reference;
+	typedef const T& const_reference;
+	typedef T* pointer;
+	typedef const T* const_pointer;
+	typedef void* void_pointer;
+	typedef const void* const_void_pointer;
+	typedef T value_type;
+	typedef std::size_t size_type;
+	typedef std::ptrdiff_t difference_type;
+	typedef StaticAlexandrescuAllocatorAdapter allocator_type;
+	typedef std::false_type propagate_on_container_copy_assignment;
+	typedef std::false_type propagate_on_container_move_assignment;
+	typedef std::false_type propagate_on_container_swap;
+	typedef std::true_type is_always_equal;
+	//! The underlying AlexandrescuAllocator
 	static Alloc alloc_;
+
+	//! Constructor
+	StaticAlexandrescuAllocatorAdapter() = default;
+
+	//! Allocate function. Returns a pointer to the allocated data.
+	/*!
+	\param n The amount of objects to allocate memory for. Size is given in object-count, NOT bytes!
+	\return A pointer to the memory allocated.
+	*/
+	T* allocate(std::size_t n) {
+		std::size_t total_size = n * sizeof(T);  // Calculate total size needed
+		Blk blk = alloc_.allocateBlock(total_size);
+		if (!blk.ptr) throw std::bad_alloc();
+		return static_cast<T*>(blk.ptr);  // Return the pointer cast to T*
+	}
+
+	//! Deallocates memory.
+	/*!
+	\param ptr A pointer to the memory to deallocate.
+	\param n The amount of objects to deallocate. Size is given in object-count, NOT bytes!
+	*/
+	void deallocate(T* ptr, std::size_t n) {
+		Blk blk{ static_cast<void*>(ptr), n * sizeof(T) };
+		alloc_.deallocateBlock(blk);
+	}
+	//! For STL compatibility
+	template <typename U>
+	struct rebind {
+		using other = StaticAlexandrescuAllocatorAdapter<Alloc, U>;
+	};
+	//! For STL compatibility
+	template <typename UAlloc, typename UT> requires AlexandrescuAllocator<UAlloc> constexpr StaticAlexandrescuAllocatorAdapter(const StaticAlexandrescuAllocatorAdapter <UAlloc, UT>&) noexcept {}
+	friend bool operator==(const StaticAlexandrescuAllocatorAdapter& lhs, const StaticAlexandrescuAllocatorAdapter& rhs) {
+		return true;
+	}
+	//! For STL compatibility
+	friend bool operator!=(const StaticAlexandrescuAllocatorAdapter& lhs, const StaticAlexandrescuAllocatorAdapter& rhs) {
+		return false;
+	}
+};
+
+/**
+ * @class AlexandrescuMemoryResource
+ * @brief A memory resource that uses an allocator following the Alexandrescu style.
+ *
+ * This class implements the `std::pmr::memory_resource` interface, using an allocator that adheres to the
+ * Alexandrescu style for block-level memory management. The allocator must satisfy the `AlexandrescuAllocator`
+ * concept, providing methods to allocate, deallocate, and check ownership of memory blocks.
+ *
+ * @tparam Alloc The allocator type to be used, which must meet the `AlexandrescuAllocator` concept.
+ */
+template <AlexandrescuAllocator Alloc>
+class AlexandrescuMemoryResource : public std::pmr::memory_resource {
+private:
+	Alloc allocator_; ///< The allocator instance used for memory management.
+
+public:
+	/**
+	 * @brief Default constructor.
+	 */
+	AlexandrescuMemoryResource() = default;
+
+	/**
+	 * @brief Copy constructor.
+	 *
+	 * @param cpy The allocator instance to copy.
+	 */
+	AlexandrescuMemoryResource(const Alloc& cpy) : allocator_(cpy) {}
+
+	/**
+	 * @brief Move constructor.
+	 *
+	 * @param mov The allocator instance to move.
+	 */
+	AlexandrescuMemoryResource(Alloc&& mov) : allocator_(std::move(mov)) {}
+
+	/**
+	 * @brief Constructor with variadic arguments.
+	 *
+	 * @tparam Args Types of the arguments to forward to the allocator's constructor.
+	 * @param args Arguments to forward to the allocator's constructor.
+	 */
+	template <typename... Args>
+	AlexandrescuMemoryResource(Args&&... args) : allocator_(std::forward<Args>(args)...) {}
+
+protected:
+	/**
+	 * @brief Allocates a block of memory.
+	 *
+	 * This method overrides the `do_allocate` method from `std::pmr::memory_resource` to allocate a block
+	 * of memory using the provided allocator.
+	 *
+	 * @param bytes The size of the memory block to allocate.
+	 * @param alignment The alignment requirement for the memory block.
+	 * @return A pointer to the allocated memory block, or `nullptr` if allocation fails.
+	 */
+	void* do_allocate(std::size_t bytes, std::size_t alignment) override {
+		// Allocate a block of memory using the allocator
+		Blk blk = allocator_.allocateBlock(bytes);
+		// If the block is invalid, return nullptr
+		if (blk.ptr == nullptr) {
+			return nullptr;
+		}
+		// Return the pointer of the allocated block
+		return blk.ptr;
+	}
+
+	/**
+	 * @brief Deallocates a block of memory.
+	 *
+	 * This method overrides the `do_deallocate` method from `std::pmr::memory_resource` to deallocate a block
+	 * of memory using the provided allocator.
+	 *
+	 * @param p Pointer to the memory block to deallocate.
+	 * @param bytes The size of the memory block to deallocate.
+	 * @param alignment The alignment requirement for the memory block.
+	 */
+	void do_deallocate(void* p, std::size_t bytes, std::size_t alignment) override {
+		// We need to pass a Blk to deallocate, so we'll assume the memory resource
+		// is using the pointer to locate the corresponding block.
+		Blk blk{p, bytes};
+		allocator_.deallocateBlock(blk);
+	}
+
+	/**
+	 * @brief Checks if two memory resources are equal.
+	 *
+	 * This method overrides the `do_is_equal` method from `std::pmr::memory_resource` to compare two memory
+	 * resources. Two resources are considered equal if they wrap the same allocator instance.
+	 *
+	 * @param other The memory resource to compare with.
+	 * @return `true` if the resources are equal, `false` otherwise.
+	 */
+	bool do_is_equal(const memory_resource& other) const noexcept override {
+		// This could be refined based on your allocator's requirements
+		// In this example, we consider two memory resources equal if they wrap the same allocator.
+		auto& other_resource = static_cast<const AlexandrescuMemoryResource&>(other);
+		return &allocator_ == &other_resource.allocator_;
+	}
 };
 
 /**

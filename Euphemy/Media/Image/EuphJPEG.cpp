@@ -26,7 +26,7 @@ bool decode(Elv::Io::Device& iodev, DecodeTarget& destination) {
 	return decode(tmpBuff,destination);
 }
 
-bool encode(const Frame& frame, Format format, const std::function<std::span<std::byte> (unsigned long)>& allocator, int jpegSubsamp, float jpegQual, unsigned long& jpegSize)
+bool encode(const Frame& frame, Format format, const std::function<std::span<std::byte> (unsigned long)>& allocator, SubsamplingMethod jpegSubsamp, float jpegQual, unsigned long& jpegSize)
 {
 	int pixelFormat = 0;
 	switch (format) {
@@ -48,13 +48,13 @@ bool encode(const Frame& frame, Format format, const std::function<std::span<std
 	return true;
 }
 
-bool encode(const DecodeTarget& source, const std::function<std::span<std::byte>(unsigned long)>& allocator, int jpegSubsamp, float jpegQual, unsigned long& jpegSize)
+bool encode(const DecodeTarget& source, const std::function<std::span<std::byte>(unsigned long)>& allocator, SubsamplingMethod jpegSubsamp, float jpegQual, unsigned long& jpegSize)
 {
 	if(source.getFrames().empty()) return false;
 	return encode(source.getFrame(0), source.getFormat(), allocator, jpegSubsamp, jpegQual, jpegSize);
 }
 
-bool encode(Elv::Io::Device& iodev, const Frame& frame, Format format, int jpegSubsamp, float jpegQual)
+bool encode(Elv::Io::Device& iodev, const Frame& frame, Format format, SubsamplingMethod jpegSubsamp, float jpegQual)
 {
 	std::vector<std::byte> tmpBuff;
 	unsigned long jpegSize;
@@ -68,7 +68,7 @@ bool encode(Elv::Io::Device& iodev, const Frame& frame, Format format, int jpegS
 	return toReturn;
 }
 
-bool encode(Elv::Io::Device& iodev, const DecodeTarget& source, int jpegSubsamp, float jpegQual)
+bool encode(Elv::Io::Device& iodev, const DecodeTarget& source, SubsamplingMethod jpegSubsamp, float jpegQual)
 {
 	if(source.getFrames().empty()) return false;
 	return encode(iodev, source.getFrame(0), source.getFormat(), jpegSubsamp, jpegQual);

@@ -8,6 +8,11 @@ namespace Media {
 namespace Image {
 namespace GIF {
 
+/**
+ * @brief Decodes a GIF image.
+ * @param iodev The IO device to read the GIF image from.
+ * @param destination Decode target, where the image will be stored at.
+ */
 void MH_EUPH_API decode(Elv::Io::Device& iodev, DecodeTarget& destination);
 
 }
