@@ -19,6 +19,11 @@
 #include <Euphemy/Config/GlobalConfig.hpp>
 #include <Elvavena/Util/ElvInterpolation.hpp>
 #include <Elvavena/Util/ElvFixedPoint.hpp>
+#include <Euphemy/Media/Image/EuphTGA.hpp>
+#include <Euphemy/Media/Image/EuphPixelFormat.hpp>
+#include <Euphemy/Media/Image/EuphStandardImage.hpp>
+#include <Euphemy/Media/Image/EuphTGA.hpp>
+#include <Euphemy/Media/Image/EuphPNG.hpp>
 
 template<class T>
 struct Mallocator
@@ -479,4 +484,42 @@ void testInterpolationFixed()
 {
 	IsFixedPoint(Elv::Util::fixed32::from_float(0.33f));
 	testInterpolator<Elv::Util::fixed32>();
+}
+
+void testTGA()
+{
+	Euph::Media::Image::DecodeTarget decodeTarget;
+	{
+		Euph::Media::Image::StandardImage<Euph::Media::Image::PixelBGR_U8> stdimg(256,256);
+		stdimg.clearToColour((Euph::Media::Image::Image2D::ColourProgrammer3)[](const glm::fvec2& normalizedPos){
+			float dx = normalizedPos.x - 0.5f;
+			float dy = normalizedPos.y - 0.5f;
+			float distance = 1.0f - (std::sqrt(dx * dx + dy * dy) / 0.7071f);
+			return glm::fvec4(normalizedPos.x,normalizedPos.y,distance,1.0f);
+		},true);
+		stdimg.saveInto(decodeTarget);
+	}
+	{
+		Euph::Io::File dllFile("/tmp/testImg.tga", Elv::Io::Mode::WRITE);
+		Euph::Media::Image::TGA::encode(dllFile,decodeTarget);
+	}
+}
+
+void testPNG()
+{
+	Euph::Media::Image::DecodeTarget decodeTarget;
+	{
+		Euph::Media::Image::StandardImage<Euph::Media::Image::PixelRGB_U8> stdimg(256,256);
+		stdimg.clearToColour((Euph::Media::Image::Image2D::ColourProgrammer3)[](const glm::fvec2& normalizedPos){
+			float dx = normalizedPos.x - 0.5f;
+			float dy = normalizedPos.y - 0.5f;
+			float distance = 1.0f - (std::sqrt(dx * dx + dy * dy) / 0.7071f);
+			return glm::fvec4(normalizedPos.x,normalizedPos.y,distance,1.0f);
+		},true);
+		stdimg.saveInto(decodeTarget);
+	}
+	{
+		Euph::Io::File dllFile("/tmp/testImg.png", Elv::Io::Mode::WRITE);
+		Euph::Media::Image::PNG::encode(dllFile,decodeTarget,0.5f);
+	}
 }

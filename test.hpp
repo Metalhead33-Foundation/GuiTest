@@ -22,5 +22,6 @@ void testGlobalConfigFile();
 void testInterpolationFloat();
 void testInterpolationFixed();
 void testTGA();
+void testPNG();
 
 #endif // TEST_HPP

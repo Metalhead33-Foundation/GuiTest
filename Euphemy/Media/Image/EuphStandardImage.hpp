@@ -105,11 +105,11 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 */
 	static inline void iterateOverPixels(const ReadOnlyPixelStorage& pixels, unsigned width, unsigned height, const ReadOnlyImage2D::ColourIterator& program)
 	{
-		Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program](const Pixel& pxl, const glm::uvec2& pos) {
+		Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,[&program](const Pixel& pxl, const glm::uvec2& pos) {
 			glm::fvec4 kernel;
 			pxl.toKernel(kernel);
 			program(pos,kernel);
-		});
+		},glm::uvec2(width,height));
 	}
 	/**
 	 * @brief Iterates over all pixels in an image and applies a function with normalized coordinates.
@@ -123,11 +123,11 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 */
 	static inline void iterateOverPixels(const ReadOnlyPixelStorage& pixels, unsigned width, unsigned height, float widthR, float heightR, const ReadOnlyImage2D::ColourIterator2& program)
 	{
-		Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program,width,height,widthR,heightR](const Pixel& pxl, const glm::uvec2& pos) {
+		Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,[&program,width,height,widthR,heightR](const Pixel& pxl, const glm::uvec2& pos) {
 			glm::fvec4 kernel;
 			pxl.toKernel(kernel);
 			program(glm::fvec2(static_cast<float>(pos.x) * widthR,static_cast<float>(pos.y) * heightR),kernel);
-		});
+		}, glm::uvec2(width,height));
 	}
 	/**
 	 * @brief Iterates over all pixels in an image and applies a function to each pixel.
@@ -141,11 +141,11 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 */
 	static inline void iterateOverPixels(const ReadOnlyPixelStorage& pixels, unsigned width, unsigned height, const ReadOnlyImage2D::ColourIterator& program, const glm::uvec2& offset, const glm::uvec2& dimensions)
 	{
-		Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program](const Pixel& pxl, const glm::uvec2& pos) {
+		Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,[&program](const Pixel& pxl, const glm::uvec2& pos) {
 				glm::fvec4 kernel;
 				pxl.toKernel(kernel);
 				program(pos,kernel);
-			},offset,dimensions);
+			},glm::uvec2(width,height),offset,dimensions);
 	}
 	/**
 	 * @brief Iterates over all pixels in an image and applies a function with normalized coordinates.
@@ -161,11 +161,11 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 */
 	static inline void iterateOverPixels(const ReadOnlyPixelStorage& pixels, unsigned width, unsigned height, float widthR, float heightR, const ReadOnlyImage2D::ColourIterator2& program, const glm::uvec2& offset, const glm::uvec2& dimensions)
 	{
-		Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program,width,height,widthR,heightR](const Pixel& pxl, const glm::uvec2& pos) {
+		Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,[&program,width,height,widthR,heightR](const Pixel& pxl, const glm::uvec2& pos) {
 				glm::fvec4 kernel;
 				pxl.toKernel(kernel);
 				program(glm::fvec2(static_cast<float>(pos.x) * widthR,static_cast<float>(pos.y) * heightR),kernel);
-			},offset,dimensions);
+			},glm::uvec2(width,height),offset,dimensions);
 	}
 	/**
 	 * @brief Clears the entire image to a specific color kernel.
@@ -176,12 +176,12 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 * @param colourKernel The color kernel to clear to.
 	 * @param dither Whether to apply dithering during the operation.
 	 */
-	static inline void clearToColour(const PixelStorage& pixels, unsigned width, unsigned height, const glm::fvec4& colourKernel, bool dither)
+	static inline void clearToColour(PixelStorage pixels, unsigned width, unsigned height, const glm::fvec4& colourKernel, bool dither)
 	{
 		if(dither) {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&colourKernel](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&colourKernel](Pixel& pxl, const glm::uvec2& pos) {
 				pxl.fromKernelDithered(colourKernel, pos);
-			});
+			},glm::uvec2(width,height));
 		} else {
 			Pixel pxl;
 			pxl.fromKernel(colourKernel);
@@ -197,16 +197,16 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 * @param program The color programming function.
 	 * @param dither Whether to apply dithering during the operation.
 	 */
-	static inline void clearToColour(const PixelStorage& pixels, unsigned width, unsigned height, const Image2D::ColourProgrammer& program, bool dither)
+	static inline void clearToColour(PixelStorage pixels, unsigned width, unsigned height, const Image2D::ColourProgrammer& program, bool dither)
 	{
 		if(dither) {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program](Pixel& pxl, const glm::uvec2& pos) {
 				pxl.fromKernelDithered(program(pos), pos);
-			});
+			},glm::uvec2(width,height));
 		} else {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program](Pixel& pxl, const glm::uvec2& pos) {
 				pxl.fromKernel(program(pos));
-			});
+			},glm::uvec2(width,height));
 		}
 	}
 	/**
@@ -218,20 +218,20 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 * @param program The color programming function.
 	 * @param dither Whether to apply dithering during the operation.
 	 */
-	static inline void clearToColour(const PixelStorage& pixels, unsigned width, unsigned height, const Image2D::ColourProgrammer2& program, bool dither)
+	static inline void clearToColour(PixelStorage pixels, unsigned width, unsigned height, const Image2D::ColourProgrammer2& program, bool dither)
 	{
 		if(dither) {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program](Pixel& pxl, const glm::uvec2& pos) {
 				glm::fvec4 preExisting;
 				pxl.toKernel(preExisting);
 				pxl.fromKernelDithered(program(pos,preExisting), pos);
-			});
+			},glm::uvec2(width,height));
 		} else {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program](Pixel& pxl, const glm::uvec2& pos) {
 				glm::fvec4 preExisting;
 				pxl.toKernel(preExisting);
 				pxl.fromKernel(program(pos,preExisting));
-			});
+			},glm::uvec2(width,height));
 		}
 	}
 	/**
@@ -245,16 +245,16 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 * @param program The color programming function.
 	 * @param dither Whether to apply dithering during the operation.
 	 */
-	static inline void clearToColour(const PixelStorage& pixels, unsigned width, unsigned height, float widthR, float heightR, const Image2D::ColourProgrammer3& program, bool dither)
+	static inline void clearToColour(PixelStorage pixels, unsigned width, unsigned height, float widthR, float heightR, const Image2D::ColourProgrammer3& program, bool dither)
 	{
 		if(dither) {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
 				pxl.fromKernelDithered(program(glm::fvec2(static_cast<float>(pos.x) * widthR,static_cast<float>(pos.y) * heightR)), pos);
-			});
+			},glm::uvec2(width,height));
 		} else {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
 				pxl.fromKernel(program(glm::fvec2(static_cast<float>(pos.x) * widthR,static_cast<float>(pos.y) * heightR)));
-			});
+			},glm::uvec2(width,height));
 		}
 	}
 	/**
@@ -268,20 +268,20 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 * @param program The color programming function.
 	 * @param dither Whether to apply dithering during the operation.
 	 */
-	static inline void clearToColour(const PixelStorage& pixels,unsigned width, unsigned height, float widthR, float heightR, const Image2D::ColourProgrammer4& program, bool dither)
+	static inline void clearToColour(PixelStorage pixels,unsigned width, unsigned height, float widthR, float heightR, const Image2D::ColourProgrammer4& program, bool dither)
 	{
 		if(dither) {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
 				glm::fvec4 preExisting;
 				pxl.toKernel(preExisting);
 				pxl.fromKernelDithered(program(glm::fvec2(static_cast<float>(pos.x) * widthR,static_cast<float>(pos.y) * heightR),preExisting), pos);
-			});
+			},glm::uvec2(width,height));
 		} else {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
 				glm::fvec4 preExisting;
 				pxl.toKernel(preExisting);
 				pxl.fromKernel(program(glm::fvec2(static_cast<float>(pos.x) * widthR,static_cast<float>(pos.y) * heightR),preExisting));
-			});
+			},glm::uvec2(width,height));
 		}
 	}
 	/**
@@ -295,18 +295,18 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 * @param dimensions The dimensions of the rectangle.
 	 * @param dither Whether to apply dithering during the operation.
 	 */
-	static inline void clearToColour(const PixelStorage& pixels,unsigned width, unsigned height, const glm::fvec4& colourKernel, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither)
+	static inline void clearToColour(PixelStorage pixels,unsigned width, unsigned height, const glm::fvec4& colourKernel, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither)
 	{
 		if(dither) {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&colourKernel](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&colourKernel](Pixel& pxl, const glm::uvec2& pos) {
 					pxl.fromKernelDithered(colourKernel, pos);
-				},offset,dimensions);
+				},glm::uvec2(width,height),offset,dimensions);
 		} else {
 			Pixel srcPxl;
 			srcPxl.fromKernel(colourKernel);
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[srcPxl](Pixel& dstPxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[srcPxl](Pixel& dstPxl, const glm::uvec2& pos) {
 					dstPxl = srcPxl;
-				},offset,dimensions);
+				},glm::uvec2(width,height),offset,dimensions);
 		}
 	}
 	/**
@@ -320,16 +320,16 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 * @param dimensions The dimensions of the rectangle.
 	 * @param dither Whether to apply dithering during the operation.
 	 */
-	static inline void clearToColour(const PixelStorage& pixels, unsigned width, unsigned height, const Image2D::ColourProgrammer& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither)
+	static inline void clearToColour(PixelStorage pixels, unsigned width, unsigned height, const Image2D::ColourProgrammer& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither)
 	{
 		if(dither) {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program](Pixel& pxl, const glm::uvec2& pos) {
 				pxl.fromKernelDithered(program(pos), pos);
-			}, offset, dimensions);
+			}, glm::uvec2(width,height), offset, dimensions);
 		} else {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program](Pixel& pxl, const glm::uvec2& pos) {
 				pxl.fromKernel(program(pos));
-			}, offset, dimensions);
+			}, glm::uvec2(width,height), offset, dimensions);
 		}
 	}
 	/**
@@ -343,20 +343,20 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 * @param dimensions The dimensions of the rectangle.
 	 * @param dither Whether to apply dithering during the operation.
 	 */
-	static inline void clearToColour(const PixelStorage& pixels, unsigned width, unsigned height, const Image2D::ColourProgrammer2& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither)
+	static inline void clearToColour(PixelStorage pixels, unsigned width, unsigned height, const Image2D::ColourProgrammer2& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither)
 	{
 		if(dither) {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program](Pixel& pxl, const glm::uvec2& pos) {
 				glm::fvec4 preExisting;
 				pxl.toKernel(preExisting);
 				pxl.fromKernelDithered(program(pos,preExisting), pos);
-			}, offset, dimensions);
+			},glm::uvec2(width,height), offset, dimensions);
 		} else {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program](Pixel& pxl, const glm::uvec2& pos) {
 				glm::fvec4 preExisting;
 				pxl.toKernel(preExisting);
 				pxl.fromKernel(program(pos,preExisting));
-			}, offset, dimensions);
+			}, glm::uvec2(width,height),offset, dimensions);
 		}
 	}
 	/**
@@ -372,16 +372,16 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 * @param dimensions The dimensions of the rectangle.
 	 * @param dither Whether to apply dithering during the operation.
 	 */
-	static inline void clearToColour(const PixelStorage& pixels,unsigned width, unsigned height, float widthR, float heightR, const Image2D::ColourProgrammer3& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither)
+	static inline void clearToColour(PixelStorage pixels,unsigned width, unsigned height, float widthR, float heightR, const Image2D::ColourProgrammer3& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither)
 	{
 		if(dither) {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
 				pxl.fromKernelDithered(program(glm::fvec2(static_cast<float>(pos.x) * widthR,static_cast<float>(pos.y) * heightR)), pos);
-			}, offset, dimensions);
+			},glm::uvec2(width,height), offset, dimensions);
 		} else {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
 				pxl.fromKernel(program(glm::fvec2(static_cast<float>(pos.x) * widthR,static_cast<float>(pos.y) * heightR)));
-			}, offset, dimensions);
+			},glm::uvec2(width,height), offset, dimensions);
 		}
 	}
 	/**
@@ -397,20 +397,20 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 	 * @param dimensions The dimensions of the rectangle.
 	 * @param dither Whether to apply dithering during the operation.
 	 */
-	static inline void clearToColour(const PixelStorage& pixels,unsigned width, unsigned height, float widthR, float heightR, const Image2D::ColourProgrammer4& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither)
+	static inline void clearToColour(PixelStorage pixels,unsigned width, unsigned height, float widthR, float heightR, const Image2D::ColourProgrammer4& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither)
 	{
 		if(dither) {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
 				glm::fvec4 preExisting;
 				pxl.toKernel(preExisting);
 				pxl.fromKernelDithered(program(glm::fvec2(static_cast<float>(pos.x) * widthR,static_cast<float>(pos.y) * heightR),preExisting), pos);
-			}, offset, dimensions);
+			},glm::uvec2(width,height), offset, dimensions);
 		} else {
-			Elv::Util::span_wrappers<Pixel>::over_2d_span(pixels,glm::uvec2(width,height),[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
+			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[&program,width,height,widthR,heightR](Pixel& pxl, const glm::uvec2& pos) {
 				glm::fvec4 preExisting;
 				pxl.toKernel(preExisting);
 				pxl.fromKernel(program(glm::fvec2(static_cast<float>(pos.x) * widthR,static_cast<float>(pos.y) * heightR),preExisting));
-			}, offset, dimensions);
+			}, glm::uvec2(width,height),offset, dimensions);
 		}
 	}
 };

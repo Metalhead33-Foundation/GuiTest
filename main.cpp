@@ -14,7 +14,7 @@ int main(void)
 	GLOBAL_CONFIGURATION.fromString(ifs);
 	//testGlobalConfigFile();
 	//testCustomAllocator();
-	testInterpolationFixed();
+	testPNG();
 	return 0;
 }
 

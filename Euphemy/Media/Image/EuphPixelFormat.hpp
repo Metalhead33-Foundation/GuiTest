@@ -14,21 +14,21 @@ template <typename T, Format formatId> struct PixelGreyscale {
 	static const Format FMT_ID = formatId;
 	// 0.299R + 0.587G + 0.114B
 	inline void fromKernel(const glm::fvec4& kernel) {
-		pixel = fdenormalize<T>(
+		pixel = Elv::Util::fdenormalize<T>(
 					(kernel.x * 0.299f) +
 					(kernel.y * 0.587f) +
 					(kernel.z * 0.114f)
 					);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
-		pixel = fdenormalize<T>(
+		pixel = Elv::Util::fdenormalize<T>(
 					Elv::Util::OrderedDither<T>::ditherUp(((kernel.x * 0.299f) +
 							 (kernel.y * 0.587f) +
 							 (kernel.z * 0.114f)
 							 ),coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		float normalized = fnormalize(pixel);
+		float normalized = Elv::Util::fnormalize(pixel);
 		kernel.x = normalized;
 		kernel.y = normalized;
 		kernel.z = normalized;
@@ -50,15 +50,15 @@ template <typename T, Format formatId> struct PixelRG {
 	T r,g;
 	static const Format FMT_ID = formatId;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = fdenormalize<T>(kernel.x);
-		g = fdenormalize<T>(kernel.y);
+		r = Elv::Util::fdenormalize<T>(kernel.x);
+		g = Elv::Util::fdenormalize<T>(kernel.y);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = fnormalize(r);
-		kernel.y = fnormalize(g);
+		kernel.x = Elv::Util::fnormalize(r);
+		kernel.y = Elv::Util::fnormalize(g);
 		kernel.z = 0.0f;
 		kernel.w = 1.0f;
 	}
@@ -79,17 +79,17 @@ template <typename T, Format formatId> struct PixelRGB {
 	T r,g,b;
 	static const Format FMT_ID = formatId;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = fdenormalize<T>(kernel.x);
-		g = fdenormalize<T>(kernel.y);
-		b = fdenormalize<T>(kernel.z);
+		r = Elv::Util::fdenormalize<T>(kernel.x);
+		g = Elv::Util::fdenormalize<T>(kernel.y);
+		b = Elv::Util::fdenormalize<T>(kernel.z);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = fnormalize(r);
-		kernel.y = fnormalize(g);
-		kernel.z = fnormalize(b);
+		kernel.x = Elv::Util::fnormalize(r);
+		kernel.y = Elv::Util::fnormalize(g);
+		kernel.z = Elv::Util::fnormalize(b);
 		kernel.w = 1.0f;
 	}
 };
@@ -109,17 +109,17 @@ template <typename T, Format formatId> struct PixelBGR {
 	T b,g,r;
 	static const Format FMT_ID = formatId;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = fdenormalize<T>(kernel.x);
-		g = fdenormalize<T>(kernel.y);
-		b = fdenormalize<T>(kernel.z);
+		r = Elv::Util::fdenormalize<T>(kernel.x);
+		g = Elv::Util::fdenormalize<T>(kernel.y);
+		b = Elv::Util::fdenormalize<T>(kernel.z);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = fnormalize(r);
-		kernel.y = fnormalize(g);
-		kernel.z = fnormalize(b);
+		kernel.x = Elv::Util::fnormalize(r);
+		kernel.y = Elv::Util::fnormalize(g);
+		kernel.z = Elv::Util::fnormalize(b);
 		kernel.w = 1.0f;
 	}
 };
@@ -139,19 +139,19 @@ template <typename T, Format formatId> struct PixelRGBA {
 	T b,g,r,a;
 	static const Format FMT_ID = formatId;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = fdenormalize<T>(kernel.x);
-		g = fdenormalize<T>(kernel.y);
-		b = fdenormalize<T>(kernel.z);
-		a = fdenormalize<T>(kernel.w);
+		r = Elv::Util::fdenormalize<T>(kernel.x);
+		g = Elv::Util::fdenormalize<T>(kernel.y);
+		b = Elv::Util::fdenormalize<T>(kernel.z);
+		a = Elv::Util::fdenormalize<T>(kernel.w);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = fnormalize(r);
-		kernel.y = fnormalize(g);
-		kernel.z = fnormalize(b);
-		kernel.w = fnormalize(a);
+		kernel.x = Elv::Util::fnormalize(r);
+		kernel.y = Elv::Util::fnormalize(g);
+		kernel.z = Elv::Util::fnormalize(b);
+		kernel.w = Elv::Util::fnormalize(a);
 	}
 };
 typedef PixelRGBA<uint8_t, Format::RGBA8U> PixelRGBA_U8;
@@ -170,19 +170,19 @@ template <typename T, Format formatId> struct PixelBGRA {
 	T b,g,r,a;
 	static const Format FMT_ID = formatId;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = fdenormalize<T>(kernel.x);
-		g = fdenormalize<T>(kernel.y);
-		b = fdenormalize<T>(kernel.z);
-		a = fdenormalize<T>(kernel.w);
+		r = Elv::Util::fdenormalize<T>(kernel.x);
+		g = Elv::Util::fdenormalize<T>(kernel.y);
+		b = Elv::Util::fdenormalize<T>(kernel.z);
+		a = Elv::Util::fdenormalize<T>(kernel.w);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = fnormalize(r);
-		kernel.y = fnormalize(g);
-		kernel.z = fnormalize(b);
-		kernel.w = fnormalize(a);
+		kernel.x = Elv::Util::fnormalize(r);
+		kernel.y = Elv::Util::fnormalize(g);
+		kernel.z = Elv::Util::fnormalize(b);
+		kernel.w = Elv::Util::fnormalize(a);
 	}
 };
 typedef PixelBGRA<uint8_t, Format::BGRA8U> PixelBGRA_U8;
@@ -201,19 +201,19 @@ template <typename T, Format formatId> struct PixelARGB {
 	T a,r,g,b;
 	static const Format FMT_ID = formatId;
 	inline void fromKernel(const glm::fvec4& kernel) {
-		r = fdenormalize<T>(kernel.x);
-		g = fdenormalize<T>(kernel.y);
-		b = fdenormalize<T>(kernel.z);
-		a = fdenormalize<T>(kernel.w);
+		r = Elv::Util::fdenormalize<T>(kernel.x);
+		g = Elv::Util::fdenormalize<T>(kernel.y);
+		b = Elv::Util::fdenormalize<T>(kernel.z);
+		a = Elv::Util::fdenormalize<T>(kernel.w);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
-		kernel.x = fnormalize(r);
-		kernel.y = fnormalize(g);
-		kernel.z = fnormalize(b);
-		kernel.w = fnormalize(a);
+		kernel.x = Elv::Util::fnormalize(r);
+		kernel.y = Elv::Util::fnormalize(g);
+		kernel.z = Elv::Util::fnormalize(b);
+		kernel.w = Elv::Util::fnormalize(a);
 	}
 };
 typedef PixelARGB<uint8_t, Format::ARGB8U> PixelARGB_U8;

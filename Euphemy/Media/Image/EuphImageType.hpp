@@ -302,7 +302,7 @@ template <typename T> concept PixelConcept = requires(T t, const glm::fvec4& fve
 	{ t.toKernel(outFvec) } -> std::same_as<void>;
 
 	// Check for FMT_ID static member with type Format
-	requires std::is_same_v<decltype(T::FMT_ID), Format>;
+	requires std::is_same_v<decltype(T::FMT_ID), const Format>;
 };
 
 }
