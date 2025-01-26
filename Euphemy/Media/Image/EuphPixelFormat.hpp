@@ -9,20 +9,6 @@ namespace Euph {
 namespace Media {
 namespace Image {
 
-template <typename T>
-concept PixelConcept = requires(T t, const glm::fvec4& fvec, const glm::ivec2& ivec, glm::fvec4& outFvec) {
-	// Check for fromKernel method
-	{ t.fromKernel(fvec) } -> std::same_as<void>;
-
-	// Check for fromKernelDithered method
-	{ t.fromKernelDithered(fvec, ivec) } -> std::same_as<void>;
-
-	// Check for toKernel method
-	{ t.toKernel(outFvec) } -> std::same_as<void>;
-
-	requires std::is_same_v<decltype(T::FMT_ID), Format>;
-};
-
 template <typename T, Format formatId> struct PixelGreyscale {
 	T pixel;
 	static const Format FMT_ID = formatId;
@@ -34,7 +20,7 @@ template <typename T, Format formatId> struct PixelGreyscale {
 					(kernel.z * 0.114f)
 					);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		pixel = fdenormalize<T>(
 					Elv::Util::OrderedDither<T>::ditherUp(((kernel.x * 0.299f) +
 							 (kernel.y * 0.587f) +
@@ -67,7 +53,7 @@ template <typename T, Format formatId> struct PixelRG {
 		r = fdenormalize<T>(kernel.x);
 		g = fdenormalize<T>(kernel.y);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
@@ -97,7 +83,7 @@ template <typename T, Format formatId> struct PixelRGB {
 		g = fdenormalize<T>(kernel.y);
 		b = fdenormalize<T>(kernel.z);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
@@ -127,7 +113,7 @@ template <typename T, Format formatId> struct PixelBGR {
 		g = fdenormalize<T>(kernel.y);
 		b = fdenormalize<T>(kernel.z);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
@@ -158,7 +144,7 @@ template <typename T, Format formatId> struct PixelRGBA {
 		b = fdenormalize<T>(kernel.z);
 		a = fdenormalize<T>(kernel.w);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
@@ -189,7 +175,7 @@ template <typename T, Format formatId> struct PixelBGRA {
 		b = fdenormalize<T>(kernel.z);
 		a = fdenormalize<T>(kernel.w);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
@@ -220,7 +206,7 @@ template <typename T, Format formatId> struct PixelARGB {
 		b = fdenormalize<T>(kernel.z);
 		a = fdenormalize<T>(kernel.w);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
@@ -272,7 +258,7 @@ struct PixelRGB332 {
 					static_cast<uint_fast8_t>(std::round(kernel.z * max2F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast8_t>(std::round( Dither3::ditherUp(kernel.x,coords) * max3F)),
 		static_cast<uint_fast8_t>(std::round( Dither3::ditherUp(kernel.y,coords) * max3F)),
@@ -314,7 +300,7 @@ struct PixelRGB444 {
 					static_cast<uint_fast16_t>(std::round(kernel.z * max4F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.x,coords) * max4F)),
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.y,coords) * max4F)),
@@ -355,7 +341,7 @@ struct PixelRGB555 {
 					static_cast<uint_fast16_t>(std::round(kernel.z * max5F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.y,coords) * max5F)),
@@ -400,7 +386,7 @@ struct PixelRGB565 {
 					static_cast<uint_fast16_t>(std::round(kernel.z * max5F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.y,coords) * max6F)),
@@ -441,7 +427,7 @@ struct PixelBGR555 {
 					static_cast<uint_fast16_t>(std::round(kernel.z * max5F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.y,coords) * max5F)),
@@ -486,7 +472,7 @@ struct PixelBGR565 {
 					static_cast<uint_fast16_t>(std::round(kernel.z * max5F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.y,coords) * max6F)),
@@ -530,7 +516,7 @@ struct PixelARGB4444 {
 					static_cast<uint_fast16_t>(std::round(kernel.w * max4F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.x,coords) * max4F)),
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.y,coords) * max4F)),
@@ -575,7 +561,7 @@ struct PixelBGRA4444 {
 					static_cast<uint_fast16_t>(std::round(kernel.w * max4F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.x,coords) * max4F)),
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.y,coords) * max4F)),
@@ -620,7 +606,7 @@ struct PixelRGBA4444 {
 					static_cast<uint_fast16_t>(std::round(kernel.w * max4F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.x,coords) * max4F)),
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.y,coords) * max4F)),
@@ -665,7 +651,7 @@ struct PixelABGR4444 {
 					static_cast<uint_fast16_t>(std::round(kernel.w * max4F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.x,coords) * max4F)),
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.y,coords) * max4F)),
@@ -710,7 +696,7 @@ struct PixelARGB1555 {
 					static_cast<uint_fast16_t>(std::round(kernel.w))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.y,coords) * max5F)),
@@ -755,7 +741,7 @@ struct PixelRGBA5551 {
 					static_cast<uint_fast16_t>(std::round(kernel.w))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.y,coords) * max5F)),
@@ -800,7 +786,7 @@ struct PixelABGR1555 {
 					static_cast<uint_fast16_t>(std::round(kernel.w))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.y,coords) * max5F)),
@@ -845,7 +831,7 @@ struct PixelBGRA5551 {
 					static_cast<uint_fast16_t>(std::round(kernel.w))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.y,coords) * max5F)),
@@ -888,7 +874,7 @@ struct PixelRGBX8888 {
 					static_cast<uint32_t>(std::round(kernel.z * max8F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.y,coords) * max8F)),
@@ -929,7 +915,7 @@ struct PixelBGRX8888 {
 					static_cast<uint32_t>(std::round(kernel.z * max8F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.y,coords) * max8F)),
@@ -970,7 +956,7 @@ struct PixelRGB888 {
 					static_cast<uint32_t>(std::round(kernel.z * max8F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.y,coords) * max8F)),
@@ -1011,7 +997,7 @@ struct PixelBGR888 {
 					static_cast<uint32_t>(std::round(kernel.z * max8F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.y,coords) * max8F)),
@@ -1055,7 +1041,7 @@ struct PixelARGB8888 {
 					static_cast<uint32_t>(std::round(kernel.w * max8F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.y,coords) * max8F)),
@@ -1100,7 +1086,7 @@ struct PixelRGBA8888 {
 					static_cast<uint32_t>(std::round(kernel.w * max8F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.y,coords) * max8F)),
@@ -1145,7 +1131,7 @@ struct PixelABGR8888 {
 					static_cast<uint32_t>(std::round(kernel.w * max8F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.y,coords) * max8F)),
@@ -1190,7 +1176,7 @@ struct PixelBGRA8888 {
 					static_cast<uint32_t>(std::round(kernel.w * max8F))
 				);
 	}
-	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::ivec2& coords) {
+	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.y,coords) * max8F)),

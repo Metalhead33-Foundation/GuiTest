@@ -42,12 +42,12 @@ struct Interpolation {
 			const TData& bottomLeft, const TData& bottomRight,
 			const TWeight& wX, const TWeight& wY
 			) {
-		const TWeight& oneMinusWX = getOneMinus(wX);
-		const TWeight& oneMinusWY = getOneMinus(wY);
-		const TWeight& weightTopLeft = oneMinusWX * oneMinusWY;
-		const TWeight& weightTopRight = wX * oneMinusWY;
-		const TWeight& weightBottomLeft = oneMinusWX * wY;
-		const TWeight& weightBottomRight = wX * wY;
+		const TWeight oneMinusWX = getOneMinus(wX);
+		const TWeight oneMinusWY = getOneMinus(wY);
+		const TWeight weightTopLeft = oneMinusWX * oneMinusWY;
+		const TWeight weightTopRight = wX * oneMinusWY;
+		const TWeight weightBottomLeft = oneMinusWX * wY;
+		const TWeight weightBottomRight = wX * wY;
 		return blerp(topLeft, topRight, bottomLeft, bottomRight, weightTopLeft, weightTopRight, weightBottomLeft, weightBottomRight);
 	}
 	inline static TData triangular_lerp(const TData& t0, const TData& t1, const TData& t2,

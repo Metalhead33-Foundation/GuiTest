@@ -43,6 +43,7 @@ SOURCES += \
     Euphemy/Media/Image/EuphJPEG.cpp \
     Euphemy/Media/Image/EuphPNG.cpp \
     Euphemy/Media/Image/EuphStandardColour.cpp \
+    Euphemy/Media/Image/EuphStandardImage.cpp \
     Euphemy/Media/Image/EuphTGA.cpp \
     Euphemy/Media/Image/EuphWEBP.cpp \
     Euphemy/Memory/EuphMemory.cpp \
@@ -109,6 +110,7 @@ HEADERS += \
     Euphemy/Media/Image/EuphPNG.hpp \
     Euphemy/Media/Image/EuphPixelFormat.hpp \
     Euphemy/Media/Image/EuphStandardColour.hpp \
+    Euphemy/Media/Image/EuphStandardImage.hpp \
     Euphemy/Media/Image/EuphTGA.hpp \
     Euphemy/Media/Image/EuphWEBP.hpp \
     Euphemy/Memory/EuphMemory.hpp \

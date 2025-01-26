@@ -3,6 +3,7 @@
 #include <span>
 #include <cassert>
 #include <functional>
+#include <glm/glm.hpp>
 namespace Elv {
 namespace Util {
 
@@ -74,6 +75,77 @@ template <typename T> struct span_wrappers {
 	 */
 	static const std::span<const std::byte> as_const_byte_span(const std::span<const T> thingies) {
 		return std::span<const std::byte>(reinterpret_cast<const std::byte*>(thingies.data()), thingies.size_bytes());
+	}
+
+	/**
+	 * @brief Iterates over a read-only 2D span of objects of type T and applies a given function to each element.
+	 *
+	 * @param thingies Const std::span of objects of type T, representing a 2D grid.
+	 * @param function A function to be applied to each element in the 2D span. The function takes a const reference to an object of type T and its 2D position as a glm::uvec2.
+	 * @param dimensions The dimensions (width and height) of the 2D grid.
+	 */
+	static void over_2d_span(const std::span<const T>& thingies, const std::function<void(const T&, const glm::uvec2&)> function, const glm::uvec2& dimensions) {
+		for(unsigned y = 0; y < dimensions.y; ++y) {
+			const T* const row = &thingies[y*dimensions.x];
+			for(unsigned x = 0; x < dimensions.x; ++x) {
+				function(row[x], glm::uvec2(x,y));
+			}
+		}
+	}
+	/**
+	 * @brief Iterates over a specified sub-region of a read-only 2D span of objects of type T and applies a given function to each element.
+	 *
+	 * @param thingies Const std::span of objects of type T, representing a 2D grid.
+	 * @param function A function to be applied to each element in the specified sub-region of the 2D span. The function takes a const reference to an object of type T and its 2D position as a glm::uvec2.
+	 * @param dimensions The dimensions (width and height) of the 2D grid.
+	 * @param offset The offset (starting position) of the sub-region within the 2D grid.
+	 * @param affected_dimension The dimensions (width and height) of the sub-region to be processed.
+	 */
+	static void over_2d_span(const std::span<const T>& thingies, const std::function<void(const T&, const glm::uvec2&)> function,
+							 const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
+		const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
+		const unsigned max_y = std::min(dimensions.y,offset.y+affected_dimension.y);
+		for(unsigned y = offset.y; y < max_y; ++y) {
+			const T* const row = &thingies[y*dimensions.x];
+			for(unsigned x = offset.x; x < max_x; ++x) {
+				function(row[x], glm::uvec2(x,y));
+			}
+		}
+	}
+	/**
+	 * @brief Iterates over a 2D span of objects of type T and applies a given function to each element.
+	 *
+	 * @param thingies Const std::span of objects of type T, representing a 2D grid.
+	 * @param function A function to be applied to each element in the 2D span. The function takes a reference to an object of type T and its 2D position as a glm::uvec2.
+	 * @param dimensions The dimensions (width and height) of the 2D grid.
+	 */
+	static void over_2d_span(const std::span<T>& thingies, const std::function<void(T&, const glm::uvec2&)> function, const glm::uvec2& dimensions) {
+		for(unsigned y = 0; y < dimensions.y; ++y) {
+			const T* const row = &thingies[y*dimensions.x];
+			for(unsigned x = 0; x < dimensions.x; ++x) {
+				function(row[x], glm::uvec2(x,y));
+			}
+		}
+	}
+	/**
+	 * @brief Iterates over a specified sub-region of a 2D span of objects of type T and applies a given function to each element.
+	 *
+	 * @param thingies Const std::span of objects of type T, representing a 2D grid.
+	 * @param function A function to be applied to each element in the specified sub-region of the 2D span. The function takes a reference to an object of type T and its 2D position as a glm::uvec2.
+	 * @param dimensions The dimensions (width and height) of the 2D grid.
+	 * @param offset The offset (starting position) of the sub-region within the 2D grid.
+	 * @param affected_dimension The dimensions (width and height) of the sub-region to be processed.
+	 */
+	static void over_2d_span(const std::span<T>& thingies, const std::function<void(T&, const glm::uvec2&)> function,
+							 const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
+		const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
+		const unsigned max_y = std::min(dimensions.y,offset.y+affected_dimension.y);
+		for(unsigned y = offset.y; y < max_y; ++y) {
+			const T* const row = &thingies[y*dimensions.x];
+			for(unsigned x = offset.x; x < max_x; ++x) {
+				function(row[x], glm::uvec2(x,y));
+			}
+		}
 	}
 };
 
@@ -179,6 +251,72 @@ template <typename T> std::span<std::byte> as_byte_span(T* thingies, size_t size
 template <typename T> const std::span<const std::byte> as_const_byte_span(const T* thingies, size_t size) {
 	return span_wrappers<T>::as_const_byte_span(thingies, size);
 }
+/**
+	@ingroup DataTransformers
+	@tparam T Type of the objects in the array.
+	 * @brief Iterates over a read-only 2D span of objects of type T and applies a given function to each element.
+	 *
+	 * @param thingies Const std::span of objects of type T, representing a 2D grid.
+	 * @param function A function to be applied to each element in the 2D span. The function takes a const reference to an object of type T and its 2D position as a glm::uvec2.
+	 * @param dimensions The dimensions (width and height) of the 2D grid.
+	 */
+template <typename T> void over_2d_span(const std::span<const T>& thingies, const std::function<void(const T&, const glm::uvec2&)> function, const glm::uvec2& dimensions) {
+	span_wrappers<T>::over_2d_span(thingies,function,dimensions);
+}
+/**
+	@ingroup DataTransformers
+	@tparam T Type of the objects in the array.
+	 * @brief Iterates over a specified sub-region of a read-only 2D span of objects of type T and applies a given function to each element.
+	 *
+	 * @param thingies Const std::span of objects of type T, representing a 2D grid.
+	 * @param function A function to be applied to each element in the specified sub-region of the 2D span. The function takes a const reference to an object of type T and its 2D position as a glm::uvec2.
+	 * @param dimensions The dimensions (width and height) of the 2D grid.
+	 * @param offset The offset (starting position) of the sub-region within the 2D grid.
+	 * @param affected_dimension The dimensions (width and height) of the sub-region to be processed.
+	 */
+template <typename T> void over_2d_span(const std::span<const T>& thingies, const std::function<void(const T&, const glm::uvec2&)> function,
+						 const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
+	span_wrappers<T>::over_2d_span(thingies,function,dimensions,offset,affected_dimension);
+}
+
+/**
+	@ingroup DataTransformers
+	@tparam T Type of the objects in the array.
+	 * @brief Iterates over a 2D span of objects of type T and applies a given function to each element.
+	 *
+	 * @param thingies Const std::span of objects of type T, representing a 2D grid.
+	 * @param function A function to be applied to each element in the 2D span. The function takes a reference to an object of type T and its 2D position as a glm::uvec2.
+	 * @param dimensions The dimensions (width and height) of the 2D grid.
+	 */
+template <typename T> void over_2d_span(const std::span<T>& thingies, const std::function<void(T&, const glm::uvec2&)> function, const glm::uvec2& dimensions) {
+	span_wrappers<T>::over_2d_span(thingies,function,dimensions);
+}
+/**
+	@ingroup DataTransformers
+	@tparam T Type of the objects in the array.
+	 * @brief Iterates over a specified sub-region of a 2D span of objects of type T and applies a given function to each element.
+	 *
+	 * @param thingies Const std::span of objects of type T, representing a 2D grid.
+	 * @param function A function to be applied to each element in the specified sub-region of the 2D span. The function takes a reference to an object of type T and its 2D position as a glm::uvec2.
+	 * @param dimensions The dimensions (width and height) of the 2D grid.
+	 * @param offset The offset (starting position) of the sub-region within the 2D grid.
+	 * @param affected_dimension The dimensions (width and height) of the sub-region to be processed.
+	 */
+template <typename T> void over_2d_span(const std::span<T>& thingies, const std::function<void(T&, const glm::uvec2&)> function,
+						 const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
+	span_wrappers<T>::over_2d_span(thingies,function,dimensions,offset,affected_dimension);
+}
+
+inline void over_2d_grid(const std::function<void(unsigned index)> function, const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
+	const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
+	const unsigned max_y = std::min(dimensions.y,offset.y+affected_dimension.y);
+	for(unsigned y = 0; y < max_y; ++y) {
+		const unsigned row = y*dimensions.x;
+		for(unsigned x = 0; x < max_x; ++x) {
+			function(row+x);
+		}
+	}
+};
 
 /**
  * @ingroup DataTransformers

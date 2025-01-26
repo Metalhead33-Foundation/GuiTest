@@ -1,6 +1,8 @@
 #ifndef EUPHIMAGETYPE_H
 #define EUPHIMAGETYPE_H
 #include <cstdint>
+#include <concepts>
+#include <glm/glm.hpp>
 namespace Euph {
 namespace Media {
 namespace Image {
@@ -195,6 +197,35 @@ inline constexpr std::size_t pixelByteSize(Format format) {
 		default: return 0;
 	}
 }
+
+inline constexpr const glm::uvec2 calculateMaximumOffsetForBlit(const glm::uvec2& destinationDimensions, const glm::uvec2& sourceDimensions, const glm::uvec2& destinationOffset, const glm::uvec2& sourceOffset, const glm::uvec2& dimensionsFromOffset) {
+	const unsigned dstMaxX = std::min(destinationDimensions.x,dimensionsFromOffset.x+destinationOffset.x);
+	const unsigned dstMaxY = std::min(destinationDimensions.x,dimensionsFromOffset.y+destinationOffset.y);
+	const unsigned srcMaxX = std::min(sourceDimensions.x,dimensionsFromOffset.x+sourceOffset.x);
+	const unsigned srcMaxY = std::min(sourceDimensions.y,dimensionsFromOffset.y+sourceOffset.y);
+	const unsigned maxX = std::min(srcMaxX-sourceOffset.x,dstMaxX-destinationOffset.x);
+	const unsigned maxY = std::min(srcMaxY-sourceOffset.y,dstMaxY-destinationOffset.y);
+	return glm::uvec2(maxX,maxY);
+}
+
+inline constexpr unsigned toLinearIndex(unsigned width, unsigned x, unsigned y) {
+    return (width*y)+x;
+}
+
+template <typename T>
+concept PixelConcept = requires(T t, const glm::fvec4& fvec, const glm::uvec2& uvec, glm::fvec4& outFvec) {
+	// Check for fromKernel method
+	{ t.fromKernel(fvec) } -> std::same_as<void>;
+
+	// Check for fromKernelDithered method
+	{ t.fromKernelDithered(fvec, uvec) } -> std::same_as<void>;
+
+	// Check for toKernel method
+	{ t.toKernel(outFvec) } -> std::same_as<void>;
+
+	requires std::is_same_v<decltype(T::FMT_ID), Format>;
+};
+
 }
 }
 }
