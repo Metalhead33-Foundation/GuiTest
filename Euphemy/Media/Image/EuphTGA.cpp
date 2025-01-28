@@ -189,7 +189,7 @@ template <Elv::Util::Endian endianness> Elv::Io::DataStream<endianness>& operato
 		break;
 	}
 	//input.seek(right.idLen,Elv::Io::SeekOrigin::CUR); // Skip ID.
-	input.read(right.idField.data(),1,right.idLen);
+	if(right.idLen) input.read(right.idField.data(),1,right.idLen);
 	if(right.colmapType) {
 		size_t colMapSize = right.colorMapSpecification.colorMapLength * (right.colorMapSpecification.colorMapEntrySize / 8);
 		right.colorMap.resize(colMapSize);
@@ -211,6 +211,10 @@ template <Elv::Util::Endian endianness> Elv::Io::DataStream<endianness>& operato
 	left << right.imageType;
 	left << right.colorMapSpecification;
 	left << right.imageSpecification;
+	// Write the ID field if there is one
+	if (right.idLen) {
+		output.write(right.idField.data(), sizeof(char), right.idLen);
+	}
 	if(right.colmapType)
 	{
 		output.write(right.colorMap.data(),sizeof(std::byte),right.colorMap.size());
@@ -222,7 +226,7 @@ template <Elv::Util::Endian endianness> Elv::Io::DataStream<endianness>& operato
 	output.write("MH33\0", sizeof(char), 5);
 	left << right.extensionOffset;
 	left << right.developerAreaOffset;
-	output.seek(0,Elv::Io::SeekOrigin::SET);
+	output.seek(0,Elv::Io::SeekOrigin::END);
 	output.write("TRUEVISION-XFILE.\0",1,18);
 	return left;
 }
@@ -366,6 +370,11 @@ void encode(Elv::Io::Device& iodev, DecodeTarget& source, const std::optional<Ex
 {
 	TgaHeader head(source.getMemResource());
 	Elv::Io::DataStream<Elv::Util::Endian::Little> output(iodev);
+	head.idLen = 4;
+	head.idField[0] = 'M';
+	head.idField[1] = 'H';
+	head.idField[2] = '3';
+	head.idField[3] = '3';
 	switch (source.getFormat()) {
 		case Format::INDEXED: {
 			head.imageSpecification.pixelDepth = 8;
