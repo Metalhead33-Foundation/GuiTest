@@ -78,6 +78,32 @@ template <typename T> struct span_wrappers {
 	}
 
 	/**
+	 * @brief Converts a mutable byte span into a mutable span of type T.
+	 *
+	 * @param byte_span Mutable byte span to be converted.
+	 * @return std::span<T> Mutable span of type T.
+	 * @pre The byte_span must represent a contiguous block of memory that is correctly aligned for type T.
+	 */
+	static std::span<T> as_span(std::span<std::byte> byte_span) {
+		assert(byte_span.size() % sizeof(T) == 0 && "Byte span size must be a multiple of sizeof(T)");
+		assert(reinterpret_cast<std::uintptr_t>(byte_span.data()) % alignof(T) == 0 && "Byte span data must be aligned for type T");
+		return std::span<T>(reinterpret_cast<T*>(byte_span.data()), byte_span.size() / sizeof(T));
+	}
+
+	/**
+	 * @brief Converts a const byte span into a const span of type T.
+	 *
+	 * @param byte_span Const byte span to be converted.
+	 * @return const std::span<const T> Const span of type T.
+	 * @pre The byte_span must represent a contiguous block of memory that is correctly aligned for type T.
+	 */
+	static const std::span<const T> as_const_span(const std::span<const std::byte> byte_span) {
+		assert(byte_span.size() % sizeof(T) == 0 && "Byte span size must be a multiple of sizeof(T)");
+		assert(reinterpret_cast<std::uintptr_t>(byte_span.data()) % alignof(T) == 0 && "Byte span data must be aligned for type T");
+		return std::span<const T>(reinterpret_cast<const T*>(byte_span.data()), byte_span.size() / sizeof(T));
+	}
+
+	/**
 	 * @brief Iterates over a read-only 2D span of objects of type T and applies a given function to each element.
 	 *
 	 * @param thingies Const std::span of objects of type T, representing a 2D grid.
@@ -251,6 +277,34 @@ template <typename T> std::span<std::byte> as_byte_span(T* thingies, size_t size
 template <typename T> const std::span<const std::byte> as_const_byte_span(const T* thingies, size_t size) {
 	return span_wrappers<T>::as_const_byte_span(thingies, size);
 }
+
+
+/**
+ * @ingroup ByteSpanWrappers
+	 * @brief Free function to convert a mutable byte span into a mutable span of type T.
+	 *
+	 * @tparam T Type of the objects in the array.
+	 * @param byte_span Mutable byte span to be converted.
+	 * @return std::span<T> Mutable span of type T.
+	 * @pre The byte_span must represent a contiguous block of memory that is correctly aligned for type T.
+	 */
+template <typename T> std::span<T> as_span(std::span<std::byte> byte_span) {
+	return span_wrappers<T>::as_span(byte_span);
+}
+
+/**
+ * @ingroup ByteSpanWrappers
+	 * @brief Free function to convert a const byte span into a const span of type T.
+	 *
+	 * @tparam T Type of the objects in the array.
+	 * @param byte_span Const byte span to be converted.
+	 * @return const std::span<const T> Const span of type T.
+	 * @pre The byte_span must represent a contiguous block of memory that is correctly aligned for type T.
+	 */
+template <typename T> const std::span<const T> as_const_span(const std::span<const std::byte> byte_span) {
+	return span_wrappers<T>::as_const_span(byte_span);
+}
+
 /**
 	@ingroup DataTransformers
 	@tparam T Type of the objects in the array.

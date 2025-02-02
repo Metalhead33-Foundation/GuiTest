@@ -2,6 +2,7 @@
 #define EUPHSTANDARDIMAGE_HPP
 #include <Euphemy/Media/Image/EuphImage.hpp>
 #include <Euphemy/Media/Image/EuphPixelFormat.hpp>
+#include <Euphemy/Media/Image/EuphImageDecodeTarget.hpp>
 #include <Elvavena/Util/ElvSpanHelpers.hpp>
 #include <vector>
 #include <algorithm>
@@ -9,6 +10,38 @@
 namespace Euph {
 namespace Media {
 namespace Image {
+
+// Resizable image
+uResizeableImage2D MH_EUPH_API createUptrResizeableImage2D(const std::span<const std::byte>& bytes, Format format, unsigned width, unsigned height,
+														   std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+uResizeableImage2D MH_EUPH_API createUptrResizeableImage2D(const Frame& frame, Format format,
+														   std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+uResizeableImage2D MH_EUPH_API createUptrResizeableImage2D(Format format, unsigned width, unsigned height,
+														   std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+sResizeableImage2D MH_EUPH_API createSptrResizeableImage2D(const std::span<const std::byte>& bytes, Format format, unsigned width, unsigned height,
+														   std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+sResizeableImage2D MH_EUPH_API createSptrResizeableImage2D(const Frame& frame, Format format,
+														   std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+sResizeableImage2D MH_EUPH_API createSptrResizeableImage2D(Format format, unsigned width, unsigned height,
+														   std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+// Reference image
+uImage2D MH_EUPH_API createUptrReferenceImage2D(std::span<std::byte> bytes, Format format, unsigned width, unsigned height,
+									   std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+uImage2D MH_EUPH_API createUptrReferenceImage2D(Frame& frame, Format format,
+									   std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+sImage2D MH_EUPH_API createSptrReferenceImage2D(std::span<std::byte> bytes, Format format, unsigned width, unsigned height,
+									   std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+sImage2D MH_EUPH_API createSptrReferenceImage2D(Frame& frame, Format format,
+									   std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+// Read-OnlyReference image
+uReadOnlyImage2D MH_EUPH_API createUptrReadOnlyReferenceImage2D(const std::span<const std::byte>& bytes, Format format, unsigned width, unsigned height,
+												std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+uReadOnlyImage2D MH_EUPH_API createUptrRReadOnlyeferenceImage2D(const Frame& frame, Format format,
+												std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+sReadOnlyImage2D MH_EUPH_API createSptrReadOnlyReferenceImage2D(const std::span<const std::byte>& bytes, Format format, unsigned width, unsigned height,
+												std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+sReadOnlyImage2D MH_EUPH_API createSptrReadOnlyReferenceImage2D(const Frame& frame, Format format,
+												std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
 
 /**
  * @brief Helper structure for image operations using a specified pixel type.
@@ -2043,7 +2076,7 @@ public:
 	 * @param height The height of the image.
 	 * @param memRes The memory resource to use for pixel storage.
 	 */
-	StandardImage(std::span<Pixel> pixels, unsigned width, unsigned height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource())
+	StandardImage(const std::span<const Pixel>& pixels, unsigned width, unsigned height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource())
 		: pixels(memRes), memRes(memRes) {
 		this->pixels.resize(pixels.size());
 		std::memcpy(this->pixels.data(), pixels.data(), pixels.size_bytes());

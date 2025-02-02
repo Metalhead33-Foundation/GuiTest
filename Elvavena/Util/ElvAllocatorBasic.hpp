@@ -5,6 +5,7 @@
 #include <memory_resource>
 #include <new>
 #include <memory>
+#include <functional>
 
 /**
  * @defgroup MemoryManagement Memory Management Utilities
@@ -180,28 +181,11 @@ SmartPointerWrappersForAlloc<T, Alloc>::shared_ptr make_shared(Args&&... args) {
 	return SmartPointerWrappersForAlloc<T, Alloc>::make_shared(std::forward(args)...);
 }
 
+typedef std::function<void(void*)> GenericDeleter;
 template <typename T> struct PolyMorphicSmartPointerFactory {
 public:
-	// Nested struct for the deleter that uses polymorphic_allocator
-	struct PMRDeleter {
-		std::pmr::memory_resource* resource;
-
-		PMRDeleter() : resource(std::pmr::get_default_resource()) {}
-
-		PMRDeleter(std::pmr::memory_resource* res) : resource(res) {}
-
-		void operator()(T* ptr) const {
-			if (ptr) {
-				// Call the destructor
-				ptr->~T();
-				// Deallocate the memory
-				std::pmr::polymorphic_allocator<T> alloc(resource);
-				alloc.deallocate(ptr, 1);
-			}
-		}
-	};
 	// Typedefs for the smart pointers using polymorphic_allocator
-	using unique_ptr_type = std::unique_ptr<T, PMRDeleter>;
+	using unique_ptr_type = std::unique_ptr<T, GenericDeleter>;
 	using shared_ptr_type = std::shared_ptr<T>;
 
 	// Static function to create a unique_ptr<T>
@@ -214,7 +198,14 @@ public:
 			alloc.deallocate(ptr, 1);
 			throw;
 		}
-		return unique_ptr_type(ptr, PMRDeleter(resource));
+		auto deleter = [resource](void* ptr) {
+			if(ptr) {
+				static_cast<T*>(ptr)->~T();
+				std::pmr::polymorphic_allocator<T> alloc(resource);
+				alloc.deallocate(static_cast<T*>(ptr), 1);
+			}
+		};
+		return unique_ptr_type(ptr, deleter );
 	}
 
 	// Static function to create a shared_ptr<T>
@@ -227,7 +218,14 @@ public:
 			alloc.deallocate(ptr, 1);
 			throw;
 		}
-		return shared_ptr_type(ptr, PMRDeleter(resource), alloc);
+		auto deleter = [resource](void* ptr) {
+			if(ptr) {
+				static_cast<T*>(ptr)->~T();
+				std::pmr::polymorphic_allocator<T> alloc(resource);
+				alloc.deallocate(static_cast<T*>(ptr), 1);
+			}
+		};
+		return shared_ptr_type(ptr, deleter, alloc);
 	}
 };
 template <typename T, typename... Args>
@@ -637,6 +635,31 @@ struct SegregatorAllocator : private SmallAllocator, private LargeAllocator {
 
 }
 }
+
+/**
+ * @def DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR
+ * @brief Macro to define smart pointer types (unique, shared, weak) for a class with a polymorphic allocator.
+ *
+ * @param Klass Class name.
+ */
+#define DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Klass) class Klass; \
+typedef Elv::Util::PolyMorphicSmartPointerFactory<Klass> Klass##_PolymorphicPointerFactory; \
+	typedef Klass##_PolymorphicPointerFactory::unique_ptr_type u##Klass; \
+	typedef Klass##_PolymorphicPointerFactory::shared_ptr_type s##Klass; \
+	typedef std::weak_ptr<Klass> w##Klass;
+
+
+/**
+ * @def DEFINE_STRUCT_WITH_POLYMORPHIC_ALLOCATOR
+ * @brief Macro to define smart pointer types (unique, shared, weak) for a struct with a polymorphic allocator.
+ *
+ * @param Klass Struct name.
+ */
+#define DEFINE_STRUCT_WITH_POLYMORPHIC_ALLOCATOR(Klass) struct Klass; \
+typedef Elv::Util::PolyMorphicSmartPointerFactory<Klass> Klass##_PolymorphicPointerFactory; \
+	typedef Klass##_PolymorphicPointerFactory::unique_ptr_type u##Klass; \
+	typedef Klass##_PolymorphicPointerFactory::shared_ptr_type s##Klass; \
+	typedef std::weak_ptr<Klass> w##Klass;
 
 /**
  * @def DEFINE_STRUCT_PTRS_WITH_ALLOC

@@ -5,7 +5,9 @@
 #include <functional>
 #include <Euphemy/Media/Image/EuphImageType.hpp>
 #include <Euphemy/Media/Image/EuphImageDecodeTarget.hpp>
+#include <Elvavena/Util/ElvAllocatorBasic.hpp>
 #include <cstring>
+#include <Euphemy/Config/EuphLib.hpp>
 namespace Euph {
 namespace Media {
 namespace Image {
@@ -39,10 +41,14 @@ enum Wrap {
 	CLAMP_TO_BORDER  /**< Clamp to a border color. */
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ReadOnlyImage2D)
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Image2D)
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ResizeableImage2D)
+
 /**
  * @brief Abstract class representing a read-only 2D image.
  */
-class ReadOnlyImage2D {
+class MH_EUPH_API ReadOnlyImage2D {
 public:
 	/**
 	 * @brief Function type for iterating over image pixels.
@@ -234,7 +240,7 @@ public:
 /**
  * @brief Abstract class representing a modifiable 2D image.
  */
-class Image2D : public ReadOnlyImage2D
+class MH_EUPH_API Image2D : public ReadOnlyImage2D
 {
 public:
 	/**
@@ -422,7 +428,7 @@ public:
 /**
  * @brief Abstract class representing a resizable 2D image.
  */
-class ResizeableImage2D : public Image2D {
+class MH_EUPH_API ResizeableImage2D : public Image2D {
 public:
 	/**
 	 * @brief Virtual destructor.

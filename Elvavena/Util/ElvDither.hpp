@@ -3,11 +3,14 @@
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <limits>
+#include <Elvavena/Util/half.hpp>
 namespace Elv {
 namespace Util {
 
-template <typename T, T maximum = std::numeric_limits<T>::max() > struct OrderedDither {
-	static constexpr const float MAX = ((static_cast<float>(maximum)+1.0f) * 8.0f) - 1.0f;
+template <typename T, T maximum = (std::is_floating_point<T>::value ? T(1) : std::numeric_limits<T>::max())> struct OrderedDither {
+	static constexpr const float MAX = (std::is_floating_point<T>::value)
+										   ? (8.0f - 1.0f)
+										   : ((static_cast<float>(maximum) + 1.0f) * 8.0f - 1.0f);
 	static constexpr const float MAX_RECIPROCAL = 1.0f/static_cast<float>(MAX);
 
 	static constexpr const float LookupTable[4][4] = {
@@ -71,6 +74,60 @@ template <typename T, T maximum = std::numeric_limits<T>::max() > struct Ordered
 						 );
 	}
 
+};
+
+template <> struct OrderedDither<float> {
+	static constexpr float ditherUp(float value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr float ditherDown(float value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec2 ditherUp(const glm::fvec2& value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec2 ditherDown(const glm::fvec2& value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec3 ditherUp(const glm::fvec3& value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec3 ditherDown(const glm::fvec3& value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec4 ditherUp(const glm::fvec4& value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec4 ditherDown(const glm::fvec4& value, const glm::ivec2& coords) {
+		return value;
+	}
+};
+
+template <> struct OrderedDither<double> {
+	static constexpr float ditherUp(float value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr float ditherDown(float value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec2 ditherUp(const glm::fvec2& value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec2 ditherDown(const glm::fvec2& value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec3 ditherUp(const glm::fvec3& value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec3 ditherDown(const glm::fvec3& value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec4 ditherUp(const glm::fvec4& value, const glm::ivec2& coords) {
+		return value;
+	}
+	static constexpr glm::fvec4 ditherDown(const glm::fvec4& value, const glm::ivec2& coords) {
+		return value;
+	}
 };
 
 constexpr const glm::fvec4 thresholdMatrix[4] = {

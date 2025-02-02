@@ -5,6 +5,7 @@
 #include <optional>
 #include <span>
 #include <memory_resource>
+#include <Euphemy/Config/EuphLib.hpp>
 
 namespace Euph {
 namespace Media {
@@ -14,7 +15,7 @@ namespace Image {
  * @struct Palette
  * @brief Represents a color palette with optional transparency.
  */
-struct Palette {
+struct MH_EUPH_API Palette {
 	/**
 	 * @brief The raw palette data.
 	 */
@@ -42,7 +43,9 @@ struct Palette {
 	 * @return A span of the interpreted data.
 	 */
 	template <typename T>
-	std::span<T> asDataSpan();
+	inline std::span<T> asDataSpan() {
+		return std::span<T>(reinterpret_cast<T*>(data.data()), data.size() / sizeof(T));
+	}
 
 	/**
 	 * @brief Interprets the palette data as a read-only span of a specific type.
@@ -50,14 +53,16 @@ struct Palette {
 	 * @return A read-only span of the interpreted data.
 	 */
 	template <typename T>
-	std::span<const T> asDataSpan() const;
+	inline std::span<const T> asDataSpan() const {
+		return std::span<const T>(reinterpret_cast<const T*>(data.data()), data.size() / sizeof(T));
+	}
 };
 
 /**
  * @struct Frame
  * @brief Represents a single frame of image data.
  */
-struct Frame {
+struct MH_EUPH_API Frame {
 	/**
 	 * @brief The raw frame data.
 	 */
@@ -90,7 +95,9 @@ struct Frame {
 	 * @return A span of the interpreted data.
 	 */
 	template <typename T>
-	std::span<T> asDataSpan();
+	inline std::span<T> asDataSpan() {
+		return std::span<T>(reinterpret_cast<T*>(data.data()), width * height);
+	}
 
 	/**
 	 * @brief Interprets the frame data as a read-only span of a specific type.
@@ -98,7 +105,9 @@ struct Frame {
 	 * @return A read-only span of the interpreted data.
 	 */
 	template <typename T>
-	std::span<const T> asDataSpan() const;
+	inline std::span<const T> asDataSpan() const {
+		return std::span<const T>(reinterpret_cast<const T*>(data.data()), width * height);
+	}
 
 	/**
 	 * @brief Allocates memory for the frame based on the format and dimensions.
@@ -113,7 +122,7 @@ struct Frame {
  * @class DecodeTarget
  * @brief Represents a target for decoding image or animation data.
  */
-class DecodeTarget {
+class MH_EUPH_API DecodeTarget {
 	std::pmr::vector<Frame> frames; ///< The collection of frames.
 	std::optional<Palette> palette; ///< The optional palette associated with the target.
 	bool isAnimated{};              ///< Whether the target represents an animation.

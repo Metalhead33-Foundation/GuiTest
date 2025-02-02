@@ -21,11 +21,12 @@ template <typename T, Format formatId> struct PixelGreyscale {
 					);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
-		pixel = Elv::Util::fdenormalize<T>(
-					Elv::Util::OrderedDither<T>::ditherUp(((kernel.x * 0.299f) +
-							 (kernel.y * 0.587f) +
-							 (kernel.z * 0.114f)
-							 ),coords));
+		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
+			// For half_float, just do a regular conversion (no dithering)
+			fromKernel(kernel);
+		} else {
+			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		}
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
 		float normalized = Elv::Util::fnormalize(pixel);
@@ -53,8 +54,14 @@ template <typename T, Format formatId> struct PixelRG {
 		r = Elv::Util::fdenormalize<T>(kernel.x);
 		g = Elv::Util::fdenormalize<T>(kernel.y);
 	}
+	// Generic dithering function (enabled for non-half types)
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
-		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
+			// For half_float, just do a regular conversion (no dithering)
+			fromKernel(kernel);
+		} else {
+			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		}
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
@@ -84,7 +91,12 @@ template <typename T, Format formatId> struct PixelRGB {
 		b = Elv::Util::fdenormalize<T>(kernel.z);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
-		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
+			// For half_float, just do a regular conversion (no dithering)
+			fromKernel(kernel);
+		} else {
+			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		}
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
@@ -114,7 +126,12 @@ template <typename T, Format formatId> struct PixelBGR {
 		b = Elv::Util::fdenormalize<T>(kernel.z);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
-		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
+			// For half_float, just do a regular conversion (no dithering)
+			fromKernel(kernel);
+		} else {
+			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		}
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
@@ -145,7 +162,12 @@ template <typename T, Format formatId> struct PixelRGBA {
 		a = Elv::Util::fdenormalize<T>(kernel.w);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
-		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
+			// For half_float, just do a regular conversion (no dithering)
+			fromKernel(kernel);
+		} else {
+			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		}
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
@@ -176,7 +198,12 @@ template <typename T, Format formatId> struct PixelBGRA {
 		a = Elv::Util::fdenormalize<T>(kernel.w);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
-		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
+			// For half_float, just do a regular conversion (no dithering)
+			fromKernel(kernel);
+		} else {
+			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		}
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
@@ -207,7 +234,12 @@ template <typename T, Format formatId> struct PixelARGB {
 		a = Elv::Util::fdenormalize<T>(kernel.w);
 	}
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
-		fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
+			// For half_float, just do a regular conversion (no dithering)
+			fromKernel(kernel);
+		} else {
+			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
+		}
 	}
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
