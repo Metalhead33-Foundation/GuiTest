@@ -723,7 +723,30 @@ public:
 	 * Identical to the span constructor, provided for convenience when subsystem sizes are known at compile-time.
 	 */
 	FreelistMemoryManager(const std::initializer_list<std::size_t>& subsystemSizes) {
-		//... (Implementation identical to the span constructor)
+		// Calculate total size with alignment
+		std::size_t totalSize = 0;
+		for (std::size_t size : subsystemSizes) {
+			totalSize += sizeof(ContiguousFreeListAllocator) + size;
+		}
+
+		memoryBlock = std::aligned_alloc(alignof(ContiguousFreeListAllocator), totalSize);
+		if (!memoryBlock) {
+			throw std::bad_alloc();
+		}
+
+		char* currentPtr = static_cast<char*>(memoryBlock);
+		for (std::size_t size : subsystemSizes) {
+			// Align the allocator's address
+			std::size_t space = totalSize - (currentPtr - static_cast<char*>(memoryBlock));
+			void* alignedAllocatorPtr = std::align(alignof(ContiguousFreeListAllocator), sizeof(ContiguousFreeListAllocator), reinterpret_cast<void*&>(currentPtr), space);
+			if (!alignedAllocatorPtr) {
+				throw std::bad_alloc(); // Alignment failed
+			}
+
+			ContiguousFreeListAllocator* allocator = new (alignedAllocatorPtr) ContiguousFreeListAllocator(size, currentPtr + sizeof(ContiguousFreeListAllocator));
+			allocators.push_back(allocator);
+			currentPtr = static_cast<char*>(alignedAllocatorPtr) + sizeof(ContiguousFreeListAllocator) + size;
+		}
 	}
 
 	/**

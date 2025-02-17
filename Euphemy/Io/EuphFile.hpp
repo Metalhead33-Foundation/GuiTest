@@ -16,7 +16,6 @@ namespace Io {
 /**
  * @class File
  * @brief Implementation of Elv::Io::Device for file operations.
- * @继承 Elv::Io::Device
  */
 class MH_EUPH_API File : public Elv::Io::Device
 {

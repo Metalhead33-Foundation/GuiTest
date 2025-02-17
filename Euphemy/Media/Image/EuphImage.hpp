@@ -751,53 +751,340 @@ public:
 };
 
 DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ReadOnlyPalettedImage2D)
+/**
+ * @brief A class representing a read-only paletted 2D image.
+ *
+ * This class implements the IReadOnlyPalettedImage2D interface and provides
+ * methods to access the raw pixel data and the indices of the palette.
+ */
 class MH_EUPH_API ReadOnlyPalettedImage2D : public IReadOnlyPalettedImage2D {
 private:
+	/**
+	 * @brief The span of indices representing the pixel data.
+	 */
 	std::span<const uint8_t> indices;
+
 public:
+	/**
+	 * @brief Returns a pointer to the raw pixel data.
+	 *
+	 * @return A constant pointer to the raw pixel data.
+	 */
 	const void* getRawPixels() const override;
+
+	/**
+	 * @brief Returns the span of indices.
+	 *
+	 * @return A constant span of indices.
+	 */
 	const std::span<const uint8_t> getIndices() const override;
+
+	/**
+	 * @brief Copy constructor.
+	 *
+	 * @param cpy The ReadOnlyPalettedImage2D object to copy.
+	 */
 	ReadOnlyPalettedImage2D(const ReadOnlyPalettedImage2D& cpy);
+
+	/**
+	 * @brief Copy assignment operator.
+	 *
+	 * @param cpy The ReadOnlyPalettedImage2D object to copy.
+	 * @return A reference to the updated object.
+	 */
 	ReadOnlyPalettedImage2D& operator=(const ReadOnlyPalettedImage2D& cpy);
+
+	/**
+	 * @brief Move constructor.
+	 *
+	 * @param mov The ReadOnlyPalettedImage2D object to move.
+	 */
 	ReadOnlyPalettedImage2D(ReadOnlyPalettedImage2D&& mov);
+
+	/**
+	 * @brief Move assignment operator.
+	 *
+	 * @param mov The ReadOnlyPalettedImage2D object to move.
+	 * @return A reference to the updated object.
+	 */
 	ReadOnlyPalettedImage2D& operator=(ReadOnlyPalettedImage2D&& mov);
+
+	/**
+	 * @brief Constructor initializing the image with indices, width, and height.
+	 *
+	 * @param indices A span of indices representing the pixel data.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 */
 	ReadOnlyPalettedImage2D(const std::span<const uint8_t>& indices, unsigned width, unsigned height);
+
+	/**
+	 * @brief Sets new indices for the image.
+	 *
+	 * @param newIndices A span of new indices to set.
+	 */
 	void setIndices(const std::span<const uint8_t>& newIndices);
 };
 
 DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(MutablePalettedImage2D)
+/**
+ * @brief A mutable 2D paletted image class.
+ *
+ * This class represents a mutable 2D image where each pixel is represented by an index into a color palette.
+ * It implements the IMutablePalettedImage2D interface.
+ */
 class MH_EUPH_API MutablePalettedImage2D : public IMutablePalettedImage2D {
 private:
+	/**
+	 * @brief The span of indices representing the pixels of the image.
+	 *
+	 * Each index corresponds to a color in the palette.
+	 */
 	std::span<uint8_t> indices;
+
 public:
+	/**
+	 * @brief Returns a pointer to the raw pixel data.
+	 *
+	 * This method returns a pointer to the raw pixel data. The pixel data is represented by indices into a color palette.
+	 *
+	 * @return A constant pointer to the raw pixel data.
+	 */
 	const void* getRawPixels() const override;
+
+	/**
+	 * @brief Returns the span of indices representing the pixels of the image.
+	 *
+	 * This method returns a constant span of indices representing the pixels of the image. Each index corresponds to a color in the palette.
+	 *
+	 * @return A constant span of indices.
+	 */
 	const std::span<const uint8_t> getIndices() const override;
+
+	/**
+	 * @brief Returns the span of indices representing the pixels of the image.
+	 *
+	 * This method returns a span of indices representing the pixels of the image. Each index corresponds to a color in the palette.
+	 *
+	 * @return A span of indices.
+	 */
 	std::span<uint8_t> getIndices() override;
+
+	/**
+	 * @brief Sets the indices of the image.
+	 *
+	 * This method sets the indices of the image to the provided span of indices. Each index corresponds to a color in the palette.
+	 *
+	 * @param newIndices The new span of indices to set.
+	 */
 	void setIndices(const std::span<uint8_t>& newIndices);
+
+	/**
+	 * @brief Copy constructor.
+	 *
+	 * This constructor creates a deep copy of the provided MutablePalettedImage2D object.
+	 *
+	 * @param cpy The MutablePalettedImage2D object to copy.
+	 */
 	MutablePalettedImage2D(const MutablePalettedImage2D& cpy);
+
+	/**
+	 * @brief Copy assignment operator.
+	 *
+	 * This operator assigns the contents of the provided MutablePalettedImage2D object to this object.
+	 *
+	 * @param cpy The MutablePalettedImage2D object to copy.
+	 * @return A reference to this object.
+	 */
 	MutablePalettedImage2D& operator=(const MutablePalettedImage2D& cpy);
+
+	/**
+	 * @brief Move constructor.
+	 *
+	 * This constructor moves the contents of the provided MutablePalettedImage2D object to this object.
+	 *
+	 * @param mov The MutablePalettedImage2D object to move.
+	 */
 	MutablePalettedImage2D(MutablePalettedImage2D&& mov);
+
+	/**
+	 * @brief Move assignment operator.
+	 *
+	 * This operator moves the contents of the provided MutablePalettedImage2D object to this object.
+	 *
+	 * @param mov The MutablePalettedImage2D object to move.
+	 * @return A reference to this object.
+	 */
 	MutablePalettedImage2D& operator=(MutablePalettedImage2D&& mov);
+
+	/**
+	 * @brief Constructor that initializes the image with indices and dimensions.
+	 *
+	 * This constructor initializes the image with the provided span of indices and dimensions (width and height).
+	 *
+	 * @param indices The span of indices representing the pixels of the image.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 */
 	MutablePalettedImage2D(const std::span<uint8_t>& indices, unsigned width, unsigned height);
 };
 
 DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ResizeablePalettedImage2D)
-class MH_EUPH_API ResizeablePalettedImage2D : public IResizeablePalettedImage2D{
+/**
+ * @class ResizeablePalettedImage2D
+ * @brief A class representing a 2D image with a palette that can be resized.
+ *
+ * This class extends the IResizeablePalettedImage2D interface and provides
+ * functionality to manage a 2D image using a palette. The image data is stored
+ * in a pmr::vector of indices, which map to colors in a palette. The class
+ * supports resizing the image and managing its memory resource.
+ *
+ * @note The class uses C++17 features such as std::pmr::vector and std::span.
+ */
+class MH_EUPH_API ResizeablePalettedImage2D : public IResizeablePalettedImage2D {
 private:
+	/**
+	 * @brief The vector of indices that map to colors in the palette.
+	 */
 	std::pmr::vector<uint8_t> indices;
+
+	/**
+	 * @brief The memory resource used for allocation.
+	 */
 	std::pmr::memory_resource* memRes;
+
 public:
+	/**
+	 * @brief Returns a pointer to the raw pixel data.
+	 *
+	 * This method returns a pointer to the raw pixel data, which is typically
+	 * an array of indices that map to colors in a palette.
+	 *
+	 * @return A pointer to the raw pixel data.
+	 */
 	const void* getRawPixels() const override;
+
+	/**
+	 * @brief Returns a span of the indices that map to colors in the palette.
+	 *
+	 * This method returns a span of the indices that map to colors in the palette.
+	 * The span is read-only and should not be modified.
+	 *
+	 * @return A span of the indices.
+	 */
 	const std::span<const uint8_t> getIndices() const override;
+
+	/**
+	 * @brief Returns a span of the indices that map to colors in the palette.
+	 *
+	 * This method returns a span of the indices that map to colors in the palette.
+	 * The span is writable and can be modified.
+	 *
+	 * @return A span of the indices.
+	 */
 	std::span<uint8_t> getIndices() override;
+
+	/**
+	 * @brief Resizes the image to the specified dimensions.
+	 *
+	 * This method resizes the image to the specified width and height. If the
+	 * new dimensions are larger, the new pixels will be initialized to zero.
+	 * If the new dimensions are smaller, the excess pixels will be discarded.
+	 *
+	 * @param newWidth The new width of the image.
+	 * @param newHeight The new height of the image.
+	 * @return True if the resize was successful, false otherwise.
+	 */
 	bool resize(unsigned int newWidth, unsigned int newHeight) override;
+
+	/**
+	 * @brief Returns the memory resource used for allocation.
+	 *
+	 * This method returns the memory resource that is currently being used for
+	 * allocating memory for the image data.
+	 *
+	 * @return The memory resource.
+	 */
 	std::pmr::memory_resource* getMemRes() const;
+
+	/**
+	 * @brief Sets the memory resource used for allocation.
+	 *
+	 * This method sets the memory resource that will be used for allocating
+	 * memory for the image data. If the image already contains data, it will
+	 * be moved to the new memory resource.
+	 *
+	 * @param newMemRes The new memory resource.
+	 */
 	void setMemRes(std::pmr::memory_resource* newMemRes);
+
+	/**
+	 * @brief Copy constructor.
+	 *
+	 * This constructor creates a copy of the specified ResizeablePalettedImage2D object.
+	 * The new object will have the same dimensions and memory resource, and will
+	 * contain a copy of the indices.
+	 *
+	 * @param cpy The object to copy.
+	 */
 	ResizeablePalettedImage2D(const ResizeablePalettedImage2D& cpy);
+
+	/**
+	 * @brief Move constructor.
+	 *
+	 * This constructor moves the contents of the specified ResizeablePalettedImage2D object
+	 * into the new object. The source object will be left in a valid but unspecified state.
+	 *
+	 * @param mov The object to move.
+	 */
 	ResizeablePalettedImage2D(ResizeablePalettedImage2D&& mov);
+
+	/**
+	 * @brief Copy assignment operator.
+	 *
+	 * This operator assigns the contents of the specified ResizeablePalettedImage2D object
+	 * to the current object. The current object will have the same dimensions and memory
+	 * resource, and will contain a copy of the indices.
+	 *
+	 * @param cpy The object to copy.
+	 * @return A reference to the current object.
+	 */
 	ResizeablePalettedImage2D& operator=(const ResizeablePalettedImage2D& cpy);
+
+	/**
+	 * @brief Move assignment operator.
+	 *
+	 * This operator moves the contents of the specified ResizeablePalettedImage2D object
+	 * into the current object. The source object will be left in a valid but unspecified state.
+	 *
+	 * @param mov The object to move.
+	 * @return A reference to the current object.
+	 */
 	ResizeablePalettedImage2D& operator=(ResizeablePalettedImage2D&& mov);
+
+	/**
+	 * @brief Constructor that creates an empty image with the specified dimensions.
+	 *
+	 * This constructor creates an empty image with the specified width and height.
+	 * The image data is initialized to zero, and the indices vector is empty.
+	 *
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 * @param memRes The memory resource to use for allocation (default is the default resource).
+	 */
 	ResizeablePalettedImage2D(unsigned width, unsigned height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
+
+	/**
+	 * @brief Constructor that creates an image with the specified indices and dimensions.
+	 *
+	 * This constructor creates an image with the specified indices and dimensions.
+	 * The indices vector is initialized with the provided span of indices.
+	 *
+	 * @param indices The span of indices that map to colors in the palette.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 * @param memRes The memory resource to use for allocation (default is the default resource).
+	 */
 	ResizeablePalettedImage2D(const std::span<const uint8_t>& indices, unsigned width, unsigned height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
 };
 

@@ -78,54 +78,70 @@ template <typename T, T maximum = (std::is_floating_point<T>::value ? T(1) : std
 
 template <> struct OrderedDither<float> {
 	static constexpr float ditherUp(float value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr float ditherDown(float value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec2 ditherUp(const glm::fvec2& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec2 ditherDown(const glm::fvec2& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec3 ditherUp(const glm::fvec3& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec3 ditherDown(const glm::fvec3& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec4 ditherUp(const glm::fvec4& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec4 ditherDown(const glm::fvec4& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 };
 
 template <> struct OrderedDither<double> {
 	static constexpr float ditherUp(float value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr float ditherDown(float value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec2 ditherUp(const glm::fvec2& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec2 ditherDown(const glm::fvec2& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec3 ditherUp(const glm::fvec3& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec3 ditherDown(const glm::fvec3& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec4 ditherUp(const glm::fvec4& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 	static constexpr glm::fvec4 ditherDown(const glm::fvec4& value, const glm::ivec2& coords) {
+		(void)coords;
 		return value;
 	}
 };

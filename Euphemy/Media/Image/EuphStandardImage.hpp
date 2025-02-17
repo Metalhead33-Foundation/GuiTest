@@ -356,6 +356,7 @@ template <PixelConcept Pixel> struct ImageImplementationHelpers {
 			Pixel srcPxl;
 			srcPxl.fromKernel(colourKernel);
 			Elv::Util::span_wrappers<Pixel>::over_2d_span_mut(pixels,[srcPxl](Pixel& dstPxl, const glm::uvec2& pos) {
+					(void)pos;
 					dstPxl = srcPxl;
 				},glm::uvec2(width,height),offset,dimensions);
 		}
@@ -1367,157 +1368,534 @@ public:
 };
 
 
+/**
+ * @brief Helper functions for palette-based image operations.
+ *
+ * This struct contains static methods to convert palettized image data into a full-color image.
+ * The struct is templated on a pixel type, which must conform to the PixelConcept.
+ * The methods use memory resource (`std::pmr::memory_resource`) for memory allocation.
+ *
+ * @tparam Pixel The type of pixel that the images use, must satisfy PixelConcept.
+ */
 template <PixelConcept Pixel> struct PaletteImplementationHelpers {
-	static sIResizeableImage2D depalettizeS(const std::span<const Pixel>& palette, const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource())
+	/**
+	 * @brief Depalettizes an image using shared ownership.
+	 *
+	 * This function takes a palette and indices representing a palettized image, and converts it into a full-color image.
+	 * The resulting image is managed using shared ownership (`std::shared_ptr`).
+	 *
+	 * @param palette A span of pixels representing the color palette.
+	 * @param indices A span of indices representing the palettized image data.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 * @param memRes The memory resource to use for allocations. Defaults to the default memory resource.
+	 * @return A shared pointer to the depalettized image.
+	 */
+	static sIResizeableImage2D depalettizeS(
+		const std::span<const Pixel>& palette,
+		const std::span<const uint8_t>& indices,
+		unsigned int width,
+		unsigned int height,
+		std::pmr::memory_resource* memRes = std::pmr::get_default_resource())
 	{
 		auto toReturn = Elv::Util::pmr_make_shared<StandardImage<Pixel>>(memRes, width, height, memRes);
 		std::pmr::vector<Pixel>& pixelsToSet = toReturn->getPixels();
-		Elv::Util::over_2d_spans<uint8_t,Pixel>(indices,std::span<Pixel>(pixelsToSet),[&palette](const uint8_t& index, Pixel& pixel, const glm::uvec2& pos) {
-			pixel = palette[index];
-		},glm::uvec2(width,height), glm::uvec2(0,0), glm::uvec2(width,height));
+		Elv::Util::over_2d_spans<uint8_t,Pixel>(
+			indices,
+			std::span<Pixel>(pixelsToSet),
+			[&palette](const uint8_t& index, Pixel& pixel, const glm::uvec2& pos) {
+				(void)pos;
+				pixel = palette[index];
+			},
+			glm::uvec2(width, height),
+			glm::uvec2(0, 0),
+			glm::uvec2(width, height)
+			);
 		return toReturn;
 	}
-	static uIResizeableImage2D depalettizeU(const std::span<const Pixel>& palette, const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource())
+
+	/**
+	 * @brief Depalettizes an image using unique ownership.
+	 *
+	 * This function takes a palette and indices representing a palettized image, and converts it into a full-color image.
+	 * The resulting image is managed using unique ownership (`std::unique_ptr`).
+	 *
+	 * @param palette A span of pixels representing the color palette.
+	 * @param indices A span of indices representing the palettized image data.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 * @param memRes The memory resource to use for allocations. Defaults to the default memory resource.
+	 * @return A unique pointer to the depalettized image.
+	 */
+	static uIResizeableImage2D depalettizeU(
+		const std::span<const Pixel>& palette,
+		const std::span<const uint8_t>& indices,
+		unsigned int width,
+		unsigned int height,
+		std::pmr::memory_resource* memRes = std::pmr::get_default_resource())
 	{
 		auto toReturn = Elv::Util::pmr_make_unique<StandardImage<Pixel>>(memRes, width, height, memRes);
 		std::pmr::vector<Pixel>& pixelsToSet = toReturn->getPixels();
-		Elv::Util::over_2d_spans<uint8_t,Pixel>(indices,std::span<Pixel>(pixelsToSet),[&palette](const uint8_t& index, Pixel& pixel, const glm::uvec2& pos) {
-			pixel = palette[index];
-		},glm::uvec2(width,height), glm::uvec2(0,0), glm::uvec2(width,height));
+		Elv::Util::over_2d_spans<uint8_t,Pixel>(
+			indices,
+			std::span<Pixel>(pixelsToSet),
+			[&palette](const uint8_t& index, Pixel& pixel, const glm::uvec2& pos) {
+				(void)pos;
+				pixel = palette[index];
+			},
+			glm::uvec2(width, height),
+			glm::uvec2(0, 0),
+			glm::uvec2(width, height)
+			);
 		return toReturn;
 	}
 };
 
+/**
+ * @brief A read-only reference to a palette.
+ *
+ * This class provides a read-only interface to a palette of colors, implementing the `IReadOnlyPalette` interface.
+ * It uses a `std::span` to reference the palette data, ensuring efficient and safe access.
+ *
+ * @tparam Pixel The type of pixel that the palette uses, must satisfy PixelConcept.
+ */
 template <PixelConcept Pixel> class ReadOnlyReferencePalette : public IReadOnlyPalette {
 private:
+	/**
+	 * @brief The span of colors representing the palette.
+	 */
 	std::span<const Pixel> colours;
+
 public:
+	/**
+	 * @brief Retrieves a color from the palette.
+	 *
+	 * This method retrieves the color at the specified index and converts it to a kernel format.
+	 *
+	 * @param index The index of the color in the palette.
+	 * @param kernel The output kernel vector to store the color.
+	 */
 	void getColour(uint8_t index, glm::fvec4& kernel) const override
 	{
 		colours[index].toKernel(kernel);
 	}
+
+	/**
+	 * @brief Gets the format of the palette.
+	 *
+	 * This method returns the format identifier of the pixel type used in the palette.
+	 *
+	 * @return The format identifier of the pixel type.
+	 */
 	Format getFormat() const override
 	{
 		return Pixel::FMT_ID;
 	}
+
+	/**
+	 * @brief Retrieves the raw color data of the palette.
+	 *
+	 * This method returns a span of bytes representing the raw color data in the palette.
+	 *
+	 * @return A span of bytes containing the raw color data.
+	 */
 	const std::span<const std::byte> getRawColours() const override
 	{
 		return Elv::Util::as_const_byte_span(colours);
 	}
-	sIResizeableImage2D depalettizeS(const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) const override
-	{
-		return PaletteImplementationHelpers<Pixel>::depalettizeS(colours,indices,width,height,memRes);
-	}
-	uIResizeableImage2D depalettizeU(const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) const override
-	{
-		return PaletteImplementationHelpers<Pixel>::depalettizeU(colours,indices,width,height,memRes);
-	}
-	std::span<const Pixel> getColours() const { return colours; }
-	ReadOnlyReferencePalette(const ReadOnlyReferencePalette& cpy) : colours(cpy.colours) {
 
+	/**
+	 * @brief Depalettizes an image using shared ownership.
+	 *
+	 * This function takes indices representing a palettized image and converts it into a full-color image.
+	 * The resulting image is managed using shared ownership (`std::shared_ptr`).
+	 *
+	 * @param indices A span of indices representing the palettized image data.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 * @param memRes The memory resource to use for allocations. Defaults to the default memory resource.
+	 * @return A shared pointer to the depalettized image.
+	 */
+	sIResizeableImage2D depalettizeS(
+		const std::span<const uint8_t>& indices,
+		unsigned int width,
+		unsigned int height,
+		std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) const override
+	{
+		return PaletteImplementationHelpers<Pixel>::depalettizeS(colours, indices, width, height, memRes);
 	}
+
+	/**
+	 * @brief Depalettizes an image using unique ownership.
+	 *
+	 * This function takes indices representing a palettized image and converts it into a full-color image.
+	 * The resulting image is managed using unique ownership (`std::unique_ptr`).
+	 *
+	 * @param indices A span of indices representing the palettized image data.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 * @param memRes The memory resource to use for allocations. Defaults to the default memory resource.
+	 * @return A unique pointer to the depalettized image.
+	 */
+	uIResizeableImage2D depalettizeU(
+		const std::span<const uint8_t>& indices,
+		unsigned int width,
+		unsigned int height,
+		std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) const override
+	{
+		return PaletteImplementationHelpers<Pixel>::depalettizeU(colours, indices, width, height, memRes);
+	}
+
+	/**
+	 * @brief Gets the span of colors in the palette.
+	 *
+	 * This method returns the span of colors that the palette references.
+	 *
+	 * @return A span of colors representing the palette.
+	 */
+	std::span<const Pixel> getColours() const { return colours; }
+
+	/**
+	 * @brief Copy constructor.
+	 *
+	 * This constructor creates a copy of the given `ReadOnlyReferencePalette` object.
+	 *
+	 * @param cpy The object to copy.
+	 */
+	ReadOnlyReferencePalette(const ReadOnlyReferencePalette& cpy) : colours(cpy.colours) {}
+
+	/**
+	 * @brief Copy assignment operator.
+	 *
+	 * This operator assigns the contents of the given `ReadOnlyReferencePalette` object to the current object.
+	 *
+	 * @param cpy The object to copy.
+	 * @return A reference to the current object.
+	 */
 	ReadOnlyReferencePalette& operator=(const ReadOnlyReferencePalette& cpy) {
 		colours = cpy.colours;
 		return *this;
 	}
-	explicit ReadOnlyReferencePalette(const std::span<const Pixel>& colours) : colours(colours) {
 
-	}
+	/**
+	 * @brief Constructor from a span of colors.
+	 *
+	 * This constructor initializes the palette with a given span of colors.
+	 *
+	 * @param colours The span of colors to use for the palette.
+	 */
+	explicit ReadOnlyReferencePalette(const std::span<const Pixel>& colours) : colours(colours) {}
+
+	/**
+	 * @brief Assignment operator from a span of colors.
+	 *
+	 * This operator assigns the given span of colors to the current palette.
+	 *
+	 * @param colours The span of colors to use for the palette.
+	 * @return A reference to the current object.
+	 */
 	ReadOnlyReferencePalette& operator=(const std::span<const Pixel>& colours) {
 		this->colours = colours;
 		return *this;
 	}
 };
 
+/**
+ * @brief A class representing a reference-based palette.
+ *
+ * This class implements the `IMutablePalette` interface and manages a palette of colors using a `std::span`.
+ * It provides methods to get and set colors, as well as to depalettize images.
+ *
+ * @tparam Pixel The type of pixel that the palette uses, must satisfy PixelConcept.
+ */
 template <PixelConcept Pixel> class ReferencePalette : public IMutablePalette {
 private:
-	std::span<Pixel> colours;
+	std::span<Pixel> colours;  /**< The span of colors managed by the palette. */
+
 public:
-	void getColour(uint8_t index, glm::fvec4& kernel) const override
-	{
+	/**
+	 * @brief Retrieves a color from the palette.
+	 *
+	 * This method converts the color at the specified index to a `glm::fvec4` format.
+	 *
+	 * @param index The index of the color to retrieve.
+	 * @param kernel The `glm::fvec4` variable to store the retrieved color.
+	 */
+	void getColour(uint8_t index, glm::fvec4& kernel) const override {
 		colours[index].toKernel(kernel);
 	}
-	Format getFormat() const override
-	{
+
+	/**
+	 * @brief Retrieves the format of the pixels in the palette.
+	 *
+	 * @return The format of the pixels.
+	 */
+	Format getFormat() const override {
 		return Pixel::FMT_ID;
 	}
-	const std::span<const std::byte> getRawColours() const override
-	{
+
+	/**
+	 * @brief Retrieves the raw color data as a constant byte span.
+	 *
+	 * @return A constant byte span of the raw color data.
+	 */
+	const std::span<const std::byte> getRawColours() const override {
 		return Elv::Util::as_const_byte_span(colours);
 	}
-	std::span<const std::byte> getRawColours() override
-	{
+
+	/**
+	 * @brief Retrieves the raw color data as a mutable byte span.
+	 *
+	 * @return A mutable byte span of the raw color data.
+	 */
+	std::span<const std::byte> getRawColours() override {
 		return Elv::Util::as_byte_span(colours);
 	}
-	sIResizeableImage2D depalettizeS(const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes) const override
-	{
-		return PaletteImplementationHelpers<Pixel>::depalettizeS(colours,indices,width,height,memRes);
+
+	/**
+	 * @brief Depalettizes an image using shared ownership.
+	 *
+	 * This function takes indices representing a palettized image and converts it into a full-color image using shared ownership.
+	 *
+	 * @param indices A span of indices representing the palettized image data.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 * @param memRes The memory resource to use for allocations.
+	 * @return A shared pointer to the depalettized image.
+	 */
+	sIResizeableImage2D depalettizeS(const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes) const override {
+		return PaletteImplementationHelpers<Pixel>::depalettizeS(colours, indices, width, height, memRes);
 	}
-	uIResizeableImage2D depalettizeU(const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes) const override
-	{
-		return PaletteImplementationHelpers<Pixel>::depalettizeU(colours,indices,width,height,memRes);
+
+	/**
+	 * @brief Depalettizes an image using unique ownership.
+	 *
+	 * This function takes indices representing a palettized image and converts it into a full-color image using unique ownership.
+	 *
+	 * @param indices A span of indices representing the palettized image data.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 * @param memRes The memory resource to use for allocations.
+	 * @return A unique pointer to the depalettized image.
+	 */
+	uIResizeableImage2D depalettizeU(const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes) const override {
+		return PaletteImplementationHelpers<Pixel>::depalettizeU(colours, indices, width, height, memRes);
 	}
-	void setColour(uint8_t index, const glm::fvec4& colour) override
-	{
+
+	/**
+	 * @brief Sets a color in the palette.
+	 *
+	 * This method converts a `glm::fvec4` color to the pixel format and sets it at the specified index.
+	 *
+	 * @param index The index of the color to set.
+	 * @param colour The `glm::fvec4` color to set.
+	 */
+	void setColour(uint8_t index, const glm::fvec4& colour) override {
 		colours[index].fromKernel(colour);
 	}
-	std::span<const Pixel> getColours() const { return colours; }
-	std::span<Pixel> getColours() { return colours; }
-	ReferencePalette(const ReferencePalette& cpy) : colours(cpy.colours) {
 
+	/**
+	 * @brief Retrieves the span of colors in the palette as a constant span.
+	 *
+	 * @return A constant span of the colors.
+	 */
+	std::span<const Pixel> getColours() const {
+		return colours;
 	}
+
+	/**
+	 * @brief Retrieves the span of colors in the palette as a mutable span.
+	 *
+	 * @return A mutable span of the colors.
+	 */
+	std::span<Pixel> getColours() {
+		return colours;
+	}
+
+	/**
+	 * @brief Copy constructor.
+	 *
+	 * @param cpy The `ReferencePalette` object to copy.
+	 */
+	ReferencePalette(const ReferencePalette& cpy) : colours(cpy.colours) {
+	}
+
+	/**
+	 * @brief Copy assignment operator.
+	 *
+	 * @param cpy The `ReferencePalette` object to copy.
+	 * @return A reference to the current object.
+	 */
 	ReferencePalette& operator=(const ReferencePalette& cpy) {
 		colours = cpy.colours;
 		return *this;
 	}
-	explicit ReferencePalette(std::span<Pixel> colours) : colours(colours) {
 
+	/**
+	 * @brief Constructor that initializes the palette with a span of colors.
+	 *
+	 * @param colours The span of colors to initialize the palette with.
+	 */
+	explicit ReferencePalette(std::span<Pixel> colours) : colours(colours) {
 	}
+
+	/**
+	 * @brief Assignment operator that initializes the palette with a span of colors.
+	 *
+	 * @param colours The span of colors to initialize the palette with.
+	 * @return A reference to the current object.
+	 */
 	ReferencePalette& operator=(std::span<Pixel> colours) {
 		this->colours = colours;
 		return *this;
 	}
 };
 
+/**
+ * @brief A full palette implementation managing 256 colors.
+ *
+ * This class implements the `IMutablePalette` interface and manages a palette of 256 colors.
+ * Each color is represented by a pixel type that must conform to the `PixelConcept`.
+ * The class provides methods to get and set colors, get the format of the palette, and depalettize images.
+ *
+ * @tparam Pixel The type of pixel that the palette uses, must satisfy PixelConcept.
+ */
 template <PixelConcept Pixel> class FullPalette : public IMutablePalette {
 private:
-	std::array<Pixel,256> colours;
+	/// @brief An array of 256 colors, each represented by a pixel.
+	std::array<Pixel, 256> colours;
+
 public:
-	void getColour(uint8_t index, glm::fvec4& kernel) const override
-	{
+	/**
+	 * @brief Gets the color at a specific index.
+	 *
+	 * This function retrieves the color at the specified index and stores it in the provided `glm::fvec4` kernel.
+	 *
+	 * @param index The index of the color to retrieve (0-255).
+	 * @param kernel The `glm::fvec4` to store the retrieved color.
+	 */
+	void getColour(uint8_t index, glm::fvec4& kernel) const override {
 		colours[index].toKernel(kernel);
 	}
-	Format getFormat() const override
-	{
+
+	/**
+	 * @brief Gets the format of the palette.
+	 *
+	 * This function returns the format identifier of the pixel type used in the palette.
+	 *
+	 * @return The format identifier of the pixel type.
+	 */
+	Format getFormat() const override {
 		return Pixel::FMT_ID;
 	}
-	const std::span<const std::byte> getRawColours() const override
-	{
+
+	/**
+	 * @brief Gets the raw bytes of the palette (const version).
+	 *
+	 * This function returns a span of bytes representing the raw data of the palette.
+	 * The span is const, meaning the data cannot be modified.
+	 *
+	 * @return A const span of bytes.
+	 */
+	const std::span<const std::byte> getRawColours() const override {
 		return Elv::Util::as_const_byte_span(colours);
 	}
-	std::span<const std::byte> getRawColours() override
-	{
+
+	/**
+	 * @brief Gets the raw bytes of the palette (non-const version).
+	 *
+	 * This function returns a span of bytes representing the raw data of the palette.
+	 * The span is non-const, meaning the data can be modified.
+	 *
+	 * @return A span of bytes.
+	 */
+	std::span<const std::byte> getRawColours() override {
 		return Elv::Util::as_byte_span(colours);
 	}
-	sIResizeableImage2D depalettizeS(const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes) const override
-	{
-		return PaletteImplementationHelpers<Pixel>::depalettizeS(colours,indices,width,height,memRes);
+
+	/**
+	 * @brief Depalettizes an image using shared ownership.
+	 *
+	 * This function takes indices representing a palettized image and converts it into a full-color image.
+	 * The resulting image is managed using shared ownership (`std::shared_ptr`).
+	 *
+	 * @param indices A span of indices representing the palettized image data.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 * @param memRes The memory resource to use for allocations.
+	 * @return A shared pointer to the depalettized image.
+	 */
+	sIResizeableImage2D depalettizeS(const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes) const override {
+		return PaletteImplementationHelpers<Pixel>::depalettizeS(colours, indices, width, height, memRes);
 	}
-	uIResizeableImage2D depalettizeU(const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes) const override
-	{
-		return PaletteImplementationHelpers<Pixel>::depalettizeU(colours,indices,width,height,memRes);
+
+	/**
+	 * @brief Depalettizes an image using unique ownership.
+	 *
+	 * This function takes indices representing a palettized image and converts it into a full-color image.
+	 * The resulting image is managed using unique ownership (`std::unique_ptr`).
+	 *
+	 * @param indices A span of indices representing the palettized image data.
+	 * @param width The width of the image.
+	 * @param height The height of the image.
+	 * @param memRes The memory resource to use for allocations.
+	 * @return A unique pointer to the depalettized image.
+	 */
+	uIResizeableImage2D depalettizeU(const std::span<const uint8_t>& indices, unsigned int width, unsigned int height, std::pmr::memory_resource* memRes) const override {
+		return PaletteImplementationHelpers<Pixel>::depalettizeU(colours, indices, width, height, memRes);
 	}
-	void setColour(uint8_t index, const glm::fvec4& colour) override
-	{
+
+	/**
+	 * @brief Sets the color at a specific index.
+	 *
+	 * This function sets the color at the specified index using the provided `glm::fvec4` color.
+	 *
+	 * @param index The index of the color to set (0-255).
+	 * @param colour The `glm::fvec4` representing the new color.
+	 */
+	void setColour(uint8_t index, const glm::fvec4& colour) override {
 		colours[index].fromKernel(colour);
 	}
-	const std::array<Pixel,256>& getColours() const { return colours; }
-	std::array<Pixel,256>& getColours() { return colours; }
-	FullPalette() {
 
+	/**
+	 * @brief Gets the array of colors (const version).
+	 *
+	 * This function returns a const reference to the array of colors in the palette.
+	 *
+	 * @return A const reference to the array of colors.
+	 */
+	const std::array<Pixel, 256>& getColours() const {
+		return colours;
 	}
+
+	/**
+	 * @brief Gets the array of colors (non-const version).
+	 *
+	 * This function returns a non-const reference to the array of colors in the palette.
+	 *
+	 * @return A non-const reference to the array of colors.
+	 */
+	std::array<Pixel, 256>& getColours() {
+		return colours;
+	}
+
+	/**
+	 * @brief Default constructor.
+	 *
+	 * Initializes a new `FullPalette` with default-constructed colors.
+	 */
+	FullPalette() {
+	}
+
+	/**
+	 * @brief Constructor with initial colors.
+	 *
+	 * Initializes a new `FullPalette` with the provided colors.
+	 *
+	 * @param colours A span of colors to initialize the palette with.
+	 */
 	explicit FullPalette(const std::span<const Pixel>& colours) {
-		std::copy(std::begin(colours),std::end(colours),std::begin(this->colours));
+		std::copy(std::begin(colours), std::end(colours), std::begin(this->colours));
 	}
 };
 
