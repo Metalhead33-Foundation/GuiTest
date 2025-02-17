@@ -5,29 +5,36 @@
 namespace Elv {
 namespace Util {
 
-/*template <typename Vec, typename T>
-concept GlmVectorLike = requires(Vec vec, T t) {
-	{ vec.x } -> std::convertible_to<T>;
-	{ vec.y } -> std::convertible_to<T>;
-};
-
-template <typename T, typename Vec1, typename Vec2, typename Vec3>
-requires GlmVectorLike<Vec1,T> && GlmVectorLike<Vec2,T> && GlmVectorLike<Vec3,T>
-T edgeFunction(const Vec1& a, const Vec2& b, const Vec3& c) {
-	return ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x));
-}*/
-
+/**
+ * @brief Concept to check if a type behaves like a 2D vector with x and y members.
+ *
+ * This concept requires that the type `Vec` has `x` and `y` members that are convertible to type `T`.
+ *
+ * @tparam Vec The type to check.
+ * @tparam T The type that `x` and `y` members should be convertible to.
+ */
 template <typename Vec, typename T>
 concept Vector2Like = requires(Vec vec) {
-	{ vec.x } -> std::convertible_to<T>;
-	{ vec.y } -> std::convertible_to<T>;
+	{ vec.x } -> std::convertible_to<T>;  /**< The `x` member of `Vec` should be convertible to `T`. */
+	{ vec.y } -> std::convertible_to<T>;  /**< The `y` member of `Vec` should be convertible to `T`. */
 };
 
+/**
+ * @brief Computes the edge function for a set of 2D vectors.
+ *
+ * The edge function is used in barycentric coordinate calculations and computes the determinant of a 2x2 matrix formed by the vectors.
+ * This function requires at least three vectors that satisfy the `Vector2Like` concept.
+ *
+ * @tparam T The type of the vector components.
+ * @tparam Vecs The types of the vectors, each of which must satisfy the `Vector2Like` concept.
+ * @param vecs The vectors for which to compute the edge function. At least three vectors are required.
+ * @return The result of the edge function, which is a scalar value of type `T`.
+ */
 template <typename T, typename... Vecs>
-requires (Vector2Like<Vecs, T> && ...)
+	requires (Vector2Like<Vecs, T> && ...)
 T edgeFunction(const Vecs&... vecs) {
-	const auto& [a, b, c] = std::tie(vecs...);
-	return ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x));
+	const auto& [a, b, c] = std::tie(vecs...);  /**< Unpack the input vectors into `a`, `b`, and `c`. */
+	return ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x));  /**< Compute and return the edge function value. */
 }
 
 
