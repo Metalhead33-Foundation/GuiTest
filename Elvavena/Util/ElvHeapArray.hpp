@@ -13,7 +13,7 @@ namespace Util {
 /**
  * @class UniqueHeapArray
  * @brief A dynamically allocated array class with unique ownership, providing a
- *        std::span-like interface and supporting iteration.
+ *		std::span-like interface and supporting iteration.
  *
  * @tparam T The type of elements stored in the array.
  * @tparam Alloc The allocator type (default: std::allocator<T>).
@@ -290,7 +290,7 @@ public:
 /**
  * @class SharedHeapArray
  * @brief A shared array class that manages a dynamically allocated array on the heap,
- *        providing shared ownership and random access to its elements.
+ *		providing shared ownership and random access to its elements.
  *
  * @tparam T The type of elements stored in the array.
  * @tparam Alloc The allocator type used for memory management (default: std::allocator<T>).

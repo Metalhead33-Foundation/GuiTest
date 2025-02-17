@@ -9,7 +9,7 @@ static const uint32_t FOURCC_DXT1 = 0x31545844;
 static const uint32_t FOURCC_DXT3 = 0x33545844;
 static const uint32_t FOURCC_DXT5 = 0x35545844;
 static const uint32_t FOURCC_DX10 = 0x30315844;
-enum Type {
+enum class Type : uint8_t {
 	INVALID = 0,
 	DXT1,
 	DXT3,

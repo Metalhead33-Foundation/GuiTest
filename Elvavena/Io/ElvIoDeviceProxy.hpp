@@ -13,7 +13,7 @@ namespace Io {
  * with high latency or small block sizes.
  *
  * @note This class is not meant to be used directly. Use derived classes such as BufferedReadDeviceProxy
- *       and BufferedWriteDeviceProxy instead.
+ *	   and BufferedWriteDeviceProxy instead.
  */
 class BufferedDeviceProxy : public Device {
 private:

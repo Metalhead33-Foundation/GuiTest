@@ -10,10 +10,10 @@ namespace Util {
 template <typename T> concept InterpolationWeight = std::floating_point<T> || FixedPoint<T>;
 
 template <typename T, typename Scalar> concept Interpolable = std::same_as<T,Scalar> || requires(T a, T b, Scalar s) {
-	{ a * s } -> std::same_as<T>;      // Scalar multiplication must return T
-	{ s * a } -> std::same_as<T>;      // Scalar multiplication (commutative)
-	{ a + b } -> std::same_as<T>;      // Addition must return T
-	{ a += b };                        // Compound addition must be valid
+	{ a * s } -> std::same_as<T>;	  // Scalar multiplication must return T
+	{ s * a } -> std::same_as<T>;	  // Scalar multiplication (commutative)
+	{ a + b } -> std::same_as<T>;	  // Addition must return T
+	{ a += b };						// Compound addition must be valid
 };
 
 template <typename TData, typename TWeight>

@@ -32,7 +32,7 @@ enum class Endian
 	/**
 	 * @brief Big Endian.
 	 */
-	Big    = 1,
+	Big	= 1,
 	/**
 	 * @brief Native Endian (matches the platform's native endianness, Little on Windows).
 	 */
@@ -45,7 +45,7 @@ enum class Endian
 	/**
 	 * @brief Big Endian (value defined by __ORDER_BIG_ENDIAN__).
 	 */
-	Big    = __ORDER_BIG_ENDIAN__,
+	Big	= __ORDER_BIG_ENDIAN__,
 	/**
 	 * @brief Native Endian (matches the platform's native endianness, defined by __BYTE_ORDER__).
 	 */

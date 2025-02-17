@@ -129,7 +129,7 @@ public:
 
 /**
  * @warning **THIS CLASS IS NOT A SUBCLASS OF `TempFile` AND DOES NOT IMPLEMENT `Elv::Io::Device`!**
- *          **IT IS A COMPLETELY SEPARATE CLASS, USE ACCORDINGLY!**
+ *		  **IT IS A COMPLETELY SEPARATE CLASS, USE ACCORDINGLY!**
  *
  * @class MemoryMappedTempFile
  * @brief A class representing a temporary file mapped into memory for efficient access.

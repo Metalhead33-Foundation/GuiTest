@@ -109,7 +109,7 @@ public:
 
 /**
  * @warning **THIS CLASS IS NOT A SUBCLASS OF `File` AND DOES NOT IMPLEMENT `Elv::Io::Device`!**
- *          **IT IS A COMPLETELY SEPARATE CLASS, USE ACCORDINGLY!**
+ *		  **IT IS A COMPLETELY SEPARATE CLASS, USE ACCORDINGLY!**
  *
  * @class MemoryMappedFile
  * @brief A class representing a regular file mapped into memory for efficient access.

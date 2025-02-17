@@ -52,10 +52,10 @@ public:
 	//! Traits for allocator operations.
 	typedef std::allocator_traits<Alloc> AllocTraits;
 private:
-	Alloc alloc;          //!< The allocator used for memory management.
-	Chunk* m_data;       //!< Pointer to the allocated chunks of data.
+	Alloc alloc;		  //!< The allocator used for memory management.
+	Chunk* m_data;	   //!< Pointer to the allocated chunks of data.
 	size_t m_chunkCount; //!< The current number of chunks allocated.
-	size_t m_size;       //!< The number of elements currently stored in the array.
+	size_t m_size;	   //!< The number of elements currently stored in the array.
 	size_t m_capacity;   //!< The total capacity of the array in terms of elements.
 
 	//! Grow the array to accommodate additional chunks.

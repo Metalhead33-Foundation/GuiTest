@@ -26,7 +26,7 @@ template <typename T> struct Observable;
 
 /**
  * @brief The Observable class template is the subject being observed.
- *        It notifies its observers about changes.
+ *		It notifies its observers about changes.
  *
  * @tparam T The type of data being observed.
  */
@@ -44,9 +44,9 @@ public:
 
 	/**
 	 * @brief Shared pointer type alias for Observer<T> for moving (identical to pObserver in this context).
-	 *        Note: In this implementation, sObserver serves the same purpose as pObserver.
-	 *              Typically, for move semantics, a unique_ptr might be more appropriate, but since
-	 *              shared_ptr is used here for both, their distinction in this doc mirrors the code.
+	 *		Note: In this implementation, sObserver serves the same purpose as pObserver.
+	 *			  Typically, for move semantics, a unique_ptr might be more appropriate, but since
+	 *			  shared_ptr is used here for both, their distinction in this doc mirrors the code.
 	 */
 	typedef std::shared_ptr<Observer> sObserver;
 

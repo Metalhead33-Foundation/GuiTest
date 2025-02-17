@@ -175,6 +175,35 @@ template <typename T> struct span_wrappers {
 	}
 };
 
+template <typename T1, typename T2> void over_2d_spans(std::span<const T1> thingies1, std::span<T2> thingies2,
+				   const std::function<void(const T1&, T2&, const glm::uvec2&)> function, const glm::uvec2& dimensions,
+				   const glm::uvec2& offset, const glm::uvec2& affected_dimension)
+{
+	const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
+	const unsigned max_y = std::min(dimensions.y,offset.y+affected_dimension.y);
+	for(unsigned y = offset.y; y < max_y; ++y) {
+		const T1* const row1 = &thingies1[y*dimensions.x];
+		T2* const row2 = &thingies2[y*dimensions.x];
+		for(unsigned x = offset.x; x < max_x; ++x) {
+			function(row1[x], row2[x], glm::uvec2(x,y));
+		}
+	}
+}
+template <typename T1, typename T2> void over_2d_spans(std::span<T1> thingies1, std::span<const T2> thingies2,
+				   const std::function<void(T1&, const T2&, const glm::uvec2&)> function, const glm::uvec2& dimensions,
+				   const glm::uvec2& offset, const glm::uvec2& affected_dimension)
+{
+	const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
+	const unsigned max_y = std::min(dimensions.y,offset.y+affected_dimension.y);
+	for(unsigned y = offset.y; y < max_y; ++y) {
+		T1* const row1 = &thingies1[y*dimensions.x];
+		const T2* const row2 = &thingies2[y*dimensions.x];
+		for(unsigned x = offset.x; x < max_x; ++x) {
+			function(row1[x], row2[x], glm::uvec2(x,y));
+		}
+	}
+}
+
 /**
  * @ingroup ByteSpanWrappers
  * @tparam Specialization for void type, allowing direct byte manipulation without a specific type T.

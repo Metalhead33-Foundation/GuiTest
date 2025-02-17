@@ -6,7 +6,7 @@
 namespace Euph {
 namespace Memory {
 
-enum class AllocatorSubsystem {
+enum class AllocatorSubsystem : uint8_t {
 	SCRATCH = 0,
 	AUDIO,
 	VIDEO,

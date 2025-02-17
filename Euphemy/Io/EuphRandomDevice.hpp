@@ -97,9 +97,9 @@ public:
 	 * @brief Reads random data from the device into a buffer.
 	 *
 	 * @param buffer   Pointer to the buffer to fill with random data.
-	 * @param size     Size of each element to read.
-	 * @param count    Number of elements to read.
-	 * @return         Number of elements successfully read.
+	 * @param size	 Size of each element to read.
+	 * @param count	Number of elements to read.
+	 * @return		 Number of elements successfully read.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override;
 
@@ -109,9 +109,9 @@ public:
 	 * Random devices do not support writing; this operation will always fail.
 	 *
 	 * @param buffer   Pointer to the buffer containing data to write.
-	 * @param size     Size of each element to write.
-	 * @param count    Number of elements to write.
-	 * @return         Always 0 (failure).
+	 * @param size	 Size of each element to write.
+	 * @param count	Number of elements to write.
+	 * @return		 Always 0 (failure).
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override;
 
@@ -122,7 +122,7 @@ public:
 	 *
 	 * @param offset   Number of bytes to offset from the origin.
 	 * @param whence   Origin from which to seek (ignored).
-	 * @return         Always -1 (failure).
+	 * @return		 Always -1 (failure).
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override;
 

@@ -5,7 +5,7 @@ namespace Media {
 namespace Image {
 namespace TGA {
 
-enum class Type {
+enum class Type : uint8_t {
 	INVALID = 0x00,
 	RGB = 0x01,
 	GREYSCALE = 0x02,

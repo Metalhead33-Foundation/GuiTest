@@ -189,7 +189,7 @@ Configuration::iterator Configuration::find(const std::string_view& key)
 
 Configuration::const_iterator Configuration::find(const std::string_view& key) const
 {
-    return sections.find(key);
+	return sections.find(key);
 }
 
 std::string_view Configuration::getString(const std::string_view& section, const std::string_view& key, const std::string_view& def)

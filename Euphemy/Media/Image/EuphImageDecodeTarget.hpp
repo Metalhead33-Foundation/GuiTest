@@ -125,8 +125,8 @@ struct MH_EUPH_API Frame {
 class MH_EUPH_API DecodeTarget {
 	std::pmr::vector<Frame> frames; ///< The collection of frames.
 	std::optional<Palette> palette; ///< The optional palette associated with the target.
-	bool isAnimated{};              ///< Whether the target represents an animation.
-	Format format{};                ///< The format of the data.
+	bool isAnimated{};			  ///< Whether the target represents an animation.
+	Format format{};				///< The format of the data.
 	std::optional<float> delayTime; ///< The optional delay time for animations.
 	std::pmr::memory_resource* memResource; ///< The memory resource for allocations.
 
@@ -152,7 +152,7 @@ public:
 	 * @param transparentIndex The index of the transparent color.
 	 * @return A reference to the newly created palette.
 	 */
-	Palette& createPalette(Format format, unsigned indices, unsigned transparentIndex);
+	Palette& createPalette(Format format, unsigned indices, int transparentIndex);
 
 	/**
 	 * @brief Retrieves a frame by index.

@@ -40,11 +40,11 @@ bool encode(const Frame& frame, Format format, const std::function<std::span<std
 	}
 	auto handle = std::unique_ptr<void,decltype(&tjDestroy) >(tjInitCompress(),tjDestroy);
 	if(!handle) return false;
-	auto buffer = allocator(tjBufSize(frame.width,frame.height,jpegSubsamp));
+	auto buffer = allocator(tjBufSize(frame.width,frame.height,static_cast<int>(jpegSubsamp)));
 	if(buffer.empty()) return false;
 	unsigned char* dstptr = reinterpret_cast<unsigned char*>(buffer.data());
 	tjCompress2(handle.get(),reinterpret_cast<const unsigned char*>(frame.data.data()),frame.width,frame.width*tjPixelSize[pixelFormat],frame.height,
-				pixelFormat,&dstptr,&jpegSize,jpegSubsamp,int(((1.0f-std::clamp(jpegQual,0.0f,1.0f))*99.0f)+1.0f),TJFLAG_NOREALLOC | TJFLAG_FASTDCT);
+				pixelFormat,&dstptr,&jpegSize,static_cast<int>(jpegSubsamp),int(((1.0f-std::clamp(jpegQual,0.0f,1.0f))*99.0f)+1.0f),TJFLAG_NOREALLOC | TJFLAG_FASTDCT);
 	return true;
 }
 

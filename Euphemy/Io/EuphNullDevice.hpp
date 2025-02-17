@@ -30,7 +30,7 @@ public:
 	 * @copydoc Elv::Io::Device::read
 	 *
 	 * @note In NullDevice, this function simply zeroes out the provided buffer and returns the requested count.
-	 *       No actual data is read from any source.
+	 *	   No actual data is read from any source.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override;
 
@@ -38,7 +38,7 @@ public:
 	 * @copydoc Elv::Io::Device::write
 	 *
 	 * @note In NullDevice, this function ignores the input data and returns 0, indicating no data was written.
-	 *       No actual data is written to any destination.
+	 *	   No actual data is written to any destination.
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override;
 
@@ -46,7 +46,7 @@ public:
 	 * @copydoc Elv::Io::Device::seek
 	 *
 	 * @note In NullDevice, this function does not alter the device's state and always returns success (0).
-	 *       The device's position is effectively always at the beginning (offset 0).
+	 *	   The device's position is effectively always at the beginning (offset 0).
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override;
 
@@ -75,7 +75,7 @@ public:
 	 * @copydoc Elv::Io::Device::getMode
 	 *
 	 * @note In NullDevice, this function always returns Elv::Io::Mode::READ, even though no actual reading is possible.
-	 *       This is to maintain a consistent, albeit futile, device mode.
+	 *	   This is to maintain a consistent, albeit futile, device mode.
 	 */
 	Elv::Io::Mode getMode() const override;
 

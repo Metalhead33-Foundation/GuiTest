@@ -359,13 +359,13 @@
 /// constants or the equivalent values of 
 /// [std::float_round_style](https://en.cppreference.com/w/cpp/types/numeric_limits/float_round_style):
 ///
-/// `std::float_round_style`         | value | rounding
+/// `std::float_round_style`		 | value | rounding
 /// ---------------------------------|-------|-------------------------
-/// `std::round_indeterminate`       | -1    | fastest
-/// `std::round_toward_zero`         | 0     | toward zero
-/// `std::round_to_nearest`          | 1     | to nearest (default)
-/// `std::round_toward_infinity`     | 2     | toward positive infinity
-/// `std::round_toward_neg_infinity` | 3     | toward negative infinity
+/// `std::round_indeterminate`	   | -1	| fastest
+/// `std::round_toward_zero`		 | 0	 | toward zero
+/// `std::round_to_nearest`		  | 1	 | to nearest (default)
+/// `std::round_toward_infinity`	 | 2	 | toward positive infinity
+/// `std::round_toward_neg_infinity` | 3	 | toward negative infinity
 ///
 /// By default this is set to `1` (`std::round_to_nearest`), which rounds results to the nearest representable value. It can even 
 /// be set to [std::numeric_limits<float>::round_style](https://en.cppreference.com/w/cpp/types/numeric_limits/round_style) to synchronize 

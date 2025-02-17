@@ -9,7 +9,7 @@ namespace Io {
 /**
  * @class StdfileWrapper
  * @brief A wrapper class for standard C file streams (FILE*),
- *        implementing the Elv::Io::Device interface.
+ *		implementing the Elv::Io::Device interface.
  *
  * This class provides a bridge between the C standard library's file handling
  * (FILE*) and the Elv::Io::Device abstract interface, enabling the use of
@@ -47,7 +47,7 @@ public:
 	 * @param cpy The StdfileWrapper instance to copy.
 	 *
 	 * @note This may involve duplicating the underlying file descriptor,
-	 *       depending on the implementation.
+	 *	   depending on the implementation.
 	 */
 	StdfileWrapper(const StdfileWrapper& cpy);
 
@@ -59,8 +59,8 @@ public:
 	 * @return A reference to the assigned StdfileWrapper instance.
 	 *
 	 * @note The behavior of this operator may depend on the specific requirements
-	 *       of the application, such as whether to duplicate or share the
-	 *       underlying file descriptor.
+	 *	   of the application, such as whether to duplicate or share the
+	 *	   underlying file descriptor.
 	 */
 	StdfileWrapper& operator=(const StdfileWrapper& cpy);
 

@@ -11,117 +11,117 @@ namespace Image {
  * @brief Enum class representing various pixel formats.
  */
 enum class Format : uint8_t {
-	INVALID = 0x0000,                         ///< Invalid format.
-	STANDARD_TYPE_MASK = 0x007F,                ///< Mask for standard types.
-	SPECIAL_TYPE_START = 0x0080,                ///< Start value for special types.
+	INVALID = 0x0000,						 ///< Invalid format.
+	STANDARD_TYPE_MASK = 0x007F,				///< Mask for standard types.
+	SPECIAL_TYPE_START = 0x0080,				///< Start value for special types.
 
 	/// Standard type bases
-	COLOR_COMPONENT_MASK = 0x0007,              ///< Mask for color components.
-	COLOR_RESOLUTION_MASK = 0x0078,             ///< Mask for color resolution.
-	ST_GREYSCALE = 0x0001,                    ///< Standard type for greyscale.
-	ST_RG = 0x0002,                           ///< Standard type for two-color.
-	ST_RGB = 0x0003,                          ///< Standard type for RGB.
-	ST_BGR = 0x0004,                          ///< Standard type for BGR.
-	ST_RGBA = 0x0005,                         ///< Standard type for RGBA.
-	ST_BGRA = 0x0006,                         ///< Standard type for BGRA.
-	ST_ARGB = 0x0007,                         ///< Standard type for ARGB.
-	SC_UINT8 = 0x0008,                        ///< Standard component for 8-bit unsigned integer.
-	SC_INT8 = 0x0010,                         ///< Standard component for 8-bit signed integer.
-	SC_UINT16 = 0x0018,                       ///< Standard component for 16-bit unsigned integer.
-	SC_INT16 = 0x0020,                        ///< Standard component for 16-bit signed integer.
-	SC_UINT32 = 0x0028,                       ///< Standard component for 32-bit unsigned integer.
-	SC_INT32 = 0x0030,                        ///< Standard component for 32-bit signed integer.
-	SC_F16 = 0x0038,                          ///< Standard component for 16-bit floating-point.
-	SC_F32 = 0x0040,                          ///< Standard component for 32-bit floating-point.
-	SC_F64 = 0x0048,                          ///< Standard component for 64-bit floating-point.
-	B_DXT1 = 0x50,                            ///< DXT1 block compression.
-	B_DXT3 = 0x58,                            ///< DXT3 block compression.
-	B_DXT5 = 0x60,                            ///< DXT5 block compression.
+	COLOR_COMPONENT_MASK = 0x0007,			  ///< Mask for color components.
+	COLOR_RESOLUTION_MASK = 0x0078,			 ///< Mask for color resolution.
+	ST_GREYSCALE = 0x0001,					///< Standard type for greyscale.
+	ST_RG = 0x0002,						   ///< Standard type for two-color.
+	ST_RGB = 0x0003,						  ///< Standard type for RGB.
+	ST_BGR = 0x0004,						  ///< Standard type for BGR.
+	ST_RGBA = 0x0005,						 ///< Standard type for RGBA.
+	ST_BGRA = 0x0006,						 ///< Standard type for BGRA.
+	ST_ARGB = 0x0007,						 ///< Standard type for ARGB.
+	SC_UINT8 = 0x0008,						///< Standard component for 8-bit unsigned integer.
+	SC_INT8 = 0x0010,						 ///< Standard component for 8-bit signed integer.
+	SC_UINT16 = 0x0018,					   ///< Standard component for 16-bit unsigned integer.
+	SC_INT16 = 0x0020,						///< Standard component for 16-bit signed integer.
+	SC_UINT32 = 0x0028,					   ///< Standard component for 32-bit unsigned integer.
+	SC_INT32 = 0x0030,						///< Standard component for 32-bit signed integer.
+	SC_F16 = 0x0038,						  ///< Standard component for 16-bit floating-point.
+	SC_F32 = 0x0040,						  ///< Standard component for 32-bit floating-point.
+	SC_F64 = 0x0048,						  ///< Standard component for 64-bit floating-point.
+	B_DXT1 = 0x50,							///< DXT1 block compression.
+	B_DXT3 = 0x58,							///< DXT3 block compression.
+	B_DXT5 = 0x60,							///< DXT5 block compression.
 
 	/// Standard types bases
 	// Greyscale
-	R8U = ST_GREYSCALE | SC_UINT8,            ///< 8-bit unsigned greyscale.
-	R8S = ST_GREYSCALE | SC_INT8,             ///< 8-bit signed greyscale.
-	R16U = ST_GREYSCALE | SC_UINT16,          ///< 16-bit unsigned greyscale.
-	R16S = ST_GREYSCALE | SC_INT16,           ///< 16-bit signed greyscale.
-	R16F = ST_GREYSCALE | SC_F16,             ///< 16-bit floating-point greyscale.
-	R32U = ST_GREYSCALE | SC_UINT32,          ///< 32-bit unsigned greyscale.
-	R32S = ST_GREYSCALE | SC_INT32,           ///< 32-bit signed greyscale.
-	R32F = ST_GREYSCALE | SC_F32,             ///< 32-bit floating-point greyscale.
-	R64F = ST_GREYSCALE | SC_F64,             ///< 64-bit floating-point greyscale.
+	R8U = ST_GREYSCALE | SC_UINT8,			///< 8-bit unsigned greyscale.
+	R8S = ST_GREYSCALE | SC_INT8,			 ///< 8-bit signed greyscale.
+	R16U = ST_GREYSCALE | SC_UINT16,		  ///< 16-bit unsigned greyscale.
+	R16S = ST_GREYSCALE | SC_INT16,		   ///< 16-bit signed greyscale.
+	R16F = ST_GREYSCALE | SC_F16,			 ///< 16-bit floating-point greyscale.
+	R32U = ST_GREYSCALE | SC_UINT32,		  ///< 32-bit unsigned greyscale.
+	R32S = ST_GREYSCALE | SC_INT32,		   ///< 32-bit signed greyscale.
+	R32F = ST_GREYSCALE | SC_F32,			 ///< 32-bit floating-point greyscale.
+	R64F = ST_GREYSCALE | SC_F64,			 ///< 64-bit floating-point greyscale.
 	// Two-color
-	RG8U = ST_RG | SC_UINT8,                  ///< 8-bit unsigned two-color.
-	RG8S = ST_RG | SC_INT8,                   ///< 8-bit signed two-color.
-	RG16U = ST_RG | SC_UINT16,                ///< 16-bit unsigned two-color.
-	RG16S = ST_RG | SC_INT16,                 ///< 16-bit signed two-color.
-	RG16F = ST_RG | SC_F16,                   ///< 16-bit floating-point two-color.
-	RG32U = ST_RG | SC_UINT32,                ///< 32-bit unsigned two-color.
-	RG32S = ST_RG | SC_INT32,                 ///< 32-bit signed two-color.
-	RG32F = ST_RG | SC_F32,                   ///< 32-bit floating-point two-color.
-	RG64F = ST_RG | SC_F64,                   ///< 64-bit floating-point two-color.
+	RG8U = ST_RG | SC_UINT8,				  ///< 8-bit unsigned two-color.
+	RG8S = ST_RG | SC_INT8,				   ///< 8-bit signed two-color.
+	RG16U = ST_RG | SC_UINT16,				///< 16-bit unsigned two-color.
+	RG16S = ST_RG | SC_INT16,				 ///< 16-bit signed two-color.
+	RG16F = ST_RG | SC_F16,				   ///< 16-bit floating-point two-color.
+	RG32U = ST_RG | SC_UINT32,				///< 32-bit unsigned two-color.
+	RG32S = ST_RG | SC_INT32,				 ///< 32-bit signed two-color.
+	RG32F = ST_RG | SC_F32,				   ///< 32-bit floating-point two-color.
+	RG64F = ST_RG | SC_F64,				   ///< 64-bit floating-point two-color.
 	// RGB
-	RGB8U = ST_RGB | SC_UINT8,                ///< 8-bit unsigned RGB.
-	RGB8S = ST_RGB | SC_INT8,                 ///< 8-bit signed RGB.
-	RGB16U = ST_RGB | SC_UINT16,              ///< 16-bit unsigned RGB.
-	RGB16S = ST_RGB | SC_INT16,               ///< 16-bit signed RGB.
-	RGB16F = ST_RGB | SC_F16,                 ///< 16-bit floating-point RGB.
-	RGB32U = ST_RGB | SC_UINT32,              ///< 32-bit unsigned RGB.
-	RGB32S = ST_RGB | SC_INT32,               ///< 32-bit signed RGB.
-	RGB32F = ST_RGB | SC_F32,                 ///< 32-bit floating-point RGB.
-	RGB64F = ST_RGB | SC_F64,                 ///< 64-bit floating-point RGB.
+	RGB8U = ST_RGB | SC_UINT8,				///< 8-bit unsigned RGB.
+	RGB8S = ST_RGB | SC_INT8,				 ///< 8-bit signed RGB.
+	RGB16U = ST_RGB | SC_UINT16,			  ///< 16-bit unsigned RGB.
+	RGB16S = ST_RGB | SC_INT16,			   ///< 16-bit signed RGB.
+	RGB16F = ST_RGB | SC_F16,				 ///< 16-bit floating-point RGB.
+	RGB32U = ST_RGB | SC_UINT32,			  ///< 32-bit unsigned RGB.
+	RGB32S = ST_RGB | SC_INT32,			   ///< 32-bit signed RGB.
+	RGB32F = ST_RGB | SC_F32,				 ///< 32-bit floating-point RGB.
+	RGB64F = ST_RGB | SC_F64,				 ///< 64-bit floating-point RGB.
 	// BGR
-	BGR8U = ST_BGR | SC_UINT8,                ///< 8-bit unsigned BGR.
-	BGR8S = ST_BGR | SC_INT8,                 ///< 8-bit signed BGR.
-	BGR16U = ST_BGR | SC_UINT16,              ///< 16-bit unsigned BGR.
-	BGR16S = ST_BGR | SC_INT16,               ///< 16-bit signed BGR.
-	BGR16F = ST_BGR | SC_F16,                 ///< 16-bit floating-point BGR.
-	BGR32U = ST_BGR | SC_UINT32,              ///< 32-bit unsigned BGR.
-	BGR32S = ST_BGR | SC_INT32,               ///< 32-bit signed BGR.
-	BGR32F = ST_BGR | SC_F32,                 ///< 32-bit floating-point BGR.
-	BGR64F = ST_BGR | SC_F64,                 ///< 64-bit floating-point BGR.
+	BGR8U = ST_BGR | SC_UINT8,				///< 8-bit unsigned BGR.
+	BGR8S = ST_BGR | SC_INT8,				 ///< 8-bit signed BGR.
+	BGR16U = ST_BGR | SC_UINT16,			  ///< 16-bit unsigned BGR.
+	BGR16S = ST_BGR | SC_INT16,			   ///< 16-bit signed BGR.
+	BGR16F = ST_BGR | SC_F16,				 ///< 16-bit floating-point BGR.
+	BGR32U = ST_BGR | SC_UINT32,			  ///< 32-bit unsigned BGR.
+	BGR32S = ST_BGR | SC_INT32,			   ///< 32-bit signed BGR.
+	BGR32F = ST_BGR | SC_F32,				 ///< 32-bit floating-point BGR.
+	BGR64F = ST_BGR | SC_F64,				 ///< 64-bit floating-point BGR.
 	// RGBA
-	RGBA8U = ST_RGBA | SC_UINT8,              ///< 8-bit unsigned RGBA.
-	RGBA8S = ST_RGBA | SC_INT8,               ///< 8-bit signed RGBA.
-	RGBA16U = ST_RGBA | SC_UINT16,            ///< 16-bit unsigned RGBA.
-	RGBA16S = ST_RGBA | SC_INT16,             ///< 16-bit signed RGBA.
-	RGBA16F = ST_RGBA | SC_F16,               ///< 16-bit floating-point RGBA.
-	RGBA32U = ST_RGBA | SC_UINT32,            ///< 32-bit unsigned RGBA.
-	RGBA32S = ST_RGBA | SC_INT32,             ///< 32-bit signed RGBA.
-	RGBA32F = ST_RGBA | SC_F32,               ///< 32-bit floating-point RGBA.
-	RGBA64F = ST_RGBA | SC_F64,               ///< 64-bit floating-point RGBA.
+	RGBA8U = ST_RGBA | SC_UINT8,			  ///< 8-bit unsigned RGBA.
+	RGBA8S = ST_RGBA | SC_INT8,			   ///< 8-bit signed RGBA.
+	RGBA16U = ST_RGBA | SC_UINT16,			///< 16-bit unsigned RGBA.
+	RGBA16S = ST_RGBA | SC_INT16,			 ///< 16-bit signed RGBA.
+	RGBA16F = ST_RGBA | SC_F16,			   ///< 16-bit floating-point RGBA.
+	RGBA32U = ST_RGBA | SC_UINT32,			///< 32-bit unsigned RGBA.
+	RGBA32S = ST_RGBA | SC_INT32,			 ///< 32-bit signed RGBA.
+	RGBA32F = ST_RGBA | SC_F32,			   ///< 32-bit floating-point RGBA.
+	RGBA64F = ST_RGBA | SC_F64,			   ///< 64-bit floating-point RGBA.
 	// BGRA
-	BGRA8U = ST_BGRA | SC_UINT8,              ///< 8-bit unsigned BGRA.
-	BGRA8S = ST_BGRA | SC_INT8,               ///< 8-bit signed BGRA.
-	BGRA16U = ST_BGRA | SC_UINT16,            ///< 16-bit unsigned BGRA.
-	BGRA16S = ST_BGRA | SC_INT16,             ///< 16-bit signed BGRA.
-	BGRA16F = ST_BGRA | SC_F16,               ///< 16-bit floating-point BGRA.
-	BGRA32U = ST_BGRA | SC_UINT32,            ///< 32-bit unsigned BGRA.
-	BGRA32S = ST_BGRA | SC_INT32,             ///< 32-bit signed BGRA.
-	BGRA32F = ST_BGRA | SC_F32,               ///< 32-bit floating-point BGRA.
-	BGRA64F = ST_BGRA | SC_F64,               ///< 64-bit floating-point BGRA.
+	BGRA8U = ST_BGRA | SC_UINT8,			  ///< 8-bit unsigned BGRA.
+	BGRA8S = ST_BGRA | SC_INT8,			   ///< 8-bit signed BGRA.
+	BGRA16U = ST_BGRA | SC_UINT16,			///< 16-bit unsigned BGRA.
+	BGRA16S = ST_BGRA | SC_INT16,			 ///< 16-bit signed BGRA.
+	BGRA16F = ST_BGRA | SC_F16,			   ///< 16-bit floating-point BGRA.
+	BGRA32U = ST_BGRA | SC_UINT32,			///< 32-bit unsigned BGRA.
+	BGRA32S = ST_BGRA | SC_INT32,			 ///< 32-bit signed BGRA.
+	BGRA32F = ST_BGRA | SC_F32,			   ///< 32-bit floating-point BGRA.
+	BGRA64F = ST_BGRA | SC_F64,			   ///< 64-bit floating-point BGRA.
 	// ARGB
-	ARGB8U = ST_ARGB | SC_UINT8,              ///< 8-bit unsigned ARGB.
-	ARGB8S = ST_ARGB | SC_INT8,               ///< 8-bit signed ARGB.
-	ARGB16U = ST_ARGB | SC_UINT16,            ///< 16-bit unsigned ARGB.
-	ARGB16S = ST_ARGB | SC_INT16,             ///< 16-bit signed ARGB.
-	ARGB16F = ST_ARGB | SC_F16,               ///< 16-bit floating-point ARGB.
-	ARGB32U = ST_ARGB | SC_UINT32,            ///< 32-bit unsigned ARGB.
-	ARGB32S = ST_ARGB | SC_INT32,             ///< 32-bit signed ARGB.
-	ARGB32F = ST_ARGB | SC_F32,               ///< 32-bit floating-point ARGB.
-	ARGB64F = ST_ARGB | SC_F64,               ///< 64-bit floating-point ARGB.
+	ARGB8U = ST_ARGB | SC_UINT8,			  ///< 8-bit unsigned ARGB.
+	ARGB8S = ST_ARGB | SC_INT8,			   ///< 8-bit signed ARGB.
+	ARGB16U = ST_ARGB | SC_UINT16,			///< 16-bit unsigned ARGB.
+	ARGB16S = ST_ARGB | SC_INT16,			 ///< 16-bit signed ARGB.
+	ARGB16F = ST_ARGB | SC_F16,			   ///< 16-bit floating-point ARGB.
+	ARGB32U = ST_ARGB | SC_UINT32,			///< 32-bit unsigned ARGB.
+	ARGB32S = ST_ARGB | SC_INT32,			 ///< 32-bit signed ARGB.
+	ARGB32F = ST_ARGB | SC_F32,			   ///< 32-bit floating-point ARGB.
+	ARGB64F = ST_ARGB | SC_F64,			   ///< 64-bit floating-point ARGB.
 	/// Special texture types
-	INDEXED = SPECIAL_TYPE_START + 0,         ///< Indexed format.
-	RGB565 = INDEXED + 1,                     ///< 16-bit RGB 565.
-	RGB555 = RGB565 + 1,                      ///< 16-bit RGB 555.
-	RGB444 = RGB555 + 1,                      ///< 16-bit RGB 444.
-	RGBA444 = RGB444 + 1,                     ///< 16-bit RGBA 444.
-	DEPTH_COMPONENT16 = RGBA444 + 1,          ///< 16-bit depth component.
+	INDEXED = SPECIAL_TYPE_START + 0,		 ///< Indexed format.
+	RGB565 = INDEXED + 1,					 ///< 16-bit RGB 565.
+	RGB555 = RGB565 + 1,					  ///< 16-bit RGB 555.
+	RGB444 = RGB555 + 1,					  ///< 16-bit RGB 444.
+	RGBA444 = RGB444 + 1,					 ///< 16-bit RGBA 444.
+	DEPTH_COMPONENT16 = RGBA444 + 1,		  ///< 16-bit depth component.
 	DEPTH_COMPONENT24 = DEPTH_COMPONENT16 + 1,///< 24-bit depth component.
 	DEPTH_COMPONENT32 = DEPTH_COMPONENT24 + 1,///< 32-bit depth component.
 	DEPTH_COMPONENT32F = DEPTH_COMPONENT32 + 1,///< 32-bit floating-point depth component.
 	DEPTH24_STENCIL8 = DEPTH_COMPONENT32F + 1,///< 24-bit depth + 8-bit stencil.
 	DEPTH32F_STENCIL8 = DEPTH24_STENCIL8 + 1, ///< 32-bit floating-point depth + 8-bit stencil.
-	STENCIL_INDEX8 = DEPTH32F_STENCIL8 + 1    ///< 8-bit stencil index.
+	STENCIL_INDEX8 = DEPTH32F_STENCIL8 + 1	///< 8-bit stencil index.
 };
 
 /**
@@ -217,9 +217,9 @@ inline constexpr std::size_t pixelByteSize(Format format) {
  * considering the dimensions of the destination, source, and the offsets within them.
  *
  * @param destinationDimensions The dimensions of the destination area.
- * @param sourceDimensions      The dimensions of the source area.
- * @param destinationOffset     The offset within the destination area.
- * @param sourceOffset          The offset within the source area.
+ * @param sourceDimensions	  The dimensions of the source area.
+ * @param destinationOffset	 The offset within the destination area.
+ * @param sourceOffset		  The offset within the source area.
  * @param dimensionsFromOffset  The dimensions starting from the specified offsets.
  * @return A glm::uvec2 representing the maximum offset for the blit operation.
  */
@@ -240,12 +240,12 @@ inline constexpr const glm::uvec2 calculateMaximumOffsetForBlit(const glm::uvec2
  * 2D array with a specified width.
  *
  * @param width The width of the 2D array.
- * @param x     The x-coordinate in the 2D array.
- * @param y     The y-coordinate in the 2D array.
+ * @param x	 The x-coordinate in the 2D array.
+ * @param y	 The y-coordinate in the 2D array.
  * @return The linear index corresponding to the 2D coordinate (x, y).
  */
 inline constexpr unsigned toLinearIndex(unsigned width, unsigned x, unsigned y) {
-    return (width*y)+x;
+	return (width*y)+x;
 }
 
 /**
@@ -270,11 +270,11 @@ inline constexpr unsigned toLinearIndex(unsigned width, unsigned x, unsigned y) 
  * @code
  * class MyPixel {
  * public:
- *     static constexpr Format FMT_ID = Format::RGB8U;
+ *	 static constexpr Format FMT_ID = Format::RGB8U;
  *
- *     void fromKernel(const glm::fvec4& fvec);
- *     void fromKernelDithered(const glm::fvec4& fvec, const glm::uvec2& uvec);
- *     void toKernel(glm::fvec4& outFvec) const;
+ *	 void fromKernel(const glm::fvec4& fvec);
+ *	 void fromKernelDithered(const glm::fvec4& fvec, const glm::uvec2& uvec);
+ *	 void toKernel(glm::fvec4& outFvec) const;
  * };
  *
  * static_assert(PixelConcept<MyPixel>, "MyPixel must satisfy PixelConcept.");

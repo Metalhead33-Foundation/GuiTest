@@ -38,7 +38,7 @@ public:
 	/**
 	 * @brief Constructs a ReadOnlyBufferWrapper from a raw pointer and buffer size.
 	 *
-	 * @param ptr      Raw pointer to the beginning of the read-only buffer.
+	 * @param ptr	  Raw pointer to the beginning of the read-only buffer.
 	 * @param buffSize Total size of the buffer in bytes.
 	 */
 	ReadOnlyBufferWrapper(const void* ptr, size_t buffSize);
@@ -54,9 +54,9 @@ public:
 	 * @brief Reads data from the buffer into a provided buffer.
 	 *
 	 * @param buffer   Pointer to the buffer to fill with data from the wrapped buffer.
-	 * @param size     Size of each element to read.
-	 * @param count    Number of elements to read.
-	 * @return         Number of elements successfully read.
+	 * @param size	 Size of each element to read.
+	 * @param count	Number of elements to read.
+	 * @return		 Number of elements successfully read.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override;
 
@@ -64,9 +64,9 @@ public:
 	 * @brief Attempts to write data to the buffer (always fails, as the buffer is read-only).
 	 *
 	 * @param buffer   Pointer to the buffer containing data to write (ignored).
-	 * @param size     Size of each element to write (ignored).
-	 * @param count    Number of elements to write (ignored).
-	 * @return         0, indicating failure (write operation not supported).
+	 * @param size	 Size of each element to write (ignored).
+	 * @param count	Number of elements to write (ignored).
+	 * @return		 0, indicating failure (write operation not supported).
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override;
 
@@ -75,7 +75,7 @@ public:
 	 *
 	 * @param offset   Number of bytes to offset from the origin.
 	 * @param whence   Origin from which to seek (see Elv::Io::SeekOrigin).
-	 * @return         0 upon success, non-zero on failure.
+	 * @return		 0 upon success, non-zero on failure.
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override;
 
@@ -153,7 +153,7 @@ public:
 	/**
 	 * @brief Constructs a StaticBufferWrapper from a raw pointer and buffer size.
 	 *
-	 * @param ptr      Raw pointer to the beginning of the writable buffer.
+	 * @param ptr	  Raw pointer to the beginning of the writable buffer.
 	 * @param buffSize Total size of the buffer in bytes.
 	 */
 	StaticBufferWrapper(void* ptr, size_t buffSize);
@@ -162,9 +162,9 @@ public:
 	 * @brief Reads data from the buffer into a provided buffer.
 	 *
 	 * @param buffer   Pointer to the buffer to fill with data from the wrapped buffer.
-	 * @param size     Size of each element to read.
-	 * @param count    Number of elements to read.
-	 * @return         Number of elements successfully read.
+	 * @param size	 Size of each element to read.
+	 * @param count	Number of elements to read.
+	 * @return		 Number of elements successfully read.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override;
 
@@ -172,9 +172,9 @@ public:
 	 * @brief Writes data from a provided buffer to the wrapped buffer.
 	 *
 	 * @param buffer   Pointer to the buffer containing data to write.
-	 * @param size     Size of each element to write.
-	 * @param count    Number of elements to write.
-	 * @return         Number of elements successfully written.
+	 * @param size	 Size of each element to write.
+	 * @param count	Number of elements to write.
+	 * @return		 Number of elements successfully written.
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override;
 
@@ -183,7 +183,7 @@ public:
 	 *
 	 * @param offset   Number of bytes to offset from the origin.
 	 * @param whence   Origin from which to seek (see Elv::Io::SeekOrigin).
-	 * @return         0 upon success, non-zero on failure.
+	 * @return		 0 upon success, non-zero on failure.
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override;
 
@@ -280,7 +280,7 @@ public:
 	 * @param buffer Pointer to the buffer to fill with data from the FlexibleArrayBuffer.
 	 * @param size   Size of each element to read.
 	 * @param count  Number of elements to read.
-	 * @return       Number of elements successfully read.
+	 * @return	   Number of elements successfully read.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override
 	{
@@ -298,7 +298,7 @@ public:
 	 * @param buffer Pointer to the buffer containing data to write.
 	 * @param size   Size of each element to write.
 	 * @param count  Number of elements to write.
-	 * @return       Number of elements successfully written.
+	 * @return	   Number of elements successfully written.
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override
 	{
@@ -315,7 +315,7 @@ public:
 	 *
 	 * @param offset  Number of bytes to offset from the origin.
 	 * @param whence  Origin from which to seek (beginning, current position, or end).
-	 * @return        0 upon success, non-zero on failure.
+	 * @return		0 upon success, non-zero on failure.
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override
 	{
@@ -433,7 +433,7 @@ public:
  * It utilizes a unique, chunky array (ChunkedStorage) to manage memory efficiently.
  *
  * @tparam ChunkSize  The size of each chunk in bytes (default is 256).
- * @tparam Alloc      The allocator type used for managing ChunkedStorage (default is std::allocator).
+ * @tparam Alloc	  The allocator type used for managing ChunkedStorage (default is std::allocator).
  */
 template<size_t ChunkSize = 256, class Alloc = std::allocator<std::array<std::byte,ChunkSize>>>
 requires Elv::Util::Allocator<Alloc, std::array<std::byte,ChunkSize>>
@@ -465,9 +465,9 @@ public:
 	 * @brief Reads data from the buffer into a provided memory location.
 	 *
 	 * @param buffer  Pointer to the buffer to fill with data from the storage.
-	 * @param size    Size of each element to read.
+	 * @param size	Size of each element to read.
 	 * @param count   Number of elements to read.
-	 * @return        Number of elements successfully read.
+	 * @return		Number of elements successfully read.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override
 	{
@@ -483,9 +483,9 @@ public:
 	 * If the write operation exceeds the current storage size, the storage is dynamically resized.
 	 *
 	 * @param buffer  Pointer to the buffer containing data to write into the storage.
-	 * @param size    Size of each element to write.
+	 * @param size	Size of each element to write.
 	 * @param count   Number of elements to write.
-	 * @return        Number of elements successfully written.
+	 * @return		Number of elements successfully written.
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override
 	{
@@ -502,7 +502,7 @@ public:
 	 *
 	 * @param offset  Number of bytes to offset from the origin.
 	 * @param whence  Origin from which to seek (beginning, current position, or end).
-	 * @return        0 upon success, non-zero on failure.
+	 * @return		0 upon success, non-zero on failure.
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override
 	{
@@ -616,7 +616,7 @@ public:
  * This class provides a buffered file device using a shared, chunked array for storage.
 
  * @tparam ChunkSize The size of each chunk in bytes (default is 256).
- * @tparam Alloc    The allocator type used for the chunked array (default is std::allocator<std::array<std::byte,ChunkSize>>).
+ * @tparam Alloc	The allocator type used for the chunked array (default is std::allocator<std::array<std::byte,ChunkSize>>).
  */
 template<size_t ChunkSize = 256, class Alloc = std::allocator<std::array<std::byte,ChunkSize>>>
 requires Elv::Util::Allocator<Alloc, std::array<std::byte,ChunkSize>>
@@ -648,9 +648,9 @@ public:
 	 * @brief Reads data from the buffer into a user-provided buffer.
 	 *
 	 * @param buffer   Pointer to the buffer to fill with data from the file.
-	 * @param size     Size of each element to read.
-	 * @param count    Number of elements to read.
-	 * @return         Number of elements successfully read.
+	 * @param size	 Size of each element to read.
+	 * @param count	Number of elements to read.
+	 * @return		 Number of elements successfully read.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override {
 		const size_t bytesToRead = std::min(size * count, storage.size() - cursor);
@@ -663,9 +663,9 @@ public:
 	 * @brief Writes data from a user-provided buffer to the file.
 	 *
 	 * @param buffer   Pointer to the buffer containing data to write.
-	 * @param size     Size of each element to write.
-	 * @param count    Number of elements to write.
-	 * @return         Number of elements successfully written.
+	 * @param size	 Size of each element to write.
+	 * @param count	Number of elements to write.
+	 * @return		 Number of elements successfully written.
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override {
 		const size_t bytesToWrite = size * count;

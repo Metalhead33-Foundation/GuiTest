@@ -97,9 +97,9 @@ class Device {
 	 * @brief Reads data from the open file into a buffer.
 	 *
 	 * @param buffer   Pointer to the buffer to fill with data from the file.
-	 * @param size     Size of each element to read.
-	 * @param count    Number of elements to read.
-	 * @return         Number of elements successfully read.
+	 * @param size	 Size of each element to read.
+	 * @param count	Number of elements to read.
+	 * @return		 Number of elements successfully read.
 	 */
 	virtual size_t read(void* buffer, size_t size, size_t count) = 0;
 
@@ -107,9 +107,9 @@ class Device {
 	 * @brief Writes data from a buffer to the open file.
 	 *
 	 * @param buffer   Pointer to the buffer containing data to write.
-	 * @param size     Size of each element to write.
-	 * @param count    Number of elements to write.
-	 * @return         Number of elements successfully written.
+	 * @param size	 Size of each element to write.
+	 * @param count	Number of elements to write.
+	 * @return		 Number of elements successfully written.
 	 */
 	virtual size_t write(const void* buffer, size_t size, size_t count) = 0;
 
@@ -118,7 +118,7 @@ class Device {
 	 *
 	 * @param offset   Number of bytes to offset from the origin.
 	 * @param whence   Origin from which to seek.
-	 * @return         0 upon success, non-zero on failure.
+	 * @return		 0 upon success, non-zero on failure.
 	 */
 	virtual int seek(long offset, SeekOrigin whence) = 0;
 
@@ -180,9 +180,9 @@ class Device {
 	/**
 	 * @brief Reads data from the open file into a buffer.
 	 *
-	 * @tparam T       The type of data to read.
+	 * @tparam T	   The type of data to read.
 	 * @param target   A span containing the buffer to fill with data from the file.
-	 * @return         Number of elements successfully read.
+	 * @return		 Number of elements successfully read.
 	 */
 	template <typename T>
 	inline size_t read(const std::span<T>& target) { return read(target.data(), sizeof(T), target.size()); }
@@ -190,9 +190,9 @@ class Device {
 	/**
 	 * @brief Writes data from a buffer to the open file.
 	 *
-	 * @tparam T       The type of data to write.
+	 * @tparam T	   The type of data to write.
 	 * @param source   A span containing the buffer with data to write to the file.
-	 * @return         Number of elements successfully written.
+	 * @return		 Number of elements successfully written.
 	 */
 	template <typename T>
 	inline size_t write(const std::span<const T>& source) { return write(source.data(), sizeof(T), source.size() ); }
@@ -200,9 +200,9 @@ class Device {
 	/**
 	 * @brief Reads the entire file into a unique heap array.
 	 *
-	 * @tparam T       The type of data to read (default is std::byte).
+	 * @tparam T	   The type of data to read (default is std::byte).
 	 * @tparam Alloc   Allocator type used for the array.
-	 * @return         A unique heap array containing the file's content.
+	 * @return		 A unique heap array containing the file's content.
 	 */
 	template <typename T = std::byte, typename Alloc = std::allocator<T>, class... Args>
 	requires Util::Allocator<Alloc, T>
@@ -216,9 +216,9 @@ class Device {
 	/**
 	 * @brief Reads the entire file into a shared heap array.
 	 *
-	 * @tparam T       The type of data to read (default is std::byte).
+	 * @tparam T	   The type of data to read (default is std::byte).
 	 * @tparam Alloc   Allocator type used for the array.
-	 * @return         A shared heap array containing the file's content.
+	 * @return		 A shared heap array containing the file's content.
 	 */
 	template <typename T = std::byte, typename Alloc = std::allocator<T>, class... Args>
 	requires Util::Allocator<Alloc, T>
@@ -232,9 +232,9 @@ class Device {
 	/**
 	 * @brief Reads the entire file into a vector.
 	 *
-	 * @tparam T       The type of data to read.
+	 * @tparam T	   The type of data to read.
 	 * @tparam Alloc   Allocator type used for the vector.
-	 * @param dst      The vector to fill with the file's content.
+	 * @param dst	  The vector to fill with the file's content.
 	 */
 	template<class T, class Alloc = std::allocator<T>>
 	requires Util::Allocator<Alloc, T>
@@ -247,9 +247,9 @@ class Device {
 	/**
 	 * @brief Reads the entire file into a new vector.
 	 *
-	 * @tparam T       The type of data to read.
+	 * @tparam T	   The type of data to read.
 	 * @tparam Alloc   Allocator type used for the vector.
-	 * @return         A vector containing the file's content.
+	 * @return		 A vector containing the file's content.
 	 */
 	template<class T = std::byte, class Alloc = std::allocator<T>>
 	requires Util::Allocator<Alloc, T>
@@ -265,7 +265,7 @@ class Device {
 	 * @tparam CharT   Character type used for the string.
 	 * @tparam Traits  Character traits type.
 	 * @tparam Alloc   Allocator type used for the string.
-	 * @param dst      The string to fill with the file's content.
+	 * @param dst	  The string to fill with the file's content.
 	 */
 	template<class CharT, class Traits = std::char_traits<CharT>, class Alloc = std::allocator<CharT>>
 	requires Util::Allocator<Alloc, CharT>
@@ -282,7 +282,7 @@ class Device {
 	 * @tparam CharT   Character type used for the string.
 	 * @tparam Traits  Character traits type.
 	 * @tparam Alloc   Allocator type used for the string.
-	 * @return         A string containing the file's content.
+	 * @return		 A string containing the file's content.
 	 */
 	template<class CharT, class Traits = std::char_traits<CharT>, class Alloc = std::allocator<CharT>>
 	requires Util::Allocator<Alloc, CharT>
@@ -300,7 +300,7 @@ class Device {
 	 * @tparam CharT   Character type used for the string.
 	 * @tparam Traits  Character traits type.
 	 * @tparam Alloc   Allocator type used for the stringstream.
-	 * @param sstrm    The stringstream to fill with the line's content.
+	 * @param sstrm	The stringstream to fill with the line's content.
 	 */
 	template<class CharT, class Traits = std::char_traits<CharT>, class Alloc = std::allocator<CharT>>
 	requires Util::Allocator<Alloc, CharT>
@@ -319,7 +319,7 @@ class Device {
 	 * @tparam CharT   Character type used for the string.
 	 * @tparam Traits  Character traits type.
 	 * @tparam Alloc   Allocator type used for the string.
-	 * @return         A string containing the line's content.
+	 * @return		 A string containing the line's content.
 	 */
 	template<class CharT, class Traits = std::char_traits<CharT>, class Alloc = std::allocator<CharT>>
 	requires Util::Allocator<Alloc, CharT>

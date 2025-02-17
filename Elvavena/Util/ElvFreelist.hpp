@@ -483,7 +483,7 @@ private:
 /**
  * @class ContiguousFreeListAllocator
  * @brief A memory allocator that manages a contiguous block of memory using a free list.
- *        **WARNING: VERY DANGEROUS! USE CAUTIOUSLY!**
+ *		**WARNING: VERY DANGEROUS! USE CAUTIOUSLY!**
  *
  * This allocator is not suitable for all use cases due to its lack of robustness against
  * certain types of memory errors or misuse. Use with extreme caution and only when
@@ -529,9 +529,9 @@ public:
 	 * @brief Allocates a block of memory of at least the requested size.
 	 * @param n Requested size of the block in bytes.
 	 * @return A Blk struct containing a pointer to the allocated block and its size.
-	 *         Returns {nullptr, 0} if allocation fails.
+	 *		 Returns {nullptr, 0} if allocation fails.
 	 * @note The actual size of the allocated block may be larger than requested
-	 *       due to alignment and minimum block size requirements.
+	 *	   due to alignment and minimum block size requirements.
 	 */
 	Blk allocateBlock(std::size_t n) noexcept {
 		Lock lock(_mutex);
@@ -654,7 +654,7 @@ private:
 /**
  * @class FreelistMemoryManager
  * @brief Manages a contiguous block of memory, partitioning it among multiple
- *        ContiguousFreeListAllocator instances for subsystems with varying memory needs.
+ *		ContiguousFreeListAllocator instances for subsystems with varying memory needs.
  *
  * This class ensures proper alignment and deallocation of the managed memory and its allocators.
  * It provides thread-safe access to the allocators via the getAllocator() method.

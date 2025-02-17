@@ -13,7 +13,7 @@ namespace JPEG {
 /*
 Common values are 0 (no subsampling), 1 (4:2:2), and 2 (4:2:0).
 */
-enum SubsamplingMethod {
+enum class SubsamplingMethod : uint8_t {
 	NO_SUBSAMPLING = 0,
 	SUBSAMPLE_4_2_2 = 1,
 	SUBSAMPLE_4_2_0 = 2

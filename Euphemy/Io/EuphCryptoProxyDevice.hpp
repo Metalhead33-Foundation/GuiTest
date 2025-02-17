@@ -17,7 +17,7 @@ namespace Io {
  *
  * @warning Not all ciphers or modes may be supported by the underlying cryptographic library.
  */
-enum class CipherType {
+enum class CipherType : uint8_t {
 	/**
 	 * @brief Null cipher (no encryption).
 	 */

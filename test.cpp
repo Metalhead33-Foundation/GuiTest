@@ -491,7 +491,7 @@ void testTGA()
 	Euph::Media::Image::DecodeTarget decodeTarget;
 	{
 		Euph::Media::Image::StandardImage<Euph::Media::Image::PixelBGR_U8> stdimg(256,256);
-		stdimg.clearToColour((Euph::Media::Image::Image2D::ColourProgrammer3)[](const glm::fvec2& normalizedPos){
+		stdimg.clearToColour((Euph::Media::Image::IMutableImage2D::ColourProgrammer3)[](const glm::fvec2& normalizedPos){
 			float dx = normalizedPos.x - 0.5f;
 			float dy = normalizedPos.y - 0.5f;
 			float distance = 1.0f - (std::sqrt(dx * dx + dy * dy) / 0.7071f);
@@ -510,7 +510,7 @@ void testPNG()
 	Euph::Media::Image::DecodeTarget decodeTarget;
 	{
 		Euph::Media::Image::StandardImage<Euph::Media::Image::PixelRGB_U8> stdimg(256,256);
-		stdimg.clearToColour((Euph::Media::Image::Image2D::ColourProgrammer3)[](const glm::fvec2& normalizedPos){
+		stdimg.clearToColour((Euph::Media::Image::IMutableImage2D::ColourProgrammer3)[](const glm::fvec2& normalizedPos){
 			float dx = normalizedPos.x - 0.5f;
 			float dy = normalizedPos.y - 0.5f;
 			float distance = 1.0f - (std::sqrt(dx * dx + dy * dy) / 0.7071f);

@@ -40,8 +40,8 @@ public:
 	/**
 	 * @brief Constructor for opening a file at the specified path with the given mode
 	 *
-	 * @param path     Path to the file to open
-	 * @param mode     Mode in which to open the file (e.g., read, write, append)
+	 * @param path	 Path to the file to open
+	 * @param mode	 Mode in which to open the file (e.g., read, write, append)
 	 * @param bufferSize Optional buffer size for file operations (default: 0)
 	 */
 	Device(const char* path, Elv::Io::Mode mode, int bufferSize = 0);
@@ -49,15 +49,15 @@ public:
 	/**
 	 * @brief Move constructor for transferring ownership of the file handle
 	 *
-	 * @param mov      Device instance to move from
+	 * @param mov	  Device instance to move from
 	 */
 	Device(Device&& mov);
 
 	/**
 	 * @brief Move assignment operator for transferring ownership of the file handle
 	 *
-	 * @param mov      Device instance to move from
-	 * @return         Reference to the assigned Device instance
+	 * @param mov	  Device instance to move from
+	 * @return		 Reference to the assigned Device instance
 	 */
 	Device& operator=(Device&& mov);
 
@@ -70,9 +70,9 @@ public:
 	 * @brief Reads data from the open file into a buffer
 	 *
 	 * @param buffer   Pointer to the buffer to fill with data from the file
-	 * @param size     Size of each element to read
-	 * @param count    Number of elements to read
-	 * @return         Number of elements successfully read
+	 * @param size	 Size of each element to read
+	 * @param count	Number of elements to read
+	 * @return		 Number of elements successfully read
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override;
 
@@ -80,9 +80,9 @@ public:
 	 * @brief Writes data from a buffer to the open file
 	 *
 	 * @param buffer   Pointer to the buffer containing data to write
-	 * @param size     Size of each element to write
-	 * @param count    Number of elements to write
-	 * @return         Number of elements successfully written
+	 * @param size	 Size of each element to write
+	 * @param count	Number of elements to write
+	 * @return		 Number of elements successfully written
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override;
 
@@ -91,7 +91,7 @@ public:
 	 *
 	 * @param offset   Number of bytes to offset from the origin
 	 * @param whence   Origin from which to seek (e.g., beginning, current, end)
-	 * @return         0 upon success, non-zero on failure
+	 * @return		 0 upon success, non-zero on failure
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override;
 
@@ -160,7 +160,7 @@ public:
 	 * This must be called before any other PhysicsFS function. It should be called
 	 * prior to any attempts to change your process's current working directory.
 	 *
-	 * @param argv0    Path to the executable (e.g., argv <sup> </sup> in main())
+	 * @param argv0	Path to the executable (e.g., argv <sup> </sup> in main())
 	 */
 	static void init(const char* argv0);
 
@@ -175,16 +175,16 @@ public:
 	/**
 	 * @brief Adds an archive or directory to the search path
 	 *
-	 * @param path         Directory or archive to add to the path
+	 * @param path		 Directory or archive to add to the path
 	 * @param mountPoint   Location in the interpolated tree where this archive will be "mounted"
-	 * @param append       True to append to search path, false to prepend (default: false)
+	 * @param append	   True to append to search path, false to prepend (default: false)
 	 */
 	void mount(const char* path, const char* mountPoint, bool append = false);
 
 	/**
 	 * @brief Removes a directory or archive from the search path
 	 *
-	 * @param path     Directory or archive to remove from the path
+	 * @param path	 Directory or archive to remove from the path
 	 */
 	void unmount(const char* path);
 
@@ -219,7 +219,7 @@ public:
 	 *
 	 * @param org  Name of your organization (or a suitable substitute)
 	 * @param app  Name of your application
-	 * @return     Path to the user-and-app-specific directory
+	 * @return	 Path to the user-and-app-specific directory
 	 */
 	const char* getPrefDir(const char* org, const char* app);
 
@@ -240,17 +240,17 @@ public:
 	/**
 	 * @brief Opens a file at the specified path with the given mode
 	 *
-	 * @param path     Path to the file to open
-	 * @param mode     Mode in which to open the file (e.g., read, write, append)
-	 * @return         Pointer to the opened Device instance, or nullptr on failure
+	 * @param path	 Path to the file to open
+	 * @param mode	 Mode in which to open the file (e.g., read, write, append)
+	 * @return		 Pointer to the opened Device instance, or nullptr on failure
 	 */
 	Device* open(const char* path, Elv::Io::Mode mode) override;
 
 	/**
 	 * @brief Checks if a file or directory exists at the specified path
 	 *
-	 * @param path     Path to the file or directory to check
-	 * @return         True if the file or directory exists, false otherwise
+	 * @param path	 Path to the file or directory to check
+	 * @return		 True if the file or directory exists, false otherwise
 	 */
 	bool exists(const char* path) override;
 
@@ -264,57 +264,57 @@ public:
 	/**
 	 * @brief Enumerates files and directories at the specified path
 	 *
-	 * @param path         Path to the directory to enumerate
-	 * @param withPath     True to include the path in the enumeration, false otherwise
-	 * @param functor      Callback function to invoke for each file/directory found
+	 * @param path		 Path to the directory to enumerate
+	 * @param withPath	 True to include the path in the enumeration, false otherwise
+	 * @param functor	  Callback function to invoke for each file/directory found
 	 */
 	void enumerate(const char* path, bool withPath, FilenameCallback functor) override;
 
 	/**
 	 * @brief Enumerates files and directories at the specified path with additional filesystem information
 	 *
-	 * @param path         Path to the directory to enumerate
-	 * @param functor      Callback function to invoke for each file/directory found, providing filesystem information
+	 * @param path		 Path to the directory to enumerate
+	 * @param functor	  Callback function to invoke for each file/directory found, providing filesystem information
 	 */
 	void enumerate(const char* path, FilesystemCallback functor) override;
 
 	/**
 	 * @brief Checks if the specified path is a directory
 	 *
-	 * @param path     Path to the file or directory to check
-	 * @return         True if the path is a directory, false otherwise
+	 * @param path	 Path to the file or directory to check
+	 * @return		 True if the path is a directory, false otherwise
 	 */
 	bool isDirectory(const char* path) override;
 
 	/**
 	 * @brief Checks if the specified path is a symbolic link
 	 *
-	 * @param path     Path to the file or directory to check
-	 * @return         True if the path is a symbolic link, false otherwise
+	 * @param path	 Path to the file or directory to check
+	 * @return		 True if the path is a symbolic link, false otherwise
 	 */
 	bool isSymlink(const char* path) override;
 
 	/**
 	 * @brief Checks if the specified path is a regular file
 	 *
-	 * @param path     Path to the file or directory to check
-	 * @return         True if the path is a regular file, false otherwise
+	 * @param path	 Path to the file or directory to check
+	 * @return		 True if the path is a regular file, false otherwise
 	 */
 	bool isFile(const char* path) override;
 
 	/**
 	 * @brief Creates a new directory at the specified path
 	 *
-	 * @param dir      Path to the directory to create
-	 * @return         True if the directory was created successfully, false otherwise
+	 * @param dir	  Path to the directory to create
+	 * @return		 True if the directory was created successfully, false otherwise
 	 */
 	bool mkdir(const char* dir) override;
 
 	/**
 	 * @brief Removes a file or directory at the specified path
 	 *
-	 * @param path     Path to the file or directory to remove
-	 * @return         True if the file or directory was removed successfully, false otherwise
+	 * @param path	 Path to the file or directory to remove
+	 * @return		 True if the file or directory was removed successfully, false otherwise
 	 */
 	bool remove(const char* path) override;
 };

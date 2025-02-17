@@ -128,7 +128,7 @@ public:
  * This enumeration is used to specify different methods for creating temporary files on Unix-like systems.
  */
 enum class TemporaryFileCreationMode : uint8_t {
-	MKSTEMP,    ///< Regular POSIX mkstemp()
+	MKSTEMP,	///< Regular POSIX mkstemp()
 	SHM_OPEN,   ///< POSIX shm_open()
 	MEMFD_CREATE///< Linux-specific memfd_create()
 };
@@ -141,17 +141,17 @@ enum class TemporaryFileCreationMode : uint8_t {
 class MH_EUPH_API PlatformDependentFileBase : public PlatformDependentFileHandleBase {
 public:
 	typedef std::function<void(const char*)> Deleter; ///< Type alias for the file deleter function.
-	std::string path;                                 ///< Path to the file.
-	Deleter deleter;                                  ///< Deleter function to clean up the file.
+	std::string path;								 ///< Path to the file.
+	Deleter deleter;								  ///< Deleter function to clean up the file.
 
 private:
 	PlatformDependentFileBase(const PlatformDependentFileHandleBase& cpy) = delete;
 	PlatformDependentFileBase& operator=(const PlatformDependentFileHandleBase& cpy) = delete;
 
 	void initializeViaRegularLoad(const char* cpath, Elv::Io::Mode mode); ///< Initializes the file via regular file loading.
-	void initializeViaMkstemp();                                      ///< Initializes the file via mkstemp.
-	void initialiteViaShmOpen(const char* cpath);                       ///< Initializes the file via shm_open.
-	void initializeViaMemfdCreate(const char* cpath);                   ///< Initializes the file via memfd_create.
+	void initializeViaMkstemp();									  ///< Initializes the file via mkstemp.
+	void initialiteViaShmOpen(const char* cpath);					   ///< Initializes the file via shm_open.
+	void initializeViaMemfdCreate(const char* cpath);				   ///< Initializes the file via memfd_create.
 
 public:
 	/**

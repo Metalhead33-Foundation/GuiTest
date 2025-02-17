@@ -65,11 +65,12 @@ DecodeTarget::DecodeTarget(std::pmr::memory_resource* memResource)
 
 Frame& DecodeTarget::addFrame(unsigned width, unsigned height) {
 	frames.emplace_back(memResource);
-	frames.back().allocate(format, width, height);
-	return frames.back();
+	auto& back = frames.back();
+	back.allocate(format, width, height);
+	return back;
 }
 
-Palette& DecodeTarget::createPalette(Format format, unsigned indices, unsigned transparentIndex) {
+Palette& DecodeTarget::createPalette(Format format, unsigned indices, int transparentIndex) {
 	palette.emplace(memResource);
 	palette->format = format;
 	palette->transparentColorIndex = transparentIndex;

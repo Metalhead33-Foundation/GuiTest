@@ -20,13 +20,13 @@ namespace Util {
  *
  * @example
  *   @code
- *     int result1 = div_ceil(10, 2);  // result1 == 5
- *     int result2 = div_ceil(11, 2);  // result2 == 6
- *     int result3 = div_ceil(10, 5);  // result3 == 2
+ *	 int result1 = div_ceil(10, 2);  // result1 == 5
+ *	 int result2 = div_ceil(11, 2);  // result2 == 6
+ *	 int result3 = div_ceil(10, 5);  // result3 == 2
  *   @endcode
  *
  * @note This function uses SFINAE (Substitution Failure Is Not An Error) to ensure `T` is an integral type.
- *       If `T` is not an integral type, the function will not be available for overload resolution.
+ *	   If `T` is not an integral type, the function will not be available for overload resolution.
  */
 template<typename T>
 constexpr
