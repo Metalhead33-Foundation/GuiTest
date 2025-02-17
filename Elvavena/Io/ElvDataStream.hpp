@@ -404,6 +404,7 @@ template <Util::Endian io_endianness = Util::Endian::Big> struct DataStream {
 			device.read(data.data (), 1, data.size () );
 			return *this;
 		} else readElementsInto<T>(data.begin(), data.end());
+		return *this;
 	}
 	template <typename T, size_t N> inline DataStream& operator<<(const std::array<T,N>& data) {
 		//*this << static_cast<uint32_t>( data.size () );
@@ -419,6 +420,7 @@ template <Util::Endian io_endianness = Util::Endian::Big> struct DataStream {
 			device.read(data.data (), 1, data.size () );
 			return *this;
 		} else readElementsInto<T>(data.begin(), data.end());
+		return *this;
 	}
 };
 
