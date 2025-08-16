@@ -8,6 +8,7 @@
 namespace Euph {
 namespace Io {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ReadOnlyBufferWrapper)
 /**
  * @brief A performant, read-only wrapper around fixed-size memory buffers.
  *
@@ -123,6 +124,7 @@ public:
 };
 
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(StaticBufferWrapper)
 /**
  * @brief A performant wrapper around fixed-size, writable memory buffers.
  *

@@ -32,6 +32,7 @@ enum class RandomSource : uint8_t {
 	URANDOM
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(RandomDevice)
 /**
  * @class RandomDevice
  * @brief A file-like device for generating random numbers.

@@ -7,6 +7,7 @@
 namespace Euph {
 namespace Io {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(TempFile)
 /**
  * @class TempFile
  * @brief Represents a temporary file that supports basic file operations.
@@ -127,6 +128,7 @@ public:
 	bool isValid() const override;
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(MemoryMappedTempFile)
 /**
  * @warning **THIS CLASS IS NOT A SUBCLASS OF `TempFile` AND DOES NOT IMPLEMENT `Elv::Io::Device`!**
  *		  **IT IS A COMPLETELY SEPARATE CLASS, USE ACCORDINGLY!**

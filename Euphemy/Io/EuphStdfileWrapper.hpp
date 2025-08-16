@@ -6,6 +6,7 @@
 namespace Euph {
 namespace Io {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(StdfileWrapper)
 /**
  * @class StdfileWrapper
  * @brief A wrapper class for standard C file streams (FILE*),

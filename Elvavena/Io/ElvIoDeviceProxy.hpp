@@ -4,6 +4,7 @@
 namespace Elv {
 namespace Io {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(BufferedDeviceProxy)
 /**
  * @brief Proxy device that provides buffered read and write operations for an underlying Device.
  *
@@ -145,6 +146,7 @@ public:
 	void setUnderlyingDevice(Device* newUnderlyingDevice);
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(BufferedWriteDeviceProxy)
 /**
  * @brief Buffered write proxy device for an underlying Device.
  *
@@ -289,6 +291,7 @@ public:
 	virtual void onFinish() = 0;
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(BufferedReadDeviceProxy)
 /**
  * @brief Buffered read proxy device for an underlying Device.
  *

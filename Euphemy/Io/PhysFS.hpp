@@ -5,6 +5,7 @@
 #include <Elvavena/Io/ElvIoSystem.hpp>
 namespace PhysFS {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Device)
 /**
  * @class Device
  * @brief Implementation of Elv::Io::Device for PhysicsFS
@@ -138,6 +139,7 @@ public:
 	bool isValid() const override;
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(System)
 /**
  * @class System
  * @brief Implementation of Elv::Io::System for PhysicsFS
@@ -244,7 +246,26 @@ public:
 	 * @param mode	 Mode in which to open the file (e.g., read, write, append)
 	 * @return		 Pointer to the opened Device instance, or nullptr on failure
 	 */
-	Device* open(const char* path, Elv::Io::Mode mode) override;
+	Elv::Io::Device* open(const char* path, Elv::Io::Mode mode) override;
+	/**
+	 * @brief Opens a device (e.g., file, directory) at the specified path with the given mode.
+	 *
+	 * @param path The path to the device.
+	 * @param mode The mode in which to open the device (e.g., read, write, append)
+	 * @param memRes The memory resource used for allocating the device.
+	 * @return A unique pointer to the opened Device, or nullptr on failure.
+	 */
+	Elv::Io::uDevice openUnique(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes) override;
+
+	/**
+	 * @brief Opens a device (e.g., file, directory) at the specified path with the given mode.
+	 *
+	 * @param path The path to the device.
+	 * @param mode The mode in which to open the device (e.g., read, write, append)
+	 * @param memRes The memory resource used for allocating the device.
+	 * @return A shared pointer to the opened Device, or nullptr on failure.
+	 */
+	Elv::Io::sDevice openShared(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes) override;
 
 	/**
 	 * @brief Checks if a file or directory exists at the specified path

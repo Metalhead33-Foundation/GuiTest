@@ -5,6 +5,7 @@
 namespace Euph {
 namespace Io {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ZstdCompressor)
 /**
  * @brief Zstandard compression proxy device for an underlying Device.
  *
@@ -127,6 +128,7 @@ public:
 	void onFinish() override;
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ZstdDecompressor)
 /**
  * @brief Zstandard decompression proxy device for an underlying Device.
  *

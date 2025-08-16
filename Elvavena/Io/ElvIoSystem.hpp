@@ -4,7 +4,7 @@
 #include <functional>
 namespace Elv {
 namespace Io {
-DEFINE_CLASS(System)
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(System)
 /**
  * @class System
  * @brief Abstract base class providing an interface for interacting with the file system.
@@ -39,6 +39,26 @@ public:
 	 * @return A pointer to the opened Device, or nullptr on failure.
 	 */
 	virtual Device* open(const char* path, Mode mode) = 0;
+
+	/**
+	 * @brief Opens a device (e.g., file, directory) at the specified path with the given mode.
+	 *
+	 * @param path The path to the device.
+	 * @param mode The mode in which to open the device.
+	 * @param memRes The memory resource used for allocating the device.
+	 * @return A unique pointer to the opened Device, or nullptr on failure.
+	 */
+	virtual uDevice openUnique(const char* path, Mode mode, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) = 0;
+
+	/**
+	 * @brief Opens a device (e.g., file, directory) at the specified path with the given mode.
+	 *
+	 * @param path The path to the device.
+	 * @param mode The mode in which to open the device.
+	 * @param memRes The memory resource used for allocating the device.
+	 * @return A shared pointer to the opened Device, or nullptr on failure.
+	 */
+	virtual sDevice openShared(const char* path, Mode mode, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) = 0;
 
 	/**
 	 * @brief Checks if a file or directory exists at the specified path.

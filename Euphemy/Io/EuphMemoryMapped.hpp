@@ -10,6 +10,7 @@
 namespace Euph {
 namespace Io {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(MemoryMapped)
 class MH_EUPH_API MemoryMapped
 {
 protected:

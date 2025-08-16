@@ -646,6 +646,7 @@ enum class CipherType : uint8_t {
  * @{
  */
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(CryptoWriteDeviceProxy)
 /**
  * @class CryptoWriteDeviceProxy
  * @brief A write proxy device that encrypts data before writing it to an underlying Device.
@@ -775,6 +776,7 @@ public:
 	CipherType getCipherType() const;
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(CryptoReadDeviceProxy)
 /**
  * @class CryptoReadDeviceProxy
  * @brief A read proxy device that decrypts data read from an underlying Device.

@@ -161,7 +161,19 @@ void System::setWriteDir(const char* dir)
 	PHYSFS_setWriteDir(dir);
 }
 
-Device* System::open(const char* path, Elv::Io::Mode mode)
+Elv::Io::uDevice System::openUnique(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes)
+{
+	assert(PHYSFS_isInit());
+	return Elv::Util::pmr_make_unique<Device>(memRes, path, mode);
+}
+
+Elv::Io::sDevice System::openShared(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes)
+{
+	assert(PHYSFS_isInit());
+	return Elv::Util::make_shared<Device>(memRes, path, mode);
+}
+
+Elv::Io::Device* System::open(const char* path, Elv::Io::Mode mode)
 {
 	assert(PHYSFS_isInit());
 	return new Device(path, mode);

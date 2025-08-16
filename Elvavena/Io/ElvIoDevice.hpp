@@ -3,6 +3,7 @@
 #include <Elvavena/Util/ElvUtilGlobals.hpp>
 #include <Elvavena/Util/ElvHeapArray.hpp>
 #include <Elvavena/Util/ElvMathUtil.hpp>
+#include <Elvavena/Util/ElvAllocatorBasic.hpp>
 #include <span>
 #include <string>
 #include <sstream>
@@ -82,8 +83,7 @@ enum class Mode : uint8_t {
 	READ_APPEND = (READ | APPEND)
 };
 
-DEFINE_CLASS(Device)
-
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Device)
 /**
  * @brief Abstract base class for file-like devices.
  *

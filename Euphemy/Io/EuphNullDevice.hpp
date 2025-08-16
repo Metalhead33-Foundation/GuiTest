@@ -5,6 +5,7 @@
 namespace Euph {
 namespace Io {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(NullDevice)
 /**
  * @class NullDevice
  * @brief A null implementation of the Elv::Io::Device interface.

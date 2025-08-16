@@ -13,6 +13,7 @@
 namespace Euph {
 namespace Io {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(File)
 /**
  * @class File
  * @brief Implementation of Elv::Io::Device for file operations.
@@ -106,6 +107,7 @@ public:
 	bool isValid() const override;
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(MemoryMappedFile)
 /**
  * @warning **THIS CLASS IS NOT A SUBCLASS OF `File` AND DOES NOT IMPLEMENT `Elv::Io::Device`!**
  *		  **IT IS A COMPLETELY SEPARATE CLASS, USE ACCORDINGLY!**
@@ -190,6 +192,7 @@ public:
 	bool readOnly() const override;
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Filesystem)
 /**
  * @class Filesystem
  * @brief Implementation of Elv::Io::System for filesystem operations.
@@ -198,12 +201,32 @@ class MH_EUPH_API Filesystem : public Elv::Io::System
 {
 public:
 	/**
-	 * @brief Opens a file within the filesystem.
-	 * @param path Path to the file.
-	 * @param mode Mode in which to open the file (see Elv::Io::Mode).
-	 * @return Pointer to the opened file device.
+	 * @brief Opens a file at the specified path with the given mode
+	 *
+	 * @param path	 Path to the file to open
+	 * @param mode	 Mode in which to open the file (e.g., read, write, append)
+	 * @return		 Pointer to the opened Device instance, or nullptr on failure
 	 */
 	Elv::Io::Device* open(const char* path, Elv::Io::Mode mode) override;
+	/**
+	 * @brief Opens a device (e.g., file, directory) at the specified path with the given mode.
+	 *
+	 * @param path The path to the device.
+	 * @param mode The mode in which to open the device (e.g., read, write, append)
+	 * @param memRes The memory resource used for allocating the device.
+	 * @return A unique pointer to the opened Device, or nullptr on failure.
+	 */
+	Elv::Io::uDevice openUnique(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes) override;
+
+	/**
+	 * @brief Opens a device (e.g., file, directory) at the specified path with the given mode.
+	 *
+	 * @param path The path to the device.
+	 * @param mode The mode in which to open the device (e.g., read, write, append)
+	 * @param memRes The memory resource used for allocating the device.
+	 * @return A shared pointer to the opened Device, or nullptr on failure.
+	 */
+	Elv::Io::sDevice openShared(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes) override;
 	/**
 	 * @brief Opens a memory-mapped file within the filesystem.
 	 * @param path Path to the file.
@@ -211,6 +234,22 @@ public:
 	 * @return Pointer to the opened memory-mapped file device.
 	 */
 	MemoryMappedFile* openMemoryMapped(const char* path, Elv::Io::Mode mode);
+	/**
+	 * @brief Opens a memory-mapped file within the filesystem.
+	 * @param path Path to the file.
+	 * @param mode Mode in which to open the file (see Elv::Io::Mode).
+	 * @param memRes The memory resource used for allocating the device.
+	 * @return Unique pointer to the opened memory-mapped file device.
+	 */
+	uMemoryMappedFile openMemoryMappedUnique(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes = std::pmr::get_default_resource() );
+	/**
+	 * @brief Opens a memory-mapped file within the filesystem.
+	 * @param path Path to the file.
+	 * @param mode Mode in which to open the file (see Elv::Io::Mode).
+	 * @param memRes The memory resource used for allocating the device.
+	 * @return Shared pointer to the opened memory-mapped file device.
+	 */
+	sMemoryMappedFile openMemoryMappedShared(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes = std::pmr::get_default_resource() );
 
 	/**
 	 * @brief Checks if a path exists within the filesystem.

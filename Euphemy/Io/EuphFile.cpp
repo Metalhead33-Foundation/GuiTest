@@ -93,9 +93,29 @@ Elv::Io::Device* Filesystem::open(const char* path, Elv::Io::Mode mode)
 	return new File(path,mode);
 }
 
+Elv::Io::uDevice Filesystem::openUnique(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes)
+{
+	return Elv::Util::pmr_make_unique<File>(memRes, path, mode);
+}
+
+Elv::Io::sDevice Filesystem::openShared(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes)
+{
+	return Elv::Util::pmr_make_shared<File>(memRes, path, mode);
+}
+
 MemoryMappedFile* Filesystem::openMemoryMapped(const char* path, Elv::Io::Mode mode)
 {
 	return new MemoryMappedFile(path, mode);
+}
+
+uMemoryMappedFile Filesystem::openMemoryMappedUnique(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes)
+{
+	return Elv::Util::pmr_make_unique<MemoryMappedFile>(memRes, path, mode);
+}
+
+sMemoryMappedFile Filesystem::openMemoryMappedShared(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes)
+{
+	return Elv::Util::pmr_make_shared<MemoryMappedFile>(memRes, path, mode);
 }
 
 bool Filesystem::exists(const char* path)

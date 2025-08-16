@@ -122,6 +122,7 @@ enum class SocketType : uint8_t {
 	UDP
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Socket)
 /**
  * @brief Socket class, inheriting from Elv::Io::Device.
  *

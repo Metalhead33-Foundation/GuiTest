@@ -36,6 +36,8 @@ SOURCES += \
 	Euphemy/Io/EuphTempFile.cpp \
 	Euphemy/Io/EuphZstd.cpp \
 	Euphemy/Io/PhysFS.cpp \
+    Euphemy/Media/Audio/EuphModuleRenderer.cpp \
+    Euphemy/Media/Audio/EuphSoundFile.cpp \
 	Euphemy/Media/Image/EuphDDS.cpp \
 	Euphemy/Media/Image/EuphGIF.cpp \
 	Euphemy/Media/Image/EuphImage.cpp \
@@ -101,6 +103,9 @@ HEADERS += \
 	Euphemy/Io/EuphTempFile.hpp \
 	Euphemy/Io/EuphZstd.hpp \
 	Euphemy/Io/PhysFS.hpp \
+    Euphemy/Media/Audio/EuphAudioIterator.hpp \
+    Euphemy/Media/Audio/EuphModuleRenderer.hpp \
+    Euphemy/Media/Audio/EuphSoundFile.hpp \
 	Euphemy/Media/Image/EuphDDS.hpp \
 	Euphemy/Media/Image/EuphGIF.hpp \
 	Euphemy/Media/Image/EuphImage.hpp \
