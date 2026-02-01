@@ -8,6 +8,19 @@ namespace Euph {
 namespace Media {
 namespace Audio {
 
+/**
+ * @enum SoundFormat
+ * @brief Enumeration of audio formats and their container combinations.
+ *
+ * This enum class represents various audio formats that can be stored in different
+ * container types. Each value is a combination of a container identifier (high 16 bits)
+ * and a format identifier (low 16 bits).
+ *
+ * The format follows the pattern: (CONTAINER_ID | FORMAT_ID)
+ * Where:
+ * - CONTAINER_ID is in the high 16 bits (0xXX0000)
+ * - FORMAT_ID is in the low 16 bits (0x00XX)
+ */
 enum class SoundFormat : int {
 	AIFF_ALAC_16 = ( 0x020000 | 0x0070 ),
 	AIFF_ALAC_20 = ( 0x020000 | 0x0071 ),
@@ -760,79 +773,243 @@ enum class SoundFormat : int {
 };
 
 DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(SoundFile)
+/**
+ * @class SoundFile
+ * @brief A class for handling sound file operations using libsndfile.
+ *
+ * This class provides an interface for reading and writing sound files,
+ * including metadata operations. It supports move semantics but is not copyable.
+ */
 class MH_EUPH_API SoundFile
 {
 public:
+	/// Unique pointer type for SNDFILE with custom deleter
 	typedef std::unique_ptr<SNDFILE, decltype(&sf_close)> SndfilePtr;
+
 private:
-	Elv::Io::uDevice fileDevice;
-	SndfilePtr sndfile;
-	SF_INFO info;
+	Elv::Io::uDevice fileDevice;  ///< Underlying file device
+	SndfilePtr sndfile;           ///< libsndfile handle with custom deleter
+	SF_INFO info;                 ///< libsndfile info structure
+
 	// No copy construction or assignment
 	SoundFile(const SoundFile& cpy) = delete;
 	SoundFile& operator=(const SoundFile& cpy) = delete;
+
 public:
-	// Move construction and assignment
+	/**
+	 * @brief Move constructor
+	 * @param mov Source SoundFile to move from
+	 */
 	SoundFile(SoundFile&& mov);
+
+	/**
+	 * @brief Move assignment operator
+	 * @param mov Source SoundFile to move from
+	 * @return Reference to this object
+	 */
 	SoundFile& operator=(SoundFile&& mov);
-	// Actual constructor and destructor
+
+	/**
+	 * @brief Destructor
+	 */
 	~SoundFile();
+
+	/**
+	 * @brief Constructor
+	 * @param fileDev File device to use
+	 * @param infoFill Optional SF_INFO structure to initialize with
+	 */
 	SoundFile(Elv::Io::uDevice&& fileDev, const SF_INFO* infoFill = nullptr);
-	// IO
-	FrameIndex seekSet( FrameCount frames ) const;
-	FrameIndex seekCur( FrameCount frames ) const;
-	FrameIndex seekEnd( FrameCount frames ) const;
-	SampleCount read( short *ptr, SampleCount samples ) const;
-	SampleCount read( int *ptr, SampleCount samples ) const;
-	SampleCount read( float *ptr, SampleCount samples ) const;
-	SampleCount read( double *ptr, SampleCount samples ) const;
-	FrameCount readf( short *ptr, FrameCount frames ) const;
-	FrameCount readf( int *ptr, FrameCount frames ) const;
-	FrameCount readf( float *ptr, FrameCount frames ) const;
-	FrameCount readf( double *ptr, FrameCount frames ) const;
-	SampleCount write( short *ptr, SampleCount samples ) const;
-	SampleCount write( int *ptr, SampleCount samples ) const;
-	SampleCount write( float *ptr, SampleCount samples ) const;
-	SampleCount write( double *ptr, SampleCount samples ) const;
-	FrameCount writef( short *ptr, FrameCount frames ) const;
-	FrameCount writef( int *ptr, FrameCount frames ) const;
-	FrameCount writef( float *ptr, FrameCount frames ) const;
-	FrameCount writef( double *ptr, FrameCount frames ) const;
-	long read_raw( void *ptr, long bytes ) const;
-	long write_raw( void *ptr, long bytes ) const;
-	void write_sync( ) const;
 
-	// Getters of non-text data
-	FrameCount getFrameNum( ) const;
-	FrameRate getFrameRate( ) const;
-	Audio::ChannelCount getChannels( ) const;
-	int getFormat( ) const;
-	int getSections( ) const;
-	int getSeekable( ) const;
+	// IO Operations
 
-	// Text getters
-	const char *getTitle( ) const;
-	const char *getCopyright( ) const;
-	const char *getSoftware( ) const;
-	const char *getArtist( ) const;
-	const char *getComment( ) const;
-	const char *getDate( ) const;
-	const char *getAlbum( ) const;
-	const char *getLicense( ) const;
-	const char *getTrackNumber( ) const;
-	const char *getGenre( ) const;
+	/**
+	 * @brief Seek to absolute position in file
+	 * @param frames Frame position to seek to
+	 * @return New position in frames
+	 */
+	FrameIndex seekSet(FrameCount frames) const;
 
-	// Text getters - C string
-	int setTitle( const char *str ) const;
-	int setCopyright( const char *str ) const;
-	int setSoftware( const char *str ) const;
-	int setArtist( const char *str ) const;
-	int setComment( const char *str ) const;
-	int setDate( const char *str ) const;
-	int getAlbum( const char *str ) const;
-	int setTrackNumber( const char *str ) const;
-	int setLicense( const char *str ) const;
-	int setGenre( const char *str ) const;
+	/**
+	 * @brief Seek relative to current position
+	 * @param frames Frames to seek from current position
+	 * @return New position in frames
+	 */
+	FrameIndex seekCur(FrameCount frames) const;
+
+	/**
+	 * @brief Seek relative to end of file
+	 * @param frames Frames to seek from end
+	 * @return New position in frames
+	 */
+	FrameIndex seekEnd(FrameCount frames) const;
+
+	// Read operations (sample-based)
+	SampleCount read(short *ptr, SampleCount samples) const;
+	SampleCount read(int *ptr, SampleCount samples) const;
+	SampleCount read(float *ptr, SampleCount samples) const;
+	SampleCount read(double *ptr, SampleCount samples) const;
+
+	// Read operations (frame-based)
+	FrameCount readf(short *ptr, FrameCount frames) const;
+	FrameCount readf(int *ptr, FrameCount frames) const;
+	FrameCount readf(float *ptr, FrameCount frames) const;
+	FrameCount readf(double *ptr, FrameCount frames) const;
+
+	// Write operations (sample-based)
+	SampleCount write(short *ptr, SampleCount samples) const;
+	SampleCount write(int *ptr, SampleCount samples) const;
+	SampleCount write(float *ptr, SampleCount samples) const;
+	SampleCount write(double *ptr, SampleCount samples) const;
+
+	// Write operations (frame-based)
+	FrameCount writef(short *ptr, FrameCount frames) const;
+	FrameCount writef(int *ptr, FrameCount frames) const;
+	FrameCount writef(float *ptr, FrameCount frames) const;
+	FrameCount writef(double *ptr, FrameCount frames) const;
+
+	/**
+	 * @brief Read raw bytes from file
+	 * @param ptr Buffer to read into
+	 * @param bytes Number of bytes to read
+	 * @return Number of bytes actually read
+	 */
+	long read_raw(void *ptr, long bytes) const;
+
+	/**
+	 * @brief Write raw bytes to file
+	 * @param ptr Buffer to write from
+	 * @param bytes Number of bytes to write
+	 * @return Number of bytes actually written
+	 */
+	long write_raw(void *ptr, long bytes) const;
+
+	/**
+	 * @brief Sync file updates to disk
+	 */
+	void write_sync() const;
+
+	// Getters for non-text data
+
+	/**
+	 * @brief Get total number of frames in file
+	 * @return Frame count
+	 */
+	FrameCount getFrameNum() const;
+
+	/**
+	 * @brief Get frame rate (sample rate)
+	 * @return Frame rate in Hz
+	 */
+	FrameRate getFrameRate() const;
+
+	/**
+	 * @brief Get number of audio channels
+	 * @return Channel count
+	 */
+	Audio::ChannelCount getChannels() const;
+
+	/**
+	 * @brief Get file format
+	 * @return Format code
+	 */
+	int getFormat() const;
+
+	/**
+	 * @brief Get number of sections in file
+	 * @return Section count
+	 */
+	int getSections() const;
+
+	/**
+	 * @brief Check if file is seekable
+	 * @return Non-zero if seekable, zero otherwise
+	 */
+	int getSeekable() const;
+
+	// Text metadata getters
+	const char *getTitle() const;
+	const char *getCopyright() const;
+	const char *getSoftware() const;
+	const char *getArtist() const;
+	const char *getComment() const;
+	const char *getDate() const;
+	const char *getAlbum() const;
+	const char *getLicense() const;
+	const char *getTrackNumber() const;
+	const char *getGenre() const;
+
+	// Text metadata setters
+
+	/**
+	 * @brief Set title metadata
+	 * @param str Title string
+	 * @return Non-zero on success
+	 */
+	int setTitle(const char *str) const;
+
+	/**
+	 * @brief Set copyright metadata
+	 * @param str Copyright string
+	 * @return Non-zero on success
+	 */
+	int setCopyright(const char *str) const;
+
+	/**
+	 * @brief Set software metadata
+	 * @param str Software string
+	 * @return Non-zero on success
+	 */
+	int setSoftware(const char *str) const;
+
+	/**
+	 * @brief Set artist metadata
+	 * @param str Artist string
+	 * @return Non-zero on success
+	 */
+	int setArtist(const char *str) const;
+
+	/**
+	 * @brief Set comment metadata
+	 * @param str Comment string
+	 * @return Non-zero on success
+	 */
+	int setComment(const char *str) const;
+
+	/**
+	 * @brief Set date metadata
+	 * @param str Date string
+	 * @return Non-zero on success
+	 */
+	int setDate(const char *str) const;
+
+	/**
+	 * @brief Set album metadata
+	 * @param str Album string
+	 * @return Non-zero on success
+	 */
+	int setAlbum(const char *str) const;
+
+	/**
+	 * @brief Set track number metadata
+	 * @param str Track number string
+	 * @return Non-zero on success
+	 */
+	int setTrackNumber(const char *str) const;
+
+	/**
+	 * @brief Set license metadata
+	 * @param str License string
+	 * @return Non-zero on success
+	 */
+	int setLicense(const char *str) const;
+
+	/**
+	 * @brief Set genre metadata
+	 * @param str Genre string
+	 * @return Non-zero on success
+	 */
+	int setGenre(const char *str) const;
 };
 
 }

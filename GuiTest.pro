@@ -57,6 +57,7 @@ HEADERS += \
 	Elvavena/Io/ElvIoDevice.hpp \
 	Elvavena/Io/ElvIoDeviceProxy.hpp \
 	Elvavena/Io/ElvIoSystem.hpp \
+    Elvavena/Io/ElvLEB128.hpp \
 	Elvavena/Util/ElvAlexandrescuResource.hpp \
 	Elvavena/Util/ElvAllocatorBasic.hpp \
 	Elvavena/Util/ElvBinaryTree.hpp \
