@@ -4,6 +4,8 @@
 #include <Elvavena/Util/ElvContainerBasic.hpp>
 #include <Elvavena/Util/ElvEndianness.hpp>
 #include <optional>
+#include <stdexcept>
+
 namespace Elv {
 namespace Io {
 
@@ -11,6 +13,15 @@ namespace Io {
 // Core Algorithms
 // ----------------------------------------------------------------------------
 
+/**
+ * @brief Reads an Unsigned Little Endian Base 128 (ULEB128) encoded value from the device.
+ *
+ * @tparam UInt The unsigned integer type to read into.
+ * @param dev The device to read from.
+ * @return The decoded unsigned integer value.
+ * @throws std::runtime_error If an unexpected EOF is encountered.
+ * @throws std::overflow_error If the decoded value exceeds the capacity of the target UInt type.
+ */
 template <typename UInt>
 UInt readULEB128(Device& dev) {
 	static_assert(std::is_unsigned_v<UInt>);
@@ -38,6 +49,15 @@ UInt readULEB128(Device& dev) {
 	return result;
 }
 
+/**
+ * @brief Reads a Signed Little Endian Base 128 (SLEB128) encoded value from the device.
+ *
+ * @tparam SInt The signed integer type to read into.
+ * @param dev The device to read from.
+ * @return The decoded signed integer value.
+ * @throws std::runtime_error If an unexpected EOF is encountered.
+ * @throws std::overflow_error If the decoded value exceeds the capacity of the target SInt type.
+ */
 template <typename SInt>
 SInt readSLEB128(Device& dev) {
 	static_assert(std::is_signed_v<SInt>);
@@ -71,8 +91,13 @@ SInt readSLEB128(Device& dev) {
 	return result;
 }
 
-// Write functions are generally safer, but your logic was good.
-// Just ensuring 'value' shifts logically.
+/**
+ * @brief Writes an unsigned integer value to the device using ULEB128 encoding.
+ *
+ * @tparam UInt The unsigned integer type to write.
+ * @param dev The device to write to.
+ * @param value The unsigned integer value to encode and write.
+ */
 template <typename UInt>
 void writeULEB128(Device& dev, UInt value) {
 	static_assert(std::is_unsigned_v<UInt>);
@@ -84,6 +109,13 @@ void writeULEB128(Device& dev, UInt value) {
 	} while (value != 0);
 }
 
+/**
+ * @brief Writes a signed integer value to the device using SLEB128 encoding.
+ *
+ * @tparam SInt The signed integer type to write.
+ * @param dev The device to write to.
+ * @param value The signed integer value to encode and write.
+ */
 template <typename SInt>
 void writeSLEB128(Device& dev, SInt value) {
 	static_assert(std::is_signed_v<SInt>);
@@ -109,17 +141,25 @@ void writeSLEB128(Device& dev, SInt value) {
 // Wrappers (Hold References!)
 // ----------------------------------------------------------------------------
 
-// Wrapper for Unsigned LEB128
+/**
+ * @brief A wrapper struct used to indicate that an unsigned integer should be processed as ULEB128.
+ *
+ * @tparam T The unsigned integer type.
+ */
 template <typename T>
 struct ULEB128 {
-	T& ref;
+	T& ref; ///< Reference to the underlying unsigned integer value.
 	explicit ULEB128(T& v) : ref(v) {}
 };
 
-// Wrapper for Signed LEB128
+/**
+ * @brief A wrapper struct used to indicate that a signed integer should be processed as SLEB128.
+ *
+ * @tparam T The signed integer type.
+ */
 template <typename T>
 struct SLEB128 {
-	T& ref;
+	T& ref; ///< Reference to the underlying signed integer value.
 	explicit SLEB128(T& v) : ref(v) {}
 };
 
@@ -127,6 +167,13 @@ struct SLEB128 {
 // Helper Functions (For syntax: stream >> Leb(var))
 // ----------------------------------------------------------------------------
 
+/**
+ * @brief Helper function to automatically wrap a variable for LEB128 processing based on its signedness.
+ *
+ * @tparam T The integer type to wrap.
+ * @param val Reference to the value to be wrapped.
+ * @return A ULEB128 wrapper if T is unsigned, or an SLEB128 wrapper if T is signed.
+ */
 template <typename T> auto Leb(T& val) {
 	if constexpr (std::is_signed_v<T>) return SLEB128<T>(val);
 	else return ULEB128<T>(val);
@@ -1219,43 +1266,80 @@ struct DataStream {
 	// Stream Operators
 	// ----------------------------------------------------------------------------
 
-	// Read ULEB
+	/**
+	 * @brief Operator to read an unsigned LEB128 encoded value from the stream.
+	 *
+	 * @tparam T The unsigned integer type.
+	 * @param wrapper ULEB128 wrapper containing a reference to the target variable.
+	 * @return Reference to the current DataStream instance.
+	 */
 	template <typename T> DataStream& operator>>(ULEB128<T> wrapper) {
 		wrapper.ref = readULEB128<T>(device);
 		return *this;
 	}
 
-	// Write ULEB
+	/**
+	 * @brief Operator to write an unsigned LEB128 encoded value to the stream.
+	 *
+	 * @tparam T The unsigned integer type.
+	 * @param wrapper ULEB128 wrapper containing a reference to the source variable.
+	 * @return Reference to the current DataStream instance.
+	 */
 	template <typename T> DataStream& operator<<(ULEB128<T> wrapper) {
 		writeULEB128<T>(device, wrapper.ref);
 		return *this;
 	}
 
-	// Read SLEB
+	/**
+	 * @brief Operator to read a signed LEB128 encoded value from the stream.
+	 *
+	 * @tparam T The signed integer type.
+	 * @param wrapper SLEB128 wrapper containing a reference to the target variable.
+	 * @return Reference to the current DataStream instance.
+	 */
 	template <typename T> DataStream& operator>>(SLEB128<T> wrapper) {
 		wrapper.ref = readSLEB128<T>(device);
 		return *this;
 	}
 
-	// Write SLEB
+	/**
+	 * @brief Operator to write a signed LEB128 encoded value to the stream.
+	 *
+	 * @tparam T The signed integer type.
+	 * @param wrapper SLEB128 wrapper containing a reference to the source variable.
+	 * @return Reference to the current DataStream instance.
+	 */
 	template <typename T> DataStream& operator<<(SLEB128<T> wrapper) {
 		writeSLEB128<T>(device, wrapper.ref);
 		return *this;
 	}
 
+	/**
+	 * @brief Convenience function to read a value of type T from the stream and return it.
+	 *
+	 * @tparam T The type of value to read.
+	 * @return The read value of type T.
+	 */
 	template <typename T> inline T read() {
 		 T data;
 		 *this >> data;
 		 return data;
 	};
 
+	/**
+	 * @brief Convenience function to read a LEB128 encoded value of type T from the stream and return it.
+	 *
+	 * Automatically handles signed/unsigned LEB128 decoding based on the type T.
+	 *
+	 * @tparam T The integer type to read.
+	 * @return The decoded value of type T.
+	 */
 	template <typename T> inline T readLEB128() {
 		 T data;
 		 *this >> Leb(data);
 		 return data;
 	};
 };
-
 
 }
 }
