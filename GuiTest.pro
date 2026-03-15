@@ -28,9 +28,11 @@ SOURCES += \
     Euphemy/Io/EuphConstBufferDevice.cpp \
 	Euphemy/Io/EuphCryptoProxyDevice.cpp \
 	Euphemy/Io/EuphFile.cpp \
+    Euphemy/Io/EuphMemoryDevice.cpp \
 	Euphemy/Io/EuphMemoryMapped.cpp \
 	Euphemy/Io/EuphNullDevice.cpp \
 	Euphemy/Io/EuphPlatformDependentFileBase.cpp \
+    Euphemy/Io/EuphPmrMemoryDevice.cpp \
 	Euphemy/Io/EuphRandomDevice.cpp \
 	Euphemy/Io/EuphSocket.cpp \
 	Euphemy/Io/EuphStdfileWrapper.cpp \
@@ -97,9 +99,11 @@ HEADERS += \
     Euphemy/Io/EuphConstBufferDevice.hpp \
 	Euphemy/Io/EuphCryptoProxyDevice.hpp \
 	Euphemy/Io/EuphFile.hpp \
+    Euphemy/Io/EuphMemoryDevice.hpp \
 	Euphemy/Io/EuphMemoryMapped.hpp \
 	Euphemy/Io/EuphNullDevice.hpp \
 	Euphemy/Io/EuphPlatformDependentFileBase.hpp \
+    Euphemy/Io/EuphPmrMemoryDevice.hpp \
 	Euphemy/Io/EuphRandomDevice.hpp \
 	Euphemy/Io/EuphSocket.hpp \
 	Euphemy/Io/EuphStdfileWrapper.hpp \

@@ -12,7 +12,7 @@ size_t ConstBufferDevice::read(void* buffer, size_t size, size_t count)
 {
 	const size_t toCpy = std::min(size*count,buff.size() - ptr);
 	memcpy(buffer,buff.data(),toCpy);
-	return toCpy;
+	return toCpy / size;
 }
 
 size_t ConstBufferDevice::write(const void* buffer, size_t size, size_t count)
