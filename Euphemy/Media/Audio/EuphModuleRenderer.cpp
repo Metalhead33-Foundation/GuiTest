@@ -81,7 +81,7 @@ bool ModuleRenderer::isRepeating() const
 
 double ModuleRenderer::getDuration() const
 {
-	openmpt_module_get_duration_seconds(module.get());
+	return openmpt_module_get_duration_seconds(module.get());
 }
 
 double ModuleRenderer::setPosition(double seconds)

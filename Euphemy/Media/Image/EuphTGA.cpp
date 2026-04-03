@@ -359,6 +359,7 @@ void decode(Elv::Io::Device& iodev, DecodeTarget& destination) {
 				auto& palette = destination.createPalette(palFormat, head.colorMapSpecification.colorMapLength, 0);
 				palette.data = std::move(head.colorMap);
 			}
+			break;
 		}
 		default: destination.setFormat(Format::INVALID); return;
 	}

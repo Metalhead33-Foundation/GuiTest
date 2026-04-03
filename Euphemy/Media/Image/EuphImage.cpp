@@ -137,6 +137,7 @@ void IReadOnlyImage2D::sample(const glm::fvec2& pos, const glm::uvec2& screenpos
 		{
 			colourKernel += colours[i];
 		}
+		break;
 	}
 	case TextureFiltering::THREE_POINT: {
 		const glm::fvec2 tmp = glm::fvec2(pos.x * getWidthF(),pos.y * getHeightF() );
