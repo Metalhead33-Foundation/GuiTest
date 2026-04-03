@@ -77,7 +77,7 @@ private:
 	template <typename... Args> static T* create(Args&&... args) {
 		Alloc allocator;
 		T* toReturn = allocator.allocate(1);
-		std::construct_at(toReturn, std::forward(args)...);
+		std::construct_at(toReturn, std::forward<Args>(args)...);
 		return toReturn;
 	}
 
@@ -90,7 +90,7 @@ private:
 	 */
 	template <typename... Args> static T* createWithAllocator(Alloc& allocator, Args&&... args) {
 		T* toReturn = allocator.allocate(1);
-		std::construct_at(toReturn, std::forward(args)...);
+		std::construct_at(toReturn, std::forward<Args>(args)...);
 		return toReturn;
 	}
 
@@ -110,7 +110,7 @@ public:
 	 * @return unique_ptr to the newly created T object.
 	 */
 	template <typename... Args> static unique_ptr make_unique(Alloc& allocator, Args&&... args) {
-		return unique_ptr(createWithAllocator(allocator, std::forward(args)...), Deleter{ &allocator });
+		return unique_ptr(createWithAllocator(allocator, std::forward<Args>(args)...), Deleter{ &allocator });
 	}
 
 	/**
@@ -120,7 +120,7 @@ public:
 	 * @return unique_ptr to the newly created T object.
 	 */
 	template <typename... Args> static unique_ptr make_unique(Args&&... args) {
-		return unique_ptr(create(std::forward(args)...), Deleter { nullptr });
+		return unique_ptr(create(std::forward<Args>(args)...), Deleter { nullptr });
 	}
 
 	/**
@@ -131,7 +131,7 @@ public:
 	 * @return shared_ptr to the newly created T object.
 	 */
 	template <typename... Args> static shared_ptr make_shared(Alloc& allocator, Args&&... args) {
-		return shared_ptr(createWithAllocator(allocator, std::forward(args)...), Deleter{ &allocator });
+		return shared_ptr(createWithAllocator(allocator, std::forward<Args>(args)...), Deleter{ &allocator });
 	}
 
 	/**
@@ -141,7 +141,7 @@ public:
 	 * @return shared_ptr to the newly created T object.
 	 */
 	template <typename... Args> static shared_ptr make_shared(Args&&... args) {
-		return shared_ptr(create(std::forward(args)...), Deleter { nullptr });
+		return shared_ptr(create(std::forward<Args>(args)...), Deleter { nullptr });
 	}
 };
 
@@ -151,7 +151,7 @@ public:
  */
 template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
 SmartPointerWrappersForAlloc<T, Alloc>::unique_ptr make_unique(Alloc & allocator, Args&&... args) {
-	return SmartPointerWrappersForAlloc<T, Alloc>::make_unique(allocator, std::forward(args)...);
+	return SmartPointerWrappersForAlloc<T, Alloc>::make_unique(allocator, std::forward<Args>(args)...);
 }
 
 /**
@@ -160,7 +160,7 @@ SmartPointerWrappersForAlloc<T, Alloc>::unique_ptr make_unique(Alloc & allocator
  */
 template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
 SmartPointerWrappersForAlloc<T, Alloc>::unique_ptr make_unique(Args&&... args) {
-	return SmartPointerWrappersForAlloc<T, Alloc>::make_unique(std::forward(args)...);
+	return SmartPointerWrappersForAlloc<T, Alloc>::make_unique(std::forward<Args>(args)...);
 }
 
 /**
@@ -169,7 +169,7 @@ SmartPointerWrappersForAlloc<T, Alloc>::unique_ptr make_unique(Args&&... args) {
  */
 template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
 SmartPointerWrappersForAlloc<T, Alloc>::shared_ptr make_shared(Alloc & allocator, Args&&... args) {
-	return SmartPointerWrappersForAlloc<T, Alloc>::make_shared(allocator, std::forward(args)...);
+	return SmartPointerWrappersForAlloc<T, Alloc>::make_shared(allocator, std::forward<Args>(args)...);
 }
 
 /**
@@ -178,7 +178,7 @@ SmartPointerWrappersForAlloc<T, Alloc>::shared_ptr make_shared(Alloc & allocator
  */
 template <typename T, typename Alloc = std::allocator<T>, typename... Args> requires Allocator<Alloc, T>
 SmartPointerWrappersForAlloc<T, Alloc>::shared_ptr make_shared(Args&&... args) {
-	return SmartPointerWrappersForAlloc<T, Alloc>::make_shared(std::forward(args)...);
+	return SmartPointerWrappersForAlloc<T, Alloc>::make_shared(std::forward<Args>(args)...);
 }
 
 typedef std::function<void(void*)> GenericDeleter;
@@ -328,7 +328,7 @@ template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> stru
 		return *this;
 	}
 	template <typename... Args> AlexandrescuAllocatorAdapter(Args&&... args)
-		: alloc_(std::forward(args)...)
+		: alloc_(std::forward<Args>(args)...)
 	{
 
 	}

@@ -16,7 +16,7 @@ DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(BufferedDeviceProxy)
  * @note This class is not meant to be used directly. Use derived classes such as BufferedReadDeviceProxy
  *	   and BufferedWriteDeviceProxy instead.
  */
-class BufferedDeviceProxy : public Device {
+class MH_UTIL_API BufferedDeviceProxy : public Device {
 private:
 	/**
 	 * @brief Deleted copy constructor.
@@ -155,7 +155,7 @@ DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(BufferedWriteDeviceProxy)
  * device. This class is particularly useful for optimizing write operations and adding custom data
  * transformations during the write process.
  */
-class BufferedWriteDeviceProxy : public BufferedDeviceProxy {
+class MH_UTIL_API BufferedWriteDeviceProxy : public BufferedDeviceProxy {
 private:
 	/**
 	 * @brief Deleted copy constructor.
@@ -300,7 +300,7 @@ DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(BufferedReadDeviceProxy)
  * device. This class is useful for optimizing read operations and adding custom data transformations
  * during the read process.
  */
-class BufferedReadDeviceProxy : public BufferedDeviceProxy {
+class MH_UTIL_API BufferedReadDeviceProxy : public BufferedDeviceProxy {
 private:
 	/**
 	 * @brief Deleted copy constructor.

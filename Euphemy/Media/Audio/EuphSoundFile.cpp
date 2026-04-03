@@ -313,7 +313,7 @@ int SoundFile::setDate(const char* str) const
 	return sf_set_string(sndfile.get() , SF_STR_DATE, str );
 }
 
-int SoundFile::getAlbum(const char* str) const
+int SoundFile::setAlbum(const char* str) const
 {
 	return sf_set_string(sndfile.get() , SF_STR_ALBUM, str );
 }
