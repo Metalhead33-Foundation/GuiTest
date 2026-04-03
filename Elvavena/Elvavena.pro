@@ -43,6 +43,7 @@ HEADERS += \
     Util/ElvObserv.hpp \
     Util/ElvSpanHelpers.hpp \
     Util/ElvStackAllocator.hpp \
+    Util/ElvStringhashMap.hpp \
     Util/ElvThreadsafeContainer.hpp \
     Util/ElvThreadsafeQueue.hpp \
     Util/ElvUtilGlobals.hpp \
