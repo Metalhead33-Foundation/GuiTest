@@ -1,6 +1,7 @@
 #include "EuphJPEG.hpp"
 #include <turbojpeg.h>
 #include <memory>
+#include <algorithm>
 namespace Euph {
 namespace Media {
 namespace Image {

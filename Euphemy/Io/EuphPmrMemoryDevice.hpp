@@ -5,13 +5,14 @@
 #include <cstring>
 #include <algorithm>
 #include <Elvavena/Io/ElvIoDevice.hpp>
+#include <Euphemy/Config/EuphLib.hpp>
 namespace Euph {
 namespace Io {
 
 /**
  * @brief In-memory implementation of Device using a polymorphic memory resource vector.
  */
-class PmrMemoryDevice : public Elv::Io::Device {
+class MH_EUPH_API PmrMemoryDevice : public Elv::Io::Device {
 private:
 	std::pmr::vector<std::byte> m_data;
 	size_t m_position;

@@ -18,6 +18,7 @@ Device& Device::operator=(Device&& mov)
 	this->handle = mov.handle;
 	this->mode = mov.mode;
 	mov.handle = nullptr;
+	return *this;
 }
 
 Device::Device(const char* path, Elv::Io::Mode mode, int bufferSize)
@@ -69,6 +70,7 @@ int Device::seek(long offset, Elv::Io::SeekOrigin whence)
 	case Elv::Io::SeekOrigin::SET:
 		return !PHYSFS_seek(static_cast<PHYSFS_File*>(handle),offset);
 	}
+	return 0;
 }
 
 long Device::tell()
@@ -140,7 +142,7 @@ void System::enumerateCdDrives(FilenameCallback functor)
 const char* System::getBaseDir()
 {
 	assert(PHYSFS_isInit());
-	PHYSFS_getBaseDir();
+	return PHYSFS_getBaseDir();
 }
 
 const char* System::getPrefDir(const char* org, const char* app)
@@ -170,7 +172,7 @@ Elv::Io::uDevice System::openUnique(const char* path, Elv::Io::Mode mode, std::p
 Elv::Io::sDevice System::openShared(const char* path, Elv::Io::Mode mode, std::pmr::memory_resource* memRes)
 {
 	assert(PHYSFS_isInit());
-	return Elv::Util::make_shared<Device>(memRes, path, mode);
+	return Elv::Util::pmr_make_shared<Device>(memRes, path, mode);
 }
 
 Elv::Io::Device* System::open(const char* path, Elv::Io::Mode mode)

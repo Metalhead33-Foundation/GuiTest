@@ -2,6 +2,7 @@
 #define EUPHCONSTBUFFERDEVICE_H
 #include <span>
 #include <Elvavena/Io/ElvIoDevice.hpp>
+#include <Euphemy/Config/EuphLib.hpp>
 namespace Euph {
 namespace Io {
 
@@ -11,7 +12,7 @@ namespace Io {
  * or constant memory span as a seekable file-like stream. Since it wraps
  * `const std::byte`, write operations are not supported.
  */
-class ConstBufferDevice : public Elv::Io::Device
+class MH_EUPH_API ConstBufferDevice : public Elv::Io::Device
 {
 private:
 	/** @brief The underlying memory span being read. */
