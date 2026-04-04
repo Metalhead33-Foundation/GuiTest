@@ -6,3 +6,6 @@ CONFIG -= qt
 # Avoid build errors with no files:
 SOURCES += 
 HEADERS +=
+
+DISTFILES += \
+    Lotte.pri

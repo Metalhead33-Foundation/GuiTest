@@ -85,3 +85,6 @@ HEADERS += \
  Media/Image/EuphTGA.hpp \
  Media/Image/EuphWEBP.hpp \
  Memory/EuphMemory.hpp
+
+DISTFILES += \
+    Euphemy.pri

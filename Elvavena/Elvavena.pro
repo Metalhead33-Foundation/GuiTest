@@ -48,3 +48,6 @@ HEADERS += \
     Util/ElvThreadsafeQueue.hpp \
     Util/ElvUtilGlobals.hpp \
     Util/half.hpp
+
+DISTFILES += \
+    Elvavena.pri
