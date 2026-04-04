@@ -8,4 +8,5 @@ SOURCES +=
 HEADERS +=
 
 DISTFILES += \
-    Lotte.pri
+    Lotte.pri \
+    README.md

@@ -50,4 +50,5 @@ HEADERS += \
     Util/half.hpp
 
 DISTFILES += \
-    Elvavena.pri
+    Elvavena.pri \
+    README.md

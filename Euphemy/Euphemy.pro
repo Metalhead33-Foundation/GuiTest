@@ -87,4 +87,5 @@ HEADERS += \
  Memory/EuphMemory.hpp
 
 DISTFILES += \
-    Euphemy.pri
+    Euphemy.pri \
+    README.md

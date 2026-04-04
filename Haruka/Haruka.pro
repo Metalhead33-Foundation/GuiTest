@@ -8,4 +8,5 @@ SOURCES +=
 HEADERS +=
 
 DISTFILES += \
-    Haruka.pri
+    Haruka.pri \
+    README.md
