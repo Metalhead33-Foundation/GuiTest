@@ -1,15 +1,11 @@
 TEMPLATE = lib
-TARGET = Lotte 
+TARGET = KaldiVK 
 CONFIG += shared c++2a
 CONFIG -= qt
-
-LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
-LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
 
 # Avoid build errors with no files:
 SOURCES += 
 HEADERS +=
 
 DISTFILES += \
-    Lotte.pri \
     README.md
