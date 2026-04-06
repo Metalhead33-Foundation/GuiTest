@@ -3,7 +3,7 @@ TARGET = Euphemy
 CONFIG += shared c++2a
 CONFIG -= qt
 
-DEFINES += MH_EUPH_EXPORT WINSYS_X DESKTOP_GL
+DEFINES += MH_EUPH_EXPORT
 
 # External Dependencies (moved from your original file)
 LIBS += -lmozjs-115 -lX11 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 \

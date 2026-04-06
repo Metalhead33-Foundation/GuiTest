@@ -19,7 +19,7 @@
 #define STRINGIFY(s) #s
 #define CONCAT(a,b) a b
 
-/*#ifdef _WIN32
+#ifdef _WIN32
 #define MH33_API_EXPORT __declspec(dllexport)
 #define MH33_API_IMPORT __declspec(dllimport)
 #elif __unix
@@ -28,9 +28,7 @@
 #else
 #define MH33_API_EXPORT
 #define MH33_API_IMPORT
-#endif*/
-#define MH33_API_EXPORT
-#define MH33_API_IMPORT
+#endif
 
 #if defined(MH_UTIL_EXPORT)
 #define MH_UTIL_API MH33_API_EXPORT

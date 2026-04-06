@@ -1,18 +1,17 @@
-TEMPLATE = aux
-CONFIG += interface c++2a no_link
+TEMPLATE = lib
+CONFIG += shared c++2a
 TARGET = Kaldi 
 CONFIG -= qt
 
-# Prevent the creation of any actual library files
-# This makes the 'install' and 'build' steps do nothing for the binary
-LIBS = 
-DESTDIR =
+DEFINES += MH_KALDI_EXPORT
 
 include(Kaldi.pri)
 
 # Avoid build errors with no files:
 HEADERS += \
+    KaldiLib.hpp \
     KaldiOperation.hpp \
+    KldDevice.hpp \
     KldVertexFormat.hpp
 
 DISTFILES += \
