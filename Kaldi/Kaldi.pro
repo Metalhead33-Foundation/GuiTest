@@ -17,3 +17,6 @@ HEADERS += \
 DISTFILES += \
     Kaldi.pri \
     README.md
+
+SOURCES += \
+    KldDevice.cpp

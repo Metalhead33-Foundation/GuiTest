@@ -1,5 +1,6 @@
 #ifndef KLDDEVICE_HPP
 #define KLDDEVICE_HPP
+#include <Kaldi/KaldiLib.hpp>
 #include <Kaldi/KaldiOperation.hpp>
 #include <future>
 #include <vector>
@@ -7,17 +8,15 @@
 
 namespace Kld {
 
-class Device {
+class MH_KALDI_API Device {
 protected:
-	// Uh-oh... I intended Kaldi to be a header-only library.
-	// Is this still kosher?
 	std::vector<GfxOp> commandQueue;
 	mutable std::mutex mutex;
+	virtual void processCommandQeue() = 0;
 public:
 	virtual ~Device() = default;
-	virtual void processCommandQeue() = 0;
-	// So, uhhh... do we add a strictly non-virtual std::promise<uint64_t> createTexture(const OpCreateTexture2D& descriptor)?
-	// That conflicts with the idea of a header-only library.
+	void flushCommandQueue();
+	void pushCommand(const GfxOp& op);
 };
 
 }
