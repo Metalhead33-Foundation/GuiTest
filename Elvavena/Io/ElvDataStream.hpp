@@ -5,7 +5,7 @@
 #include <Elvavena/Util/ElvEndianness.hpp>
 #include <optional>
 #include <stdexcept>
-
+#include <variant>
 namespace Elv {
 namespace Io {
 
@@ -22,8 +22,8 @@ namespace Io {
  * @throws std::runtime_error If an unexpected EOF is encountered.
  * @throws std::overflow_error If the decoded value exceeds the capacity of the target UInt type.
  */
-template <typename UInt>
-UInt readULEB128(Device& dev) {
+template <typename UInt, DeviceLike IODev = Device>
+UInt readULEB128(IODev& dev) {
 	static_assert(std::is_unsigned_v<UInt>);
 	UInt result = 0;
 	unsigned shift = 0;
@@ -58,8 +58,8 @@ UInt readULEB128(Device& dev) {
  * @throws std::runtime_error If an unexpected EOF is encountered.
  * @throws std::overflow_error If the decoded value exceeds the capacity of the target SInt type.
  */
-template <typename SInt>
-SInt readSLEB128(Device& dev) {
+template <typename SInt, DeviceLike IODev = Device>
+SInt readSLEB128(IODev& dev) {
 	static_assert(std::is_signed_v<SInt>);
 	SInt result = 0;
 	unsigned shift = 0;
@@ -98,8 +98,8 @@ SInt readSLEB128(Device& dev) {
  * @param dev The device to write to.
  * @param value The unsigned integer value to encode and write.
  */
-template <typename UInt>
-void writeULEB128(Device& dev, UInt value) {
+template <typename UInt, DeviceLike IODev = Device>
+void writeULEB128(IODev& dev, UInt value) {
 	static_assert(std::is_unsigned_v<UInt>);
 	do {
 		std::uint8_t byte = value & 0x7F;
@@ -116,8 +116,8 @@ void writeULEB128(Device& dev, UInt value) {
  * @param dev The device to write to.
  * @param value The signed integer value to encode and write.
  */
-template <typename SInt>
-void writeSLEB128(Device& dev, SInt value) {
+template <typename SInt, DeviceLike IODev = Device>
+void writeSLEB128(IODev& dev, SInt value) {
 	static_assert(std::is_signed_v<SInt>);
 	bool more = true;
 	while (more) {
@@ -186,11 +186,12 @@ template <typename T> auto Leb(T& val) {
  * It supports various data types and standard library containers, automatically handling endianness conversion where necessary.
  *
  * @tparam io_endianness The endianness to use for data streaming. Defaults to Util::Endian::Big.
+ * @tparam IoType The type of device to use - so we can avoid runtime polymorphism when it's not strictly necessary. Defaults to Elv::Io::Device.
  */
-template <Util::Endian io_endianness = Util::Endian::Big>
+template <Util::Endian io_endianness = Util::Endian::Big, DeviceLike IoType = Device>
 struct DataStream {
 	/// @brief Reference to the device used for reading and writing data.
-	Device& device;
+	IoType& device;
 
 	/**
 	 * @brief Constructor for DataStream.
@@ -199,7 +200,33 @@ struct DataStream {
 	 *
 	 * @param ndevice Reference to the device to be used for data streaming.
 	 */
-	DataStream(Device& ndevice) : device(ndevice) {
+	DataStream(IoType& ndevice) : device(ndevice) {
+	}
+
+	/**
+	 * @brief Operator to write a monostate to the stream.
+	 *
+	 * This operator does nothing since monostate has no data.
+	 *
+	 * @param ptr monostate to be written (ignored).
+	 * @return Reference to the current DataStream instance.
+	 */
+	inline DataStream& operator<<(std::monostate ptr) {
+		(void)ptr;
+		return *this;
+	}
+
+	/**
+	 * @brief Operator to read a monostate from the stream.
+	 *
+	 * This operator does nothing since monostate has no data.
+	 *
+	 * @param ptr monostate to be read (ignored).
+	 * @return Reference to the current DataStream instance.
+	 */
+	inline DataStream& operator>>(std::monostate& ptr) {
+		(void)ptr;
+		return *this;
 	}
 
 	/**
@@ -1411,7 +1438,7 @@ struct DataStream {
 	 * @return Reference to the current DataStream instance.
 	 */
 	template <typename T> inline DataStream& writeLEB128_enum(T output) {
-		 std::underlying_type_t<T> data = static_cast<std::underlying_type_t<T>>(data);
+		 std::underlying_type_t<T> data = static_cast<std::underlying_type_t<T>>(output);
 		 return *this << Leb(data);
 	};
 };

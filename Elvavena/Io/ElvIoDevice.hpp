@@ -83,6 +83,63 @@ enum class Mode : uint8_t {
 	READ_APPEND = (READ | APPEND)
 };
 
+/**
+ * @brief Defines the requirements for a device-like object.
+ * * The DeviceLike concept specifies an interface for types that perform
+ * I/O operations, such as file streams, hardware peripherals, or memory buffers.
+ * * @tparam T The type to be validated against the concept.
+ */
+template <typename T>
+concept DeviceLike = requires(T dev, void* buf, const void* cbuf, size_t sz, size_t cnt, long off, SeekOrigin origin) {
+	/**
+	 * @brief Reads data from the device.
+	 * @return Number of elements successfully read.
+	 */
+	{ dev.read(buf, sz, cnt)    } -> std::convertible_to<size_t>;
+
+	/**
+	 * @brief Writes data to the device.
+	 * @return Number of elements successfully written.
+	 */
+	{ dev.write(cbuf, sz, cnt)  } -> std::convertible_to<size_t>;
+
+	/**
+	 * @brief Sets the position of the next I/O operation.
+	 * @return 0 on success, non-zero on failure.
+	 */
+	{ dev.seek(off, origin)     } -> std::convertible_to<int>;
+
+	/**
+	 * @brief Reports the current position of the I/O cursor.
+	 * @return The current offset in bytes.
+	 */
+	{ dev.tell()                } -> std::convertible_to<long>;
+
+	/**
+	 * @brief Retrieves the total size of the device content.
+	 * @return Total size in bytes.
+	 */
+	{ dev.size()                } -> std::convertible_to<size_t>;
+
+	/**
+	 * @brief Checks if the end-of-file/device has been reached.
+	 * @return True if EOF reached, false otherwise.
+	 */
+	{ dev.eof()                 } -> std::convertible_to<bool>;
+
+	/**
+	 * @brief Flushes any buffered data to the physical device.
+	 * @return True if successful, false otherwise.
+	 */
+	{ dev.flush()               } -> std::convertible_to<bool>;
+
+	/**
+	 * @brief Validates the current state of the device handle.
+	 * @return True if the device is open and ready for use.
+	 */
+	{ dev.isValid()             } -> std::convertible_to<bool>;
+};
+
 DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Device)
 /**
  * @brief Abstract base class for file-like devices.
@@ -329,6 +386,7 @@ class Device {
 		return sstrm.str();
 	}
 };
+static_assert(DeviceLike<Device>, "Device must satisfy DeviceLike");
 
 }
 }
