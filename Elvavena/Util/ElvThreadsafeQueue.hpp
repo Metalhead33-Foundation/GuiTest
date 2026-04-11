@@ -1,311 +1,512 @@
 #ifndef ELVTHREADSAFEQUEUE_HPP
 #define ELVTHREADSAFEQUEUE_HPP
+
+#include <chrono>
+#include <concepts>
+#include <condition_variable>
 #include <deque>
 #include <mutex>
-#include <functional>
-#include <condition_variable>
+#include <optional>
+#include <stdexcept>
+#include <type_traits>
+#include <utility>
+
 namespace Elv {
 namespace Util {
+
 /**
  * @class ThreadsafeQueue
- * @brief A thread-safe queue implementation using a std::deque and mutexes.
+ * @brief A blocking, thread-safe FIFO/LIFO queue built on top of `std::deque`.
  *
- * @tparam T The type of elements stored in the queue.
- * @tparam Allocator The allocator type for the underlying deque (default: std::allocator<T>).
+ * @tparam T Element type stored in the queue.
+ * @tparam Allocator Allocator type used by the underlying `std::deque`.
+ *
+ * @note All operations internally synchronize on a single mutex.
+ * @note Waiting APIs use a condition variable with predicates (spurious wakeups safe).
+ * @note Accessors (`front`, `back`) return values, not references, to avoid lifetime races.
  */
-template<class T, class Allocator = std::allocator<T>>
+template <class T, class Allocator = std::allocator<T>>
 class ThreadsafeQueue {
 public:
-	/**
-	 * @name Type Aliases
-	 * @{
-	 */
-	/// Reference to an element of type T
-	typedef T& ref;
-	/// Constant reference to an element of type T
-	typedef const T& const_ref;
-	/// Rvalue reference to an element of type T
-	typedef T&& mov_ref;
-	/// Type of the underlying queue (std::deque with specified Allocator)
-	typedef std::deque<T, Allocator> Queue;
-	/// Function type for modifying the queue
-	typedef std::function<void(Queue&)> QueueOperator;
-	/// Function type for accessing the queue (const)
-	typedef std::function<void(const Queue&)> QueueConstOperator;
-	/// Mutex type for synchronization
-	typedef std::mutex Mutex;
-	/// Lock guard type for exclusive access
-	typedef std::lock_guard<Mutex> Lock;
-	/// Unique lock type for conditional access
-	typedef std::unique_lock<Mutex> UniqueLock;
-	/// @}
+	/// Reference type for `T`.
+	using ref = T&;
+	/// Const reference type for `T`.
+	using const_ref = const T&;
+	/// Rvalue reference type for `T`.
+	using mov_ref = T&&;
+	/// Underlying queue type.
+	using Queue = std::deque<T, Allocator>;
+	/// Internal mutex type.
+	using Mutex = std::mutex;
+	/// Internal lock guard type.
+	using Lock = std::lock_guard<Mutex>;
+	/// Internal unique lock type.
+	using UniqueLock = std::unique_lock<Mutex>;
 
-protected:
-	/// The underlying queue storing elements of type T
+private:
 	Queue queue;
-	/// Mutex for protecting queue access
 	mutable Mutex mutex;
-	/// Mutex for blocking operations (e.g., wait)
-	mutable Mutex blocker;
-	/// Condition variable for signaling blocking operations
 	mutable std::condition_variable cvBlock;
 
+	/**
+	 * @brief Throws `std::out_of_range` if the queue is empty.
+	 * @param functionName Text used in the exception message.
+	 * @throws std::out_of_range If queue has no elements.
+	 */
+	void throwIfEmpty(const char* functionName) const {
+		if(queue.empty()) {
+			throw std::out_of_range(functionName);
+		}
+	}
+
 public:
-	/**
-	 * @name Constructors
-	 * @{
-	 */
-	/**
-	 * Default constructor.
-	 */
-	ThreadsafeQueue() {}
+	/** @brief Constructs an empty queue. */
+	ThreadsafeQueue() = default;
 
 	/**
-	 * Copy constructor.
-	 * @param cpy The ThreadsafeQueue instance to copy from.
+	 * @brief Copy-constructs from another queue.
+	 * @param cpy Source queue.
+	 *
+	 * @note Locks the source queue mutex during the copy.
 	 */
 	ThreadsafeQueue(const ThreadsafeQueue& cpy) {
-		this->queue = cpy.queue;
+		Lock lock(cpy.mutex);
+		queue = cpy.queue;
 	}
 
 	/**
-	 * Move constructor.
-	 * @param mov The ThreadsafeQueue instance to move from.
+	 * @brief Move-constructs from another queue.
+	 * @param mov Source queue.
+	 *
+	 * @note Locks the source queue mutex during the move.
 	 */
-	ThreadsafeQueue(ThreadsafeQueue&& mov) {
-		this->queue = std::move(mov.queue);
+	ThreadsafeQueue(ThreadsafeQueue&& mov) noexcept {
+		Lock lock(mov.mutex);
+		queue = std::move(mov.queue);
 	}
 
 	/**
-	 * Constructor from a const Queue reference.
-	 * @param cpy The Queue instance to copy from.
+	 * @brief Constructs from an existing `Queue` copy.
+	 * @param cpy Source container.
 	 */
-	ThreadsafeQueue(const Queue& cpy) {
-		this->queue = cpy;
+	explicit ThreadsafeQueue(const Queue& cpy) : queue(cpy) {}
+
+	/**
+	 * @brief Constructs from an existing `Queue` by move.
+	 * @param mov Source container.
+	 */
+	explicit ThreadsafeQueue(Queue&& mov) : queue(std::move(mov)) {}
+
+	/**
+	 * @brief Copy-assigns from another queue.
+	 * @param cpy Source queue.
+	 * @return `*this`.
+	 *
+	 * @note Uses a scoped lock over both queue mutexes.
+	 */
+	ThreadsafeQueue& operator=(const ThreadsafeQueue& cpy) {
+		if(this == &cpy) return *this;
+		std::scoped_lock lock(mutex, cpy.mutex);
+		queue = cpy.queue;
+		return *this;
 	}
 
 	/**
-	 * Constructor from a Queue rvalue reference.
-	 * @param mov The Queue instance to move from.
+	 * @brief Move-assigns from another queue.
+	 * @param mov Source queue.
+	 * @return `*this`.
+	 *
+	 * @note Uses a scoped lock over both queue mutexes.
 	 */
-	ThreadsafeQueue(Queue&& mov) {
-		this->queue = std::move(mov);
+	ThreadsafeQueue& operator=(ThreadsafeQueue&& mov) noexcept {
+		if(this == &mov) return *this;
+		std::scoped_lock lock(mutex, mov.mutex);
+		queue = std::move(mov.queue);
+		return *this;
 	}
 
-	/**
-	 * Destructor (default implementation).
-	 */
+	/** @brief Destructor. */
 	~ThreadsafeQueue() = default;
-	/// @}
 
 	/**
-	 * @name Queue Operations
-	 * @{
+	 * @brief Executes a callable while holding the queue lock (mutable access).
+	 * @tparam F Callable type.
+	 * @param function Callable invoked as `function(Queue&)`.
+	 * @return Whatever `function` returns.
 	 */
-	/**
-	 * Execute a modifying function on the queue while locked.
-	 * @param function The QueueOperator to apply to the queue.
-	 */
-	void operate(QueueOperator function) {
+	template <typename F>
+	requires std::invocable<F&, Queue&>
+	decltype(auto) operate(F&& function) {
 		Lock lock(mutex);
-		function(queue);
+		return std::forward<F>(function)(queue);
 	}
 
 	/**
-	 * Execute a non-modifying function on the queue while locked (const).
-	 * @param function The QueueConstOperator to apply to the queue.
+	 * @brief Executes a callable while holding the queue lock (const access).
+	 * @tparam F Callable type.
+	 * @param function Callable invoked as `function(const Queue&)`.
+	 * @return Whatever `function` returns.
 	 */
-	void operate(QueueConstOperator function) const {
+	template <typename F>
+	requires std::invocable<F&, const Queue&>
+	decltype(auto) operate(F&& function) const {
 		Lock lock(mutex);
-		function(queue);
+		return std::forward<F>(function)(queue);
 	}
 
 	/**
-	 * Get the number of elements in the queue.
-	 * @return The size of the queue.
+	 * @brief Returns number of elements currently stored.
+	 * @return Queue size.
 	 */
-	size_t size() const {
+	[[nodiscard]] size_t size() const {
 		Lock lock(mutex);
 		return queue.size();
 	}
 
-	/**
-	 * Clear all elements from the queue.
-	 */
+	/** @brief Removes all elements. */
 	void clear() {
 		Lock lock(mutex);
 		queue.clear();
 	}
 
 	/**
-	 * Check if the queue is empty.
-	 * @return True if the queue is empty, false otherwise.
+	 * @brief Checks whether the queue is empty.
+	 * @return `true` if empty, otherwise `false`.
 	 */
-	bool empty() const {
+	[[nodiscard]] bool empty() const {
 		Lock lock(mutex);
 		return queue.empty();
 	}
 
 	/**
-	 * Block until the queue is non-empty.
+	 * @brief Blocks until the queue becomes non-empty.
 	 */
 	void wait() {
-		while(empty()) {
-			UniqueLock lock(blocker);
-			cvBlock.wait(lock);
+		UniqueLock lock(mutex);
+		cvBlock.wait(lock, [this] { return !queue.empty(); });
+	}
+
+	/**
+	 * @brief Waits until non-empty or timeout.
+	 * @tparam Rep Duration representation type.
+	 * @tparam Period Duration period type.
+	 * @param timeout Max duration to wait.
+	 * @return `true` if the queue became non-empty, `false` on timeout.
+	 */
+	template <class Rep, class Period>
+	[[nodiscard]] bool wait_for(const std::chrono::duration<Rep, Period>& timeout) {
+		UniqueLock lock(mutex);
+		return cvBlock.wait_for(lock, timeout, [this] { return !queue.empty(); });
+	}
+
+	/**
+	 * @brief Returns a copy of the last element.
+	 * @return Last element.
+	 * @throws std::out_of_range If queue is empty.
+	 */
+	[[nodiscard]] T back() {
+		Lock lock(mutex);
+		throwIfEmpty("ThreadsafeQueue::back - queue is empty");
+		return queue.back();
+	}
+
+	/**
+	 * @brief Returns a copy of the last element.
+	 * @return Last element.
+	 * @throws std::out_of_range If queue is empty.
+	 */
+	[[nodiscard]] T back() const {
+		Lock lock(mutex);
+		throwIfEmpty("ThreadsafeQueue::back - queue is empty");
+		return queue.back();
+	}
+
+	/**
+	 * @brief Returns a copy of the first element.
+	 * @return First element.
+	 * @throws std::out_of_range If queue is empty.
+	 */
+	[[nodiscard]] T front() {
+		Lock lock(mutex);
+		throwIfEmpty("ThreadsafeQueue::front - queue is empty");
+		return queue.front();
+	}
+
+	/**
+	 * @brief Returns a copy of the first element.
+	 * @return First element.
+	 * @throws std::out_of_range If queue is empty.
+	 */
+	[[nodiscard]] T front() const {
+		Lock lock(mutex);
+		throwIfEmpty("ThreadsafeQueue::front - queue is empty");
+		return queue.front();
+	}
+
+	/**
+	 * @brief Appends an element to the back.
+	 * @tparam U Value type forwarded into `T`.
+	 * @param val Value to insert.
+	 */
+	template <typename U>
+	requires std::constructible_from<T, U&&>
+	void push_back(U&& val) {
+		{
+			Lock lock(mutex);
+			queue.emplace_back(std::forward<U>(val));
 		}
-	}
-	/// @}
-
-	/**
-	 * @name Accessors
-	 * @{
-	 */
-	/**
-	 * Get a reference to the last element in the queue.
-	 * @return A reference to the last element.
-	 */
-	ref back() {
-		Lock lock(mutex);
-		return queue.back();
+		cvBlock.notify_one();
 	}
 
 	/**
-	 * Get a constant reference to the last element in the queue (const).
-	 * @return A constant reference to the last element.
+	 * @brief Prepends an element to the front.
+	 * @tparam U Value type forwarded into `T`.
+	 * @param val Value to insert.
 	 */
-	const_ref back() const {
-		Lock lock(mutex);
-		return queue.back();
+	template <typename U>
+	requires std::constructible_from<T, U&&>
+	void push_front(U&& val) {
+		{
+			Lock lock(mutex);
+			queue.emplace_front(std::forward<U>(val));
+		}
+		cvBlock.notify_one();
 	}
 
 	/**
-	 * Get a reference to the first element in the queue.
-	 * @return A reference to the first element.
+	 * @brief Constructs an element in-place at the back.
+	 * @tparam Args Constructor argument types.
+	 * @param args Arguments forwarded to `T` constructor.
 	 */
-	ref front() {
-		Lock lock(mutex);
-		return queue.front();
+	template <typename... Args>
+	requires std::constructible_from<T, Args&&...>
+	void emplace_back(Args&&... args) {
+		{
+			Lock lock(mutex);
+			queue.emplace_back(std::forward<Args>(args)...);
+		}
+		cvBlock.notify_one();
 	}
 
 	/**
-	 * Get a constant reference to the first element in the queue (const).
-	 * @return A constant reference to the first element.
+	 * @brief Constructs an element in-place at the front.
+	 * @tparam Args Constructor argument types.
+	 * @param args Arguments forwarded to `T` constructor.
 	 */
-	const_ref front() const {
-		Lock lock(mutex);
-		return queue.front();
-	}
-	/// @}
-
-	/**
-	 * @name Insertion
-	 * @{
-	 */
-	/**
-	 * Add an element to the end of the queue.
-	 * @param val The element to add (const reference).
-	 */
-	void push_back(const_ref val) {
-		Lock lock(mutex);
-		queue.push_back(val);
+	template <typename... Args>
+	requires std::constructible_from<T, Args&&...>
+	void emplace_front(Args&&... args) {
+		{
+			Lock lock(mutex);
+			queue.emplace_front(std::forward<Args>(args)...);
+		}
+		cvBlock.notify_one();
 	}
 
 	/**
-	 * Add an element to the end of the queue (rvalue reference).
-	 * @param val The element to add (rvalue reference).
-	 */
-	void push_back(mov_ref val) {
-		Lock lock(mutex);
-		queue.push_back(std::move(val));
-	}
-
-	/**
-	 * Add an element to the front of the queue.
-	 * @param val The element to add (const reference).
-	 */
-	void push_front(const_ref val) {
-		Lock lock(mutex);
-		queue.push_front(val);
-	}
-
-	/**
-	 * Add an element to the front of the queue (rvalue reference).
-	 * @param val The element to add (rvalue reference).
-	 */
-	void push_front(mov_ref val) {
-		Lock lock(mutex);
-		queue.push_front(std::move(val));
-	}
-	/// @}
-
-	/**
-	 * @name Removal (no return)
-	 * @{
-	 */
-	/**
-	 * Remove the last element from the queue.
+	 * @brief Removes last element.
+	 * @throws std::out_of_range If queue is empty.
 	 */
 	void delete_back() {
 		Lock lock(mutex);
+		throwIfEmpty("ThreadsafeQueue::delete_back - queue is empty");
 		queue.pop_back();
 	}
 
 	/**
-	 * Remove the first element from the queue.
+	 * @brief Removes first element.
+	 * @throws std::out_of_range If queue is empty.
 	 */
 	void delete_front() {
 		Lock lock(mutex);
+		throwIfEmpty("ThreadsafeQueue::delete_front - queue is empty");
 		queue.pop_front();
 	}
-	/// @}
 
 	/**
-	 * @name Removal (with return)
-	 * @{
+	 * @brief Tries to remove the last element.
+	 * @return `true` on success, `false` if empty.
 	 */
+	[[nodiscard]] bool try_delete_back() {
+		Lock lock(mutex);
+		if(queue.empty()) return false;
+		queue.pop_back();
+		return true;
+	}
+
 	/**
-	 * Remove the last element from the queue and store it in the target.
-	 * @param target The variable to store the removed element in.
+	 * @brief Tries to remove the first element.
+	 * @return `true` on success, `false` if empty.
+	 */
+	[[nodiscard]] bool try_delete_front() {
+		Lock lock(mutex);
+		if(queue.empty()) return false;
+		queue.pop_front();
+		return true;
+	}
+
+	/**
+	 * @brief Moves the last element into `target` and removes it.
+	 * @param target Destination object.
+	 * @throws std::out_of_range If queue is empty.
 	 */
 	void pop_back(ref target) {
 		Lock lock(mutex);
+		throwIfEmpty("ThreadsafeQueue::pop_back - queue is empty");
 		target = std::move(queue.back());
 		queue.pop_back();
 	}
 
 	/**
-	 * Remove the first element from the queue and store it in the target.
-	 * @param target The variable to store the removed element in.
+	 * @brief Moves the first element into `target` and removes it.
+	 * @param target Destination object.
+	 * @throws std::out_of_range If queue is empty.
 	 */
 	void pop_front(ref target) {
 		Lock lock(mutex);
+		throwIfEmpty("ThreadsafeQueue::pop_front - queue is empty");
 		target = std::move(queue.front());
 		queue.pop_front();
 	}
 
 	/**
-	 * Remove and return the last element from the queue.
-	 * @return The removed element.
+	 * @brief Tries to move last element into `target`.
+	 * @param target Destination object.
+	 * @return `true` on success, `false` if empty.
 	 */
-	T pop_back() {
-		T tmp;
-		pop_back(tmp);
+	[[nodiscard]] bool try_pop_back(ref target) {
+		Lock lock(mutex);
+		if(queue.empty()) return false;
+		target = std::move(queue.back());
+		queue.pop_back();
+		return true;
+	}
+
+	/**
+	 * @brief Tries to move first element into `target`.
+	 * @param target Destination object.
+	 * @return `true` on success, `false` if empty.
+	 */
+	[[nodiscard]] bool try_pop_front(ref target) {
+		Lock lock(mutex);
+		if(queue.empty()) return false;
+		target = std::move(queue.front());
+		queue.pop_front();
+		return true;
+	}
+
+	/**
+	 * @brief Tries to pop and return last element.
+	 * @return Popped value or `std::nullopt` if empty.
+	 */
+	[[nodiscard]] std::optional<T> try_pop_back() {
+		Lock lock(mutex);
+		if(queue.empty()) return std::nullopt;
+		T tmp = std::move(queue.back());
+		queue.pop_back();
 		return tmp;
 	}
 
 	/**
-	 * Remove and return the first element from the queue.
-	 * @return The removed element.
+	 * @brief Tries to pop and return first element.
+	 * @return Popped value or `std::nullopt` if empty.
 	 */
-	T pop_front() {
-		T tmp;
-		pop_front(tmp);
+	[[nodiscard]] std::optional<T> try_pop_front() {
+		Lock lock(mutex);
+		if(queue.empty()) return std::nullopt;
+		T tmp = std::move(queue.front());
+		queue.pop_front();
 		return tmp;
 	}
-	/// @}
+
+	/**
+	 * @brief Blocks until non-empty, then pops first element.
+	 * @return Popped element.
+	 */
+	[[nodiscard]] T wait_pop_front() {
+		UniqueLock lock(mutex);
+		cvBlock.wait(lock, [this] { return !queue.empty(); });
+		T tmp = std::move(queue.front());
+		queue.pop_front();
+		return tmp;
+	}
+
+	/**
+	 * @brief Blocks until non-empty, then pops last element.
+	 * @return Popped element.
+	 */
+	[[nodiscard]] T wait_pop_back() {
+		UniqueLock lock(mutex);
+		cvBlock.wait(lock, [this] { return !queue.empty(); });
+		T tmp = std::move(queue.back());
+		queue.pop_back();
+		return tmp;
+	}
+
+	/**
+	 * @brief Waits up to `timeout` for an element, then pops first.
+	 * @tparam Rep Duration representation type.
+	 * @tparam Period Duration period type.
+	 * @param timeout Max duration to wait.
+	 * @return Popped value or `std::nullopt` on timeout.
+	 */
+	template <class Rep, class Period>
+	[[nodiscard]] std::optional<T> wait_pop_front_for(const std::chrono::duration<Rep, Period>& timeout) {
+		UniqueLock lock(mutex);
+		if(!cvBlock.wait_for(lock, timeout, [this] { return !queue.empty(); })) {
+			return std::nullopt;
+		}
+		T tmp = std::move(queue.front());
+		queue.pop_front();
+		return tmp;
+	}
+
+	/**
+	 * @brief Waits up to `timeout` for an element, then pops last.
+	 * @tparam Rep Duration representation type.
+	 * @tparam Period Duration period type.
+	 * @param timeout Max duration to wait.
+	 * @return Popped value or `std::nullopt` on timeout.
+	 */
+	template <class Rep, class Period>
+	[[nodiscard]] std::optional<T> wait_pop_back_for(const std::chrono::duration<Rep, Period>& timeout) {
+		UniqueLock lock(mutex);
+		if(!cvBlock.wait_for(lock, timeout, [this] { return !queue.empty(); })) {
+			return std::nullopt;
+		}
+		T tmp = std::move(queue.back());
+		queue.pop_back();
+		return tmp;
+	}
+
+	/**
+	 * @brief Pops and returns last element.
+	 * @return Popped value.
+	 * @throws std::out_of_range If queue is empty.
+	 */
+	[[nodiscard]] T pop_back() {
+		Lock lock(mutex);
+		throwIfEmpty("ThreadsafeQueue::pop_back - queue is empty");
+		T tmp = std::move(queue.back());
+		queue.pop_back();
+		return tmp;
+	}
+
+	/**
+	 * @brief Pops and returns first element.
+	 * @return Popped value.
+	 * @throws std::out_of_range If queue is empty.
+	 */
+	[[nodiscard]] T pop_front() {
+		Lock lock(mutex);
+		throwIfEmpty("ThreadsafeQueue::pop_front - queue is empty");
+		T tmp = std::move(queue.front());
+		queue.pop_front();
+		return tmp;
+	}
 };
-}
-}
+
+} // namespace Util
+} // namespace Elv
 
 #endif // ELVTHREADSAFEQUEUE_HPP
