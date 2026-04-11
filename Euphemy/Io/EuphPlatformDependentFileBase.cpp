@@ -23,6 +23,13 @@ namespace Io {
 
 typedef Elv::Util::Exception<std::allocator<char>> BasicException;
 
+#ifndef _WIN32
+static void unlink_wrapper(const char* cpath)
+{
+	::unlink(cpath);
+}
+#endif
+
 size_t PlatformDependentFileHandleBase::read(void* buffer, size_t size, size_t count)
 {
 #ifdef _WIN32
@@ -295,7 +302,7 @@ void PlatformDependentFileBase::initializeViaMkstemp()
 		throw std::runtime_error("Failed to create temporary file.");
 	}
 	path = tempFileName;
-	deleter = unlink;
+	deleter = unlink_wrapper;
 #endif
 }
 
@@ -339,49 +346,37 @@ void PlatformDependentFileBase::initializeViaMemfdCreate(const char* cpath)
 #endif
 }
 #ifdef _WIN32
-PlatformDependentFileBase::PlatformDependentFileBase(HANDLE fileHandle, std::string&& path, Deleter&& deleter)
-	: PlatformDependentFileHandleBase(fileHandle), path(std::move(path)), deleter(std::move(deleter))
-{
-
-}
-
-PlatformDependentFileBase::PlatformDependentFileBase(HANDLE fileHandle, std::string&& path, const Deleter& deleter)
+PlatformDependentFileBase::PlatformDependentFileBase(HANDLE fileHandle, std::string&& path, Deleter deleter)
 	: PlatformDependentFileHandleBase(fileHandle), path(std::move(path)), deleter(deleter)
 {
 
 }
 
-PlatformDependentFileBase::PlatformDependentFileBase(HANDLE fileHandle, const std::string& path, Deleter&& deleter)
-	: PlatformDependentFileHandleBase(fileHandle), path(path), deleter(std::move(deleter))
+PlatformDependentFileBase::PlatformDependentFileBase(HANDLE fileHandle, std::string&& path, Deleter deleter)
+	: PlatformDependentFileHandleBase(fileHandle), path(std::move(path)), deleter(deleter)
 {
 
 }
 
-PlatformDependentFileBase::PlatformDependentFileBase(HANDLE fileHandle, const std::string& path, const Deleter& deleter)
+PlatformDependentFileBase::PlatformDependentFileBase(HANDLE fileHandle, const std::string& path, Deleter deleter)
+	: PlatformDependentFileHandleBase(fileHandle), path(path), deleter(deleter)
+{
+
+}
+
+PlatformDependentFileBase::PlatformDependentFileBase(HANDLE fileHandle, const std::string& path, Deleter deleter)
 	: PlatformDependentFileHandleBase(fileHandle), path(path), deleter(deleter)
 {
 
 }
 #else
-PlatformDependentFileBase::PlatformDependentFileBase(int fileDescriptor, std::string&& path, Deleter&& deleter)
-	: PlatformDependentFileHandleBase(fileDescriptor), path(std::move(path)), deleter(std::move(deleter))
-{
-
-}
-
-PlatformDependentFileBase::PlatformDependentFileBase(int fileDescriptor, std::string&& path, const Deleter& deleter)
+PlatformDependentFileBase::PlatformDependentFileBase(int fileDescriptor, std::string&& path, Deleter deleter)
 	: PlatformDependentFileHandleBase(fileDescriptor), path(std::move(path)), deleter(deleter)
 {
 
 }
 
-PlatformDependentFileBase::PlatformDependentFileBase(int fileDescriptor, const std::string& path, Deleter&& deleter)
-	: PlatformDependentFileHandleBase(fileDescriptor), path(path), deleter(std::move(deleter))
-{
-
-}
-
-PlatformDependentFileBase::PlatformDependentFileBase(int fileDescriptor, const std::string& path, const Deleter& deleter)
+PlatformDependentFileBase::PlatformDependentFileBase(int fileDescriptor, const std::string& path, Deleter deleter)
 	: PlatformDependentFileHandleBase(fileDescriptor), path(path), deleter(deleter)
 {
 

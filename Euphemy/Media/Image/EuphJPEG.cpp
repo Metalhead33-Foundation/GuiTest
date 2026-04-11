@@ -27,7 +27,7 @@ bool decode(Elv::Io::Device& iodev, DecodeTarget& destination) {
 	return decode(tmpBuff,destination);
 }
 
-bool encode(const Frame& frame, Format format, const std::function<std::span<std::byte> (unsigned long)>& allocator, SubsamplingMethod jpegSubsamp, float jpegQual, unsigned long& jpegSize)
+bool encode(const Frame& frame, Format format, std::span<std::byte> buffer, SubsamplingMethod jpegSubsamp, float jpegQual, unsigned long& jpegSize)
 {
 	int pixelFormat = 0;
 	switch (format) {
@@ -41,28 +41,26 @@ bool encode(const Frame& frame, Format format, const std::function<std::span<std
 	}
 	auto handle = std::unique_ptr<void,decltype(&tjDestroy) >(tjInitCompress(),tjDestroy);
 	if(!handle) return false;
-	auto buffer = allocator(tjBufSize(frame.width,frame.height,static_cast<int>(jpegSubsamp)));
-	if(buffer.empty()) return false;
+	const unsigned long requiredSize = tjBufSize(frame.width,frame.height,static_cast<int>(jpegSubsamp));
+	if(buffer.size() < requiredSize) return false;
 	unsigned char* dstptr = reinterpret_cast<unsigned char*>(buffer.data());
+	jpegSize = static_cast<unsigned long>(buffer.size());
 	tjCompress2(handle.get(),reinterpret_cast<const unsigned char*>(frame.data.data()),frame.width,frame.width*tjPixelSize[pixelFormat],frame.height,
 				pixelFormat,&dstptr,&jpegSize,static_cast<int>(jpegSubsamp),int(((1.0f-std::clamp(jpegQual,0.0f,1.0f))*99.0f)+1.0f),TJFLAG_NOREALLOC | TJFLAG_FASTDCT);
 	return true;
 }
 
-bool encode(const DecodeTarget& source, const std::function<std::span<std::byte>(unsigned long)>& allocator, SubsamplingMethod jpegSubsamp, float jpegQual, unsigned long& jpegSize)
+bool encode(const DecodeTarget& source, std::span<std::byte> buffer, SubsamplingMethod jpegSubsamp, float jpegQual, unsigned long& jpegSize)
 {
 	if(source.getFrames().empty()) return false;
-	return encode(source.getFrame(0), source.getFormat(), allocator, jpegSubsamp, jpegQual, jpegSize);
+	return encode(source.getFrame(0), source.getFormat(), buffer, jpegSubsamp, jpegQual, jpegSize);
 }
 
 bool encode(Elv::Io::Device& iodev, const Frame& frame, Format format, SubsamplingMethod jpegSubsamp, float jpegQual)
 {
-	std::vector<std::byte> tmpBuff;
-	unsigned long jpegSize;
-	bool toReturn = encode(frame, format, [&tmpBuff](unsigned long sz) {
-		tmpBuff.resize(sz);
-		return std::span<std::byte>(tmpBuff.data(), tmpBuff.size());
-	}, jpegSubsamp, jpegQual, jpegSize);
+	std::vector<std::byte> tmpBuff(tjBufSize(frame.width,frame.height,static_cast<int>(jpegSubsamp)));
+	unsigned long jpegSize = 0;
+	bool toReturn = encode(frame, format, std::span<std::byte>(tmpBuff.data(), tmpBuff.size()), jpegSubsamp, jpegQual, jpegSize);
 	if(toReturn) {
 		iodev.write(tmpBuff.data(),sizeof(std::byte), jpegSize);
 	}

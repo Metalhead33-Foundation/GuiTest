@@ -8,7 +8,6 @@
 	#include <windows.h>
 #endif
 #include <string>
-#include <functional>
 namespace Euph {
 namespace Io {
 
@@ -155,7 +154,7 @@ enum class TemporaryFileCreationMode : uint8_t {
  */
 class MH_EUPH_API PlatformDependentFileBase : public PlatformDependentFileHandleBase {
 public:
-	typedef std::function<void(const char*)> Deleter; ///< Type alias for the file deleter function.
+	typedef void (*Deleter)(const char*); ///< Type alias for the file deleter function.
 	std::string path;								 ///< Path to the file.
 	Deleter deleter;								  ///< Deleter function to clean up the file.
 
@@ -210,7 +209,7 @@ public:
 	 * @param path File path.
 	 * @param deleter Deleter function.
 	 */
-	PlatformDependentFileBase(HANDLE fileHandle, std::string&& path, Deleter&& deleter);
+	PlatformDependentFileBase(HANDLE fileHandle, std::string&& path, Deleter deleter);
 
 	/**
 	 * @brief Constructor initializing the file with a handle, path, and deleter.
@@ -219,7 +218,7 @@ public:
 	 * @param path File path.
 	 * @param deleter Deleter function.
 	 */
-	PlatformDependentFileBase(HANDLE fileHandle, std::string&& path, const Deleter& deleter);
+	PlatformDependentFileBase(HANDLE fileHandle, std::string&& path, Deleter deleter);
 
 	/**
 	 * @brief Constructor initializing the file with a handle, path, and deleter.
@@ -228,16 +227,7 @@ public:
 	 * @param path File path.
 	 * @param deleter Deleter function.
 	 */
-	PlatformDependentFileBase(HANDLE fileHandle, const std::string& path, Deleter&& deleter);
-
-	/**
-	 * @brief Constructor initializing the file with a handle, path, and deleter.
-	 *
-	 * @param fileHandle Windows file handle.
-	 * @param path File path.
-	 * @param deleter Deleter function.
-	 */
-	PlatformDependentFileBase(HANDLE fileHandle, const std::string& path, const Deleter& deleter);
+	PlatformDependentFileBase(HANDLE fileHandle, const std::string& path, Deleter deleter);
 #else
 	/**
 	 * @brief Constructor initializing the file with a descriptor, path, and deleter.
@@ -246,7 +236,7 @@ public:
 	 * @param path File path.
 	 * @param deleter Deleter function.
 	 */
-	PlatformDependentFileBase(int fileDescriptor, std::string&& path, Deleter&& deleter);
+	PlatformDependentFileBase(int fileDescriptor, std::string&& path, Deleter deleter);
 
 	/**
 	 * @brief Constructor initializing the file with a descriptor, path, and deleter.
@@ -255,25 +245,7 @@ public:
 	 * @param path File path.
 	 * @param deleter Deleter function.
 	 */
-	PlatformDependentFileBase(int fileDescriptor, std::string&& path, const Deleter& deleter);
-
-	/**
-	 * @brief Constructor initializing the file with a descriptor, path, and deleter.
-	 *
-	 * @param fileDescriptor Unix-like file descriptor.
-	 * @param path File path.
-	 * @param deleter Deleter function.
-	 */
-	PlatformDependentFileBase(int fileDescriptor, const std::string& path, Deleter&& deleter);
-
-	/**
-	 * @brief Constructor initializing the file with a descriptor, path, and deleter.
-	 *
-	 * @param fileDescriptor Unix-like file descriptor.
-	 * @param path File path.
-	 * @param deleter Deleter function.
-	 */
-	PlatformDependentFileBase(int fileDescriptor, const std::string& path, const Deleter& deleter);
+	PlatformDependentFileBase(int fileDescriptor, const std::string& path, Deleter deleter);
 #endif
 
 	/**

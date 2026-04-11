@@ -5,7 +5,6 @@
 #include <memory_resource>
 #include <new>
 #include <memory>
-#include <functional>
 
 /**
  * @defgroup MemoryManagement Memory Management Utilities
@@ -181,9 +180,32 @@ SmartPointerWrappersForAlloc<T, Alloc>::shared_ptr make_shared(Args&&... args) {
 	return SmartPointerWrappersForAlloc<T, Alloc>::make_shared(std::forward<Args>(args)...);
 }
 
-typedef std::function<void(void*)> GenericDeleter;
+struct GenericDeleter {
+	std::pmr::memory_resource* resource = std::pmr::get_default_resource();
+	void (*destroyAndDeallocate)(void*, std::pmr::memory_resource*) = nullptr;
+
+	void operator()(void* ptr) const {
+		if (!ptr || !destroyAndDeallocate) return;
+		destroyAndDeallocate(ptr, resource);
+	}
+
+	template <typename T>
+	static GenericDeleter create(std::pmr::memory_resource* resource = std::pmr::get_default_resource()) {
+		return GenericDeleter{
+			resource,
+			[](void* ptr, std::pmr::memory_resource* memRes) {
+				T* typedPtr = static_cast<T*>(ptr);
+				typedPtr->~T();
+				std::pmr::polymorphic_allocator<T> alloc(memRes);
+				alloc.deallocate(typedPtr, 1);
+			}
+		};
+	}
+};
+
 template <typename T> struct PolyMorphicSmartPointerFactory {
 public:
+
 	// Typedefs for the smart pointers using polymorphic_allocator
 	using unique_ptr_type = std::unique_ptr<T, GenericDeleter>;
 	using shared_ptr_type = std::shared_ptr<T>;
@@ -198,14 +220,7 @@ public:
 			alloc.deallocate(ptr, 1);
 			throw;
 		}
-		auto deleter = [resource](void* ptr) {
-			if(ptr) {
-				static_cast<T*>(ptr)->~T();
-				std::pmr::polymorphic_allocator<T> alloc(resource);
-				alloc.deallocate(static_cast<T*>(ptr), 1);
-			}
-		};
-		return unique_ptr_type(ptr, deleter );
+		return unique_ptr_type(ptr, GenericDeleter::create<T>(resource));
 	}
 
 	// Static function to create a shared_ptr<T>
@@ -218,14 +233,7 @@ public:
 			alloc.deallocate(ptr, 1);
 			throw;
 		}
-		auto deleter = [resource](void* ptr) {
-			if(ptr) {
-				static_cast<T*>(ptr)->~T();
-				std::pmr::polymorphic_allocator<T> alloc(resource);
-				alloc.deallocate(static_cast<T*>(ptr), 1);
-			}
-		};
-		return shared_ptr_type(ptr, deleter, alloc);
+		return shared_ptr_type(ptr, GenericDeleter::create<T>(resource), alloc);
 	}
 };
 template <typename T, typename... Args>

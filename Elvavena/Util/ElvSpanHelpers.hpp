@@ -2,7 +2,7 @@
 #define ELVSPANHELPERS_HPP
 #include <span>
 #include <cassert>
-#include <functional>
+#include <type_traits>
 #include <glm/glm.hpp>
 namespace Elv {
 namespace Util {
@@ -110,13 +110,19 @@ template <typename T> struct span_wrappers {
 	 * @param function A function to be applied to each element in the 2D span. The function takes a const reference to an object of type T and its 2D position as a glm::uvec2.
 	 * @param dimensions The dimensions (width and height) of the 2D grid.
 	 */
-	static void over_2d_span(const std::span<const T>& thingies, const std::function<void(const T&, const glm::uvec2&)> function, const glm::uvec2& dimensions) {
+	template <typename Func>
+	static void over_2d_span(const std::span<const T>& thingies, Func&& function, const glm::uvec2& dimensions) {
 		for(unsigned y = 0; y < dimensions.y; ++y) {
 			const T* const row = &thingies[y*dimensions.x];
 			for(unsigned x = 0; x < dimensions.x; ++x) {
 				function(row[x], glm::uvec2(x,y));
 			}
 		}
+	}
+
+	template <typename Func>
+	static void over_2d_span(const std::span<const T>& thingies, const glm::uvec2& dimensions, Func&& function) {
+		over_2d_span(thingies, function, dimensions);
 	}
 	/**
 	 * @brief Iterates over a specified sub-region of a read-only 2D span of objects of type T and applies a given function to each element.
@@ -127,7 +133,8 @@ template <typename T> struct span_wrappers {
 	 * @param offset The offset (starting position) of the sub-region within the 2D grid.
 	 * @param affected_dimension The dimensions (width and height) of the sub-region to be processed.
 	 */
-	static void over_2d_span(const std::span<const T>& thingies, const std::function<void(const T&, const glm::uvec2&)> function,
+	template <typename Func>
+	static void over_2d_span(const std::span<const T>& thingies, Func&& function,
 							 const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 		const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
 		const unsigned max_y = std::min(dimensions.y,offset.y+affected_dimension.y);
@@ -138,6 +145,12 @@ template <typename T> struct span_wrappers {
 			}
 		}
 	}
+
+	template <typename Func>
+	static void over_2d_span(const std::span<const T>& thingies, const glm::uvec2& dimensions, Func&& function,
+							 const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
+		over_2d_span(thingies, function, dimensions, offset, affected_dimension);
+	}
 	/**
 	 * @brief Iterates over a 2D span of objects of type T and applies a given function to each element.
 	 *
@@ -145,13 +158,19 @@ template <typename T> struct span_wrappers {
 	 * @param function A function to be applied to each element in the 2D span. The function takes a reference to an object of type T and its 2D position as a glm::uvec2.
 	 * @param dimensions The dimensions (width and height) of the 2D grid.
 	 */
-	static void over_2d_span_mut(std::span<T> thingies, const std::function<void(T&, const glm::uvec2&)> function, const glm::uvec2& dimensions) {
+	template <typename Func>
+	static void over_2d_span_mut(std::span<T> thingies, Func&& function, const glm::uvec2& dimensions) {
 		for(unsigned y = 0; y < dimensions.y; ++y) {
 			T* const row = &thingies[y*dimensions.x];
 			for(unsigned x = 0; x < dimensions.x; ++x) {
 				function(row[x], glm::uvec2(x,y));
 			}
 		}
+	}
+
+	template <typename Func>
+	static void over_2d_span_mut(std::span<T> thingies, const glm::uvec2& dimensions, Func&& function) {
+		over_2d_span_mut(thingies, function, dimensions);
 	}
 	/**
 	 * @brief Iterates over a specified sub-region of a 2D span of objects of type T and applies a given function to each element.
@@ -162,7 +181,8 @@ template <typename T> struct span_wrappers {
 	 * @param offset The offset (starting position) of the sub-region within the 2D grid.
 	 * @param affected_dimension The dimensions (width and height) of the sub-region to be processed.
 	 */
-	static void over_2d_span_mut(std::span<T> thingies, const std::function<void(T&, const glm::uvec2&)> function,
+	template <typename Func>
+	static void over_2d_span_mut(std::span<T> thingies, Func&& function,
 							 const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 		const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
 		const unsigned max_y = std::min(dimensions.y,offset.y+affected_dimension.y);
@@ -173,10 +193,16 @@ template <typename T> struct span_wrappers {
 			}
 		}
 	}
+
+	template <typename Func>
+	static void over_2d_span_mut(std::span<T> thingies, const glm::uvec2& dimensions, Func&& function,
+							 const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
+		over_2d_span_mut(thingies, function, dimensions, offset, affected_dimension);
+	}
 };
 
-template <typename T1, typename T2> void over_2d_spans(std::span<const T1> thingies1, std::span<T2> thingies2,
-				   const std::function<void(const T1&, T2&, const glm::uvec2&)> function, const glm::uvec2& dimensions,
+template <typename T1, typename T2, typename Func> void over_2d_spans(std::span<const T1> thingies1, std::span<T2> thingies2,
+				   Func&& function, const glm::uvec2& dimensions,
 				   const glm::uvec2& offset, const glm::uvec2& affected_dimension)
 {
 	const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
@@ -189,8 +215,8 @@ template <typename T1, typename T2> void over_2d_spans(std::span<const T1> thing
 		}
 	}
 }
-template <typename T1, typename T2> void over_2d_spans(std::span<T1> thingies1, std::span<const T2> thingies2,
-				   const std::function<void(T1&, const T2&, const glm::uvec2&)> function, const glm::uvec2& dimensions,
+template <typename T1, typename T2, typename Func> void over_2d_spans(std::span<T1> thingies1, std::span<const T2> thingies2,
+				   Func&& function, const glm::uvec2& dimensions,
 				   const glm::uvec2& offset, const glm::uvec2& affected_dimension)
 {
 	const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
@@ -343,8 +369,11 @@ template <typename T> const std::span<const T> as_const_span(const std::span<con
 	 * @param function A function to be applied to each element in the 2D span. The function takes a const reference to an object of type T and its 2D position as a glm::uvec2.
 	 * @param dimensions The dimensions (width and height) of the 2D grid.
 	 */
-template <typename T> void over_2d_span(const std::span<const T>& thingies, const std::function<void(const T&, const glm::uvec2&)> function, const glm::uvec2& dimensions) {
+template <typename T, typename Func> void over_2d_span(const std::span<const T>& thingies, Func&& function, const glm::uvec2& dimensions) {
 	span_wrappers<T>::over_2d_span(thingies,function,dimensions);
+}
+template <typename T, typename Func> void over_2d_span(const std::span<const T>& thingies, const glm::uvec2& dimensions, Func&& function) {
+	span_wrappers<T>::over_2d_span(thingies, function, dimensions);
 }
 /**
 	@ingroup DataTransformers
@@ -357,9 +386,13 @@ template <typename T> void over_2d_span(const std::span<const T>& thingies, cons
 	 * @param offset The offset (starting position) of the sub-region within the 2D grid.
 	 * @param affected_dimension The dimensions (width and height) of the sub-region to be processed.
 	 */
-template <typename T> void over_2d_span(const std::span<const T>& thingies, const std::function<void(const T&, const glm::uvec2&)> function,
+template <typename T, typename Func> void over_2d_span(const std::span<const T>& thingies, Func&& function,
 						 const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 	span_wrappers<T>::over_2d_span(thingies,function,dimensions,offset,affected_dimension);
+}
+template <typename T, typename Func> void over_2d_span(const std::span<const T>& thingies, const glm::uvec2& dimensions, Func&& function,
+						 const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
+	span_wrappers<T>::over_2d_span(thingies, function, dimensions, offset, affected_dimension);
 }
 
 /**
@@ -371,8 +404,11 @@ template <typename T> void over_2d_span(const std::span<const T>& thingies, cons
 	 * @param function A function to be applied to each element in the 2D span. The function takes a reference to an object of type T and its 2D position as a glm::uvec2.
 	 * @param dimensions The dimensions (width and height) of the 2D grid.
 	 */
-template <typename T> void over_2d_span_mut(std::span<T> thingies, const std::function<void(T&, const glm::uvec2&)> function, const glm::uvec2& dimensions) {
+template <typename T, typename Func> void over_2d_span_mut(std::span<T> thingies, Func&& function, const glm::uvec2& dimensions) {
 	span_wrappers<T>::over_2d_span_mut(thingies,function,dimensions);
+}
+template <typename T, typename Func> void over_2d_span_mut(std::span<T> thingies, const glm::uvec2& dimensions, Func&& function) {
+	span_wrappers<T>::over_2d_span_mut(thingies, function, dimensions);
 }
 /**
 	@ingroup DataTransformers
@@ -385,12 +421,17 @@ template <typename T> void over_2d_span_mut(std::span<T> thingies, const std::fu
 	 * @param offset The offset (starting position) of the sub-region within the 2D grid.
 	 * @param affected_dimension The dimensions (width and height) of the sub-region to be processed.
 	 */
-template <typename T> void over_2d_span_mut(std::span<T> thingies, const std::function<void(T&, const glm::uvec2&)> function,
+template <typename T, typename Func> void over_2d_span_mut(std::span<T> thingies, Func&& function,
 						 const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 	span_wrappers<T>::over_2d_span_mut(thingies,function,dimensions,offset,affected_dimension);
 }
+template <typename T, typename Func> void over_2d_span_mut(std::span<T> thingies, const glm::uvec2& dimensions, Func&& function,
+						 const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
+	span_wrappers<T>::over_2d_span_mut(thingies, function, dimensions, offset, affected_dimension);
+}
 
-inline void over_2d_grid(const std::function<void(unsigned index)> function, const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
+template <typename Func>
+inline void over_2d_grid(Func&& function, const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 	const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
 	const unsigned max_y = std::min(dimensions.y,offset.y+affected_dimension.y);
 	for(unsigned y = 0; y < max_y; ++y) {
@@ -415,7 +456,7 @@ template <typename TIn, typename TOut> struct transform_wrappers {
 	 * @param input Input span of type TIn.
 	 * @param output Output span of type TOut, must be the same size as input.
 	 */
-	void transform(const std::span<const TIn>& input, const std::span<TOut>& output) {
+	static void transform(const std::span<const TIn>& input, const std::span<TOut>& output) {
 		assert(input.size() == output.size());
 		for (size_t i = 0; i < input.size(); ++i) {
 			output[i] = static_cast<TOut>(input[i]);
@@ -423,42 +464,21 @@ template <typename TIn, typename TOut> struct transform_wrappers {
 	}
 
 	/**
-	 * @typedef tf0_t
-	 * @brief Type definition for a transformation function taking a const TIn& and returning TOut.
-	 */
-	typedef std::function<TOut(const TIn&)> tf0_t;
-
-	/**
-	 * @brief Transformation using a provided function of type tf0_t.
+	 * @brief Transformation using a provided function object.
 	 *
 	 * @param input Input span of type TIn.
 	 * @param output Output span of type TOut, must be the same size as input.
 	 * @param transformFun Transformation function to apply to each element.
 	 */
-	void transform(const std::span<const TIn>& input, const std::span<TOut>& output, const tf0_t& transformFun) {
+	template <typename Func>
+	static void transform(const std::span<const TIn>& input, const std::span<TOut>& output, Func&& transformFun) {
 		assert(input.size() == output.size());
 		for (size_t i = 0; i < input.size(); ++i) {
-			output[i] = transformFun(input[i]);
-		}
-	}
-
-	/**
-	 * @typedef tf1_t
-	 * @brief Type definition for a transformation function taking a const TIn& and a TOut& for output.
-	 */
-	typedef std::function<void(const TIn&, TOut&)> tf1_t;
-
-	/**
-	 * @brief Transformation using a provided function of type tf1_t.
-	 *
-	 * @param input Input span of type TIn.
-	 * @param output Output span of type TOut, must be the same size as input.
-	 * @param transformFun Transformation function to apply to each element.
-	 */
-	void transform(const std::span<const TIn>& input, const std::span<TOut>& output, const tf1_t& transformFun) {
-		assert(input.size() == output.size());
-		for (size_t i = 0; i < input.size(); ++i) {
-			transformFun(input[i], output[i]);
+			if constexpr (std::is_invocable_r_v<TOut, Func&, const TIn&>) {
+				output[i] = transformFun(input[i]);
+			} else {
+				transformFun(input[i], output[i]);
+			}
 		}
 	}
 };
@@ -486,21 +506,7 @@ template <typename TIn, typename TOut> void transform(const std::span<const TIn>
  * @param output Output span of type TOut, must be the same size as input.
  * @param transFormFun Transformation function (TIn -> TOut).
  */
-template <typename TIn, typename TOut> void transform(const std::span<const TIn>& input, const std::span<TOut>& output, const std::function<TOut(const TIn&)>& transFormFun) {
-	transform_wrappers<TIn, TOut>::transform(input, output, transFormFun);
-}
-
-/**
- * @ingroup DataTransformers
- * @brief Free function to transform a span of TIn into a span of TOut using a provided transformation function (taking TIn& and TOut&).
- *
- * @tparam TIn Input data type.
- * @tparam TOut Output data type.
- * @param input Input span of type TIn.
- * @param output Output span of type TOut, must be the same size as input.
- * @param transFormFun Transformation function (TIn&, TOut&).
- */
-template <typename TIn, typename TOut> void transform(const std::span<const TIn>& input, const std::span<TOut>& output, const std::function<void(const TIn&, TOut&)>& transFormFun) {
+template <typename TIn, typename TOut, typename Func> void transform(const std::span<const TIn>& input, const std::span<TOut>& output, Func&& transFormFun) {
 	transform_wrappers<TIn, TOut>::transform(input, output, transFormFun);
 }
 

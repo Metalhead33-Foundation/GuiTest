@@ -1,7 +1,7 @@
 #ifndef ELVBINARYTREE_HPP
 #define ELVBINARYTREE_HPP
 #include <Elvavena/Util/ElvAllocatorBasic.hpp>
-#include <functional>
+#include <type_traits>
 #include <stack>
 namespace Elv {
 namespace Util {
@@ -13,14 +13,6 @@ namespace Util {
 template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*! A leaf in the binary tree node.*/
 	typedef SmartPointerWrappersForAlloc<BinaryTreeNode,Alloc>::unique_ptr Leaf;
-	/*! A traversal function*/
-	typedef std::function<void(T&)> TraversalFunction;
-	/*! A traversal function*/
-	typedef std::function<void(const T&)> TraversalConstFunction;
-	/*! A traversal function. Second parameter is a boolean about whether the function should stop at that point or not.*/
-	typedef std::function<void(T&,bool&)> StoppableTraversalFunction;
-	/*! A traversal function. Second parameter is a boolean about whether the function should stop at that point or not.*/
-	typedef std::function<void(const T&,bool&)> StoppableTraversalConstFunction;
 	/*! Left leaf.*/
 	Leaf left;
 	/*! Right leaf.*/
@@ -34,7 +26,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder(const TraversalFunction& func) {
+	template <typename Func> void inorder(Func&& func) {
 		if(left) left->inorder(func);
 		func(data);
 		if(right) right->inorder(func);
@@ -46,7 +38,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder(const TraversalConstFunction& func) const {
+	template <typename Func> void inorder(Func&& func) const {
 		if(left) left->inorder(func);
 		func(data);
 		if(right) right->inorder(func);
@@ -59,7 +51,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void inorder(const StoppableTraversalFunction& func, bool& shouldStop) {
+	template <typename Func> void inorder(Func&& func, bool& shouldStop) {
 		if(left) left->inorder(func,shouldStop);
 		if(!shouldStop) {
 		func(data,shouldStop);
@@ -74,7 +66,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void inorder(const StoppableTraversalConstFunction& func, bool& shouldStop) const {
+	template <typename Func> void inorder(Func&& func, bool& shouldStop) const {
 		if(left) left->inorder(func,shouldStop);
 		if(!shouldStop) {
 		func(data,shouldStop);
@@ -88,7 +80,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder(const TraversalFunction& func) {
+	template <typename Func> void preorder(Func&& func) {
 		func(data);
 		if(left) left->preorder(func);
 		if(right) right->preorder(func);
@@ -100,7 +92,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder(const TraversalConstFunction& func) const {
+	template <typename Func> void preorder(Func&& func) const {
 		func(data);
 		if(left) left->preorder(func);
 		if(right) right->preorder(func);
@@ -113,7 +105,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void preorder(const StoppableTraversalFunction& func, bool& shouldStop) {
+	template <typename Func> void preorder(Func&& func, bool& shouldStop) {
 		if(!shouldStop) {
 		func(data,shouldStop);
 		if(left) left->preorder(func,shouldStop);
@@ -128,7 +120,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void preorder(const StoppableTraversalConstFunction& func, bool& shouldStop) const {
+	template <typename Func> void preorder(Func&& func, bool& shouldStop) const {
 		if(!shouldStop) {
 		func(data,shouldStop);
 		if(left) left->preorder(func,shouldStop);
@@ -142,7 +134,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder(const TraversalFunction& func) {
+	template <typename Func> void postorder(Func&& func) {
 		if(left) left->postorder(func);
 		if(right) right->postorder(func);
 		func(data);
@@ -154,7 +146,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder(const TraversalConstFunction& func) const {
+	template <typename Func> void postorder(Func&& func) const {
 		if(left) left->postorder(func);
 		if(right) right->postorder(func);
 		func(data);
@@ -167,7 +159,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void postorder(const StoppableTraversalFunction& func, bool& shouldStop) {
+	template <typename Func> void postorder(Func&& func, bool& shouldStop) {
 		if(left) left->postorder(func,shouldStop);
 		if(right) right->postorder(func,shouldStop);
 		if(!shouldStop) {
@@ -182,7 +174,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void postorder(const StoppableTraversalConstFunction& func, bool& shouldStop) const {
+	template <typename Func> void postorder(Func&& func, bool& shouldStop) const {
 		if(left) left->postorder(func,shouldStop);
 		if(right) right->postorder(func,shouldStop);
 		if(!shouldStop) {
@@ -197,7 +189,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder_iterative(const TraversalFunction& func) {
+	template <typename Func> void inorder_iterative(Func&& func) {
 		std::stack<BinaryTreeNode<T, Alloc>*> stack;
 		BinaryTreeNode<T, Alloc>* current = this;
 
@@ -219,7 +211,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder_iterative(const TraversalConstFunction& func) const {
+	template <typename Func> void inorder_iterative(Func&& func) const {
 		std::stack<BinaryTreeNode<T, Alloc>*> stack;
 		BinaryTreeNode<T, Alloc>* current = this;
 
@@ -242,7 +234,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void inorder_iterative(const StoppableTraversalFunction& func, bool& shouldStop) {
+	template <typename Func> void inorder_iterative(Func&& func, bool& shouldStop) {
 		std::stack<BinaryTreeNode<T, Alloc>*> stack;
 		BinaryTreeNode<T, Alloc>* current = this;
 
@@ -265,7 +257,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void inorder_iterative(const StoppableTraversalConstFunction& func, bool& shouldStop) const {
+	template <typename Func> void inorder_iterative(Func&& func, bool& shouldStop) const {
 		std::stack<BinaryTreeNode<T, Alloc>*> stack;
 		BinaryTreeNode<T, Alloc>* current = this;
 
@@ -288,7 +280,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder_iterative(const TraversalFunction& func) {
+	template <typename Func> void preorder_iterative(Func&& func) {
 		if (!this) return;
 		std::stack<BinaryTreeNode<T, Alloc>*> stack;
 		stack.push(this);
@@ -309,7 +301,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder_iterative(const TraversalConstFunction& func) const {
+	template <typename Func> void preorder_iterative(Func&& func) const {
 		if (!this) return;
 		std::stack<BinaryTreeNode<T, Alloc>*> stack;
 		stack.push(this);
@@ -332,7 +324,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void preorder_iterative(const StoppableTraversalFunction& func, bool& shouldStop) {
+	template <typename Func> void preorder_iterative(Func&& func, bool& shouldStop) {
 		if (!this) return;
 		std::stack<BinaryTreeNode<T, Alloc>*> stack;
 		stack.push(this);
@@ -355,7 +347,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void preorder_iterative(const StoppableTraversalConstFunction& func, bool& shouldStop) const {
+	template <typename Func> void preorder_iterative(Func&& func, bool& shouldStop) const {
 		if (!this) return;
 		std::stack<BinaryTreeNode<T, Alloc>*> stack;
 		stack.push(this);
@@ -377,7 +369,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder_iterative(const TraversalFunction& func) {
+	template <typename Func> void postorder_iterative(Func&& func) {
 		if (!this) return;
 		std::stack<BinaryTreeNode<T, Alloc>*> stack1, stack2;
 		stack1.push(this);
@@ -403,7 +395,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder_iterative(const TraversalConstFunction& func) const {
+	template <typename Func> void postorder_iterative(Func&& func) const {
 		if (!this) return;
 		std::stack<BinaryTreeNode<T, Alloc>*> stack1, stack2;
 		stack1.push(this);
@@ -430,7 +422,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void postorder_iterative(const StoppableTraversalFunction& func, bool& shouldStop) {
+	template <typename Func> void postorder_iterative(Func&& func, bool& shouldStop) {
 		if (!this) return;
 		std::stack<BinaryTreeNode<T, Alloc>*> stack1, stack2;
 		stack1.push(this);
@@ -457,7 +449,7 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	  \param shouldStop An lvalue reference to a boolean value that may be modified by the traversal function. When set to true, this function stops.
 	*/
-	void postorder_iterative(const StoppableTraversalConstFunction& func, bool& shouldStop) const {
+	template <typename Func> void postorder_iterative(Func&& func, bool& shouldStop) const {
 		if (!this) return;
 		std::stack<BinaryTreeNode<T, Alloc>*> stack1, stack2;
 		stack1.push(this);
@@ -543,14 +535,6 @@ template <typename T, typename Alloc> struct BinaryTreeNode {
 template <typename T, typename Alloc> struct BinaryTree {
 	/*! A node within the binary tree.*/
 	typedef BinaryTreeNode<T,Alloc> Node;
-	/*! A traversal function.*/
-	typedef typename Node::TraversalFunction TraversalFunction;
-	/*! A traversal function.*/
-	typedef typename Node::TraversalConstFunction TraversalConstFunction;
-	/*! A traversal function.*/
-	typedef typename Node::StoppableTraversalFunction StoppableTraversalFunction;
-	/*! A traversal function.*/
-	typedef typename Node::StoppableTraversalConstFunction StoppableTraversalConstFunction;
 	/*! The root node within the binary tree.*/
 	Node root;
 	//! In-order traversal.\n
@@ -560,7 +544,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder(const TraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&> void inorder(Func&& func) {
 		root.inorder(func);
 	}
 	//! In-order traversal.\n
@@ -570,7 +554,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder(const TraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&> void inorder(Func&& func) const {
 		root.inorder(func);
 	}
 	//! In-order traversal.\n
@@ -580,7 +564,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder(const StoppableTraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&, bool&> void inorder(Func&& func) {
 		bool shouldStop = false;
 		root.inorder(func,shouldStop);
 	}
@@ -591,7 +575,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder(const StoppableTraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&, bool&> void inorder(Func&& func) const {
 		bool shouldStop = false;
 		root.inorder(func,shouldStop);
 	}
@@ -602,7 +586,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder(const TraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&> void preorder(Func&& func) {
 		root.preorder(func);
 	}
 	//! Pre-order traversal.\n
@@ -612,7 +596,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder(const TraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&> void preorder(Func&& func) const {
 		root.preorder(func);
 	}
 	//! Pre-order traversal.\n
@@ -622,7 +606,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder(const StoppableTraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&, bool&> void preorder(Func&& func) {
 		bool shouldStop = false;
 		root.preorder(func,shouldStop);
 	}
@@ -633,7 +617,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder(const StoppableTraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&, bool&> void preorder(Func&& func) const {
 		bool shouldStop = false;
 		root.preorder(func,shouldStop);
 	}
@@ -644,7 +628,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder(const TraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&> void postorder(Func&& func) {
 		root.postorder(func);
 	}
 	//! Post-order traversal.\n
@@ -654,7 +638,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder(const TraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&> void postorder(Func&& func) const {
 		root.postorder(func);
 	}
 	//! Post-order traversal.\n
@@ -664,7 +648,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder(const StoppableTraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&, bool&> void postorder(Func&& func) {
 		bool shouldStop = false;
 		root.postorder(func,shouldStop);
 	}
@@ -675,7 +659,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder(const StoppableTraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&, bool&> void postorder(Func&& func) const {
 		bool shouldStop = false;
 		root.postorder(func,shouldStop);
 	}
@@ -688,7 +672,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder_iterative(const TraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&> void inorder_iterative(Func&& func) {
 		root.inorder_iterative(func);
 	}
 	//! In-order traversal.\n
@@ -698,7 +682,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder_iterative(const TraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&> void inorder_iterative(Func&& func) const {
 		root.inorder_iterative(func);
 	}
 	//! In-order traversal.\n
@@ -708,7 +692,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder_iterative(const StoppableTraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&, bool&> void inorder_iterative(Func&& func) {
 		bool shouldStop = false;
 		root.inorder_iterative(func,shouldStop);
 	}
@@ -719,7 +703,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void inorder_iterative(const StoppableTraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&, bool&> void inorder_iterative(Func&& func) const {
 		bool shouldStop = false;
 		root.inorder_iterative(func,shouldStop);
 	}
@@ -731,7 +715,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder_iterative(const TraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&> void preorder_iterative(Func&& func) {
 		root.preorder_iterative(func);
 	}
 	//! Pre-order traversal.\n
@@ -741,7 +725,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder_iterative(const TraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&> void preorder_iterative(Func&& func) const {
 		root.preorder_iterative(func);
 	}
 
@@ -752,7 +736,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder_iterative(const StoppableTraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&, bool&> void preorder_iterative(Func&& func) {
 		bool shouldStop = false;
 		root.preorder_iterative(func,shouldStop);
 	}
@@ -764,7 +748,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void preorder_iterative(const StoppableTraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&, bool&> void preorder_iterative(Func&& func) const {
 		bool shouldStop = false;
 		root.preorder_iterative(func,shouldStop);
 	}
@@ -776,7 +760,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder_iterative(const TraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&> void postorder_iterative(Func&& func) {
 		root.postorder_iterative(func);
 	}
 	//! Post-order traversal.\n
@@ -786,7 +770,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder_iterative(const TraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&> void postorder_iterative(Func&& func) const {
 		root.postorder_iterative(func);
 	}
 	//! Post-order traversal.\n
@@ -796,7 +780,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder_iterative(const StoppableTraversalFunction& func) {
+	template <typename Func> requires std::is_invocable_v<Func&, T&, bool&> void postorder_iterative(Func&& func) {
 		bool shouldStop = false;
 		root.postorder_iterative(func,shouldStop);
 	}
@@ -807,7 +791,7 @@ template <typename T, typename Alloc> struct BinaryTree {
 	/*!
 	  \param func The functioned that is called on every node that is visited during the traversal.
 	*/
-	void postorder_iterative(const StoppableTraversalConstFunction& func) const {
+	template <typename Func> requires std::is_invocable_v<Func&, const T&, bool&> void postorder_iterative(Func&& func) const {
 		bool shouldStop = false;
 		root.postorder_iterative(func,shouldStop);
 	}

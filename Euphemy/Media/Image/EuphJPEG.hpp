@@ -3,7 +3,6 @@
 #include <Euphemy/Media/Image/EuphImageDecodeTarget.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Euphemy/Config/EuphLib.hpp>
-#include <functional>
 #include <memory>
 namespace Euph {
 namespace Media {
@@ -39,27 +38,27 @@ bool MH_EUPH_API decode(Elv::Io::Device& iodev, DecodeTarget& destination);
  * @brief Encodes an image frame into a JPEG image.
  * @param frame The image frame to encode into a JPEG file.
  * @param format The format of the image. Only a limited number of formats are accepted for JPEG.
- * @param allocator A function for allocating a temporary buffer of X bytes. It's the caller's responsibility to deallocate this buffer after the function has finished. It's recommended to allocate a temporary std::vector<std::byte> before the function call, provide a lambda function that resizes said vector and returns the vector cast to an std::span<std::byte>, and then let said vector go out of scope and get cleaned up automatically.
+ * @param buffer Output buffer that must be preallocated. Use `tjBufSize` to determine a safe capacity.
  * @param jpegSubsamp The JPEG subsampling method.
  * @param jpegQual The JPEG quality. The smaller the value, the smaller the file will be, but the image will look worse. Valid range is typically between 0 and 100.
  * @param jpegSize A reference to write out the actual size of the JPEG data written to the buffer. This is not guaranteed to use the entire allocated buffer.
  * @return True if encoding is successful, false otherwise.
  */
 bool MH_EUPH_API encode(const Frame& frame, Format format,
-						const std::function<std::span<std::byte>(unsigned long)>& allocator,
+						std::span<std::byte> buffer,
 						SubsamplingMethod jpegSubsamp, float jpegQual, unsigned long &jpegSize);
 
 /**
  * @brief Encodes an image into a JPEG image.
  * @param source The image to encode into a JPEG file.
- * @param allocator A function for allocating a temporary buffer of X bytes. It's the caller's responsibility to deallocate this buffer after the function has finished. It's recommended to allocate a temporary std::vector<std::byte> before the function call, provide a lambda function that resizes said vector and returns the vector cast to an std::span<std::byte>, and then let said vector go out of scope and get cleaned up automatically.
+ * @param buffer Output buffer that must be preallocated. Use `tjBufSize` to determine a safe capacity.
  * @param jpegSubsamp The JPEG subsampling method.
  * @param jpegQual The JPEG quality. The smaller the value, the smaller the file will be, but the image will look worse. Valid range is typically between 0 and 100.
  * @param jpegSize A reference to write out the actual size of the JPEG data written to the buffer. This is not guaranteed to use the entire allocated buffer.
  * @return True if encoding is successful, false otherwise.
  */
 bool MH_EUPH_API encode(const DecodeTarget& source,
-						const std::function<std::span<std::byte>(unsigned long)>& allocator,
+						std::span<std::byte> buffer,
 						SubsamplingMethod jpegSubsamp, float jpegQual, unsigned long &jpegSize);
 /**
  * @brief Encodes an image frame into a JPEG image and writes it to an IO device.
