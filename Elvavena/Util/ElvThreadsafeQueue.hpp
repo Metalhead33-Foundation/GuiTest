@@ -58,31 +58,39 @@ public:
 	/**
 	 * Default constructor.
 	 */
-	ThreadsafeQueue();
+	ThreadsafeQueue() {}
 
 	/**
 	 * Copy constructor.
 	 * @param cpy The ThreadsafeQueue instance to copy from.
 	 */
-	ThreadsafeQueue(const ThreadsafeQueue& cpy);
+	ThreadsafeQueue(const ThreadsafeQueue& cpy) {
+		this->queue = cpy.queue;
+	}
 
 	/**
 	 * Move constructor.
 	 * @param mov The ThreadsafeQueue instance to move from.
 	 */
-	ThreadsafeQueue(ThreadsafeQueue&& mov);
+	ThreadsafeQueue(ThreadsafeQueue&& mov) {
+		this->queue = std::move(mov.queue);
+	}
 
 	/**
 	 * Constructor from a const Queue reference.
 	 * @param cpy The Queue instance to copy from.
 	 */
-	ThreadsafeQueue(const Queue& cpy);
+	ThreadsafeQueue(const Queue& cpy) {
+		this->queue = cpy;
+	}
 
 	/**
 	 * Constructor from a Queue rvalue reference.
 	 * @param mov The Queue instance to move from.
 	 */
-	ThreadsafeQueue(Queue&& mov);
+	ThreadsafeQueue(Queue&& mov) {
+		this->queue = std::move(mov);
+	}
 
 	/**
 	 * Destructor (default implementation).
@@ -98,35 +106,55 @@ public:
 	 * Execute a modifying function on the queue while locked.
 	 * @param function The QueueOperator to apply to the queue.
 	 */
-	void operate(QueueOperator function);
+	void operate(QueueOperator function) {
+		Lock lock(mutex);
+		function(queue);
+	}
 
 	/**
 	 * Execute a non-modifying function on the queue while locked (const).
 	 * @param function The QueueConstOperator to apply to the queue.
 	 */
-	void operate(QueueConstOperator function) const;
+	void operate(QueueConstOperator function) const {
+		Lock lock(mutex);
+		function(queue);
+	}
 
 	/**
 	 * Get the number of elements in the queue.
 	 * @return The size of the queue.
 	 */
-	size_t size() const;
+	size_t size() const {
+		Lock lock(mutex);
+		return queue.size();
+	}
 
 	/**
 	 * Clear all elements from the queue.
 	 */
-	void clear();
+	void clear() {
+		Lock lock(mutex);
+		queue.clear();
+	}
 
 	/**
 	 * Check if the queue is empty.
 	 * @return True if the queue is empty, false otherwise.
 	 */
-	bool empty() const;
+	bool empty() const {
+		Lock lock(mutex);
+		return queue.empty();
+	}
 
 	/**
 	 * Block until the queue is non-empty.
 	 */
-	void wait();
+	void wait() {
+		while(empty()) {
+			UniqueLock lock(blocker);
+			cvBlock.wait(lock);
+		}
+	}
 	/// @}
 
 	/**
@@ -137,25 +165,37 @@ public:
 	 * Get a reference to the last element in the queue.
 	 * @return A reference to the last element.
 	 */
-	ref back();
+	ref back() {
+		Lock lock(mutex);
+		return queue.back();
+	}
 
 	/**
 	 * Get a constant reference to the last element in the queue (const).
 	 * @return A constant reference to the last element.
 	 */
-	const_ref back() const;
+	const_ref back() const {
+		Lock lock(mutex);
+		return queue.back();
+	}
 
 	/**
 	 * Get a reference to the first element in the queue.
 	 * @return A reference to the first element.
 	 */
-	ref front();
+	ref front() {
+		Lock lock(mutex);
+		return queue.front();
+	}
 
 	/**
 	 * Get a constant reference to the first element in the queue (const).
 	 * @return A constant reference to the first element.
 	 */
-	const_ref front() const;
+	const_ref front() const {
+		Lock lock(mutex);
+		return queue.front();
+	}
 	/// @}
 
 	/**
@@ -166,25 +206,37 @@ public:
 	 * Add an element to the end of the queue.
 	 * @param val The element to add (const reference).
 	 */
-	void push_back(const_ref val);
+	void push_back(const_ref val) {
+		Lock lock(mutex);
+		queue.push_back(val);
+	}
 
 	/**
 	 * Add an element to the end of the queue (rvalue reference).
 	 * @param val The element to add (rvalue reference).
 	 */
-	void push_back(mov_ref val);
+	void push_back(mov_ref val) {
+		Lock lock(mutex);
+		queue.push_back(std::move(val));
+	}
 
 	/**
 	 * Add an element to the front of the queue.
 	 * @param val The element to add (const reference).
 	 */
-	void push_front(const_ref val);
+	void push_front(const_ref val) {
+		Lock lock(mutex);
+		queue.push_front(val);
+	}
 
 	/**
 	 * Add an element to the front of the queue (rvalue reference).
 	 * @param val The element to add (rvalue reference).
 	 */
-	void push_front(mov_ref val);
+	void push_front(mov_ref val) {
+		Lock lock(mutex);
+		queue.push_front(std::move(val));
+	}
 	/// @}
 
 	/**
@@ -194,12 +246,18 @@ public:
 	/**
 	 * Remove the last element from the queue.
 	 */
-	void delete_back();
+	void delete_back() {
+		Lock lock(mutex);
+		queue.pop_back();
+	}
 
 	/**
 	 * Remove the first element from the queue.
 	 */
-	void delete_front();
+	void delete_front() {
+		Lock lock(mutex);
+		queue.pop_front();
+	}
 	/// @}
 
 	/**
@@ -210,25 +268,41 @@ public:
 	 * Remove the last element from the queue and store it in the target.
 	 * @param target The variable to store the removed element in.
 	 */
-	void pop_back(ref target);
+	void pop_back(ref target) {
+		Lock lock(mutex);
+		target = std::move(queue.back());
+		queue.pop_back();
+	}
 
 	/**
 	 * Remove the first element from the queue and store it in the target.
 	 * @param target The variable to store the removed element in.
 	 */
-	void pop_front(ref target);
+	void pop_front(ref target) {
+		Lock lock(mutex);
+		target = std::move(queue.front());
+		queue.pop_front();
+	}
 
 	/**
 	 * Remove and return the last element from the queue.
 	 * @return The removed element.
 	 */
-	T pop_back();
+	T pop_back() {
+		T tmp;
+		pop_back(tmp);
+		return tmp;
+	}
 
 	/**
 	 * Remove and return the first element from the queue.
 	 * @return The removed element.
 	 */
-	T pop_front();
+	T pop_front() {
+		T tmp;
+		pop_front(tmp);
+		return tmp;
+	}
 	/// @}
 };
 }

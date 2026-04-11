@@ -1,7 +1,7 @@
 #ifndef ELVTHREADSAFECONTAINER_HPP
 #define ELVTHREADSAFECONTAINER_HPP
+#include <shared_mutex>
 #include <mutex>
-#include <functional>
 namespace Elv {
 namespace Util {
 
@@ -18,25 +18,11 @@ template <typename T>
 struct threadsafe {
 public:
 	/**
-	 * @brief Type alias for a function that accesses (potentially modifies) T.
-	 *
-	 * This function type is used for non-const access, implying the T instance might be modified.
-	 */
-	typedef std::function<void(T&)> AccessorFunc;
-
-	/**
-	 * @brief Type alias for a function that accesses T without modifying it.
-	 *
-	 * This function type is used for const access, ensuring the T instance is not modified.
-	 */
-	typedef std::function<void(const T&)> ConstAccessorFunc;
-
-	/**
 	 * @brief Type alias for a lock guard on the internal recursive mutex.
 	 *
 	 * Automatically locks the mutex upon construction and unlocks upon destruction.
 	 */
-	typedef std::lock_guard<std::recursive_mutex> Lock;
+	typedef std::lock_guard<std::shared_mutex> Lock;
 
 private:
 	/**
@@ -49,7 +35,7 @@ private:
 	 *
 	 * Declared as mutable to allow locking in const contexts (for read-only access).
 	 */
-	mutable std::recursive_mutex mut;
+	mutable std::shared_mutex mut;
 
 public:
 	/**
@@ -60,9 +46,9 @@ public:
 	 *
 	 * @param fun The function to execute with access to the non-const data.
 	 */
-	void access(const AccessorFunc& fun) {
+	template <typename F> auto access(F&& fun) {
 		Lock lck(mut);
-		fun(data);
+		return fun(data);
 	}
 
 	/**
@@ -73,9 +59,9 @@ public:
 	 *
 	 * @param fun The function to execute with const access to the data.
 	 */
-	void access(const ConstAccessorFunc& fun) const {
+	template <typename F> auto access(F&& fun) const {
 		Lock lck(mut);
-		fun(data);
+		return fun(data);
 	}
 };
 }
