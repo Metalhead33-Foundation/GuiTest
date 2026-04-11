@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <future>
 #include <thread>
+#include <tuple>
 #include <Elvavena/Util/ElvUtilGlobals.hpp>
 namespace Elv {
 namespace Util {
@@ -158,10 +159,24 @@ public:
 		using return_type = std::invoke_result_t<Func, Args...>;
 		using packaged_task_type = std::packaged_task<return_type()>;
 
-		auto taskPtr = std::make_shared<packaged_task_type>(std::bind(
-			std::forward<Func>(callable), std::forward<Args>(args)...));
+		auto taskPtr = std::make_shared<packaged_task_type>(
+			[func = std::forward<Func>(callable),
+			 argTuple = std::make_tuple(std::forward<Args>(args)...)]() mutable -> return_type
+			{
+				return std::apply(
+					[&func](auto&&... unpackedArgs) mutable -> return_type
+					{
+						return std::invoke(
+							std::move(func),
+							std::forward<decltype(unpackedArgs)>(unpackedArgs)...);
+					},
+					std::move(argTuple));
+			});
 
-		enqueue(std::bind(&packaged_task_type::operator(), taskPtr));
+		enqueue([taskPtr]() mutable
+		{
+			(*taskPtr)();
+		});
 
 		return taskPtr->get_future();
 	}
