@@ -13,7 +13,6 @@ DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(NullDevice)
  * This class provides a mock device that does not perform any actual I/O operations.
  * It is useful for testing, debugging, or situations where a device is required but no actual I/O is needed.
  *
- * @inherits Elv::Io::Device
  */
 class MH_EUPH_API NullDevice : public Elv::Io::Device
 {
@@ -28,69 +27,56 @@ public:
 	// Device interface implementation
 public:
 	/**
-	 * @copydoc Elv::Io::Device::read
-	 *
-	 * @note In NullDevice, this function simply zeroes out the provided buffer and returns the requested count.
-	 *	   No actual data is read from any source.
+	 * @brief Fills the destination with zeroes and reports a successful read count.
+	 * @note No external source is read.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override;
 
 	/**
-	 * @copydoc Elv::Io::Device::write
-	 *
-	 * @note In NullDevice, this function ignores the input data and returns 0, indicating no data was written.
-	 *	   No actual data is written to any destination.
+	 * @brief Ignores write data and reports that nothing was written.
+	 * @note No destination is modified.
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override;
 
 	/**
-	 * @copydoc Elv::Io::Device::seek
-	 *
-	 * @note In NullDevice, this function does not alter the device's state and always returns success (0).
-	 *	   The device's position is effectively always at the beginning (offset 0).
+	 * @brief Accepts seek requests without changing any internal state.
+	 * @return Always returns `0`.
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override;
 
 	/**
-	 * @copydoc Elv::Io::Device::tell
-	 *
-	 * @note In NullDevice, this function always returns 0, indicating the device's position is at the beginning.
+	 * @brief Returns the current cursor position.
+	 * @return Always `0`.
 	 */
 	long tell() override;
 
 	/**
-	 * @copydoc Elv::Io::Device::size
-	 *
-	 * @note In NullDevice, this function always returns 0, indicating the device has no content.
+	 * @brief Returns the virtual size of this device.
+	 * @return Always `0`.
 	 */
 	size_t size() override;
 
 	/**
-	 * @copydoc Elv::Io::Device::eof
-	 *
-	 * @note In NullDevice, this function always returns false, indicating the end of the "file" is never reached.
+	 * @brief Reports end-of-file state.
+	 * @return Always `false`.
 	 */
 	bool eof() override;
 
 	/**
-	 * @copydoc Elv::Io::Device::getMode
-	 *
-	 * @note In NullDevice, this function always returns Elv::Io::Mode::READ, even though no actual reading is possible.
-	 *	   This is to maintain a consistent, albeit futile, device mode.
+	 * @brief Returns the virtual mode of this device.
+	 * @return Always `Elv::Io::Mode::READ`.
 	 */
 	Elv::Io::Mode getMode() const override;
 
 	/**
-	 * @copydoc Elv::Io::Device::flush
-	 *
-	 * @note In NullDevice, this function always returns true, indicating a successful (but meaningless) flush operation.
+	 * @brief Performs a no-op flush.
+	 * @return Always `true`.
 	 */
 	bool flush() override;
 
 	/**
-	 * @copydoc Elv::Io::Device::isValid
-	 *
-	 * @note In NullDevice, this function always returns true, indicating the device is always in a valid state.
+	 * @brief Reports whether this device is valid.
+	 * @return Always `true`.
 	 */
 	bool isValid() const override;
 };

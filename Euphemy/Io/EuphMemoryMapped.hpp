@@ -11,6 +11,12 @@ namespace Euph {
 namespace Io {
 
 DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(MemoryMapped)
+/**
+ * @brief Abstract base for memory-mapped files.
+ *
+ * Owns platform-specific mapping resources and exposes span/iterator access
+ * to the mapped byte range.
+ */
 class MH_EUPH_API MemoryMapped
 {
 protected:
@@ -39,7 +45,16 @@ protected:
 	 * @name Allowed move constructor and assignment operator
 	 * @{
 	 */
+	/**
+	 * @brief Move constructor.
+	 * @param mov Source object to move from.
+	 */
 	MemoryMapped(MemoryMapped&& mov);
+	/**
+	 * @brief Move assignment operator.
+	 * @param mov Source object to move from.
+	 * @return Reference to this object.
+	 */
 	MemoryMapped& operator=(MemoryMapped&& mov);
 	/// @}
 	/**
@@ -169,13 +184,37 @@ public:
 	 * @name Iterator access
 	 * @{
 	 */
+	/**
+	 * @brief Returns an iterator to the first byte in the mapping.
+	 */
 	iterator begin();
+	/**
+	 * @brief Returns a const iterator to the first byte in the mapping.
+	 */
 	const_iterator begin() const;
+	/**
+	 * @brief Returns a reverse iterator to the last byte in the mapping.
+	 */
 	reverse_iterator rbegin();
+	/**
+	 * @brief Returns a const reverse iterator to the last byte in the mapping.
+	 */
 	reverse_const_iterator rbegin() const;
+	/**
+	 * @brief Returns an iterator one past the last byte in the mapping.
+	 */
 	iterator end();
+	/**
+	 * @brief Returns a const iterator one past the last byte in the mapping.
+	 */
 	const_iterator end() const;
+	/**
+	 * @brief Returns a reverse iterator one past the first byte in reverse traversal.
+	 */
 	reverse_iterator rend();
+	/**
+	 * @brief Returns a const reverse iterator one past the first byte in reverse traversal.
+	 */
 	reverse_const_iterator rend() const;
 	/// @}
 

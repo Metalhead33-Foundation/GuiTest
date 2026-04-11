@@ -175,6 +175,8 @@ public:
 	 * Creates a temporary file of the given size, maps it into memory, and sets up the object for access.
 	 *
 	 * @param fileSize The size of the temporary file to create.
+	 * @param creationMode Strategy used to create the temporary file on the host platform.
+	 * @param npath Optional name/path hint used by creation modes that accept one.
 	 * @throws std::runtime_error or std::system_error if file creation, mapping, or setup fails.
 	 */
 	MemoryMappedTempFile(size_t fileSize, TemporaryFileCreationMode creationMode = TemporaryFileCreationMode::MKSTEMP, const char* npath = nullptr);

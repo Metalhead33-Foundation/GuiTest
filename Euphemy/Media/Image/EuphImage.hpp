@@ -79,7 +79,16 @@ protected:
 	 * @brief Recalculate derived dimensions (floating-point and reciprocal values).
 	 */
 	void recalculateDimensions();
+	/**
+	 * @brief Copy constructor.
+	 * @param cpy Source image to copy from.
+	 */
 	IReadOnlyImage2D(const IReadOnlyImage2D& cpy);
+	/**
+	 * @brief Copy assignment operator.
+	 * @param cpy Source image to copy from.
+	 * @return Reference to this image.
+	 */
 	IReadOnlyImage2D& operator=(const IReadOnlyImage2D& cpy);
 public:
 	/**

@@ -6,6 +6,9 @@
 namespace Euph {
 namespace Memory {
 
+/**
+ * @brief Logical memory pools used by the global Euph allocator manager.
+ */
 enum class AllocatorSubsystem : uint8_t {
 	SCRATCH = 0,
 	AUDIO,
@@ -13,30 +16,59 @@ enum class AllocatorSubsystem : uint8_t {
 	SCRIPT
 };
 
+/**
+ * @brief Entry point to the process-wide freelist memory manager.
+ */
 struct MH_EUPH_API MemoryManager {
+	/// Owning pointer type for the global freelist manager instance.
 	typedef std::unique_ptr<Elv::Util::FreelistMemoryManager> uManager;
 private:
 	static uManager manager;
 	static std::mutex managerMutex;
 public:
+	/**
+	 * @brief Returns the singleton freelist memory manager.
+	 * @return Reference to the process-wide memory manager.
+	 */
 	static Elv::Util::FreelistMemoryManager& getStaticManager();
 };
 
+/**
+ * @brief Adapter exposing one allocator subsystem as an Alexandrescu allocator backend.
+ * @tparam subsysId Target subsystem ID.
+ */
 template <AllocatorSubsystem subsysId> struct MemoryManagerSubsystem {
 private:
 	static Elv::Util::ContiguousFreeListAllocator* alloc;
 public:
+	/**
+	 * @brief Initializes the subsystem allocator pointer on first use.
+	 */
 	MemoryManagerSubsystem() {
 		if(!alloc) {
 			alloc = MemoryManager::getStaticManager().getAllocator(static_cast<size_t>(subsysId));
 		}
 	}
+	/**
+	 * @brief Allocates a contiguous block.
+	 * @param n Number of bytes to allocate.
+	 * @return Allocated block descriptor.
+	 */
 	Elv::Util::Blk allocateBlock(std::size_t n) noexcept {
 		return alloc->allocateBlock(n);
 	}
+	/**
+	 * @brief Releases a previously allocated block.
+	 * @param blk Block descriptor to deallocate.
+	 */
 	void deallocateBlock(const Elv::Util::Blk& blk) noexcept {
 		alloc->deallocateBlock(blk);
 	}
+	/**
+	 * @brief Checks whether this subsystem owns a block.
+	 * @param blk Block descriptor to test.
+	 * @return `true` when the block belongs to this subsystem.
+	 */
 	bool ownsBlock(const Elv::Util::Blk& blk) const noexcept {
 		return alloc->ownsBlock(blk);
 	}

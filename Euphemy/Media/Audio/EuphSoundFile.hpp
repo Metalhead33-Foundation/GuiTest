@@ -845,27 +845,123 @@ public:
 	FrameIndex seekEnd(FrameCount frames) const;
 
 	// Read operations (sample-based)
+	/**
+	 * @brief Reads interleaved samples from the file.
+	 * @param ptr Destination sample buffer.
+	 * @param samples Number of samples to read.
+	 * @return Number of samples actually read.
+	 */
 	SampleCount read(short *ptr, SampleCount samples) const;
+	/**
+	 * @brief Reads interleaved samples from the file.
+	 * @param ptr Destination sample buffer.
+	 * @param samples Number of samples to read.
+	 * @return Number of samples actually read.
+	 */
 	SampleCount read(int *ptr, SampleCount samples) const;
+	/**
+	 * @brief Reads interleaved samples from the file.
+	 * @param ptr Destination sample buffer.
+	 * @param samples Number of samples to read.
+	 * @return Number of samples actually read.
+	 */
 	SampleCount read(float *ptr, SampleCount samples) const;
+	/**
+	 * @brief Reads interleaved samples from the file.
+	 * @param ptr Destination sample buffer.
+	 * @param samples Number of samples to read.
+	 * @return Number of samples actually read.
+	 */
 	SampleCount read(double *ptr, SampleCount samples) const;
 
 	// Read operations (frame-based)
+	/**
+	 * @brief Reads audio frames from the file.
+	 * @param ptr Destination frame buffer.
+	 * @param frames Number of frames to read.
+	 * @return Number of frames actually read.
+	 */
 	FrameCount readf(short *ptr, FrameCount frames) const;
+	/**
+	 * @brief Reads audio frames from the file.
+	 * @param ptr Destination frame buffer.
+	 * @param frames Number of frames to read.
+	 * @return Number of frames actually read.
+	 */
 	FrameCount readf(int *ptr, FrameCount frames) const;
+	/**
+	 * @brief Reads audio frames from the file.
+	 * @param ptr Destination frame buffer.
+	 * @param frames Number of frames to read.
+	 * @return Number of frames actually read.
+	 */
 	FrameCount readf(float *ptr, FrameCount frames) const;
+	/**
+	 * @brief Reads audio frames from the file.
+	 * @param ptr Destination frame buffer.
+	 * @param frames Number of frames to read.
+	 * @return Number of frames actually read.
+	 */
 	FrameCount readf(double *ptr, FrameCount frames) const;
 
 	// Write operations (sample-based)
+	/**
+	 * @brief Writes interleaved samples to the file.
+	 * @param ptr Source sample buffer.
+	 * @param samples Number of samples to write.
+	 * @return Number of samples actually written.
+	 */
 	SampleCount write(short *ptr, SampleCount samples) const;
+	/**
+	 * @brief Writes interleaved samples to the file.
+	 * @param ptr Source sample buffer.
+	 * @param samples Number of samples to write.
+	 * @return Number of samples actually written.
+	 */
 	SampleCount write(int *ptr, SampleCount samples) const;
+	/**
+	 * @brief Writes interleaved samples to the file.
+	 * @param ptr Source sample buffer.
+	 * @param samples Number of samples to write.
+	 * @return Number of samples actually written.
+	 */
 	SampleCount write(float *ptr, SampleCount samples) const;
+	/**
+	 * @brief Writes interleaved samples to the file.
+	 * @param ptr Source sample buffer.
+	 * @param samples Number of samples to write.
+	 * @return Number of samples actually written.
+	 */
 	SampleCount write(double *ptr, SampleCount samples) const;
 
 	// Write operations (frame-based)
+	/**
+	 * @brief Writes audio frames to the file.
+	 * @param ptr Source frame buffer.
+	 * @param frames Number of frames to write.
+	 * @return Number of frames actually written.
+	 */
 	FrameCount writef(short *ptr, FrameCount frames) const;
+	/**
+	 * @brief Writes audio frames to the file.
+	 * @param ptr Source frame buffer.
+	 * @param frames Number of frames to write.
+	 * @return Number of frames actually written.
+	 */
 	FrameCount writef(int *ptr, FrameCount frames) const;
+	/**
+	 * @brief Writes audio frames to the file.
+	 * @param ptr Source frame buffer.
+	 * @param frames Number of frames to write.
+	 * @return Number of frames actually written.
+	 */
 	FrameCount writef(float *ptr, FrameCount frames) const;
+	/**
+	 * @brief Writes audio frames to the file.
+	 * @param ptr Source frame buffer.
+	 * @param frames Number of frames to write.
+	 * @return Number of frames actually written.
+	 */
 	FrameCount writef(double *ptr, FrameCount frames) const;
 
 	/**
@@ -928,15 +1024,45 @@ public:
 	int getSeekable() const;
 
 	// Text metadata getters
+	/**
+	 * @brief Returns the title metadata field.
+	 */
 	const char *getTitle() const;
+	/**
+	 * @brief Returns the copyright metadata field.
+	 */
 	const char *getCopyright() const;
+	/**
+	 * @brief Returns the software metadata field.
+	 */
 	const char *getSoftware() const;
+	/**
+	 * @brief Returns the artist metadata field.
+	 */
 	const char *getArtist() const;
+	/**
+	 * @brief Returns the comment metadata field.
+	 */
 	const char *getComment() const;
+	/**
+	 * @brief Returns the date metadata field.
+	 */
 	const char *getDate() const;
+	/**
+	 * @brief Returns the album metadata field.
+	 */
 	const char *getAlbum() const;
+	/**
+	 * @brief Returns the license metadata field.
+	 */
 	const char *getLicense() const;
+	/**
+	 * @brief Returns the track number metadata field.
+	 */
 	const char *getTrackNumber() const;
+	/**
+	 * @brief Returns the genre metadata field.
+	 */
 	const char *getGenre() const;
 
 	// Text metadata setters

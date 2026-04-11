@@ -9,10 +9,21 @@ namespace Euph {
 namespace Media {
 namespace Image {
 
+/**
+ * @brief Generic single-channel greyscale pixel representation.
+ * @tparam T Channel storage type.
+ * @tparam formatId Format identifier exposed through `FMT_ID`.
+ */
 template <typename T, Format formatId> struct PixelGreyscale {
-	T pixel;
-	static const Format FMT_ID = formatId;
+	T pixel; ///< Stored greyscale channel value.
+	static const Format FMT_ID = formatId; /**< Pixel format identifier. */ ///< Runtime format identifier.
 	// 0.299R + 0.587G + 0.114B
+	/**
+	 * @brief Converts a normalized RGBA kernel to this pixel format.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		pixel = Elv::Util::fdenormalize<T>(
 					(kernel.x * 0.299f) +
@@ -20,6 +31,12 @@ template <typename T, Format formatId> struct PixelGreyscale {
 					(kernel.z * 0.114f)
 					);
 	}
+	/**
+	 * @brief Converts a normalized RGBA kernel using ordered dithering when supported.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
 			// For half_float, just do a regular conversion (no dithering)
@@ -28,6 +45,12 @@ template <typename T, Format formatId> struct PixelGreyscale {
 			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 		}
 	}
+	/**
+	 * @brief Converts this pixel value back into a normalized RGBA kernel.
+	 */
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		float normalized = Elv::Util::fnormalize(pixel);
 		kernel.x = normalized;
@@ -47,14 +70,32 @@ typedef PixelGreyscale<int64_t, Format::INVALID> PixelGreyscale_S64;
 typedef PixelGreyscale<half_float::half, Format::R16F> PixelGreyscale_F16;
 typedef PixelGreyscale<float, Format::R32F> PixelGreyscale_F32;
 typedef PixelGreyscale<double, Format::R64F> PixelGreyscale_F64;
+/**
+ * @brief Generic two-channel pixel representation (R,G).
+ * @tparam T Channel storage type.
+ * @tparam formatId Format identifier exposed through `FMT_ID`.
+ */
 template <typename T, Format formatId> struct PixelRG {
-	T r,g;
-	static const Format FMT_ID = formatId;
+	T r; ///< Red channel value.
+	T g; ///< Green channel value.
+	static const Format FMT_ID = formatId; /**< Pixel format identifier. */ ///< Runtime format identifier.
+	/**
+	 * @brief Converts a normalized RGBA kernel to this pixel format.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		r = Elv::Util::fdenormalize<T>(kernel.x);
 		g = Elv::Util::fdenormalize<T>(kernel.y);
 	}
 	// Generic dithering function (enabled for non-half types)
+	/**
+	 * @brief Converts a normalized RGBA kernel using ordered dithering when supported.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
 			// For half_float, just do a regular conversion (no dithering)
@@ -63,6 +104,12 @@ template <typename T, Format formatId> struct PixelRG {
 			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 		}
 	}
+	/**
+	 * @brief Converts this pixel value back into a normalized RGBA kernel.
+	 */
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
 		kernel.y = Elv::Util::fnormalize(g);
@@ -82,14 +129,33 @@ typedef PixelRG<half_float::half, Format::RG16F> PixelRG_F16;
 typedef PixelRG<float, Format::RG32F> PixelRG_F32;
 typedef PixelRG<double, Format::RG64F> PixelRG_F64;
 
+/**
+ * @brief Generic three-channel pixel representation (R,G,B).
+ * @tparam T Channel storage type.
+ * @tparam formatId Format identifier exposed through `FMT_ID`.
+ */
 template <typename T, Format formatId> struct PixelRGB {
-	T r,g,b;
-	static const Format FMT_ID = formatId;
+	T r; ///< Red channel value.
+	T g; ///< Green channel value.
+	T b; ///< Blue channel value.
+	static const Format FMT_ID = formatId; /**< Pixel format identifier. */ ///< Runtime format identifier.
+	/**
+	 * @brief Converts a normalized RGBA kernel to this pixel format.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		r = Elv::Util::fdenormalize<T>(kernel.x);
 		g = Elv::Util::fdenormalize<T>(kernel.y);
 		b = Elv::Util::fdenormalize<T>(kernel.z);
 	}
+	/**
+	 * @brief Converts a normalized RGBA kernel using ordered dithering when supported.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
 			// For half_float, just do a regular conversion (no dithering)
@@ -98,6 +164,12 @@ template <typename T, Format formatId> struct PixelRGB {
 			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 		}
 	}
+	/**
+	 * @brief Converts this pixel value back into a normalized RGBA kernel.
+	 */
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
 		kernel.y = Elv::Util::fnormalize(g);
@@ -117,14 +189,33 @@ typedef PixelRGB<half_float::half, Format::RGB16F> PixelRGB_F16;
 typedef PixelRGB<float, Format::RGB32F> PixelRGB_F32;
 typedef PixelRGB<double, Format::RGB64F> PixelRGB_F64;
 
+/**
+ * @brief Generic three-channel pixel representation (B,G,R memory order).
+ * @tparam T Channel storage type.
+ * @tparam formatId Format identifier exposed through `FMT_ID`.
+ */
 template <typename T, Format formatId> struct PixelBGR {
-	T b,g,r;
-	static const Format FMT_ID = formatId;
+	T b; ///< Blue channel value.
+	T g; ///< Green channel value.
+	T r; ///< Red channel value.
+	static const Format FMT_ID = formatId; /**< Pixel format identifier. */ ///< Runtime format identifier.
+	/**
+	 * @brief Converts a normalized RGBA kernel to this pixel format.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		r = Elv::Util::fdenormalize<T>(kernel.x);
 		g = Elv::Util::fdenormalize<T>(kernel.y);
 		b = Elv::Util::fdenormalize<T>(kernel.z);
 	}
+	/**
+	 * @brief Converts a normalized RGBA kernel using ordered dithering when supported.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
 			// For half_float, just do a regular conversion (no dithering)
@@ -133,6 +224,12 @@ template <typename T, Format formatId> struct PixelBGR {
 			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 		}
 	}
+	/**
+	 * @brief Converts this pixel value back into a normalized RGBA kernel.
+	 */
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
 		kernel.y = Elv::Util::fnormalize(g);
@@ -152,15 +249,35 @@ typedef PixelBGR<half_float::half, Format::BGR16F> PixelBGR_F16;
 typedef PixelBGR<float, Format::BGR32F> PixelBGR_F32;
 typedef PixelBGR<double, Format::BGR64F> PixelBGR_F64;
 
+/**
+ * @brief Generic four-channel pixel representation (B,G,R,A memory order).
+ * @tparam T Channel storage type.
+ * @tparam formatId Format identifier exposed through `FMT_ID`.
+ */
 template <typename T, Format formatId> struct PixelRGBA {
-	T b,g,r,a;
-	static const Format FMT_ID = formatId;
+	T b; ///< Blue channel value.
+	T g; ///< Green channel value.
+	T r; ///< Red channel value.
+	T a; ///< Alpha channel value.
+	static const Format FMT_ID = formatId; /**< Pixel format identifier. */ ///< Runtime format identifier.
+	/**
+	 * @brief Converts a normalized RGBA kernel to this pixel format.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		r = Elv::Util::fdenormalize<T>(kernel.x);
 		g = Elv::Util::fdenormalize<T>(kernel.y);
 		b = Elv::Util::fdenormalize<T>(kernel.z);
 		a = Elv::Util::fdenormalize<T>(kernel.w);
 	}
+	/**
+	 * @brief Converts a normalized RGBA kernel using ordered dithering when supported.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
 			// For half_float, just do a regular conversion (no dithering)
@@ -169,6 +286,12 @@ template <typename T, Format formatId> struct PixelRGBA {
 			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 		}
 	}
+	/**
+	 * @brief Converts this pixel value back into a normalized RGBA kernel.
+	 */
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
 		kernel.y = Elv::Util::fnormalize(g);
@@ -188,15 +311,35 @@ typedef PixelRGBA<half_float::half, Format::RGBA16F> PixelRGBA_F16;
 typedef PixelRGBA<float, Format::RGBA32F> PixelRGBA_F32;
 typedef PixelRGBA<double, Format::RGBA64F> PixelRGBA_F64;
 
+/**
+ * @brief Generic four-channel pixel representation (B,G,R,A).
+ * @tparam T Channel storage type.
+ * @tparam formatId Format identifier exposed through `FMT_ID`.
+ */
 template <typename T, Format formatId> struct PixelBGRA {
-	T b,g,r,a;
-	static const Format FMT_ID = formatId;
+	T b; ///< Blue channel value.
+	T g; ///< Green channel value.
+	T r; ///< Red channel value.
+	T a; ///< Alpha channel value.
+	static const Format FMT_ID = formatId; /**< Pixel format identifier. */ ///< Runtime format identifier.
+	/**
+	 * @brief Converts a normalized RGBA kernel to this pixel format.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		r = Elv::Util::fdenormalize<T>(kernel.x);
 		g = Elv::Util::fdenormalize<T>(kernel.y);
 		b = Elv::Util::fdenormalize<T>(kernel.z);
 		a = Elv::Util::fdenormalize<T>(kernel.w);
 	}
+	/**
+	 * @brief Converts a normalized RGBA kernel using ordered dithering when supported.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
 			// For half_float, just do a regular conversion (no dithering)
@@ -205,6 +348,12 @@ template <typename T, Format formatId> struct PixelBGRA {
 			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 		}
 	}
+	/**
+	 * @brief Converts this pixel value back into a normalized RGBA kernel.
+	 */
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
 		kernel.y = Elv::Util::fnormalize(g);
@@ -224,15 +373,35 @@ typedef PixelBGRA<half_float::half, Format::BGRA16F> PixelBGRA_F16;
 typedef PixelBGRA<float, Format::BGRA32F> PixelBGRA_F32;
 typedef PixelBGRA<double, Format::BGRA64F> PixelBGRA_F64;
 
+/**
+ * @brief Generic four-channel pixel representation (A,R,G,B memory order).
+ * @tparam T Channel storage type.
+ * @tparam formatId Format identifier exposed through `FMT_ID`.
+ */
 template <typename T, Format formatId> struct PixelARGB {
-	T a,r,g,b;
-	static const Format FMT_ID = formatId;
+	T a; ///< Alpha channel value.
+	T r; ///< Red channel value.
+	T g; ///< Green channel value.
+	T b; ///< Blue channel value.
+	static const Format FMT_ID = formatId; /**< Pixel format identifier. */ ///< Runtime format identifier.
+	/**
+	 * @brief Converts a normalized RGBA kernel to this pixel format.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		r = Elv::Util::fdenormalize<T>(kernel.x);
 		g = Elv::Util::fdenormalize<T>(kernel.y);
 		b = Elv::Util::fdenormalize<T>(kernel.z);
 		a = Elv::Util::fdenormalize<T>(kernel.w);
 	}
+	/**
+	 * @brief Converts a normalized RGBA kernel using ordered dithering when supported.
+	 */
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		if constexpr (std::is_same_v<T, half_float::half> || std::is_same_v<T, float> || std::is_same_v<T, double> ) {
 			// For half_float, just do a regular conversion (no dithering)
@@ -241,6 +410,12 @@ template <typename T, Format formatId> struct PixelARGB {
 			fromKernel(Elv::Util::OrderedDither<T>::ditherUp(kernel,coords));
 		}
 	}
+	/**
+	 * @brief Converts this pixel value back into a normalized RGBA kernel.
+	 */
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		kernel.x = Elv::Util::fnormalize(r);
 		kernel.y = Elv::Util::fnormalize(g);
@@ -261,28 +436,38 @@ typedef PixelARGB<float, Format::ARGB32F> PixelARGB_F32;
 typedef PixelARGB<double, Format::ARGB64F> PixelARGB_F64;
 
 /// 8-bit texture format
+/// @brief Packed 8-bit RGB format using 3:3:2 channel bit allocation.
 struct PixelRGB332 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint8_t,3> Dither3;
-	typedef Elv::Util::OrderedDither<uint8_t,3> Dither2;
-	static constexpr const uint_fast8_t max2 = (1 << 2) - 1;
-	static constexpr const uint_fast8_t max3 = (1 << 3) - 1;
-	static constexpr const float max2F = static_cast<float>(max2);
-	static constexpr const float max2F_rec = 1.0f / max2F;
-	static constexpr const float max3F = static_cast<float>(max3);
-	static constexpr const float max3F_rec = 1.0f / max3F;
-	static constexpr const uint_fast8_t maskB = max2;
-	static constexpr const uint_fast8_t maskG = max3 << 2;
-	static constexpr const uint_fast8_t maskR = max3 << 5;
-	uint8_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint8_t,3> Dither3; /**< Ordered dithering helper. */
+	typedef Elv::Util::OrderedDither<uint8_t,3> Dither2; /**< Ordered dithering helper. */
+	static constexpr const uint_fast8_t max2 = (1 << 2) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast8_t max3 = (1 << 3) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max2F = static_cast<float>(max2); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max2F_rec = 1.0f / max2F; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max3F = static_cast<float>(max3); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max3F_rec = 1.0f / max3F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast8_t maskB = max2; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast8_t maskG = max3 << 2; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast8_t maskR = max3 << 5; /**< Precomputed packing/normalization constant. */
+	uint8_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast8_t& r, uint_fast8_t& g, uint_fast8_t& b) const {
 		r = (container & maskR) >> 5;
 		g = (container & maskG) >> 2;
 		b = (container & maskB);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast8_t r, uint_fast8_t g, uint_fast8_t b) {
 		container = (r << 5) | (g << 2) | b;
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast8_t>(std::round(kernel.x * max3F)),
@@ -290,6 +475,9 @@ struct PixelRGB332 {
 					static_cast<uint_fast8_t>(std::round(kernel.z * max2F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast8_t>(std::round( Dither3::ditherUp(kernel.x,coords) * max3F)),
@@ -297,6 +485,9 @@ struct PixelRGB332 {
 		static_cast<uint_fast8_t>(std::round( Dither2::ditherUp(kernel.z,coords) * max2F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast8_t r,g,b;
 		extractParts(r,g,b);
@@ -307,24 +498,34 @@ struct PixelRGB332 {
 	}
 };
 /// 16-bit texture formats
+/// @brief Packed 16-bit RGB format using 4:4:4 channel bit allocation.
 struct PixelRGB444 {
-	static const Format FMT_ID = Format::RGB444;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,4> Dither4;
-	static constexpr const uint_fast16_t max4 = (1 << 4) - 1;
-	static constexpr const float max4F = static_cast<float>(max4);
-	static constexpr const float max4F_rec = 1.0f / max4F;
-	static constexpr const uint_fast16_t maskB = max4;
-	static constexpr const uint_fast16_t maskG = max4 << 4;
-	static constexpr const uint_fast16_t maskR = max4 << 8;
-	uint16_t container;
+	static const Format FMT_ID = Format::RGB444; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,4> Dither4; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max4 = (1 << 4) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max4F = static_cast<float>(max4); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max4F_rec = 1.0f / max4F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max4; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max4 << 4; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max4 << 8; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b) const {
 		r = (container & maskR) >> 8;
 		g = (container & maskG) >> 4;
 		b = (container & maskB);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b) {
 		container = static_cast<uint16_t>( (r << 8) | (g << 4) | b );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max4F)),
@@ -332,6 +533,9 @@ struct PixelRGB444 {
 					static_cast<uint_fast16_t>(std::round(kernel.z * max4F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.x,coords) * max4F)),
@@ -339,6 +543,9 @@ struct PixelRGB444 {
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.z,coords) * max4F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b;
 		extractParts(r,g,b);
@@ -348,24 +555,34 @@ struct PixelRGB444 {
 		kernel.w = 1.0f;
 	}
 };
+/// @brief Packed 16-bit RGB format using 5:5:5 channel bit allocation.
 struct PixelRGB555 {
-	static const Format FMT_ID = Format::RGB555;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5;
-	static constexpr const uint_fast16_t max5 = (1 << 5) - 1;
-	static constexpr const float max5F = static_cast<float>(max5);
-	static constexpr const float max5F_rec = 1.0f / max5F;
-	static constexpr const uint_fast16_t maskB = max5;
-	static constexpr const uint_fast16_t maskG = max5 << 5;
-	static constexpr const uint_fast16_t maskR = max5 << 10;
-	uint16_t container;
+	static const Format FMT_ID = Format::RGB555; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max5 = (1 << 5) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F = static_cast<float>(max5); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F_rec = 1.0f / max5F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max5; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max5 << 5; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max5 << 10; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b) const {
 		r = (container & maskR) >> 10;
 		g = (container & maskG) >> 5;
 		b = (container & maskB);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b) {
 		container = static_cast<uint16_t>( (r << 10) | (g << 5) | b );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max5F)),
@@ -373,6 +590,9 @@ struct PixelRGB555 {
 					static_cast<uint_fast16_t>(std::round(kernel.z * max5F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
@@ -380,6 +600,9 @@ struct PixelRGB555 {
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.z,coords) * max5F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b;
 		extractParts(r,g,b);
@@ -389,28 +612,38 @@ struct PixelRGB555 {
 		kernel.w = 1.0f;
 	}
 };
+/// @brief Packed 16-bit RGB format using 5:6:5 channel bit allocation.
 struct PixelRGB565 {
-	static const Format FMT_ID = Format::RGB565;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,6> Dither6;
-	static constexpr const uint_fast16_t max5 = (1 << 5) - 1;
-	static constexpr const float max5F = static_cast<float>(max5);
-	static constexpr const float max5F_rec = 1.0f / max5F;
-	static constexpr const uint_fast16_t max6 = (1 << 6) - 1;
-	static constexpr const float max6F = static_cast<float>(max6);
-	static constexpr const float max6F_rec = 1.0f / max6F;
-	static constexpr const uint_fast16_t maskB = max5;
-	static constexpr const uint_fast16_t maskG = max6 << 5;
-	static constexpr const uint_fast16_t maskR = max5 << 11;
-	uint16_t container;
+	static const Format FMT_ID = Format::RGB565; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5; /**< Ordered dithering helper. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,6> Dither6; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max5 = (1 << 5) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F = static_cast<float>(max5); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F_rec = 1.0f / max5F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t max6 = (1 << 6) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max6F = static_cast<float>(max6); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max6F_rec = 1.0f / max6F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max5; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max6 << 5; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max5 << 11; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b) const {
 		r = (container & maskR) >> 11;
 		g = (container & maskG) >> 5;
 		b = (container & maskB);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b) {
 		container = static_cast<uint16_t>( (r << 11) | (g << 5) | b );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max5F)),
@@ -418,6 +651,9 @@ struct PixelRGB565 {
 					static_cast<uint_fast16_t>(std::round(kernel.z * max5F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
@@ -425,6 +661,9 @@ struct PixelRGB565 {
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.z,coords) * max5F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b;
 		extractParts(r,g,b);
@@ -434,24 +673,34 @@ struct PixelRGB565 {
 		kernel.w = 1.0f;
 	}
 };
+/// @brief Packed 16-bit BGR format using 5:5:5 channel bit allocation.
 struct PixelBGR555 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5;
-	static constexpr const uint_fast16_t max5 = (1 << 5) - 1;
-	static constexpr const float max5F = static_cast<float>(max5);
-	static constexpr const float max5F_rec = 1.0f / max5F;
-	static constexpr const uint_fast16_t maskB = max5;
-	static constexpr const uint_fast16_t maskG = max5 << 5;
-	static constexpr const uint_fast16_t maskR = max5 << 10;
-	uint16_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max5 = (1 << 5) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F = static_cast<float>(max5); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F_rec = 1.0f / max5F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max5; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max5 << 5; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max5 << 10; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b) const {
 		b = (container & maskB) >> 10;
 		g = (container & maskG) >> 5;
 		r = (container & maskR);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b) {
 		container = static_cast<uint16_t>( (b << 8) | (g << 4) | r );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max5F)),
@@ -459,6 +708,9 @@ struct PixelBGR555 {
 					static_cast<uint_fast16_t>(std::round(kernel.z * max5F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
@@ -466,6 +718,9 @@ struct PixelBGR555 {
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.z,coords) * max5F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b;
 		extractParts(r,g,b);
@@ -475,28 +730,38 @@ struct PixelBGR555 {
 		kernel.w = 1.0f;
 	}
 };
+/// @brief Packed 16-bit BGR format using 5:6:5 channel bit allocation.
 struct PixelBGR565 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,6> Dither6;
-	static constexpr const uint_fast16_t max5 = (1 << 5) - 1;
-	static constexpr const float max5F = static_cast<float>(max5);
-	static constexpr const float max5F_rec = 1.0f / max5F;
-	static constexpr const uint_fast16_t max6 = (1 << 6) - 1;
-	static constexpr const float max6F = static_cast<float>(max6);
-	static constexpr const float max6F_rec = 1.0f / max6F;
-	static constexpr const uint_fast16_t maskR = max5;
-	static constexpr const uint_fast16_t maskG = max6 << 5;
-	static constexpr const uint_fast16_t maskB = max5 << 11;
-	uint16_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5; /**< Ordered dithering helper. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,6> Dither6; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max5 = (1 << 5) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F = static_cast<float>(max5); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F_rec = 1.0f / max5F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t max6 = (1 << 6) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max6F = static_cast<float>(max6); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max6F_rec = 1.0f / max6F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max5; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max6 << 5; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max5 << 11; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b) const {
 		b = (container & maskB) >> 11;
 		g = (container & maskG) >> 5;
 		r = (container & maskR);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b) {
 		container = static_cast<uint16_t>( (b << 11) | (g << 5) | r );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max5F)),
@@ -504,6 +769,9 @@ struct PixelBGR565 {
 					static_cast<uint_fast16_t>(std::round(kernel.z * max5F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
@@ -511,6 +779,9 @@ struct PixelBGR565 {
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.z,coords) * max5F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b;
 		extractParts(r,g,b);
@@ -520,26 +791,36 @@ struct PixelBGR565 {
 		kernel.w = 1.0f;
 	}
 };
+/// @brief Packed 16-bit ARGB format using 4:4:4:4 channel bit allocation.
 struct PixelARGB4444 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,4> Dither4;
-	static constexpr const uint_fast16_t max4 = (1 << 4) - 1;
-	static constexpr const float max4F = static_cast<float>(max4);
-	static constexpr const float max4F_rec = 1.0f / max4F;
-	static constexpr const uint_fast16_t maskB = max4;
-	static constexpr const uint_fast16_t maskG = max4 << 4;
-	static constexpr const uint_fast16_t maskR = max4 << 8;
-	static constexpr const uint_fast16_t maskA = max4 << 12;
-	uint16_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,4> Dither4; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max4 = (1 << 4) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max4F = static_cast<float>(max4); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max4F_rec = 1.0f / max4F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max4; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max4 << 4; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max4 << 8; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskA = max4 << 12; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b, uint_fast16_t& a) const {
 		a = (container & maskA) >> 12;
 		r = (container & maskR) >> 8;
 		g = (container & maskG) >> 4;
 		b = (container & maskB);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b, uint_fast16_t a) {
 		container = static_cast<uint16_t>( (a << 12) | (r << 8) | (g << 4) | b );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max4F)),
@@ -548,6 +829,9 @@ struct PixelARGB4444 {
 					static_cast<uint_fast16_t>(std::round(kernel.w * max4F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.x,coords) * max4F)),
@@ -556,6 +840,9 @@ struct PixelARGB4444 {
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.w,coords) * max4F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -565,26 +852,36 @@ struct PixelARGB4444 {
 		kernel.w = static_cast<float>(a) * max4F_rec;
 	}
 };
+/// @brief Packed 16-bit BGRA format using 4:4:4:4 channel bit allocation.
 struct PixelBGRA4444 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,4> Dither4;
-	static constexpr const uint_fast16_t max4 = (1 << 4) - 1;
-	static constexpr const float max4F = static_cast<float>(max4);
-	static constexpr const float max4F_rec = 1.0f / max4F;
-	static constexpr const uint_fast16_t maskB = max4 << 12;
-	static constexpr const uint_fast16_t maskG = max4 << 8;
-	static constexpr const uint_fast16_t maskR = max4 << 4;
-	static constexpr const uint_fast16_t maskA = max4;
-	uint16_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,4> Dither4; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max4 = (1 << 4) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max4F = static_cast<float>(max4); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max4F_rec = 1.0f / max4F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max4 << 12; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max4 << 8; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max4 << 4; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskA = max4; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b, uint_fast16_t& a) const {
 		b = (container & maskB) >> 12;
 		g = (container & maskG) >> 8;
 		r = (container & maskR) >> 4;
 		a = (container & maskA);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b, uint_fast16_t a) {
 		container = static_cast<uint16_t>( (b << 12) | (g << 8) | (r << 4) | a );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max4F)),
@@ -593,6 +890,9 @@ struct PixelBGRA4444 {
 					static_cast<uint_fast16_t>(std::round(kernel.w * max4F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.x,coords) * max4F)),
@@ -601,6 +901,9 @@ struct PixelBGRA4444 {
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.w,coords) * max4F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -610,26 +913,36 @@ struct PixelBGRA4444 {
 		kernel.w = static_cast<float>(a) * max4F_rec;
 	}
 };
+/// @brief Packed 16-bit RGBA format using 4:4:4:4 channel bit allocation.
 struct PixelRGBA4444 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,4> Dither4;
-	static constexpr const uint_fast16_t max4 = (1 << 4) - 1;
-	static constexpr const float max4F = static_cast<float>(max4);
-	static constexpr const float max4F_rec = 1.0f / max4F;
-	static constexpr const uint_fast16_t maskR = max4 << 12;
-	static constexpr const uint_fast16_t maskB = max4 << 8;
-	static constexpr const uint_fast16_t maskG = max4 << 4;
-	static constexpr const uint_fast16_t maskA = max4;
-	uint16_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,4> Dither4; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max4 = (1 << 4) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max4F = static_cast<float>(max4); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max4F_rec = 1.0f / max4F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max4 << 12; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max4 << 8; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max4 << 4; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskA = max4; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b, uint_fast16_t& a) const {
 		r = (container & maskR) >> 12;
 		b = (container & maskB) >> 8;
 		g = (container & maskG) >> 4;
 		a = (container & maskA);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b, uint_fast16_t a) {
 		container = static_cast<uint16_t>( (r << 12) | (b << 8) | (g << 4) | a );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max4F)),
@@ -638,6 +951,9 @@ struct PixelRGBA4444 {
 					static_cast<uint_fast16_t>(std::round(kernel.w * max4F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.x,coords) * max4F)),
@@ -646,6 +962,9 @@ struct PixelRGBA4444 {
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.w,coords) * max4F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -655,26 +974,36 @@ struct PixelRGBA4444 {
 		kernel.w = static_cast<float>(a) * max4F_rec;
 	}
 };
+/// @brief Packed 16-bit ABGR format using 4:4:4:4 channel bit allocation.
 struct PixelABGR4444 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,4> Dither4;
-	static constexpr const uint_fast16_t max4 = (1 << 4) - 1;
-	static constexpr const float max4F = static_cast<float>(max4);
-	static constexpr const float max4F_rec = 1.0f / max4F;
-	static constexpr const uint_fast16_t maskA = max4 << 12;
-	static constexpr const uint_fast16_t maskB = max4 << 8;
-	static constexpr const uint_fast16_t maskG = max4 << 4;
-	static constexpr const uint_fast16_t maskR = max4;
-	uint16_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,4> Dither4; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max4 = (1 << 4) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max4F = static_cast<float>(max4); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max4F_rec = 1.0f / max4F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskA = max4 << 12; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max4 << 8; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max4 << 4; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max4; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b, uint_fast16_t& a) const {
 		a = (container & maskA) >> 12;
 		b = (container & maskB) >> 8;
 		g = (container & maskG) >> 4;
 		r = (container & maskR);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b, uint_fast16_t a) {
 		container = static_cast<uint16_t>( (a << 12) | (b << 8) | (g << 4) | r );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max4F)),
@@ -683,6 +1012,9 @@ struct PixelABGR4444 {
 					static_cast<uint_fast16_t>(std::round(kernel.w * max4F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.x,coords) * max4F)),
@@ -691,6 +1023,9 @@ struct PixelABGR4444 {
 		static_cast<uint_fast16_t>(std::round( Dither4::ditherUp(kernel.w,coords) * max4F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -700,26 +1035,36 @@ struct PixelABGR4444 {
 		kernel.w = static_cast<float>(a) * max4F_rec;
 	}
 };
+/// @brief Packed 16-bit ARGB format using 1:5:5:5 channel bit allocation.
 struct PixelARGB1555 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5;
-	static constexpr const uint_fast16_t max5 = (1 << 5) - 1;
-	static constexpr const float max5F = static_cast<float>(max5);
-	static constexpr const float max5F_rec = 1.0f / max5F;
-	static constexpr const uint_fast16_t maskA = 1 << 15;
-	static constexpr const uint_fast16_t maskR = max5 << 10;
-	static constexpr const uint_fast16_t maskG = max5 << 5;
-	static constexpr const uint_fast16_t maskB = max5;
-	uint16_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max5 = (1 << 5) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F = static_cast<float>(max5); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F_rec = 1.0f / max5F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskA = 1 << 15; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max5 << 10; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max5 << 5; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max5; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b, uint_fast16_t& a) const {
 		a = (container & maskA) >> 15;
 		r = (container & maskR) >> 10;
 		g = (container & maskG) >> 5;
 		b = (container & maskB);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b, uint_fast16_t a) {
 		container = static_cast<uint16_t>( (a << 15) | (r << 10) | (g << 5) | b );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max5F)),
@@ -728,6 +1073,9 @@ struct PixelARGB1555 {
 					static_cast<uint_fast16_t>(std::round(kernel.w))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
@@ -736,6 +1084,9 @@ struct PixelARGB1555 {
 		static_cast<uint_fast16_t>( Elv::Util::stippleAlpha(kernel.w, coords))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -745,26 +1096,36 @@ struct PixelARGB1555 {
 		kernel.w = static_cast<float>(a);
 	}
 };
+/// @brief Packed 16-bit RGBA format using 5:5:5:1 channel bit allocation.
 struct PixelRGBA5551 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5;
-	static constexpr const uint_fast16_t max5 = (1 << 5) - 1;
-	static constexpr const float max5F = static_cast<float>(max5);
-	static constexpr const float max5F_rec = 1.0f / max5F;
-	static constexpr const uint_fast16_t maskR = 1 << 11;
-	static constexpr const uint_fast16_t maskG = max5 << 6;
-	static constexpr const uint_fast16_t maskB = max5 << 1;
-	static constexpr const uint_fast16_t maskA = 1;
-	uint16_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max5 = (1 << 5) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F = static_cast<float>(max5); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F_rec = 1.0f / max5F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = 1 << 11; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max5 << 6; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max5 << 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskA = 1; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b, uint_fast16_t& a) const {
 		r = (container & maskR) >> 11;
 		g = (container & maskG) >> 6;
 		b = (container & maskB) >> 1;
 		a = (container & maskA);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b, uint_fast16_t a) {
 		container = static_cast<uint16_t>( (r << 11) | (g << 6) | (b << 1) | a );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max5F)),
@@ -773,6 +1134,9 @@ struct PixelRGBA5551 {
 					static_cast<uint_fast16_t>(std::round(kernel.w))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
@@ -781,6 +1145,9 @@ struct PixelRGBA5551 {
 		static_cast<uint_fast16_t>( Elv::Util::stippleAlpha(kernel.w, coords))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -790,26 +1157,36 @@ struct PixelRGBA5551 {
 		kernel.w = static_cast<float>(a);
 	}
 };
+/// @brief Packed 16-bit ABGR format using 1:5:5:5 channel bit allocation.
 struct PixelABGR1555 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5;
-	static constexpr const uint_fast16_t max5 = (1 << 5) - 1;
-	static constexpr const float max5F = static_cast<float>(max5);
-	static constexpr const float max5F_rec = 1.0f / max5F;
-	static constexpr const uint_fast16_t maskA = 1 << 15;
-	static constexpr const uint_fast16_t maskB = max5 << 10;
-	static constexpr const uint_fast16_t maskG = max5 << 5;
-	static constexpr const uint_fast16_t maskR = max5;
-	uint16_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max5 = (1 << 5) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F = static_cast<float>(max5); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F_rec = 1.0f / max5F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskA = 1 << 15; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = max5 << 10; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max5 << 5; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max5; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b, uint_fast16_t& a) const {
 		a = (container & maskA) >> 15;
 		b = (container & maskB) >> 10;
 		g = (container & maskG) >> 5;
 		r = (container & maskR);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b, uint_fast16_t a) {
 		container = static_cast<uint16_t>( (a << 15) | (b << 10) | (g << 5) | r );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max5F)),
@@ -818,6 +1195,9 @@ struct PixelABGR1555 {
 					static_cast<uint_fast16_t>(std::round(kernel.w))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
@@ -826,6 +1206,9 @@ struct PixelABGR1555 {
 		static_cast<uint_fast16_t>( Elv::Util::stippleAlpha(kernel.w, coords))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -835,26 +1218,36 @@ struct PixelABGR1555 {
 		kernel.w = static_cast<float>(a);
 	}
 };
+/// @brief Packed 16-bit BGRA format using 5:5:5:1 channel bit allocation.
 struct PixelBGRA5551 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5;
-	static constexpr const uint_fast16_t max5 = (1 << 5) - 1;
-	static constexpr const float max5F = static_cast<float>(max5);
-	static constexpr const float max5F_rec = 1.0f / max5F;
-	static constexpr const uint_fast16_t maskB = 1 << 11;
-	static constexpr const uint_fast16_t maskG = max5 << 6;
-	static constexpr const uint_fast16_t maskR = max5 << 1;
-	static constexpr const uint_fast16_t maskA = 1;
-	uint16_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint_fast16_t,5> Dither5; /**< Ordered dithering helper. */
+	static constexpr const uint_fast16_t max5 = (1 << 5) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F = static_cast<float>(max5); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max5F_rec = 1.0f / max5F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskB = 1 << 11; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskG = max5 << 6; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskR = max5 << 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint_fast16_t maskA = 1; /**< Precomputed packing/normalization constant. */
+	uint16_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint_fast16_t& r, uint_fast16_t& g, uint_fast16_t& b, uint_fast16_t& a) const {
 		b = (container & maskB) >> 11;
 		g = (container & maskG) >> 6;
 		r = (container & maskR) >> 1;
 		a = (container & maskA);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint_fast16_t r, uint_fast16_t g, uint_fast16_t b, uint_fast16_t a) {
 		container = static_cast<uint16_t>( (b << 11) | (g << 6) | (r << 1) | a );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint_fast16_t>(std::round(kernel.x * max5F)),
@@ -863,6 +1256,9 @@ struct PixelBGRA5551 {
 					static_cast<uint_fast16_t>(std::round(kernel.w))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint_fast16_t>(std::round( Dither5::ditherUp(kernel.x,coords) * max5F)),
@@ -871,6 +1267,9 @@ struct PixelBGRA5551 {
 		static_cast<uint_fast16_t>( Elv::Util::stippleAlpha(kernel.w, coords))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint_fast16_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -881,24 +1280,34 @@ struct PixelBGRA5551 {
 	}
 };
 /// 32-bit texture formats
+/// @brief Packed 32-bit RGBX format (unused alpha byte).
 struct PixelRGBX8888 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint8_t> Dither8;
-	static constexpr const uint32_t max8 = (1 << 8) - 1;
-	static constexpr const float max8F = static_cast<float>(max8);
-	static constexpr const float max8F_rec = 1.0f / max8F;
-	static constexpr const uint32_t maskR = max8 << 24;
-	static constexpr const uint32_t maskG = max8 << 16;
-	static constexpr const uint32_t maskB = max8 << 8;
-	uint32_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint8_t> Dither8; /**< Ordered dithering helper. */
+	static constexpr const uint32_t max8 = (1 << 8) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F = static_cast<float>(max8); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F_rec = 1.0f / max8F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskR = max8 << 24; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskG = max8 << 16; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskB = max8 << 8; /**< Precomputed packing/normalization constant. */
+	uint32_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint32_t& r, uint32_t& g, uint32_t& b) const {
 		r = (container & maskR) >> 16;
 		g = (container & maskG) >> 8;
 		b = (container & maskB);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint32_t r, uint32_t g, uint32_t b) {
 		container = static_cast<uint32_t>( (r << 24u) |(g << 16u) | (b << 8u) );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint32_t>(std::round(kernel.x * max8F)),
@@ -906,6 +1315,9 @@ struct PixelRGBX8888 {
 					static_cast<uint32_t>(std::round(kernel.z * max8F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
@@ -913,6 +1325,9 @@ struct PixelRGBX8888 {
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.z,coords) * max8F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint32_t r,g,b;
 		extractParts(r,g,b);
@@ -922,24 +1337,34 @@ struct PixelRGBX8888 {
 		kernel.w = 1.0f;
 	}
 };
+/// @brief Packed 32-bit BGRX format (unused alpha byte).
 struct PixelBGRX8888 {
-	static const Format FMT_ID = Format::INVALID;
-	typedef Elv::Util::OrderedDither<uint8_t> Dither8;
-	static constexpr const uint32_t max8 = (1 << 8) - 1;
-	static constexpr const float max8F = static_cast<float>(max8);
-	static constexpr const float max8F_rec = 1.0f / max8F;
-	static constexpr const uint32_t maskB = max8 << 24;
-	static constexpr const uint32_t maskG = max8 << 16;
-	static constexpr const uint32_t maskR = max8 << 8;
-	uint32_t container;
+	static const Format FMT_ID = Format::INVALID; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint8_t> Dither8; /**< Ordered dithering helper. */
+	static constexpr const uint32_t max8 = (1 << 8) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F = static_cast<float>(max8); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F_rec = 1.0f / max8F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskB = max8 << 24; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskG = max8 << 16; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskR = max8 << 8; /**< Precomputed packing/normalization constant. */
+	uint32_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint32_t& r, uint32_t& g, uint32_t& b) const {
 		b = (container & maskB) >> 16;
 		g = (container & maskG) >> 8;
 		r = (container & maskR);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint32_t r, uint32_t g, uint32_t b) {
 		container = static_cast<uint32_t>( (b << 24u) |(g << 16u) | (r << 8u) );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint32_t>(std::round(kernel.x * max8F)),
@@ -947,6 +1372,9 @@ struct PixelBGRX8888 {
 					static_cast<uint32_t>(std::round(kernel.z * max8F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
@@ -954,6 +1382,9 @@ struct PixelBGRX8888 {
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.z,coords) * max8F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint32_t r,g,b;
 		extractParts(r,g,b);
@@ -963,24 +1394,34 @@ struct PixelBGRX8888 {
 		kernel.w = 1.0f;
 	}
 };
+/// @brief Packed 24-bit RGB format (8 bits per color channel).
 struct PixelRGB888 {
-	static const Format FMT_ID = Format::RGB8U;
-	typedef Elv::Util::OrderedDither<uint8_t> Dither8;
-	static constexpr const uint32_t max8 = (1 << 8) - 1;
-	static constexpr const float max8F = static_cast<float>(max8);
-	static constexpr const float max8F_rec = 1.0f / max8F;
-	static constexpr const uint32_t maskR = max8 << 16;
-	static constexpr const uint32_t maskG = max8 << 8;
-	static constexpr const uint32_t maskB = max8;
-	uint32_t container;
+	static const Format FMT_ID = Format::RGB8U; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint8_t> Dither8; /**< Ordered dithering helper. */
+	static constexpr const uint32_t max8 = (1 << 8) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F = static_cast<float>(max8); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F_rec = 1.0f / max8F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskR = max8 << 16; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskG = max8 << 8; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskB = max8; /**< Precomputed packing/normalization constant. */
+	uint32_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint32_t& r, uint32_t& g, uint32_t& b) const {
 		r = (container & maskR) >> 16;
 		g = (container & maskG) >> 8;
 		b = (container & maskB);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint32_t r, uint32_t g, uint32_t b) {
 		container = static_cast<uint32_t>( (r << 16u) | (g << 8u) | b );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint32_t>(std::round(kernel.x * max8F)),
@@ -988,6 +1429,9 @@ struct PixelRGB888 {
 					static_cast<uint32_t>(std::round(kernel.z * max8F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
@@ -995,6 +1439,9 @@ struct PixelRGB888 {
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.z,coords) * max8F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint32_t r,g,b;
 		extractParts(r,g,b);
@@ -1004,24 +1451,34 @@ struct PixelRGB888 {
 		kernel.w = 1.0f;
 	}
 };
+/// @brief Packed 24-bit BGR format (8 bits per color channel).
 struct PixelBGR888 {
-	static const Format FMT_ID = Format::BGR8U;
-	typedef Elv::Util::OrderedDither<uint8_t> Dither8;
-	static constexpr const uint32_t max8 = (1 << 8) - 1;
-	static constexpr const float max8F = static_cast<float>(max8);
-	static constexpr const float max8F_rec = 1.0f / max8F;
-	static constexpr const uint32_t maskB = max8 << 16;
-	static constexpr const uint32_t maskG = max8 << 8;
-	static constexpr const uint32_t maskR = max8;
-	uint32_t container;
+	static const Format FMT_ID = Format::BGR8U; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint8_t> Dither8; /**< Ordered dithering helper. */
+	static constexpr const uint32_t max8 = (1 << 8) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F = static_cast<float>(max8); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F_rec = 1.0f / max8F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskB = max8 << 16; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskG = max8 << 8; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskR = max8; /**< Precomputed packing/normalization constant. */
+	uint32_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint32_t& r, uint32_t& g, uint32_t& b) const {
 		b = (container & maskB) >> 16;
 		g = (container & maskG) >> 8;
 		r = (container & maskR);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint32_t r, uint32_t g, uint32_t b) {
 		container = static_cast<uint32_t>( (b << 16u) | (g << 8u) | r );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint32_t>(std::round(kernel.x * max8F)),
@@ -1029,6 +1486,9 @@ struct PixelBGR888 {
 					static_cast<uint32_t>(std::round(kernel.z * max8F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
@@ -1036,6 +1496,9 @@ struct PixelBGR888 {
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.z,coords) * max8F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint32_t r,g,b;
 		extractParts(r,g,b);
@@ -1045,26 +1508,36 @@ struct PixelBGR888 {
 		kernel.w = 1.0f;
 	}
 };
+/// @brief Packed 32-bit ARGB format (8 bits per channel).
 struct PixelARGB8888 {
-	static const Format FMT_ID = Format::ARGB8U;
-	typedef Elv::Util::OrderedDither<uint8_t> Dither8;
-	static constexpr const uint32_t max8 = (1 << 8) - 1;
-	static constexpr const float max8F = static_cast<float>(max8);
-	static constexpr const float max8F_rec = 1.0f / max8F;
-	static constexpr const uint32_t maskA = max8 << 24;
-	static constexpr const uint32_t maskR = max8 << 16;
-	static constexpr const uint32_t maskG = max8 << 8;
-	static constexpr const uint32_t maskB = max8;
-	uint32_t container;
+	static const Format FMT_ID = Format::ARGB8U; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint8_t> Dither8; /**< Ordered dithering helper. */
+	static constexpr const uint32_t max8 = (1 << 8) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F = static_cast<float>(max8); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F_rec = 1.0f / max8F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskA = max8 << 24; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskR = max8 << 16; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskG = max8 << 8; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskB = max8; /**< Precomputed packing/normalization constant. */
+	uint32_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint32_t& r, uint32_t& g, uint32_t& b, uint32_t& a) const {
 		a = (container & maskA) >> 24;
 		r = (container & maskR) >> 16;
 		g = (container & maskG) >> 8;
 		b = (container & maskB);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint32_t r, uint32_t g, uint32_t b, uint32_t a) {
 		container = static_cast<uint32_t>( (a << 24u) |(r << 16u) | (g << 8u) | b );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint32_t>(std::round(kernel.x * max8F)),
@@ -1073,6 +1546,9 @@ struct PixelARGB8888 {
 					static_cast<uint32_t>(std::round(kernel.w * max8F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
@@ -1081,6 +1557,9 @@ struct PixelARGB8888 {
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.w,coords) * max8F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint32_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -1090,26 +1569,36 @@ struct PixelARGB8888 {
 		kernel.w = static_cast<float>(a) * max8F_rec;
 	}
 };
+/// @brief Packed 32-bit RGBA format (8 bits per channel).
 struct PixelRGBA8888 {
-	static const Format FMT_ID = Format::BGRA8U;
-	typedef Elv::Util::OrderedDither<uint8_t> Dither8;
-	static constexpr const uint32_t max8 = (1 << 8) - 1;
-	static constexpr const float max8F = static_cast<float>(max8);
-	static constexpr const float max8F_rec = 1.0f / max8F;
-	static constexpr const uint32_t maskR = max8 << 24;
-	static constexpr const uint32_t maskB = max8 << 16;
-	static constexpr const uint32_t maskG = max8 << 8;
-	static constexpr const uint32_t maskA = max8;
-	uint32_t container;
+	static const Format FMT_ID = Format::BGRA8U; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint8_t> Dither8; /**< Ordered dithering helper. */
+	static constexpr const uint32_t max8 = (1 << 8) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F = static_cast<float>(max8); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F_rec = 1.0f / max8F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskR = max8 << 24; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskB = max8 << 16; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskG = max8 << 8; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskA = max8; /**< Precomputed packing/normalization constant. */
+	uint32_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint32_t& r, uint32_t& g, uint32_t& b, uint32_t& a) const {
 		r = (container & maskR) >> 24;
 		b = (container & maskB) >> 16;
 		g = (container & maskG) >> 8;
 		a = (container & maskA);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint32_t r, uint32_t g, uint32_t b, uint32_t a) {
 		container = static_cast<uint32_t>( (r << 24) |(b << 16) | (g << 8) | a );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint32_t>(std::round(kernel.x * max8F)),
@@ -1118,6 +1607,9 @@ struct PixelRGBA8888 {
 					static_cast<uint32_t>(std::round(kernel.w * max8F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
@@ -1126,6 +1618,9 @@ struct PixelRGBA8888 {
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.w,coords) * max8F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint32_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -1135,26 +1630,36 @@ struct PixelRGBA8888 {
 		kernel.w = static_cast<float>(a) * max8F_rec;
 	}
 };
+/// @brief Packed 32-bit ABGR format (8 bits per channel).
 struct PixelABGR8888 {
-	static const Format FMT_ID = Format::ARGB8U;
-	typedef Elv::Util::OrderedDither<uint8_t> Dither8;
-	static constexpr const uint32_t max8 = (1 << 8) - 1;
-	static constexpr const float max8F = static_cast<float>(max8);
-	static constexpr const float max8F_rec = 1.0f / max8F;
-	static constexpr const uint32_t maskA = max8 << 24;
-	static constexpr const uint32_t maskB = max8 << 16;
-	static constexpr const uint32_t maskG = max8 << 8;
-	static constexpr const uint32_t maskR = max8;
-	uint32_t container;
+	static const Format FMT_ID = Format::ARGB8U; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint8_t> Dither8; /**< Ordered dithering helper. */
+	static constexpr const uint32_t max8 = (1 << 8) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F = static_cast<float>(max8); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F_rec = 1.0f / max8F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskA = max8 << 24; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskB = max8 << 16; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskG = max8 << 8; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskR = max8; /**< Precomputed packing/normalization constant. */
+	uint32_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint32_t& r, uint32_t& g, uint32_t& b, uint32_t& a) const {
 		a = (container & maskA) >> 24;
 		b = (container & maskB) >> 16;
 		g = (container & maskG) >> 8;
 		r = (container & maskR);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint32_t r, uint32_t g, uint32_t b, uint32_t a) {
 		container = static_cast<uint32_t>( (a << 24) |(b << 16) | (g << 8) | r );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint32_t>(std::round(kernel.x * max8F)),
@@ -1163,6 +1668,9 @@ struct PixelABGR8888 {
 					static_cast<uint32_t>(std::round(kernel.w * max8F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
@@ -1171,6 +1679,9 @@ struct PixelABGR8888 {
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.w,coords) * max8F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint32_t r,g,b,a;
 		extractParts(r,g,b,a);
@@ -1180,26 +1691,36 @@ struct PixelABGR8888 {
 		kernel.w = static_cast<float>(a) * max8F_rec;
 	}
 };
+/// @brief Packed 32-bit BGRA format (8 bits per channel).
 struct PixelBGRA8888 {
-	static const Format FMT_ID = Format::BGRA8U;
-	typedef Elv::Util::OrderedDither<uint8_t> Dither8;
-	static constexpr const uint32_t max8 = (1 << 8) - 1;
-	static constexpr const float max8F = static_cast<float>(max8);
-	static constexpr const float max8F_rec = 1.0f / max8F;
-	static constexpr const uint32_t maskB = max8 << 24;
-	static constexpr const uint32_t maskG = max8 << 16;
-	static constexpr const uint32_t maskR = max8 << 8;
-	static constexpr const uint32_t maskA = max8;
-	uint32_t container;
+	static const Format FMT_ID = Format::BGRA8U; /**< Pixel format identifier. */
+	typedef Elv::Util::OrderedDither<uint8_t> Dither8; /**< Ordered dithering helper. */
+	static constexpr const uint32_t max8 = (1 << 8) - 1; /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F = static_cast<float>(max8); /**< Precomputed packing/normalization constant. */
+	static constexpr const float max8F_rec = 1.0f / max8F; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskB = max8 << 24; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskG = max8 << 16; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskR = max8 << 8; /**< Precomputed packing/normalization constant. */
+	static constexpr const uint32_t maskA = max8; /**< Precomputed packing/normalization constant. */
+	uint32_t container; /**< Packed pixel storage container. */
+	/**
+	 *  Extracts unpacked channel values from the packed representation.
+	 */
 	inline void extractParts(uint32_t& r, uint32_t& g, uint32_t& b, uint32_t& a) const {
 		b = (container & maskB) >> 24;
 		g = (container & maskG) >> 16;
 		r = (container & maskR) >> 8;
 		a = (container & maskA);
 	}
+	/**
+	 *  Packs channel values into the compact storage representation.
+	 */
 	inline void packParts(uint32_t r, uint32_t g, uint32_t b, uint32_t a) {
 		container = static_cast<uint32_t>( (b << 24) |(g << 16) | (r << 8) | a );
 	}
+	/**
+	 *  Converts a normalized kernel color into this pixel representation.
+	 */
 	inline void fromKernel(const glm::fvec4& kernel) {
 		packParts(
 					static_cast<uint32_t>(std::round(kernel.x * max8F)),
@@ -1208,6 +1729,9 @@ struct PixelBGRA8888 {
 					static_cast<uint32_t>(std::round(kernel.w * max8F))
 				);
 	}
+	/**
+	 *  Converts a normalized kernel color into this representation using dithering.
+	 */
 	inline void fromKernelDithered(const glm::fvec4& kernel, const glm::uvec2& coords) {
 		packParts(
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.x,coords) * max8F)),
@@ -1216,6 +1740,9 @@ struct PixelBGRA8888 {
 		static_cast<uint32_t>(std::round( Dither8::ditherUp(kernel.w,coords) * max8F))
 				);
 	}
+	/**
+	 *  Expands this pixel representation to a normalized RGBA kernel color.
+	 */
 	inline void toKernel(glm::fvec4& kernel) const {
 		uint32_t r,g,b,a;
 		extractParts(r,g,b,a);

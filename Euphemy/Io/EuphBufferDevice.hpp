@@ -8,6 +8,22 @@
 namespace Euph {
 namespace Io {
 
+/**
+ * @typedef ReadOnlyBufferWrapper_PolymorphicPointerFactory
+ * @brief Internal pointer-factory alias generated for `ReadOnlyBufferWrapper`.
+ */
+/**
+ * @typedef uReadOnlyBufferWrapper
+ * @brief Unique-pointer alias for `ReadOnlyBufferWrapper`.
+ */
+/**
+ * @typedef sReadOnlyBufferWrapper
+ * @brief Shared-pointer alias for `ReadOnlyBufferWrapper`.
+ */
+/**
+ * @typedef wReadOnlyBufferWrapper
+ * @brief Weak-pointer alias for `ReadOnlyBufferWrapper`.
+ */
 DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ReadOnlyBufferWrapper)
 /**
  * @brief A performant, read-only wrapper around fixed-size memory buffers.
@@ -16,7 +32,6 @@ DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ReadOnlyBufferWrapper)
  * Use with caution and ensure that buffer access is properly managed to prevent
  * out-of-bounds errors.
  *
- * @inherits Elv::Io::Device
  */
 class MH_EUPH_API ReadOnlyBufferWrapper : public Elv::Io::Device {
 private:
@@ -124,6 +139,22 @@ public:
 };
 
 
+/**
+ * @typedef StaticBufferWrapper_PolymorphicPointerFactory
+ * @brief Internal pointer-factory alias generated for `StaticBufferWrapper`.
+ */
+/**
+ * @typedef uStaticBufferWrapper
+ * @brief Unique-pointer alias for `StaticBufferWrapper`.
+ */
+/**
+ * @typedef sStaticBufferWrapper
+ * @brief Shared-pointer alias for `StaticBufferWrapper`.
+ */
+/**
+ * @typedef wStaticBufferWrapper
+ * @brief Weak-pointer alias for `StaticBufferWrapper`.
+ */
 DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(StaticBufferWrapper)
 /**
  * @brief A performant wrapper around fixed-size, writable memory buffers.
@@ -132,7 +163,6 @@ DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(StaticBufferWrapper)
  * Use with caution and ensure that buffer access is properly managed to prevent
  * out-of-bounds errors.
  *
- * @inherits Elv::Io::Device
  */
 class MH_EUPH_API StaticBufferWrapper : public Elv::Io::Device {
 private:

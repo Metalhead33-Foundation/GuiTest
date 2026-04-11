@@ -22,11 +22,10 @@ namespace Euph {
 namespace Conf {
 
 /**
- * @def LARGE_CONF_DATA
- * @brief Macro to enable large configuration data types
+ * @brief `LARGE_CONF_DATA` selects 64-bit configuration scalar types.
  *
- * When defined, uses 64-bit types for ConfFloat, ConfInt, and ConfUint.
- * Otherwise, uses 32-bit types.
+ * When defined, uses 64-bit types for `ConfFloat`, `ConfInt`, and `ConfUint`.
+ * Otherwise, 32-bit variants are used.
  */
 
 #ifdef LARGE_CONF_DATA

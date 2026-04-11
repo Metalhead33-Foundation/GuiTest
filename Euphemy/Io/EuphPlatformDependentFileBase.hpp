@@ -80,37 +80,52 @@ public:
 	PlatformDependentFileHandleBase& operator=(PlatformDependentFileHandleBase&& mov);
 
 	/**
-	 * @copydoc Elv::Io::Device::read
+	 * @brief Reads elements from the underlying platform file handle.
+	 * @param buffer Destination memory.
+	 * @param size Size of each element.
+	 * @param count Number of elements to read.
+	 * @return Number of elements successfully read.
 	 */
 	size_t read(void* buffer, size_t size, size_t count);
 
 	/**
-	 * @copydoc Elv::Io::Device::write
+	 * @brief Writes elements to the underlying platform file handle.
+	 * @param buffer Source memory.
+	 * @param size Size of each element.
+	 * @param count Number of elements to write.
+	 * @return Number of elements successfully written.
 	 */
 	size_t write(const void* buffer, size_t size, size_t count);
 
 	/**
-	 * @copydoc Elv::Io::Device::seek
+	 * @brief Repositions the file cursor.
+	 * @param offset Byte offset relative to @p whence.
+	 * @param whence Seek origin.
+	 * @return `0` on success, non-zero on failure.
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence);
 
 	/**
-	 * @copydoc Elv::Io::Device::tell
+	 * @brief Returns the current file cursor position.
+	 * @return Current byte offset from the beginning.
 	 */
 	long tell();
 
 	/**
-	 * @copydoc Elv::Io::Device::size
+	 * @brief Returns the current file size.
+	 * @return File size in bytes.
 	 */
 	size_t size();
 
 	/**
-	 * @copydoc Elv::Io::Device::eof
+	 * @brief Checks whether the cursor is at end-of-file.
+	 * @return `true` when EOF has been reached.
 	 */
 	bool eof();
 
 	/**
-	 * @copydoc Elv::Io::Device::flush
+	 * @brief Flushes buffered writes to the underlying file.
+	 * @return `true` on success.
 	 */
 	bool flush();
 

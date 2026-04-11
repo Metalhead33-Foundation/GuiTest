@@ -62,47 +62,64 @@ public:
 	File& operator=(File&& mov);
 
 	/**
-	 * @copydoc Elv::Io::Device::read
+	 * @brief Reads elements from the file into a caller-provided buffer.
+	 * @param buffer Destination memory.
+	 * @param size Size of each element.
+	 * @param count Number of elements to read.
+	 * @return Number of elements successfully read.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override;
 
 	/**
-	 * @copydoc Elv::Io::Device::write
+	 * @brief Writes elements from a caller-provided buffer to the file.
+	 * @param buffer Source memory.
+	 * @param size Size of each element.
+	 * @param count Number of elements to write.
+	 * @return Number of elements successfully written.
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override;
 
 	/**
-	 * @copydoc Elv::Io::Device::seek
+	 * @brief Repositions the file cursor.
+	 * @param offset Byte offset relative to @p whence.
+	 * @param whence Seek origin.
+	 * @return `0` on success, non-zero on failure.
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override;
 
 	/**
-	 * @copydoc Elv::Io::Device::tell
+	 * @brief Returns the current cursor position.
+	 * @return Current byte offset from beginning of file.
 	 */
 	long tell() override;
 
 	/**
-	 * @copydoc Elv::Io::Device::size
+	 * @brief Returns the file size in bytes.
+	 * @return Total file size in bytes.
 	 */
 	size_t size() override;
 
 	/**
-	 * @copydoc Elv::Io::Device::eof
+	 * @brief Checks whether the file cursor reached end-of-file.
+	 * @return `true` when EOF is reached.
 	 */
 	bool eof() override;
 
 	/**
-	 * @copydoc Elv::Io::Device::getMode
+	 * @brief Returns the mode used to open this file.
+	 * @return Open mode flags.
 	 */
 	Elv::Io::Mode getMode() const override;
 
 	/**
-	 * @copydoc Elv::Io::Device::flush
+	 * @brief Flushes buffered file writes to the backing storage.
+	 * @return `true` on success.
 	 */
 	bool flush() override;
 
 	/**
-	 * @copydoc Elv::Io::Device::isValid
+	 * @brief Reports whether the underlying file handle is valid.
+	 * @return `true` when the file is open and usable.
 	 */
 	bool isValid() const override;
 };
@@ -151,12 +168,15 @@ protected:
 	const PlatformDependentFileHandleBase& getFileHandle() const override;
 public:
 	/**
-	 * @brief Constructs a MemoryMappedFile with the specified size.
+	 * @brief Constructs a memory-mapped view over a regular file.
 	 *
-	 * Creates a temporary file of the given size, maps it into memory, and sets up the object for access.
+	 * Opens the target file with the requested mode, optionally grows it to satisfy
+	 * the minimum size requirement, then maps it into memory.
 	 *
-	 * @param fileSize The size of the temporary file to create.
-	 * @throws std::runtime_error or std::system_error if file creation, mapping, or setup fails.
+	 * @param path Path to the backing file.
+	 * @param mode Open mode used for the backing file.
+	 * @param minSize Optional minimum file size to ensure before mapping.
+	 * @throws std::runtime_error or std::system_error on open, resize, or mapping failures.
 	 */
 	MemoryMappedFile(const char* path, Elv::Io::Mode mode, size_t minSize=0);
 
@@ -180,7 +200,8 @@ public:
 	MemoryMappedFile& operator=(MemoryMappedFile&& mov);
 
 	/**
-	 * @copydoc Elv::Io::Device::getMode
+	 * @brief Returns the open mode of the mapped backing file.
+	 * @return Open mode flags.
 	 */
 	Elv::Io::Mode getMode() const;
 

@@ -8,7 +8,7 @@ namespace Io {
 
 /**
  * @brief A read-only I/O device wrapper for a constant memory buffer.
- * * This class implements the @ref Elv::Io::Device interface to treat a static
+ * * This class implements the `Elv::Io::Device` interface to treat a static
  * or constant memory span as a seekable file-like stream. Since it wraps
  * `const std::byte`, write operations are not supported.
  */
@@ -26,7 +26,7 @@ public:
 	 * @brief Utility to cast a typed span into a constant byte span.
 	 * * @tparam T The type of the source span.
 	 * @param b The source span to be cast.
-	 * @return A @ref std::span<const std::byte> representing the same memory range.
+	 * @return A `std::span<const std::byte>` representing the same memory range.
 	 */
 	template <typename T>
 	static std::span<const std::byte> span_cast(const std::span<const T>& b) {
@@ -83,7 +83,7 @@ public:
 
 	/**
 	 * @brief Gets the access mode of this device.
-	 * @return Always returns @ref Elv::Io::Mode::READ.
+	 * @return Always returns `Elv::Io::Mode::READ`.
 	 */
 	Elv::Io::Mode getMode() const override;
 

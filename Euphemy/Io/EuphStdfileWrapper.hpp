@@ -74,7 +74,7 @@ public:
 	 *
 	 * @return The number of elements successfully read.
 	 *
-	 * @override Elv::Io::Device::read
+	 * @note Implements `Elv::Io::Device::read`.
 	 */
 	size_t read(void* buffer, size_t size, size_t count) override;
 
@@ -87,7 +87,7 @@ public:
 	 *
 	 * @return The number of elements successfully written.
 	 *
-	 * @override Elv::Io::Device::write
+	 * @note Implements `Elv::Io::Device::write`.
 	 */
 	size_t write(const void* buffer, size_t size, size_t count) override;
 
@@ -99,7 +99,7 @@ public:
 	 *
 	 * @return 0 upon success, non-zero on failure.
 	 *
-	 * @override Elv::Io::Device::seek
+	 * @note Implements `Elv::Io::Device::seek`.
 	 * @see Elv::Io::SeekOrigin
 	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override;
@@ -109,7 +109,7 @@ public:
 	 *
 	 * @return The current position in bytes from the beginning of the file.
 	 *
-	 * @override Elv::Io::Device::tell
+	 * @note Implements `Elv::Io::Device::tell`.
 	 */
 	long tell() override;
 
@@ -118,7 +118,7 @@ public:
 	 *
 	 * @return The size of the file in bytes.
 	 *
-	 * @override Elv::Io::Device::size
+	 * @note Implements `Elv::Io::Device::size`.
 	 */
 	size_t size() override;
 
@@ -127,7 +127,7 @@ public:
 	 *
 	 * @return True if the end of the file has been reached, false otherwise.
 	 *
-	 * @override Elv::Io::Device::eof
+	 * @note Implements `Elv::Io::Device::eof`.
 	 */
 	bool eof() override;
 
@@ -136,7 +136,7 @@ public:
 	 *
 	 * @return The mode in which the file was opened (read, write, append, etc.).
 	 *
-	 * @override Elv::Io::Device::getMode
+	 * @note Implements `Elv::Io::Device::getMode`.
 	 * @see Elv::Io::Mode
 	 */
 	Elv::Io::Mode getMode() const override;
@@ -146,7 +146,7 @@ public:
 	 *
 	 * @return True if the flush operation was successful, false otherwise.
 	 *
-	 * @override Elv::Io::Device::flush
+	 * @note Implements `Elv::Io::Device::flush`.
 	 */
 	bool flush() override;
 
@@ -155,14 +155,13 @@ public:
 	 *
 	 * @return True if the file stream is valid, false otherwise.
 	 *
-	 * @override Elv::Io::Device::isValid
+	 * @note Implements `Elv::Io::Device::isValid`.
 	 */
 	bool isValid() const override;
 };
 
 /**
- * @def NODECLARE_STANDARD_OUTPUTS
- * @brief Define to prevent the declaration of standard input/output streams.
+ * @brief Set `NODECLARE_STANDARD_OUTPUTS` to suppress declaration of wrapped std streams.
  *
  * If defined, the following variables will not be declared:
  * - STDIN

@@ -40,27 +40,80 @@ public:
 	MemoryDevice& operator=(const MemoryDevice&) = delete;
 
 	// Allow move semantics
-	MemoryDevice(MemoryDevice&&) noexcept;
-	MemoryDevice& operator=(MemoryDevice&&) noexcept;
+	/**
+	 * @brief Move constructor.
+	 * @param mov Source device to move from.
+	 */
+	MemoryDevice(MemoryDevice&& mov) noexcept;
+	/**
+	 * @brief Move assignment operator.
+	 * @param mov Source device to move from.
+	 * @return Reference to this device.
+	 */
+	MemoryDevice& operator=(MemoryDevice&& mov) noexcept;
 
 	~MemoryDevice() override;
 
+	/**
+	 * @brief Reads elements from the internal memory buffer.
+	 * @param buffer Destination memory.
+	 * @param size Size of each element.
+	 * @param count Number of elements to read.
+	 * @return Number of elements successfully read.
+	 */
 	size_t read(void* buffer, size_t size, size_t count) override;
 
+	/**
+	 * @brief Writes elements into the internal memory buffer.
+	 * @param buffer Source memory.
+	 * @param size Size of each element.
+	 * @param count Number of elements to write.
+	 * @return Number of elements successfully written.
+	 */
 	size_t write(const void* buffer, size_t size, size_t count) override;
 
+	/**
+	 * @brief Moves the current cursor position.
+	 * @param offset Byte offset relative to @p whence.
+	 * @param whence Seek origin.
+	 * @return `0` on success, non-zero on error.
+	 */
 	int seek(long offset, Elv::Io::SeekOrigin whence) override;
 
+	/**
+	 * @brief Returns the current cursor position.
+	 * @return Current byte offset.
+	 */
 	long tell() override;
 
+	/**
+	 * @brief Returns the current size of the memory buffer.
+	 * @return Buffer size in bytes.
+	 */
 	size_t size() override;
 
+	/**
+	 * @brief Checks whether the cursor reached end of buffer.
+	 * @return `true` when at or beyond end-of-buffer.
+	 */
 	bool eof() override;
 
+	/**
+	 * @brief Returns the open mode of this device.
+	 * @return Device mode flags.
+	 */
 	Elv::Io::Mode getMode() const override;
 
+	/**
+	 * @brief Flushes buffered writes.
+	 * @return `true` because writes are immediately applied in memory.
+	 */
 	bool flush() override;
 
+	/**
+	 * @brief Reports whether this device is in a valid state.
+	 * @return `true` when initialized correctly.
+	 */
 	bool isValid() const override;
 
 	// --- Specific to MemoryDevice ---
