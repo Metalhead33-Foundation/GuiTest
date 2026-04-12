@@ -6,6 +6,7 @@
 #include <Euphemy/Media/Image/EuphPixelFormat.hpp>
 #include <Elvavena/Util/ElvEdgeFunction.hpp>
 #include <Elvavena/Util/ElvSpanHelpers.hpp>
+#include <Euphemy/Media/Image/EuphImageDecodeTarget.hpp>
 
 #include <algorithm>
 #include <array>
@@ -16,6 +17,8 @@
 #include <span>
 #include <type_traits>
 #include <utility>
+#include <variant>
+#include <optional>
 
 namespace Euph {
 namespace Media {
@@ -167,6 +170,9 @@ public:
 
 	Image2D(Image2D&& other, std::pmr::memory_resource* memResource)
 		: pixels(std::move(other.pixels), memResource), dimensions(other.dimensions) {}
+
+	inline std::span<PixelType> getPixels() { return pixels; }
+	inline std::span<const PixelType> getPixels() const { return pixels; }
 
 	inline ImageView toImageView() const {
 		return {
@@ -349,6 +355,8 @@ public:
 			.format = Format::INDEXED // This view describes the index buffer only.
 		};
 	}
+	inline std::span<uint8_t> getPixels() { return pixels; }
+	inline std::span<const uint8_t> getPixels() const { return pixels; }
 
 	inline const ImageDimensions& getDimensions() const {
 		return dimensions;
@@ -526,6 +534,125 @@ inline void sampleTexture(const ImageType& image, const glm::fvec2& pos, const g
 template <typename T> struct is_paletted_image : std::false_type {};
 template <typename P> struct is_paletted_image<PalettedImage2D<P>> : std::true_type {};
 template <typename T> inline constexpr bool is_paletted_image_v = is_paletted_image<T>::value;
+
+using AnyImage2D = std::variant<
+	Image2D<PixelGreyscale_U8>,
+	Image2D<PixelGreyscale_U16>,
+	Image2D<PixelGreyscale_U32>,
+	Image2D<PixelGreyscale_S8>,
+	Image2D<PixelGreyscale_S16>,
+	Image2D<PixelGreyscale_S32>,
+	Image2D<PixelGreyscale_F16>,
+	Image2D<PixelGreyscale_F32>,
+	Image2D<PixelGreyscale_F64>,
+	Image2D<PixelRG_U8>,
+	Image2D<PixelRG_U16>,
+	Image2D<PixelRG_U32>,
+	Image2D<PixelRG_S8>,
+	Image2D<PixelRG_S16>,
+	Image2D<PixelRG_S32>,
+	Image2D<PixelRG_F16>,
+	Image2D<PixelRG_F32>,
+	Image2D<PixelRG_F64>,
+	Image2D<PixelRGB_U8>,
+	Image2D<PixelRGB_U16>,
+	Image2D<PixelRGB_U32>,
+	Image2D<PixelRGB_S8>,
+	Image2D<PixelRGB_S16>,
+	Image2D<PixelRGB_S32>,
+	Image2D<PixelRGB_F16>,
+	Image2D<PixelRGB_F32>,
+	Image2D<PixelRGB_F64>,
+	Image2D<PixelBGR_U8>,
+	Image2D<PixelBGR_U16>,
+	Image2D<PixelBGR_U32>,
+	Image2D<PixelBGR_S8>,
+	Image2D<PixelBGR_S16>,
+	Image2D<PixelBGR_S32>,
+	Image2D<PixelBGR_F16>,
+	Image2D<PixelBGR_F32>,
+	Image2D<PixelBGR_F64>,
+	Image2D<PixelRGBA_U8>,
+	Image2D<PixelRGBA_U16>,
+	Image2D<PixelRGBA_U32>,
+	Image2D<PixelRGBA_S8>,
+	Image2D<PixelRGBA_S16>,
+	Image2D<PixelRGBA_S32>,
+	Image2D<PixelRGBA_F16>,
+	Image2D<PixelRGBA_F32>,
+	Image2D<PixelRGBA_F64>,
+	Image2D<PixelBGRA_U8>,
+	Image2D<PixelBGRA_U16>,
+	Image2D<PixelBGRA_U32>,
+	Image2D<PixelBGRA_S8>,
+	Image2D<PixelBGRA_S16>,
+	Image2D<PixelBGRA_S32>,
+	Image2D<PixelBGRA_F16>,
+	Image2D<PixelBGRA_F32>,
+	Image2D<PixelBGRA_F64>,
+	Image2D<PixelARGB_U8>,
+	Image2D<PixelARGB_U16>,
+	Image2D<PixelARGB_U32>,
+	Image2D<PixelARGB_S8>,
+	Image2D<PixelARGB_S16>,
+	Image2D<PixelARGB_S32>,
+	Image2D<PixelARGB_F16>,
+	Image2D<PixelARGB_F32>,
+	Image2D<PixelARGB_F64>,
+	Image2D<PixelRGB444>,
+	Image2D<PixelRGB555>,
+	Image2D<PixelRGB565>,
+	PalettedImage2D<PixelRGB_U8>,
+	PalettedImage2D<PixelRGB_U16>,
+	PalettedImage2D<PixelRGB_U32>,
+	PalettedImage2D<PixelRGB_S8>,
+	PalettedImage2D<PixelRGB_S16>,
+	PalettedImage2D<PixelRGB_S32>,
+	PalettedImage2D<PixelRGB_F16>,
+	PalettedImage2D<PixelRGB_F32>,
+	PalettedImage2D<PixelRGB_F64>,
+	PalettedImage2D<PixelBGR_U8>,
+	PalettedImage2D<PixelBGR_U16>,
+	PalettedImage2D<PixelBGR_U32>,
+	PalettedImage2D<PixelBGR_S8>,
+	PalettedImage2D<PixelBGR_S16>,
+	PalettedImage2D<PixelBGR_S32>,
+	PalettedImage2D<PixelBGR_F16>,
+	PalettedImage2D<PixelBGR_F32>,
+	PalettedImage2D<PixelBGR_F64>,
+	PalettedImage2D<PixelRGBA_U8>,
+	PalettedImage2D<PixelRGBA_U16>,
+	PalettedImage2D<PixelRGBA_U32>,
+	PalettedImage2D<PixelRGBA_S8>,
+	PalettedImage2D<PixelRGBA_S16>,
+	PalettedImage2D<PixelRGBA_S32>,
+	PalettedImage2D<PixelRGBA_F16>,
+	PalettedImage2D<PixelRGBA_F32>,
+	PalettedImage2D<PixelRGBA_F64>,
+	PalettedImage2D<PixelBGRA_U8>,
+	PalettedImage2D<PixelBGRA_U16>,
+	PalettedImage2D<PixelBGRA_U32>,
+	PalettedImage2D<PixelBGRA_S8>,
+	PalettedImage2D<PixelBGRA_S16>,
+	PalettedImage2D<PixelBGRA_S32>,
+	PalettedImage2D<PixelBGRA_F16>,
+	PalettedImage2D<PixelBGRA_F32>,
+	PalettedImage2D<PixelBGRA_F64>,
+	PalettedImage2D<PixelARGB_U8>,
+	PalettedImage2D<PixelARGB_U16>,
+	PalettedImage2D<PixelARGB_U32>,
+	PalettedImage2D<PixelARGB_S8>,
+	PalettedImage2D<PixelARGB_S16>,
+	PalettedImage2D<PixelARGB_S32>,
+	PalettedImage2D<PixelARGB_F16>,
+	PalettedImage2D<PixelARGB_F32>,
+	PalettedImage2D<PixelARGB_F64>,
+	PalettedImage2D<PixelRGB444>,
+	PalettedImage2D<PixelRGB555>,
+	PalettedImage2D<PixelRGB565>
+>;
+
+std::optional<AnyImage2D> fromDecodeTargetToImage(const DecodeTarget& source, std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
 
 } // namespace Image
 } // namespace Media
