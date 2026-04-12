@@ -322,14 +322,18 @@ public:
 private:
 	std::pmr::vector<uint8_t> pixels;
 	std::shared_ptr<const Palette> palette;
+	int transparentColorIndex;
 	ImageDimensions dimensions;
 
 public:
 	explicit PalettedImage2D(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
-		: pixels(memResource), palette(), dimensions{0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f} {}
+		: pixels(memResource), palette(), transparentColorIndex(-1), dimensions{0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f} {}
 
 	PalettedImage2D(unsigned width, unsigned height, std::shared_ptr<const Palette> paletteData, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
-		: pixels(memResource), palette(std::move(paletteData)), dimensions{width, height, 0, 0.0f, 0.0f, 0.0f, 0.0f} {
+		: PalettedImage2D(width, height, std::move(paletteData), -1, memResource) {}
+
+	PalettedImage2D(unsigned width, unsigned height, std::shared_ptr<const Palette> paletteData, int transparentIndex, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+		: pixels(memResource), palette(std::move(paletteData)), transparentColorIndex(transparentIndex), dimensions{width, height, 0, 0.0f, 0.0f, 0.0f, 0.0f} {
 		dimensions.recalculateStride(Format::INDEXED);
 		dimensions.recalculateFloats();
 		pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
@@ -374,6 +378,14 @@ public:
 		palette = std::move(newPalette);
 	}
 
+	inline int getTransparentColorIndex() const {
+		return transparentColorIndex;
+	}
+
+	inline void setTransparentColorIndex(int newTransparentColorIndex) {
+		transparentColorIndex = newTransparentColorIndex;
+	}
+
 	void setPixelIndex(const glm::uvec2& pos, uint8_t paletteIndex) {
 		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)] = paletteIndex;
 	}
@@ -391,6 +403,9 @@ public:
 		}
 		const uint8_t index = getPixelIndex(pos, wrap);
 		(*palette)[index].toKernel(colourKernel);
+		if(transparentColorIndex >= 0 && transparentColorIndex <= 255 && index == static_cast<uint8_t>(transparentColorIndex)) {
+			colourKernel.a = 0.0f;
+		}
 	}
 
 	template <typename F> requires ColourIteratorConcept<F>

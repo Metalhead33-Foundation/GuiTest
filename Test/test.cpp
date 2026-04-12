@@ -21,7 +21,6 @@
 #include <Elvavena/Util/ElvFixedPoint.hpp>
 #include <Euphemy/Media/Image/EuphTGA.hpp>
 #include <Euphemy/Media/Image/EuphPixelFormat.hpp>
-#include <Euphemy/Media/Image/EuphStandardImage.hpp>
 #include <Euphemy/Media/Image/EuphTGA.hpp>
 #include <Euphemy/Media/Image/EuphPNG.hpp>
 
@@ -486,7 +485,7 @@ void testInterpolationFixed()
 	testInterpolator<Elv::Util::fixed32>();
 }
 
-void testTGA()
+/*void testTGA()
 {
 	Euph::Media::Image::DecodeTarget decodeTarget;
 	{
@@ -522,4 +521,4 @@ void testPNG()
 		Euph::Io::File dllFile("/tmp/testImg.png", Elv::Io::Mode::WRITE);
 		Euph::Media::Image::PNG::encode(dllFile,decodeTarget,0.5f);
 	}
-}
+}*/

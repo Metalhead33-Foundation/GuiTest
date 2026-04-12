@@ -1,139 +1,181 @@
 #include "EuphImage.hpp"
+#include <algorithm>
+#include <cstring>
 #include <stdexcept>
 #include <Elvavena/Util/ElvAllocatorBasic.hpp>
+
 namespace Euph {
 namespace Media {
 namespace Image {
 
 std::optional<AnyImage2D> fromDecodeTargetToImage(const DecodeTarget& source, std::pmr::memory_resource* memRes)
 {
-	if(source.getFrames().empty()) return std::nullopt;
-	const Frame& frame = source.getFrames()[0];
-	switch (source.getFormat()) {
-		case Format::R8U: { Image2D<PixelGreyscale_U8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::R16U: { Image2D<PixelGreyscale_U16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::R32U: { Image2D<PixelGreyscale_U32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::R8S: { Image2D<PixelGreyscale_S8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::R16S: { Image2D<PixelGreyscale_S16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::R32S: { Image2D<PixelGreyscale_S32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::R16F: { Image2D<PixelGreyscale_F16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::R32F: { Image2D<PixelGreyscale_F32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::R64F: { Image2D<PixelGreyscale_F64> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RG8U: { Image2D<PixelRG_U8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RG16U: { Image2D<PixelRG_U16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RG32U: { Image2D<PixelRG_U32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RG8S: { Image2D<PixelRG_S8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RG16S: { Image2D<PixelRG_S16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RG32S: { Image2D<PixelRG_S32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RG16F: { Image2D<PixelRG_F16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RG32F: { Image2D<PixelRG_F32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RG64F: { Image2D<PixelRG_F64> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB8U: { Image2D<PixelRGB_U8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB16U: { Image2D<PixelRGB_U16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB32U: { Image2D<PixelRGB_U32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB8S: { Image2D<PixelRGB_S8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB16S: { Image2D<PixelRGB_S16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB32S: { Image2D<PixelRGB_S32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB16F: { Image2D<PixelRGB_F16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB32F: { Image2D<PixelRGB_F32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB64F: { Image2D<PixelRGB_F64> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGR8U: { Image2D<PixelBGR_U8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGR16U: { Image2D<PixelBGR_U16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGR32U: { Image2D<PixelBGR_U32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGR8S: { Image2D<PixelBGR_S8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGR16S: { Image2D<PixelBGR_S16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGR32S: { Image2D<PixelBGR_S32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGR16F: { Image2D<PixelBGR_F16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGR32F: { Image2D<PixelBGR_F32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGR64F: { Image2D<PixelBGR_F64> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGBA8U: { Image2D<PixelRGBA_U8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGBA16U: { Image2D<PixelRGBA_U16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGBA32U: { Image2D<PixelRGBA_U32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGBA8S: { Image2D<PixelRGBA_S8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGBA16S: { Image2D<PixelRGBA_S16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGBA32S: { Image2D<PixelRGBA_S32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGBA16F: { Image2D<PixelRGBA_F16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGBA32F: { Image2D<PixelRGBA_F32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGBA64F: { Image2D<PixelRGBA_F64> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGRA8U: { Image2D<PixelBGRA_U8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGRA16U: { Image2D<PixelBGRA_U16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGRA32U: { Image2D<PixelBGRA_U32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGRA8S: { Image2D<PixelBGRA_S8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGRA16S: { Image2D<PixelBGRA_S16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGRA32S: { Image2D<PixelBGRA_S32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGRA16F: { Image2D<PixelBGRA_F16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGRA32F: { Image2D<PixelBGRA_F32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::BGRA64F: { Image2D<PixelBGRA_F64> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::ARGB8U: { Image2D<PixelARGB_U8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::ARGB16U: { Image2D<PixelARGB_U16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::ARGB32U: { Image2D<PixelARGB_U32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::ARGB8S: { Image2D<PixelARGB_S8> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::ARGB16S: { Image2D<PixelARGB_S16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::ARGB32S: { Image2D<PixelARGB_S32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::ARGB16F: { Image2D<PixelARGB_F16> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::ARGB32F: { Image2D<PixelARGB_F32> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::ARGB64F: { Image2D<PixelARGB_F64> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB444: { Image2D<PixelRGB444> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB555: { Image2D<PixelRGB555> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::RGB565: { Image2D<PixelRGB565> img(frame.width,frame.height,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; break; }
-		case Format::INDEXED: {
-			if( !source.getPalette().has_value() ) throw std::runtime_error("Excepted a palette, has none!");
-			const auto& palette = source.getPalette().value();
-			switch (palette.format) {
-				case Format::RGB8U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB_U8,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB_U8> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB16U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB_U16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB_U16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB32U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB_U32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB_U32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB8S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB_S8,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB_S8> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB16S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB_S16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB_S16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB32S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB_S32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB_S32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB16F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB_F16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB_F16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB32F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB_F32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB_F32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB64F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB_F64,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB_F64> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGR8U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGR_U8,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGR_U8> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGR16U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGR_U16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGR_U16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGR32U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGR_U32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGR_U32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGR8S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGR_S8,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGR_S8> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGR16S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGR_S16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGR_S16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGR32S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGR_S32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGR_S32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGR16F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGR_F16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGR_F16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGR32F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGR_F32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGR_F32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGR64F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGR_F64,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGR_F64> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGBA8U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGBA_U8,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGBA_U8> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGBA16U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGBA_U16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGBA_U16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGBA32U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGBA_U32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGBA_U32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGBA8S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGBA_S8,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGBA_S8> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGBA16S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGBA_S16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGBA_S16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGBA32S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGBA_S32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGBA_S32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGBA16F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGBA_F16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGBA_F16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGBA32F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGBA_F32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGBA_F32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGBA64F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGBA_F64,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGBA_F64> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGRA8U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGRA_U8,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGRA_U8> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGRA16U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGRA_U16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGRA_U16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGRA32U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGRA_U32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGRA_U32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGRA8S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGRA_S8,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGRA_S8> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGRA16S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGRA_S16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGRA_S16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGRA32S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGRA_S32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGRA_S32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGRA16F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGRA_F16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGRA_F16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGRA32F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGRA_F32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGRA_F32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::BGRA64F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelBGRA_F64,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelBGRA_F64> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::ARGB8U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelARGB_U8,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelARGB_U8> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::ARGB16U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelARGB_U16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelARGB_U16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::ARGB32U: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelARGB_U32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelARGB_U32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::ARGB8S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelARGB_S8,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelARGB_S8> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::ARGB16S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelARGB_S16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelARGB_S16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::ARGB32S: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelARGB_S32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelARGB_S32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::ARGB16F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelARGB_F16,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelARGB_F16> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::ARGB32F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelARGB_F32,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelARGB_F32> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::ARGB64F: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelARGB_F64,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelARGB_F64> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB444: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB444,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB444> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB555: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB555,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB555> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				case Format::RGB565: { auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelRGB565,256>>(memRes); memset(imgPalette->data(),0,256*pixelByteSize(palette.format)); memcpy(imgPalette->data(),palette.data.data(),palette.data.size()); PalettedImage2D<PixelRGB565> img(frame.width,frame.height,imgPalette,memRes); memcpy(img.getPixels().data(),frame.data.data(),frame.data.size()); return img; }
-				default: throw std::runtime_error("Invalid format!");
-			};
-		}
-		default: throw std::runtime_error("Invalid format!");
-			break;
+	if(source.getFrames().empty()) {
+		return std::nullopt;
 	}
+
+	const Frame& frame = source.getFrames()[0];
+
+#define MAKE_IMAGE(PixelT) \
+	{ \
+		Image2D<PixelT> img(frame.width, frame.height, memRes); \
+		const size_t imageBytes = img.getPixels().size() * sizeof(PixelT); \
+		const size_t copyBytes = std::min(frame.data.size(), imageBytes); \
+		if(copyBytes > 0) { \
+			std::memcpy(img.getPixels().data(), frame.data.data(), copyBytes); \
+		} \
+		return img; \
+	}
+
+#define MAKE_PALETTED(PixelT) \
+	{ \
+		auto imgPalette = Elv::Util::pmr_make_shared<std::array<PixelT, 256>>(memRes); \
+		const size_t paletteBytes = sizeof(*imgPalette); \
+		const size_t paletteCopyBytes = std::min(palette.data.size(), paletteBytes); \
+		std::memset(imgPalette->data(), 0, paletteBytes); \
+		if(paletteCopyBytes > 0) { \
+			std::memcpy(imgPalette->data(), palette.data.data(), paletteCopyBytes); \
+		} \
+		PalettedImage2D<PixelT> img(frame.width, frame.height, imgPalette, palette.transparentColorIndex, memRes); \
+		const size_t imageBytes = img.getPixels().size() * sizeof(uint8_t); \
+		const size_t copyBytes = std::min(frame.data.size(), imageBytes); \
+		if(copyBytes > 0) { \
+			std::memcpy(img.getPixels().data(), frame.data.data(), copyBytes); \
+		} \
+		return img; \
+	}
+
+	switch(source.getFormat()) {
+		case Format::R8U: MAKE_IMAGE(PixelGreyscale_U8)
+		case Format::R16U: MAKE_IMAGE(PixelGreyscale_U16)
+		case Format::R32U: MAKE_IMAGE(PixelGreyscale_U32)
+		case Format::R8S: MAKE_IMAGE(PixelGreyscale_S8)
+		case Format::R16S: MAKE_IMAGE(PixelGreyscale_S16)
+		case Format::R32S: MAKE_IMAGE(PixelGreyscale_S32)
+		case Format::R16F: MAKE_IMAGE(PixelGreyscale_F16)
+		case Format::R32F: MAKE_IMAGE(PixelGreyscale_F32)
+		case Format::R64F: MAKE_IMAGE(PixelGreyscale_F64)
+		case Format::RG8U: MAKE_IMAGE(PixelRG_U8)
+		case Format::RG16U: MAKE_IMAGE(PixelRG_U16)
+		case Format::RG32U: MAKE_IMAGE(PixelRG_U32)
+		case Format::RG8S: MAKE_IMAGE(PixelRG_S8)
+		case Format::RG16S: MAKE_IMAGE(PixelRG_S16)
+		case Format::RG32S: MAKE_IMAGE(PixelRG_S32)
+		case Format::RG16F: MAKE_IMAGE(PixelRG_F16)
+		case Format::RG32F: MAKE_IMAGE(PixelRG_F32)
+		case Format::RG64F: MAKE_IMAGE(PixelRG_F64)
+		case Format::RGB8U: MAKE_IMAGE(PixelRGB_U8)
+		case Format::RGB16U: MAKE_IMAGE(PixelRGB_U16)
+		case Format::RGB32U: MAKE_IMAGE(PixelRGB_U32)
+		case Format::RGB8S: MAKE_IMAGE(PixelRGB_S8)
+		case Format::RGB16S: MAKE_IMAGE(PixelRGB_S16)
+		case Format::RGB32S: MAKE_IMAGE(PixelRGB_S32)
+		case Format::RGB16F: MAKE_IMAGE(PixelRGB_F16)
+		case Format::RGB32F: MAKE_IMAGE(PixelRGB_F32)
+		case Format::RGB64F: MAKE_IMAGE(PixelRGB_F64)
+		case Format::BGR8U: MAKE_IMAGE(PixelBGR_U8)
+		case Format::BGR16U: MAKE_IMAGE(PixelBGR_U16)
+		case Format::BGR32U: MAKE_IMAGE(PixelBGR_U32)
+		case Format::BGR8S: MAKE_IMAGE(PixelBGR_S8)
+		case Format::BGR16S: MAKE_IMAGE(PixelBGR_S16)
+		case Format::BGR32S: MAKE_IMAGE(PixelBGR_S32)
+		case Format::BGR16F: MAKE_IMAGE(PixelBGR_F16)
+		case Format::BGR32F: MAKE_IMAGE(PixelBGR_F32)
+		case Format::BGR64F: MAKE_IMAGE(PixelBGR_F64)
+		case Format::RGBA8U: MAKE_IMAGE(PixelRGBA_U8)
+		case Format::RGBA16U: MAKE_IMAGE(PixelRGBA_U16)
+		case Format::RGBA32U: MAKE_IMAGE(PixelRGBA_U32)
+		case Format::RGBA8S: MAKE_IMAGE(PixelRGBA_S8)
+		case Format::RGBA16S: MAKE_IMAGE(PixelRGBA_S16)
+		case Format::RGBA32S: MAKE_IMAGE(PixelRGBA_S32)
+		case Format::RGBA16F: MAKE_IMAGE(PixelRGBA_F16)
+		case Format::RGBA32F: MAKE_IMAGE(PixelRGBA_F32)
+		case Format::RGBA64F: MAKE_IMAGE(PixelRGBA_F64)
+		case Format::BGRA8U: MAKE_IMAGE(PixelBGRA_U8)
+		case Format::BGRA16U: MAKE_IMAGE(PixelBGRA_U16)
+		case Format::BGRA32U: MAKE_IMAGE(PixelBGRA_U32)
+		case Format::BGRA8S: MAKE_IMAGE(PixelBGRA_S8)
+		case Format::BGRA16S: MAKE_IMAGE(PixelBGRA_S16)
+		case Format::BGRA32S: MAKE_IMAGE(PixelBGRA_S32)
+		case Format::BGRA16F: MAKE_IMAGE(PixelBGRA_F16)
+		case Format::BGRA32F: MAKE_IMAGE(PixelBGRA_F32)
+		case Format::BGRA64F: MAKE_IMAGE(PixelBGRA_F64)
+		case Format::ARGB8U: MAKE_IMAGE(PixelARGB_U8)
+		case Format::ARGB16U: MAKE_IMAGE(PixelARGB_U16)
+		case Format::ARGB32U: MAKE_IMAGE(PixelARGB_U32)
+		case Format::ARGB8S: MAKE_IMAGE(PixelARGB_S8)
+		case Format::ARGB16S: MAKE_IMAGE(PixelARGB_S16)
+		case Format::ARGB32S: MAKE_IMAGE(PixelARGB_S32)
+		case Format::ARGB16F: MAKE_IMAGE(PixelARGB_F16)
+		case Format::ARGB32F: MAKE_IMAGE(PixelARGB_F32)
+		case Format::ARGB64F: MAKE_IMAGE(PixelARGB_F64)
+		case Format::RGB444: MAKE_IMAGE(PixelRGB444)
+		case Format::RGB555: MAKE_IMAGE(PixelRGB555)
+		case Format::RGB565: MAKE_IMAGE(PixelRGB565)
+		case Format::INDEXED: {
+			if(!source.getPalette().has_value()) {
+				throw std::runtime_error("Expected a palette, has none!");
+			}
+			const auto& palette = source.getPalette().value();
+			switch(palette.format) {
+				case Format::RGB8U: MAKE_PALETTED(PixelRGB_U8)
+				case Format::RGB16U: MAKE_PALETTED(PixelRGB_U16)
+				case Format::RGB32U: MAKE_PALETTED(PixelRGB_U32)
+				case Format::RGB8S: MAKE_PALETTED(PixelRGB_S8)
+				case Format::RGB16S: MAKE_PALETTED(PixelRGB_S16)
+				case Format::RGB32S: MAKE_PALETTED(PixelRGB_S32)
+				case Format::RGB16F: MAKE_PALETTED(PixelRGB_F16)
+				case Format::RGB32F: MAKE_PALETTED(PixelRGB_F32)
+				case Format::RGB64F: MAKE_PALETTED(PixelRGB_F64)
+				case Format::BGR8U: MAKE_PALETTED(PixelBGR_U8)
+				case Format::BGR16U: MAKE_PALETTED(PixelBGR_U16)
+				case Format::BGR32U: MAKE_PALETTED(PixelBGR_U32)
+				case Format::BGR8S: MAKE_PALETTED(PixelBGR_S8)
+				case Format::BGR16S: MAKE_PALETTED(PixelBGR_S16)
+				case Format::BGR32S: MAKE_PALETTED(PixelBGR_S32)
+				case Format::BGR16F: MAKE_PALETTED(PixelBGR_F16)
+				case Format::BGR32F: MAKE_PALETTED(PixelBGR_F32)
+				case Format::BGR64F: MAKE_PALETTED(PixelBGR_F64)
+				case Format::RGBA8U: MAKE_PALETTED(PixelRGBA_U8)
+				case Format::RGBA16U: MAKE_PALETTED(PixelRGBA_U16)
+				case Format::RGBA32U: MAKE_PALETTED(PixelRGBA_U32)
+				case Format::RGBA8S: MAKE_PALETTED(PixelRGBA_S8)
+				case Format::RGBA16S: MAKE_PALETTED(PixelRGBA_S16)
+				case Format::RGBA32S: MAKE_PALETTED(PixelRGBA_S32)
+				case Format::RGBA16F: MAKE_PALETTED(PixelRGBA_F16)
+				case Format::RGBA32F: MAKE_PALETTED(PixelRGBA_F32)
+				case Format::RGBA64F: MAKE_PALETTED(PixelRGBA_F64)
+				case Format::BGRA8U: MAKE_PALETTED(PixelBGRA_U8)
+				case Format::BGRA16U: MAKE_PALETTED(PixelBGRA_U16)
+				case Format::BGRA32U: MAKE_PALETTED(PixelBGRA_U32)
+				case Format::BGRA8S: MAKE_PALETTED(PixelBGRA_S8)
+				case Format::BGRA16S: MAKE_PALETTED(PixelBGRA_S16)
+				case Format::BGRA32S: MAKE_PALETTED(PixelBGRA_S32)
+				case Format::BGRA16F: MAKE_PALETTED(PixelBGRA_F16)
+				case Format::BGRA32F: MAKE_PALETTED(PixelBGRA_F32)
+				case Format::BGRA64F: MAKE_PALETTED(PixelBGRA_F64)
+				case Format::ARGB8U: MAKE_PALETTED(PixelARGB_U8)
+				case Format::ARGB16U: MAKE_PALETTED(PixelARGB_U16)
+				case Format::ARGB32U: MAKE_PALETTED(PixelARGB_U32)
+				case Format::ARGB8S: MAKE_PALETTED(PixelARGB_S8)
+				case Format::ARGB16S: MAKE_PALETTED(PixelARGB_S16)
+				case Format::ARGB32S: MAKE_PALETTED(PixelARGB_S32)
+				case Format::ARGB16F: MAKE_PALETTED(PixelARGB_F16)
+				case Format::ARGB32F: MAKE_PALETTED(PixelARGB_F32)
+				case Format::ARGB64F: MAKE_PALETTED(PixelARGB_F64)
+				case Format::RGB444: MAKE_PALETTED(PixelRGB444)
+				case Format::RGB555: MAKE_PALETTED(PixelRGB555)
+				case Format::RGB565: MAKE_PALETTED(PixelRGB565)
+				default:
+					return std::nullopt;
+			}
+		}
+		default:
+			return std::nullopt;
+	}
+
+#undef MAKE_IMAGE
+#undef MAKE_PALETTED
 }
 
 }
