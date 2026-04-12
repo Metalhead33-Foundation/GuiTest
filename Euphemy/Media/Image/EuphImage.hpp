@@ -1,1103 +1,502 @@
-﻿#ifndef EUPHIMAGE_HPP
+#ifndef EUPHIMAGE_HPP
 #define EUPHIMAGE_HPP
-#include <glm/glm.hpp>
-#include <span>
-#include <functional>
-#include <Euphemy/Media/Image/EuphImageType.hpp>
-#include <Euphemy/Media/Image/EuphImageDecodeTarget.hpp>
-#include <Elvavena/Util/ElvAllocatorBasic.hpp>
-#include <cstring>
+
 #include <Euphemy/Config/EuphLib.hpp>
+#include <Euphemy/Media/Image/EuphImageType.hpp>
+#include <Euphemy/Media/Image/EuphPixelFormat.hpp>
+#include <Elvavena/Util/ElvEdgeFunction.hpp>
+#include <Elvavena/Util/ElvSpanHelpers.hpp>
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstring>
+#include <memory>
+#include <memory_resource>
+#include <span>
+#include <type_traits>
+#include <utility>
+
 namespace Euph {
 namespace Media {
 namespace Image {
 
-/**
- * @brief Enumeration for texture filtering modes.
- */
-enum class TextureFiltering : uint8_t {
-	NEAREST_NEIGHBOUR, /**< Nearest neighbor filtering. */
-	DITHERED,		  /**< Dithered filtering. */
-	THREE_POINT,	   /**< Three-point filtering. */
-	BILINEAR		   /**< Bilinear filtering. */
-};
+struct ImageDimensions {
+	unsigned width;
+	unsigned height;
+	unsigned stride;
+	float widthF; // width - 1, i.e. the maximum texel coordinate; used for texture sampling
+	float heightF; // height - 1, i.e. the maximum texel coordinate; used for texture sampling
+	float widthR; // reciprocal of widthF, for normalised-to-texel conversion
+	float heightR; // reciprocal of heightF, for normalised-to-texel conversion
 
-/**
- * @brief Enumeration for alpha blending modes.
- */
-enum class AlphaBlending : uint8_t {
-	ALPHA_TESTING,  /**< Alpha testing. */
-	ALPHA_DITHERING,/**< Alpha dithering / Screen-door transparency / Stipled alpha. */
-	ALPHA_BLENDING  /**< Alpha blending. */
-};
-
-/**
- * @brief Enumeration for texture wrapping modes.
- */
-enum class Wrap : uint8_t {
-	REPEAT,		  /**< Repeat the texture. */
-	MIRRORED_REPEAT, /**< Mirror and repeat the texture. */
-	CLAMP_TO_EDGE,   /**< Clamp to the edge of the texture. */
-	CLAMP_TO_BORDER  /**< Clamp to a border colour. */
-};
-
-DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(IReadOnlyPalette)
-DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(IMutablePalette)
-DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(IReadOnlyImage2D)
-DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(IMutableImage2D)
-DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(IResizeableImage2D)
-
-/**
- * @brief Abstract class representing a read-only 2D image.
- */
-class MH_EUPH_API IReadOnlyImage2D {
-public:
-	/**
-	 * @brief Function type for iterating over image pixels.
-	 * @param pos The position of the pixel.
-	 * @param colour The colour of the pixel.
-	 */
-	typedef std::function<void(const glm::uvec2& pos, const glm::fvec4& colour)> ColourIterator;
-
-	/**
-	 * @brief Function type for iterating over image pixels with normalized coordinates.
-	 * @param pos The normalized position of the pixel.
-	 * @param colour The colour of the pixel.
-	 */
-	typedef std::function<void(const glm::fvec2& pos, const glm::fvec4& colour)> ColourIterator2;
-
-protected:
-	unsigned width;   /**< Width of the image. */
-	unsigned height;  /**< Height of the image. */
-	unsigned stride;  /**< Stride of the image. */
-	float widthF;	 /**< Floating-point width of the image. */
-	float heightF;	/**< Floating-point height of the image. */
-	float widthR;	 /**< Reciprocal of the image width. */
-	float heightR;	/**< Reciprocal of the image height. */
-
-	/**
-	 * @brief Recalculate derived dimensions (floating-point and reciprocal values).
-	 */
-	void recalculateDimensions();
-	/**
-	 * @brief Copy constructor.
-	 * @param cpy Source image to copy from.
-	 */
-	IReadOnlyImage2D(const IReadOnlyImage2D& cpy);
-	/**
-	 * @brief Copy assignment operator.
-	 * @param cpy Source image to copy from.
-	 * @return Reference to this image.
-	 */
-	IReadOnlyImage2D& operator=(const IReadOnlyImage2D& cpy);
-public:
-	/**
-	 * @brief Virtual destructor.
-	 */
-	virtual ~IReadOnlyImage2D() = default;
-
-	/**
-	 * @brief Get the width of the image.
-	 * @return Width of the image.
-	 */
-	unsigned getWidth() const;
-
-	/**
-	 * @brief Get the height of the image.
-	 * @return Height of the image.
-	 */
-	unsigned getHeight() const;
-
-	/**
-	 * @brief Get the stride of the image.
-	 * @return Stride of the image.
-	 */
-	unsigned getStride() const;
-
-	/**
-	 * @brief Get the floating-point width of the image.
-	 * @return Floating-point width of the image.
-	 */
-	float getWidthF() const;
-
-	/**
-	 * @brief Get the floating-point height of the image.
-	 * @return Floating-point height of the image.
-	 */
-	float getHeightF() const;
-
-	/**
-	 * @brief Get the reciprocal of the image width.
-	 * @return Reciprocal of the image width.
-	 */
-	float getWidthR() const;
-
-	/**
-	 * @brief Get the reciprocal of the image height.
-	 * @return Reciprocal of the image height.
-	 */
-	float getHeightR() const;
-
-	/**
-	 * @brief Get the format of the image.
-	 * @return Image format.
-	 */
-	virtual Format getFormat() const = 0;
-
-	/**
-	 * @brief Sample a colour from the image.
-	 * @param pos Normalized position of the pixel.
-	 * @param screenpos Screen-space position of the pixel, used exclusively in dithering.
-	 * @param colourKernel Output colour.
-	 * @param filteringType Texture filtering mode.
-	 * @param wrap Texture wrapping mode.
-	 */
-	void sample(const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel,
-				TextureFiltering filteringType = TextureFiltering::NEAREST_NEIGHBOUR, Wrap wrap = Wrap::REPEAT) const;
-
-	/**
-	 * @brief Sample a colour from the image (convenience method).
-	 * @param pos Normalized position of the pixel.
-	 * @param screenpos Screen-space position of the pixel, used exclusively in dithering.
-	 * @param filteringType Texture filtering mode.
-	 * @param wrap Texture wrapping mode.
-	 * @return Sampled colour.
-	 */
-	inline glm::fvec4 sample(const glm::fvec2& pos, const glm::uvec2& screenpos,
-							 TextureFiltering filteringType = TextureFiltering::NEAREST_NEIGHBOUR, Wrap wrap = Wrap::REPEAT) const {
-		glm::fvec4 tmp;
-		sample(pos, screenpos, tmp, filteringType, wrap);
-		return tmp;
+	inline void recalculateStride(Format format) {
+		stride = width * pixelByteSize(format);
 	}
 
-	/**
-	 * @brief Get the pixel colour at a specific position.
-	 * @param pos Position of the pixel.
-	 * @param colourKernel Output colour.
-	 * @param wrap Texture wrapping mode.
-	 */
-	virtual void getPixel(const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap = Wrap::REPEAT) const = 0;
-
-	/**
-	 * @brief Get the pixel colour at a specific position (convenience method).
-	 * @param pos Position of the pixel.
-	 * @param wrap Texture wrapping mode.
-	 * @return Pixel colour.
-	 */
-	inline glm::fvec4 getPixel(const glm::uvec2& pos, Wrap wrap = Wrap::REPEAT) const {
-		glm::fvec4 tmp;
-		getPixel(pos, tmp, wrap);
-		return tmp;
-	}
-
-	/**
-	 * @brief Get a pointer to the raw pixel data (read-only).
-	 * @return Pointer to raw pixel data (read-only).
-	 */
-	virtual const void* getRawPixels() const = 0;
-
-	/**
-	 * @brief Iterate over all pixels in the image.
-	 * @param program Function to apply to each pixel.
-	 */
-	virtual void iterateOverPixels(const ColourIterator& program) const = 0;
-
-	/**
-	 * @brief Iterate over all pixels in the image using normalized coordinates.
-	 * @param program Function to apply to each pixel.
-	 */
-	virtual void iterateOverPixels(const ColourIterator2& program) const = 0;
-
-	/**
-	 * @brief Iterate over a subset of the image pixels.
-	 * @param program Function to apply to each pixel.
-	 * @param offset Offset of the subset.
-	 * @param dimensions Dimensions of the subset.
-	 */
-	virtual void iterateOverPixels(const ColourIterator& program, const glm::uvec2& offset,
-								   const glm::uvec2& dimensions) const = 0;
-
-	/**
-	 * @brief Iterate over a subset of the image pixels using normalized coordinates.
-	 * @param program Function to apply to each pixel.
-	 * @param offset Offset of the subset.
-	 * @param dimensions Dimensions of the subset.
-	 */
-	virtual void iterateOverPixels(const ColourIterator2& program, const glm::uvec2& offset,
-								   const glm::uvec2& dimensions) const = 0;
-
-	/**
-	 * @brief Save the image into a file.
-	 * @param destination Decode target for saving.
-	 */
-	virtual void saveInto(DecodeTarget& destination) const;
-
-	/**
-	 * @brief Default constructor
-	 */
-	IReadOnlyImage2D();
-
-	/**
-	 * @brief Constructor with width and height
-	 * @param width Width
-	 * @param height Height
-	 */
-	IReadOnlyImage2D(unsigned width, unsigned height);
-
-
-	/**
-	 * @brief Produce a 1-bit alpha map from the image.
-	 * @tparam Allocator Allocator type for the vector.
-	 * @param alphas Output vector of alpha values.
-	 * @param threshhold Threshold for determining alpha.
-	 */
-	template <class Allocator>
-	inline void produceAlphaMap(std::vector<bool, Allocator>& alphas, float threshhold) const {
-		const int width = getWidth();
-		alphas.resize(getWidth() * getHeight());
-		iterateOverPixels((ColourIterator)[&alphas, threshhold, width](const glm::uvec2& pos, const glm::fvec4& clr) {
-			int index = (pos.y * width) + pos.x;
-			alphas[index] = clr.a >= threshhold;
-		});
+	inline void recalculateFloats() {
+		widthF = (width > 1) ? static_cast<float>(width - 1) : 0.0f;
+		heightF = (height > 1) ? static_cast<float>(height - 1) : 0.0f;
+		widthR = (widthF > 0.0f) ? (1.0f / widthF) : 0.0f;
+		heightR = (heightF > 0.0f) ? (1.0f / heightF) : 0.0f;
 	}
 };
 
-/**
- * @brief Abstract class representing a modifiable 2D image.
- */
-class MH_EUPH_API IMutableImage2D : public IReadOnlyImage2D
-{
+template <typename T>
+concept ImageConcept =
+	requires(const T& image, const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) {
+		{ image.getDimensions() } -> std::same_as<const ImageDimensions&>;
+		{ image.getPixel(pos, colourKernel, wrap) } -> std::same_as<void>;
+	};
+
+template <typename F>
+concept ColourProgramConcept =
+	std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2> ||
+	std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2, glm::fvec4> ||
+	std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2> ||
+	std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2, glm::fvec4>;
+
+template <typename F>
+concept ColourIteratorConcept =
+	std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2, glm::fvec4> ||
+	std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2, glm::fvec4>;
+
+template <ImageConcept ImageType>
+inline void sampleTexture(const ImageType& image, const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) {
+	const ImageDimensions& dims = image.getDimensions();
+	if(dims.width == 0 || dims.height == 0) {
+		colourKernel = glm::fvec4(0.0f);
+		return;
+	}
+
+	switch(filteringType) {
+		case TextureFiltering::NEAREST_NEIGHBOUR: {
+			const glm::uvec2 texel(
+				static_cast<unsigned>(std::round(pos.x * dims.widthF)),
+				static_cast<unsigned>(std::round(pos.y * dims.heightF)));
+			image.getPixel(texel, colourKernel, wrap);
+			break;
+		}
+		case TextureFiltering::DITHERED: {
+			glm::fvec2 texelCoords(pos.x * dims.widthF, pos.y * dims.heightF);
+			texelCoords += Elv::Util::LOOKUP[screenpos[1] & 1][screenpos[0] & 1];
+			image.getPixel(glm::uvec2(
+							   static_cast<unsigned>(std::round(texelCoords.x)),
+							   static_cast<unsigned>(std::round(texelCoords.y))), colourKernel, wrap);
+			break;
+		}
+		case TextureFiltering::BILINEAR: {
+			const glm::fvec2 tmp(pos.x * dims.widthF, pos.y * dims.heightF);
+			const float xW = tmp.x - std::floor(tmp.x);
+			const float yW = tmp.y - std::floor(tmp.y);
+			const glm::uvec2 coords[4] = {
+				glm::uvec2(static_cast<unsigned>(std::floor(tmp.x)), static_cast<unsigned>(std::floor(tmp.y))),
+				glm::uvec2(static_cast<unsigned>(std::ceil(tmp.x)), static_cast<unsigned>(std::floor(tmp.y))),
+				glm::uvec2(static_cast<unsigned>(std::floor(tmp.x)), static_cast<unsigned>(std::ceil(tmp.y))),
+				glm::uvec2(static_cast<unsigned>(std::ceil(tmp.x)), static_cast<unsigned>(std::ceil(tmp.y)))
+			};
+			const float weights[4] = {
+				(1.0f - xW) * (1.0f - yW),
+				xW * (1.0f - yW),
+				(1.0f - xW) * yW,
+				xW * yW
+			};
+
+			glm::fvec4 colours[4];
+			for(int i = 0; i < 4; ++i) {
+				image.getPixel(coords[i], colours[i], wrap);
+				colours[i] *= weights[i];
+			}
+			colourKernel = colours[0] + colours[1] + colours[2] + colours[3];
+			break;
+		}
+		case TextureFiltering::THREE_POINT: {
+			const glm::fvec2 tmp(pos.x * dims.widthF, pos.y * dims.heightF);
+			const glm::fvec2 edgeTopLeft(std::floor(tmp.x), std::floor(tmp.y));
+			const glm::fvec2 edgeTopRight(std::ceil(tmp.x), std::floor(tmp.y));
+			const glm::fvec2 edgeBottomLeft(std::floor(tmp.x), std::ceil(tmp.y));
+			const glm::fvec2 edgeBottomRight(std::ceil(tmp.x), std::ceil(tmp.y));
+			const bool useBottomRight = ((tmp.y - edgeTopLeft.y) * (tmp.x - edgeTopLeft.x)) >= 0.25f;
+			const glm::fvec2& thirdPosition = useBottomRight ? edgeBottomRight : edgeTopLeft;
+
+			glm::fvec4 colourEdgeTopRight, colourEdgeBottomLeft, thirdColour;
+			image.getPixel(glm::uvec2(static_cast<unsigned>(edgeTopRight.x), static_cast<unsigned>(edgeTopRight.y)), colourEdgeTopRight, wrap);
+			image.getPixel(glm::uvec2(static_cast<unsigned>(edgeBottomLeft.x), static_cast<unsigned>(edgeBottomLeft.y)), colourEdgeBottomLeft, wrap);
+			image.getPixel(glm::uvec2(static_cast<unsigned>(thirdPosition.x), static_cast<unsigned>(thirdPosition.y)), thirdColour, wrap);
+
+			if(useBottomRight) {
+				const float w0 = Elv::Util::edgeFunction<float>(edgeBottomLeft, thirdPosition, tmp);
+				const float w1 = Elv::Util::edgeFunction<float>(thirdPosition, edgeTopRight, tmp);
+				const float w2 = Elv::Util::edgeFunction<float>(edgeTopRight, edgeBottomLeft, tmp);
+				colourKernel = (colourEdgeTopRight * w0) + (colourEdgeBottomLeft * w1) + (thirdColour * w2);
+			} else {
+				const float w0 = Elv::Util::edgeFunction<float>(edgeBottomLeft, edgeTopRight, tmp);
+				const float w1 = Elv::Util::edgeFunction<float>(edgeTopRight, thirdPosition, tmp);
+				const float w2 = Elv::Util::edgeFunction<float>(thirdPosition, edgeBottomLeft, tmp);
+				colourKernel = (thirdColour * w0) + (colourEdgeBottomLeft * w1) + (colourEdgeTopRight * w2);
+			}
+			break;
+		}
+	}
+}
+
+namespace detail {
+
+template <typename> inline constexpr bool always_false_v = false;
+
+inline unsigned wrapCoordinate(unsigned coord, unsigned size, Wrap wrap) {
+	if(size == 0) {
+		return 0;
+	}
+	switch(wrap) {
+		case Wrap::REPEAT:
+			return coord % size;
+		case Wrap::MIRRORED_REPEAT: {
+			const unsigned doubleSize = 2 * size;
+			const unsigned m = coord % doubleSize;
+			return (m < size) ? m : (doubleSize - 1 - m);
+		}
+		case Wrap::CLAMP_TO_BORDER:
+		case Wrap::CLAMP_TO_EDGE:
+		default:
+			return std::min(coord, size - 1);
+	}
+}
+
+template <typename F>
+inline glm::fvec4 evalClearProgram(F&& program, const glm::uvec2& pos, float widthR, float heightR, const glm::fvec4* existing) {
+	using Fn = std::remove_reference_t<F>;
+	const glm::fvec2 normalizedPos(static_cast<float>(pos.x) * widthR, static_cast<float>(pos.y) * heightR);
+	if constexpr (std::is_invocable_v<Fn, glm::uvec2>) {
+		return program(pos);
+	} else if constexpr (std::is_invocable_v<Fn, glm::uvec2, glm::fvec4>) {
+		return program(pos, *existing);
+	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2>) {
+		return program(normalizedPos);
+	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2, glm::fvec4>) {
+		return program(normalizedPos, *existing);
+	} else {
+		static_assert(always_false_v<Fn>, "clearToColour program must be invocable with (uvec2), (uvec2,fvec4), (fvec2), or (fvec2,fvec4)");
+	}
+}
+
+template <typename F>
+inline void invokeIterator(F&& program, const glm::uvec2& pos, const glm::fvec4& colourKernel, float widthR, float heightR) {
+	using Fn = std::remove_reference_t<F>;
+	if constexpr (std::is_invocable_v<Fn, glm::uvec2, glm::fvec4>) {
+		program(pos, colourKernel);
+	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2, glm::fvec4>) {
+		program(glm::fvec2(static_cast<float>(pos.x) * widthR, static_cast<float>(pos.y) * heightR), colourKernel);
+	} else {
+		static_assert(always_false_v<Fn>, "iterator must be invocable with (uvec2,fvec4) or (fvec2,fvec4)");
+	}
+}
+
+} // namespace detail
+
+template <PixelConcept PixelType> class Image2D {
+private:
+	std::pmr::vector<PixelType> pixels;
+	ImageDimensions dimensions;
+
+	template <typename F>
+	static inline void clearToColourImpl(std::span<PixelType> px, unsigned width, unsigned height, float widthR, float heightR, F&& program, bool dither) {
+		auto&& programRef = program;
+		Elv::Util::over_2d_span_mut<PixelType>(px, [&](PixelType& dst, const glm::uvec2& pos) {
+			glm::fvec4 existing;
+			glm::fvec4 result;
+			if constexpr (
+				std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2, glm::fvec4> ||
+				std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2, glm::fvec4>) {
+				dst.toKernel(existing);
+				result = detail::evalClearProgram(programRef, pos, widthR, heightR, &existing);
+			} else {
+				result = detail::evalClearProgram(programRef, pos, widthR, heightR, nullptr);
+			}
+			if(dither) {
+				dst.fromKernelDithered(result, pos);
+			} else {
+				dst.fromKernel(result);
+			}
+		}, glm::uvec2(width, height));
+	}
+
+	template <typename F>
+	static inline void clearToColourImpl(std::span<PixelType> px, unsigned width, unsigned height, float widthR, float heightR, F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
+		auto&& programRef = program;
+		Elv::Util::over_2d_span_mut<PixelType>(px, [&](PixelType& dst, const glm::uvec2& pos) {
+			glm::fvec4 existing;
+			glm::fvec4 result;
+			if constexpr (
+				std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2, glm::fvec4> ||
+				std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2, glm::fvec4>) {
+				dst.toKernel(existing);
+				result = detail::evalClearProgram(programRef, pos, widthR, heightR, &existing);
+			} else {
+				result = detail::evalClearProgram(programRef, pos, widthR, heightR, nullptr);
+			}
+			if(dither) {
+				dst.fromKernelDithered(result, pos);
+			} else {
+				dst.fromKernel(result);
+			}
+		}, glm::uvec2(width, height), offset, affectedDimensions);
+	}
+
 public:
-	/**
-	 * @brief Function type for modifying pixel colours.
-	 * @param pos Position of the pixel.
-	 * @return New colour for the pixel.
-	 */
-	typedef std::function<glm::fvec4(const glm::uvec2& pos)> ColourProgrammer;
-	/**
-	 * @brief Function type for modifying pixel colours with existing colour data.
-	 * @param pos Position of the pixel.
-	 * @param colour Current colour of the pixel.
-	 * @return New colour for the pixel.
-	 */
-	typedef std::function<glm::fvec4(const glm::uvec2& pos, const glm::fvec4& colour)> ColourProgrammer2;
-	/**
-	 * @brief Function type for modifying pixel colours.
-	 * @param pos The normalized position of the pixel.
-	 * @return New colour for the pixel.
-	 */
-	typedef std::function<glm::fvec4(const glm::fvec2& pos)> ColourProgrammer3;
-	/**
-	 * @brief Function type for modifying pixel colours with existing colour data.
-	 * @param pos The normalized position of the pixel.
-	 * @param colour Current colour of the pixel.
-	 * @return New colour for the pixel.
-	 */
-	typedef std::function<glm::fvec4(const glm::fvec2& pos, const glm::fvec4& colour)> ColourProgrammer4;
-	/**
-	 * @brief Virtual destructor.
-	 */
-	virtual ~IMutableImage2D() = default;
-	/**
-	 * @brief Default constructor
-	 */
-	IMutableImage2D();
-	/**
-	 * @brief Constructor with width and height
-	 * @param width Width
-	 * @param height Height
-	 */
-	IMutableImage2D(unsigned width, unsigned height);
+	explicit Image2D(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+		: pixels(memResource), dimensions{0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f} {}
 
-	/**
-	 * @brief Set the colour of a specific pixel.
-	 * @param pos Position of the pixel.
-	 * @param colourKernel Colour to set.
-	 */
-	virtual void setPixel(const glm::uvec2& pos, const glm::fvec4& colourKernel) = 0;
+	Image2D(unsigned width, unsigned height, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+		: pixels(memResource), dimensions{width, height, 0, 0.0f, 0.0f, 0.0f, 0.0f} {
+		dimensions.recalculateStride(PixelType::FMT_ID);
+		dimensions.recalculateFloats();
+		pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
+	}
 
-	/**
-	 * @brief Set the colour of a pixel using dithering.
-	 * @param pos Position of the pixel.
-	 * @param colourKernel Colour to set.
-	 */
-	virtual void setPixelDithered(const glm::uvec2& pos, const glm::fvec4& colourKernel) = 0;
+	inline ImageView toImageView() const {
+		return {
+			.data = const_cast<void*>(static_cast<const void*>(pixels.data())),
+			.width = dimensions.width,
+			.height = dimensions.height,
+			.stride = dimensions.stride,
+			.format = PixelType::FMT_ID
+		};
+	}
 
-	/**
-	 * @brief Set the colour of a pixel with alpha blending.
-	 * @param pos Position of the pixel.
-	 * @param colourKernel Colour to set.
-	 * @param blendingType Alpha blending mode.
-	 * @return True if the operation was successful, false otherwise.
-	 */
-	bool setPixelWithBlending(const glm::uvec2& pos, const glm::fvec4& colourKernel, AlphaBlending blendingType);
+	inline const ImageDimensions& getDimensions() const {
+		return dimensions;
+	}
 
-	/**
-	 * @brief Get a modifiable pointer to the raw pixel data.
-	 * @return Pointer to raw pixel data.
-	 */
-	virtual void* getRawPixels() = 0;
-	/**
-	 * @brief Get a pointer to the raw pixel data (read-only).
-	 * @return Pointer to raw pixel data (read-only).
-	 */
-	virtual const void* getRawPixels() const = 0;
-	/**
-	 * @brief Clear the entire image to a specific colour.
-	 * @param colourKernel Colour to set.
-	 * @param dither Whether to apply dithering.
-	 */
-	virtual void clearToColour(const glm::fvec4& colourKernel, bool dither = false) = 0;
-	/**
-	 * @brief Clear the entire image to a specific colour.
-	 * @param program The function used for modifying the pixel colour.
-	 * @param dither Whether to apply dithering.
-	 */
-	virtual void clearToColour(const ColourProgrammer& program, bool dither = false) = 0;
-	/**
-	 * @brief Clear the entire image to a specific colour.
-	 * @param program The function used for modifying the pixel colour.
-	 * @param dither Whether to apply dithering.
-	 */
-	virtual void clearToColour(const ColourProgrammer2& program, bool dither = false) = 0;
-	/**
-	 * @brief Clear the entire image to a specific colour.
-	 * @param program The function used for modifying the pixel colour.
-	 * @param dither Whether to apply dithering.
-	 */
-	virtual void clearToColour(const ColourProgrammer3& program, bool dither = false) = 0;
-	/**
-	 * @brief Clear the entire image to a specific colour.
-	 * @param program The function used for modifying the pixel colour.
-	 * @param dither Whether to apply dithering.
-	 */
-	virtual void clearToColour(const ColourProgrammer4& program, bool dither = false) = 0;
-	/**
-	 * @brief Clear the a part of the image to a specific colour.
-	 * @param colourKernel Colour to set.
-	 * @param offset The top-left pixel affected by this function.
-	 * @param dimensions The size of the subregion of the image affected by this function.
-	 * @param dither Whether to apply dithering.
-	 */
-	virtual void clearToColour(const glm::fvec4& colourKernel, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither = false) = 0;
-	/**
-	 * @brief Clear the a part of the image to a specific colour.
-	 * @param program The function used for modifying the pixel colour.
-	 * @param offset The top-left pixel affected by this function.
-	 * @param dimensions The size of the subregion of the image affected by this function.
-	 * @param dither Whether to apply dithering.
-	 */
-	virtual void clearToColour(const ColourProgrammer& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither = false) = 0;
-	/**
-	 * @brief Clear the a part of the image to a specific colour.
-	 * @param program The function used for modifying the pixel colour.
-	 * @param offset The top-left pixel affected by this function.
-	 * @param dimensions The size of the subregion of the image affected by this function.
-	 * @param dither Whether to apply dithering.
-	 */
-	virtual void clearToColour(const ColourProgrammer2& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither = false) = 0;
-	/**
-	 * @brief Clear the a part of the image to a specific colour.
-	 * @param program The function used for modifying the pixel colour.
-	 * @param offset The top-left pixel affected by this function.
-	 * @param dimensions The size of the subregion of the image affected by this function.
-	 * @param dither Whether to apply dithering.
-	 */
-	virtual void clearToColour(const ColourProgrammer3& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither = false) = 0;
-	/**
-	 * @brief Clear the a part of the image to a specific colour.
-	 * @param program The function used for modifying the pixel colour.
-	 * @param offset The top-left pixel affected by this function.
-	 * @param dimensions The size of the subregion of the image affected by this function.
-	 * @param dither Whether to apply dithering.
-	 */
-	virtual void clearToColour(const ColourProgrammer4& program, const glm::uvec2& offset, const glm::uvec2& dimensions, bool dither = false) = 0;
-	/**
-	 * @brief Blit (copy) a region from another image into this image.
-	 * @param cpy The source image.
-	 * @param destinationOffset The offset in this image where the source image will be copied.
-	 * @param sourceOffset The offset in the source image from where copying will begin.
-	 * @param sourceDimensionsFromOffset The dimensions of the region to copy from the source image.
-	 * @param dither Whether to use dithering during the blit operation.
-	 */
-	void blit(const IReadOnlyImage2D& cpy, const glm::uvec2& destinationOffset, const glm::uvec2& sourceOffset,
-			  const glm::uvec2& sourceDimensionsFromOffset, bool dither = false);
-	/**
-	 * @brief Blit (copy) a region from a span of pixels into this image.
-	 * @tparam Pixel The pixel format.
-	 * @param pixels The span of pixels to copy.
-	 * @param sourceDimensions The dimensions of the source pixel data.
-	 * @param destinationOffset The offset in this image where the source pixels will be copied.
-	 * @param sourceOffset The offset in the source pixel data from where copying will begin.
-	 * @param sourceDimensionsFromOffset The dimensions of the region to copy from the source pixel data.
-	 * @param dither Whether to use dithering during the blit operation.
-	 */
-	template <PixelConcept Pixel> void blit(const std::span<const Pixel>& pixels, const glm::uvec2& sourceDimensions,
-																	 const glm::uvec2& destinationOffset, const glm::uvec2& sourceOffset,
-																	 const glm::uvec2& sourceDimensionsFromOffset, bool dither = false) {
-		if((destinationOffset.x > width) || (destinationOffset.y > height) ||
-			(sourceOffset.x > sourceDimensions.x) || (sourceOffset.y > sourceDimensions.y)) {
+	inline std::pmr::memory_resource* getMemoryResource() const {
+		return pixels.get_allocator().resource();
+	}
+
+	void setPixel(const glm::uvec2& pos, PixelType pix) {
+		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)] = pix;
+	}
+
+	void setPixel(const glm::uvec2& pos, const glm::fvec4& colourKernel) {
+		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)].fromKernel(colourKernel);
+	}
+
+	void setPixelDithered(const glm::uvec2& pos, const glm::fvec4& colourKernel) {
+		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)].fromKernelDithered(colourKernel, pos);
+	}
+
+	Format getFormat() const {
+		return PixelType::FMT_ID;
+	}
+
+	void getPixel(const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
+		const unsigned x = detail::wrapCoordinate(pos.x, dimensions.width, wrap);
+		const unsigned y = detail::wrapCoordinate(pos.y, dimensions.height, wrap);
+		pixels[toLinearIndex(dimensions.width, x, y)].toKernel(colourKernel);
+	}
+
+	template <typename F> requires ColourIteratorConcept<F>
+	void iterateOverPixels(F&& program) const {
+		auto&& programRef = program;
+		Elv::Util::over_2d_span<PixelType>(pixels, [&](const PixelType& px, const glm::uvec2& pos) {
+			glm::fvec4 kernel;
+			px.toKernel(kernel);
+			detail::invokeIterator(programRef, pos, kernel, dimensions.widthR, dimensions.heightR);
+		}, glm::uvec2(dimensions.width, dimensions.height));
+	}
+
+	template <typename F> requires ColourIteratorConcept<F>
+	void iterateOverPixels(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions) const {
+		auto&& programRef = program;
+		Elv::Util::over_2d_span<PixelType>(pixels, [&](const PixelType& px, const glm::uvec2& pos) {
+			glm::fvec4 kernel;
+			px.toKernel(kernel);
+			detail::invokeIterator(programRef, pos, kernel, dimensions.widthR, dimensions.heightR);
+		}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
+	}
+
+	void clearToColour(const glm::fvec4& colourKernel, bool dither) {
+		if(dither) {
+			Elv::Util::over_2d_span_mut<PixelType>(pixels, [&](PixelType& px, const glm::uvec2& pos) {
+				px.fromKernelDithered(colourKernel, pos);
+			}, glm::uvec2(dimensions.width, dimensions.height));
+		} else {
+			PixelType source;
+			source.fromKernel(colourKernel);
+			std::fill(pixels.begin(), pixels.end(), source);
+		}
+	}
+
+	template <typename F> requires ColourProgramConcept<F>
+	void clearToColour(F&& program, bool dither) {
+		clearToColourImpl(pixels, dimensions.width, dimensions.height, dimensions.widthR, dimensions.heightR, std::forward<F>(program), dither);
+	}
+
+	void clearToColour(const glm::fvec4& colourKernel, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
+		if(dither) {
+			Elv::Util::over_2d_span_mut<PixelType>(pixels, [&](PixelType& px, const glm::uvec2& pos) {
+				px.fromKernelDithered(colourKernel, pos);
+			}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
+		} else {
+			PixelType source;
+			source.fromKernel(colourKernel);
+			Elv::Util::over_2d_span_mut<PixelType>(pixels, [source](PixelType& px, const glm::uvec2&) {
+				px = source;
+			}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
+		}
+	}
+
+	template <typename F> requires ColourProgramConcept<F>
+	void clearToColour(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
+		clearToColourImpl(pixels, dimensions.width, dimensions.height, dimensions.widthR, dimensions.heightR, std::forward<F>(program), offset, affectedDimensions, dither);
+	}
+
+	bool resize(unsigned newWidth, unsigned newHeight) {
+		std::pmr::vector<PixelType> newPixels(pixels.get_allocator().resource());
+		newPixels.resize(static_cast<size_t>(newWidth) * static_cast<size_t>(newHeight));
+
+		const unsigned copyWidth = std::min(dimensions.width, newWidth);
+		const unsigned copyHeight = std::min(dimensions.height, newHeight);
+
+		for(unsigned y = 0; y < copyHeight; ++y) {
+			PixelType* dst = &newPixels[y * newWidth];
+			const PixelType* src = &pixels[y * dimensions.width];
+			if constexpr (std::is_trivially_copyable_v<PixelType>) {
+				std::memcpy(dst, src, static_cast<size_t>(copyWidth) * sizeof(PixelType));
+			} else {
+				std::copy_n(src, copyWidth, dst);
+			}
+		}
+
+		pixels = std::move(newPixels);
+		dimensions.width = newWidth;
+		dimensions.height = newHeight;
+		dimensions.recalculateStride(PixelType::FMT_ID);
+		dimensions.recalculateFloats();
+		return true;
+	}
+
+	void sampleTexture(const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) const {
+		Euph::Media::Image::sampleTexture(*this, pos, screenpos, colourKernel, filteringType, wrap);
+	}
+};
+
+template <PixelConcept PixelType> class PalettedImage2D {
+public:
+	using Palette = std::array<PixelType, 256>;
+
+private:
+	std::pmr::vector<uint8_t> pixels;
+	std::shared_ptr<const Palette> palette;
+	ImageDimensions dimensions;
+
+public:
+	explicit PalettedImage2D(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+		: pixels(memResource), palette(), dimensions{0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f} {}
+
+	PalettedImage2D(unsigned width, unsigned height, std::shared_ptr<const Palette> paletteData, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+		: pixels(memResource), palette(std::move(paletteData)), dimensions{width, height, 0, 0.0f, 0.0f, 0.0f, 0.0f} {
+		dimensions.recalculateStride(Format::INDEXED);
+		dimensions.recalculateFloats();
+		pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
+	}
+
+	inline ImageView toImageView() const {
+		return {
+			.data = const_cast<void*>(static_cast<const void*>(pixels.data())),
+			.width = dimensions.width,
+			.height = dimensions.height,
+			.stride = dimensions.stride,
+			.format = Format::INDEXED
+		};
+	}
+
+	inline const ImageDimensions& getDimensions() const {
+		return dimensions;
+	}
+
+	inline std::pmr::memory_resource* getMemoryResource() const {
+		return pixels.get_allocator().resource();
+	}
+
+	inline std::shared_ptr<const Palette> getPalette() const {
+		return palette;
+	}
+
+	inline void setPalette(std::shared_ptr<const Palette> newPalette) {
+		palette = std::move(newPalette);
+	}
+
+	void setPixelIndex(const glm::uvec2& pos, uint8_t paletteIndex) {
+		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)] = paletteIndex;
+	}
+
+	uint8_t getPixelIndex(const glm::uvec2& pos, Wrap wrap) const {
+		const unsigned x = detail::wrapCoordinate(pos.x, dimensions.width, wrap);
+		const unsigned y = detail::wrapCoordinate(pos.y, dimensions.height, wrap);
+		return pixels[toLinearIndex(dimensions.width, x, y)];
+	}
+
+	void getPixel(const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
+		if(!palette) {
+			colourKernel = glm::fvec4(0.0f);
 			return;
 		}
-		const glm::uvec2 maxDim = calculateMaximumOffsetForBlit(glm::uvec2(width,height),sourceDimensions,destinationOffset,sourceOffset,sourceDimensionsFromOffset);
-		const size_t stride = pixelByteSize(Pixel::FMT_ID)*maxDim.x;
-		if constexpr(getFormat() == Pixel::FMT_ID) {
-			std::byte * const startPtrForDst = static_cast<std::byte*>(getRawPixels());
-			for(unsigned y = 0; y < maxDim.y; ++y) {
-				unsigned dstOffsetIndex = (width*(y+destinationOffset.y))+destinationOffset.x;
-				unsigned srcOffsetIndex = (sourceDimensions.x*(y+sourceOffset.y))+sourceOffset.x;
-				std::memcpy(&startPtrForDst[pixelByteSize(Pixel::FMT_ID)*dstOffsetIndex],&pixels[pixelByteSize(Pixel::FMT_ID)*srcOffsetIndex],stride);
-			}
-		} else {
-			clearToColour([&pixels,&sourceDimensions,&destinationOffset,&sourceOffset](const glm::uvec2& curPos) {
-				const glm::uvec2 offsetIndexInSource = (curPos - destinationOffset)+sourceOffset;
-				const unsigned index = (offsetIndexInSource.y*sourceDimensions.x)+offsetIndexInSource.x;
-				glm::fvec4 kernel;
-				pixels[index].toKernel(kernel);
-				return kernel;
-			}, destinationOffset, maxDim-destinationOffset, dither);
-		}
-	};
-};
-
-/**
- * @brief Abstract class representing a resizable 2D image.
- */
-class MH_EUPH_API IResizeableImage2D : public IMutableImage2D {
-public:
-	/**
-	 * @brief Virtual destructor.
-	 */
-	virtual ~IResizeableImage2D() = default;
-	/**
-	 * @brief Default constructor
-	 */
-	IResizeableImage2D();
-	/**
-	 * @brief Constructor with width and height
-	 * @param width Width
-	 * @param height Height
-	 */
-	IResizeableImage2D(unsigned width, unsigned height);
-
-	/**
-	 * @brief Resize the image.
-	 * @param newWidth New width for the image.
-	 * @param newHeight New height for the image.
-	 * @return True if the resize operation was successful, false otherwise.
-	 */
-	virtual bool resize(unsigned newWidth, unsigned newHeight) = 0;
-};
-
-/**
- * @brief Interface for a read-only color palette.
- */
-class MH_EUPH_API IReadOnlyPalette {
-protected:
-	int_fast16_t transparentClrIndex; ///< Index of the transparent color in the palette.
-public:
-	virtual ~IReadOnlyPalette() = default;
-
-	/**
-	 * @brief Retrieve a color from the palette.
-	 * @param index Index of the color.
-	 * @param kernel Output parameter to store the retrieved color.
-	 */
-	virtual void getColour(std::uint8_t index, glm::fvec4& kernel) const = 0;
-
-	/**
-	 * @brief Retrieve a color from the palette.
-	 * @param index Index of the color.
-	 * @return The color as a glm::fvec4.
-	 */
-	inline glm::fvec4 getColour(std::uint8_t index) const {
-		glm::fvec4 kernel;
-		getColour(index, kernel);
-		return kernel;
+		const uint8_t index = getPixelIndex(pos, wrap);
+		(*palette)[index].toKernel(colourKernel);
 	}
 
-	/**
-	 * @brief Get the format of the palette.
-	 * @return Palette format.
-	 */
-	virtual Format getFormat() const = 0;
+	template <typename F> requires ColourIteratorConcept<F>
+	void iterateOverPixels(F&& program) const {
+		if(!palette) {
+			return;
+		}
+		auto&& programRef = program;
+		Elv::Util::over_2d_span<uint8_t>(pixels, [&](const uint8_t& index, const glm::uvec2& pos) {
+			glm::fvec4 kernel;
+			(*palette)[index].toKernel(kernel);
+			detail::invokeIterator(programRef, pos, kernel, dimensions.widthR, dimensions.heightR);
+		}, glm::uvec2(dimensions.width, dimensions.height));
+	}
 
-	/**
-	 * @brief Get the raw color data of the palette.
-	 * @return Span of bytes representing the raw colors.
-	 */
-	virtual const std::span<const std::byte> getRawColours() const = 0;
+	template <typename F> requires ColourIteratorConcept<F>
+	void iterateOverPixels(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions) const {
+		if(!palette) {
+			return;
+		}
+		auto&& programRef = program;
+		Elv::Util::over_2d_span<uint8_t>(pixels, [&](const uint8_t& index, const glm::uvec2& pos) {
+			glm::fvec4 kernel;
+			(*palette)[index].toKernel(kernel);
+			detail::invokeIterator(programRef, pos, kernel, dimensions.widthR, dimensions.heightR);
+		}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
+	}
 
-	/**
-	 * @brief Convert a paletted image into a full-color image.
-	 * @param indices Indexed image data.
-	 * @param width Width of the image.
-	 * @param height Height of the image.
-	 * @param memRes Memory resource needed for managing the resulting texture.
-	 * @return A depalettized image.
-	 */
-	virtual sIResizeableImage2D depalettizeS(const std::span<const uint8_t>& indices, unsigned width, unsigned height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) const = 0;
-	/**
-	 * @brief Convert a paletted image into a full-color image.
-	 * @param indices Indexed image data.
-	 * @param width Width of the image.
-	 * @param height Height of the image.
-	 * @param memRes Memory resource needed for managing the resulting texture.
-	 * @return A depalettized image.
-	 */
-	virtual uIResizeableImage2D depalettizeU(const std::span<const uint8_t>& indices, unsigned width, unsigned height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) const = 0;
+	bool resize(unsigned newWidth, unsigned newHeight) {
+		std::pmr::vector<uint8_t> newPixels(pixels.get_allocator().resource());
+		newPixels.resize(static_cast<size_t>(newWidth) * static_cast<size_t>(newHeight));
 
-	/**
-	 * @brief Save the palette into another palette instance.
-	 * @param target Target palette instance.
-	 * @param isPreallocated Whether the target is preallocated.
-	 */
-	void saveInto(Palette& target, bool isPreallocated=false) const;
+		const unsigned copyWidth = std::min(dimensions.width, newWidth);
+		const unsigned copyHeight = std::min(dimensions.height, newHeight);
 
-	/**
-	 * @brief Get the index of the transparent color.
-	 * @return Transparent color index.
-	 */
-	int_fast16_t getTransparentClrIndex() const;
+		for(unsigned y = 0; y < copyHeight; ++y) {
+			std::memcpy(&newPixels[y * newWidth], &pixels[y * dimensions.width], copyWidth * sizeof(uint8_t));
+		}
 
-	/**
-	 * @brief Set the index of the transparent color.
-	 * @param newTransparentClrIndex New transparent color index.
-	 */
-	void setTransparentClrIndex(int_fast16_t newTransparentClrIndex);
+		pixels = std::move(newPixels);
+		dimensions.width = newWidth;
+		dimensions.height = newHeight;
+		dimensions.recalculateStride(Format::INDEXED);
+		dimensions.recalculateFloats();
+		return true;
+	}
+
+	void sampleTexture(const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) const {
+		Euph::Media::Image::sampleTexture(*this, pos, screenpos, colourKernel, filteringType, wrap);
+	}
 };
 
-/**
- * @brief Interface for a mutable color palette.
- */
-class MH_EUPH_API IMutablePalette : public IReadOnlyPalette {
-public:
-	virtual ~IMutablePalette() = default;
+} // namespace Image
+} // namespace Media
+} // namespace Euph
 
-	/**
-	 * @brief Set a color in the palette.
-	 * @param index Index of the color.
-	 * @param colour New color value.
-	 */
-	virtual void setColour(std::uint8_t index, const glm::fvec4& colour) = 0;
-
-	/**
-	 * @brief Get the raw color data of the palette.
-	 * @return Span of bytes representing the raw colors.
-	 */
-	virtual const std::span<const std::byte> getRawColours() const = 0;
-	/**
-	 * @brief Get the raw color data of the palette.
-	 * @return Span of bytes representing the raw colors.
-	 */
-	virtual std::span<const std::byte> getRawColours() = 0;
-};
-
-
-/**
- * @brief Abstract class representing a read-only, indexed 2D image.
- */
-class MH_EUPH_API IReadOnlyPalettedImage2D : public IReadOnlyImage2D {
-protected:
-	sIReadOnlyPalette palette;  ///< Palette used by the image.
-
-public:
-	/**
-	 * @brief Get the format of the image.
-	 * @return Image format.
-	 */
-	Format getFormat() const override;
-
-	/**
-	 * @brief Save the image into a file.
-	 * @param destination Decode target for saving.
-	 */
-	void saveInto(DecodeTarget& destination) const override;
-
-	/**
-	 * @brief Get a pointer to the raw pixel data (read-only).
-	 * @return Pointer to raw pixel data (read-only).
-	 */
-	virtual const std::span<const uint8_t> getIndices() const = 0;
-
-	/**
-	 * @brief Get the color of a pixel at a specific position.
-	 * @param pos Position of the pixel.
-	 * @param colourKernel Output parameter to store the retrieved color.
-	 * @param wrap Wrap mode for handling out-of-bounds access.
-	 */
-	void getPixel(const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) const override;
-
-	/**
-	 * @brief Iterate over all pixels in the image.
-	 * @param program Color iterator program to apply to each pixel.
-	 */
-	void iterateOverPixels(const ColourIterator& program) const override;
-
-	/**
-	 * @brief Iterate over all pixels in the image.
-	 * @param program Color iterator program to apply to each pixel.
-	 */
-	void iterateOverPixels(const ColourIterator2& program) const override;
-
-	/**
-	 * @brief Iterate over a subset of pixels in the image.
-	 * @param program Color iterator program to apply to each pixel.
-	 * @param offset Offset of the subset.
-	 * @param dimensions Dimensions of the subset.
-	 */
-	void iterateOverPixels(const ColourIterator& program, const glm::uvec2& offset, const glm::uvec2& dimensions) const override;
-
-	/**
-	 * @brief Iterate over a subset of pixels in the image.
-	 * @param program Color iterator program to apply to each pixel.
-	 * @param offset Offset of the subset.
-	 * @param dimensions Dimensions of the subset.
-	 */
-	void iterateOverPixels(const ColourIterator2& program, const glm::uvec2& offset, const glm::uvec2& dimensions) const override;
-
-	/**
-	 * @brief Get the palette used by the image.
-	 * @return Read-only reference to the palette.
-	 */
-	const sIReadOnlyPalette& getPalette() const;
-
-	/**
-	 * @brief Set the palette used by the image.
-	 * @param newPalette New palette to use.
-	 */
-	void setPalette(const sIReadOnlyPalette& newPalette);
-
-	/**
-	 * @brief Set the palette used by the image.
-	 * @param newPalette New palette to use.
-	 */
-	void setPalette(sIReadOnlyPalette&& newPalette);
-
-	/**
-	 * @brief Convert the paletted image into a full-color image.
-	 * @param memRes Memory resource needed for managing the resulting texture.
-	 * @return A depalettized image.
-	 */
-	sIResizeableImage2D depalettizeS(std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) const;
-
-	/**
-	 * @brief Convert the paletted image into a full-color image.
-	 * @param memRes Memory resource needed for managing the resulting texture.
-	 * @return A depalettized image.
-	 */
-	uIResizeableImage2D depalettizeU(std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) const;
-	/**
-	 * @brief Default constructor
-	 */
-	IReadOnlyPalettedImage2D();
-	/**
-	 * @brief Constructor with width and height
-	 * @param width Width
-	 * @param height Height
-	 */
-	IReadOnlyPalettedImage2D(unsigned width, unsigned height);
-};
-
-/**
- * @brief Abstract class representing a mutable, indexed 2D image.
- */
-class MH_EUPH_API IMutablePalettedImage2D : public IReadOnlyPalettedImage2D {
-public:
-	/**
-	 * @brief Get a pointer to the raw pixel data (read-only).
-	 * @return Pointer to raw pixel data (read-only).
-	 */
-	virtual const std::span<const uint8_t> getIndices() const = 0;
-
-	/**
-	 * @brief Get a pointer to the raw pixel data (writable).
-	 * @return Pointer to raw pixel data (writable).
-	 */
-	virtual std::span<uint8_t> getIndices() = 0;
-
-	/**
-	 * @brief Set the index of a pixel at a specific position.
-	 * @param pos Position of the pixel.
-	 * @param newIndex New index for the pixel.
-	 */
-	void setPixel(const glm::uvec2& pos, uint8_t newIndex) const;
-	/**
-	 * @brief Default constructor
-	 */
-	IMutablePalettedImage2D();
-	/**
-	 * @brief Constructor with width and height
-	 * @param width Width
-	 * @param height Height
-	 */
-	IMutablePalettedImage2D(unsigned width, unsigned height);
-};
-
-/**
- * @brief Abstract class representing a resizable, mutable, indexed 2D image.
- */
-class MH_EUPH_API IResizeablePalettedImage2D : public IMutablePalettedImage2D {
-public:
-
-	/**
-	 * @brief Resize the image.
-	 * @param newWidth New width for the image.
-	 * @param newHeight New height for the image.
-	 * @return True if the resize operation was successful, false otherwise.
-	 */
-	virtual bool resize(unsigned newWidth, unsigned newHeight) = 0;
-	/**
-	 * @brief Default constructor
-	 */
-	IResizeablePalettedImage2D();
-	/**
-	 * @brief Constructor with width and height
-	 * @param width Width
-	 * @param height Height
-	 */
-	IResizeablePalettedImage2D(unsigned width, unsigned height);
-};
-
-DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ReadOnlyPalettedImage2D)
-/**
- * @brief A class representing a read-only paletted 2D image.
- *
- * This class implements the IReadOnlyPalettedImage2D interface and provides
- * methods to access the raw pixel data and the indices of the palette.
- */
-class MH_EUPH_API ReadOnlyPalettedImage2D : public IReadOnlyPalettedImage2D {
-private:
-	/**
-	 * @brief The span of indices representing the pixel data.
-	 */
-	std::span<const uint8_t> indices;
-
-public:
-	/**
-	 * @brief Returns a pointer to the raw pixel data.
-	 *
-	 * @return A constant pointer to the raw pixel data.
-	 */
-	const void* getRawPixels() const override;
-
-	/**
-	 * @brief Returns the span of indices.
-	 *
-	 * @return A constant span of indices.
-	 */
-	const std::span<const uint8_t> getIndices() const override;
-
-	/**
-	 * @brief Copy constructor.
-	 *
-	 * @param cpy The ReadOnlyPalettedImage2D object to copy.
-	 */
-	ReadOnlyPalettedImage2D(const ReadOnlyPalettedImage2D& cpy);
-
-	/**
-	 * @brief Copy assignment operator.
-	 *
-	 * @param cpy The ReadOnlyPalettedImage2D object to copy.
-	 * @return A reference to the updated object.
-	 */
-	ReadOnlyPalettedImage2D& operator=(const ReadOnlyPalettedImage2D& cpy);
-
-	/**
-	 * @brief Move constructor.
-	 *
-	 * @param mov The ReadOnlyPalettedImage2D object to move.
-	 */
-	ReadOnlyPalettedImage2D(ReadOnlyPalettedImage2D&& mov);
-
-	/**
-	 * @brief Move assignment operator.
-	 *
-	 * @param mov The ReadOnlyPalettedImage2D object to move.
-	 * @return A reference to the updated object.
-	 */
-	ReadOnlyPalettedImage2D& operator=(ReadOnlyPalettedImage2D&& mov);
-
-	/**
-	 * @brief Constructor initializing the image with indices, width, and height.
-	 *
-	 * @param indices A span of indices representing the pixel data.
-	 * @param width The width of the image.
-	 * @param height The height of the image.
-	 */
-	ReadOnlyPalettedImage2D(const std::span<const uint8_t>& indices, unsigned width, unsigned height);
-
-	/**
-	 * @brief Sets new indices for the image.
-	 *
-	 * @param newIndices A span of new indices to set.
-	 */
-	void setIndices(const std::span<const uint8_t>& newIndices);
-};
-
-DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(MutablePalettedImage2D)
-/**
- * @brief A mutable 2D paletted image class.
- *
- * This class represents a mutable 2D image where each pixel is represented by an index into a color palette.
- * It implements the IMutablePalettedImage2D interface.
- */
-class MH_EUPH_API MutablePalettedImage2D : public IMutablePalettedImage2D {
-private:
-	/**
-	 * @brief The span of indices representing the pixels of the image.
-	 *
-	 * Each index corresponds to a color in the palette.
-	 */
-	std::span<uint8_t> indices;
-
-public:
-	/**
-	 * @brief Returns a pointer to the raw pixel data.
-	 *
-	 * This method returns a pointer to the raw pixel data. The pixel data is represented by indices into a color palette.
-	 *
-	 * @return A constant pointer to the raw pixel data.
-	 */
-	const void* getRawPixels() const override;
-
-	/**
-	 * @brief Returns the span of indices representing the pixels of the image.
-	 *
-	 * This method returns a constant span of indices representing the pixels of the image. Each index corresponds to a color in the palette.
-	 *
-	 * @return A constant span of indices.
-	 */
-	const std::span<const uint8_t> getIndices() const override;
-
-	/**
-	 * @brief Returns the span of indices representing the pixels of the image.
-	 *
-	 * This method returns a span of indices representing the pixels of the image. Each index corresponds to a color in the palette.
-	 *
-	 * @return A span of indices.
-	 */
-	std::span<uint8_t> getIndices() override;
-
-	/**
-	 * @brief Sets the indices of the image.
-	 *
-	 * This method sets the indices of the image to the provided span of indices. Each index corresponds to a color in the palette.
-	 *
-	 * @param newIndices The new span of indices to set.
-	 */
-	void setIndices(const std::span<uint8_t>& newIndices);
-
-	/**
-	 * @brief Copy constructor.
-	 *
-	 * This constructor creates a deep copy of the provided MutablePalettedImage2D object.
-	 *
-	 * @param cpy The MutablePalettedImage2D object to copy.
-	 */
-	MutablePalettedImage2D(const MutablePalettedImage2D& cpy);
-
-	/**
-	 * @brief Copy assignment operator.
-	 *
-	 * This operator assigns the contents of the provided MutablePalettedImage2D object to this object.
-	 *
-	 * @param cpy The MutablePalettedImage2D object to copy.
-	 * @return A reference to this object.
-	 */
-	MutablePalettedImage2D& operator=(const MutablePalettedImage2D& cpy);
-
-	/**
-	 * @brief Move constructor.
-	 *
-	 * This constructor moves the contents of the provided MutablePalettedImage2D object to this object.
-	 *
-	 * @param mov The MutablePalettedImage2D object to move.
-	 */
-	MutablePalettedImage2D(MutablePalettedImage2D&& mov);
-
-	/**
-	 * @brief Move assignment operator.
-	 *
-	 * This operator moves the contents of the provided MutablePalettedImage2D object to this object.
-	 *
-	 * @param mov The MutablePalettedImage2D object to move.
-	 * @return A reference to this object.
-	 */
-	MutablePalettedImage2D& operator=(MutablePalettedImage2D&& mov);
-
-	/**
-	 * @brief Constructor that initializes the image with indices and dimensions.
-	 *
-	 * This constructor initializes the image with the provided span of indices and dimensions (width and height).
-	 *
-	 * @param indices The span of indices representing the pixels of the image.
-	 * @param width The width of the image.
-	 * @param height The height of the image.
-	 */
-	MutablePalettedImage2D(const std::span<uint8_t>& indices, unsigned width, unsigned height);
-};
-
-DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ResizeablePalettedImage2D)
-/**
- * @class ResizeablePalettedImage2D
- * @brief A class representing a 2D image with a palette that can be resized.
- *
- * This class extends the IResizeablePalettedImage2D interface and provides
- * functionality to manage a 2D image using a palette. The image data is stored
- * in a pmr::vector of indices, which map to colors in a palette. The class
- * supports resizing the image and managing its memory resource.
- *
- * @note The class uses C++17 features such as std::pmr::vector and std::span.
- */
-class MH_EUPH_API ResizeablePalettedImage2D : public IResizeablePalettedImage2D {
-private:
-	/**
-	 * @brief The vector of indices that map to colors in the palette.
-	 */
-	std::pmr::vector<uint8_t> indices;
-
-	/**
-	 * @brief The memory resource used for allocation.
-	 */
-	std::pmr::memory_resource* memRes;
-
-public:
-	/**
-	 * @brief Returns a pointer to the raw pixel data.
-	 *
-	 * This method returns a pointer to the raw pixel data, which is typically
-	 * an array of indices that map to colors in a palette.
-	 *
-	 * @return A pointer to the raw pixel data.
-	 */
-	const void* getRawPixels() const override;
-
-	/**
-	 * @brief Returns a span of the indices that map to colors in the palette.
-	 *
-	 * This method returns a span of the indices that map to colors in the palette.
-	 * The span is read-only and should not be modified.
-	 *
-	 * @return A span of the indices.
-	 */
-	const std::span<const uint8_t> getIndices() const override;
-
-	/**
-	 * @brief Returns a span of the indices that map to colors in the palette.
-	 *
-	 * This method returns a span of the indices that map to colors in the palette.
-	 * The span is writable and can be modified.
-	 *
-	 * @return A span of the indices.
-	 */
-	std::span<uint8_t> getIndices() override;
-
-	/**
-	 * @brief Resizes the image to the specified dimensions.
-	 *
-	 * This method resizes the image to the specified width and height. If the
-	 * new dimensions are larger, the new pixels will be initialized to zero.
-	 * If the new dimensions are smaller, the excess pixels will be discarded.
-	 *
-	 * @param newWidth The new width of the image.
-	 * @param newHeight The new height of the image.
-	 * @return True if the resize was successful, false otherwise.
-	 */
-	bool resize(unsigned int newWidth, unsigned int newHeight) override;
-
-	/**
-	 * @brief Returns the memory resource used for allocation.
-	 *
-	 * This method returns the memory resource that is currently being used for
-	 * allocating memory for the image data.
-	 *
-	 * @return The memory resource.
-	 */
-	std::pmr::memory_resource* getMemRes() const;
-
-	/**
-	 * @brief Sets the memory resource used for allocation.
-	 *
-	 * This method sets the memory resource that will be used for allocating
-	 * memory for the image data. If the image already contains data, it will
-	 * be moved to the new memory resource.
-	 *
-	 * @param newMemRes The new memory resource.
-	 */
-	void setMemRes(std::pmr::memory_resource* newMemRes);
-
-	/**
-	 * @brief Copy constructor.
-	 *
-	 * This constructor creates a copy of the specified ResizeablePalettedImage2D object.
-	 * The new object will have the same dimensions and memory resource, and will
-	 * contain a copy of the indices.
-	 *
-	 * @param cpy The object to copy.
-	 */
-	ResizeablePalettedImage2D(const ResizeablePalettedImage2D& cpy);
-
-	/**
-	 * @brief Move constructor.
-	 *
-	 * This constructor moves the contents of the specified ResizeablePalettedImage2D object
-	 * into the new object. The source object will be left in a valid but unspecified state.
-	 *
-	 * @param mov The object to move.
-	 */
-	ResizeablePalettedImage2D(ResizeablePalettedImage2D&& mov);
-
-	/**
-	 * @brief Copy assignment operator.
-	 *
-	 * This operator assigns the contents of the specified ResizeablePalettedImage2D object
-	 * to the current object. The current object will have the same dimensions and memory
-	 * resource, and will contain a copy of the indices.
-	 *
-	 * @param cpy The object to copy.
-	 * @return A reference to the current object.
-	 */
-	ResizeablePalettedImage2D& operator=(const ResizeablePalettedImage2D& cpy);
-
-	/**
-	 * @brief Move assignment operator.
-	 *
-	 * This operator moves the contents of the specified ResizeablePalettedImage2D object
-	 * into the current object. The source object will be left in a valid but unspecified state.
-	 *
-	 * @param mov The object to move.
-	 * @return A reference to the current object.
-	 */
-	ResizeablePalettedImage2D& operator=(ResizeablePalettedImage2D&& mov);
-
-	/**
-	 * @brief Constructor that creates an empty image with the specified dimensions.
-	 *
-	 * This constructor creates an empty image with the specified width and height.
-	 * The image data is initialized to zero, and the indices vector is empty.
-	 *
-	 * @param width The width of the image.
-	 * @param height The height of the image.
-	 * @param memRes The memory resource to use for allocation (default is the default resource).
-	 */
-	ResizeablePalettedImage2D(unsigned width, unsigned height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
-
-	/**
-	 * @brief Constructor that creates an image with the specified indices and dimensions.
-	 *
-	 * This constructor creates an image with the specified indices and dimensions.
-	 * The indices vector is initialized with the provided span of indices.
-	 *
-	 * @param indices The span of indices that map to colors in the palette.
-	 * @param width The width of the image.
-	 * @param height The height of the image.
-	 * @param memRes The memory resource to use for allocation (default is the default resource).
-	 */
-	ResizeablePalettedImage2D(const std::span<const uint8_t>& indices, unsigned width, unsigned height, std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
-};
-
-}
-}
-}
 #endif // EUPHIMAGE_HPP

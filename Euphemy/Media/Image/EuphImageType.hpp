@@ -305,6 +305,73 @@ template <typename T> concept PixelConcept = requires(T t, const glm::fvec4& fve
 	requires std::is_same_v<decltype(T::FMT_ID), const Format>;
 };
 
+/**
+ * @brief A non-owning, type-erased view of image data.
+ * * This structure provides a lightweight abstraction for interacting with raw image buffers
+ * without requiring ownership or a specific pixel type. It is designed for performance-critical
+ * paths, avoiding virtual method overhead (vtable) and heap allocations.
+ * * @note Because ImageView does not own the underlying memory, the user is responsible
+ * for ensuring the lifetime of the @ref data pointer exceeds the lifetime of the view.
+ */
+struct ImageView {
+	/**
+	 * @brief Pointer to the start of the raw image pixel data.
+	 * * The interpretation of this data is determined by the @ref format member.
+	 */
+	void* data;
+
+	/**
+	 * @brief The horizontal extent of the image in pixels.
+	 */
+	unsigned width;
+
+	/**
+	 * @brief The vertical extent of the image in pixels.
+	 */
+	unsigned height;
+
+	/**
+	 * @brief The amount of bytes each scanline consists of.
+	 */
+	unsigned stride;
+
+	/**
+	 * @brief The pixel format of the data.
+	 * * Defines how the bytes at @ref data should be interpreted (e.g., bit depth,
+	 * color channels, and component types).
+	 */
+	Format format;
+};
+
+/**
+ * @brief Enumeration for texture filtering modes.
+ */
+enum class TextureFiltering : uint8_t {
+	NEAREST_NEIGHBOUR, /**< Nearest neighbor filtering. */
+	DITHERED,		  /**< Dithered filtering. */
+	THREE_POINT,	   /**< Three-point filtering. */
+	BILINEAR		   /**< Bilinear filtering. */
+};
+
+/**
+ * @brief Enumeration for alpha blending modes.
+ */
+enum class AlphaBlending : uint8_t {
+	ALPHA_TESTING,  /**< Alpha testing. */
+	ALPHA_DITHERING,/**< Alpha dithering / Screen-door transparency / Stipled alpha. */
+	ALPHA_BLENDING  /**< Alpha blending. */
+};
+
+/**
+ * @brief Enumeration for texture wrapping modes.
+ */
+enum class Wrap : uint8_t {
+	REPEAT,		  /**< Repeat the texture. */
+	MIRRORED_REPEAT, /**< Mirror and repeat the texture. */
+	CLAMP_TO_EDGE,   /**< Clamp to the edge of the texture. */
+	CLAMP_TO_BORDER  /**< Clamp to a border colour. */
+};
+
 }
 }
 }

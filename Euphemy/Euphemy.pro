@@ -44,7 +44,6 @@ SOURCES += \
  Media/Image/EuphJPEG.cpp \
  Media/Image/EuphPNG.cpp \
  Media/Image/EuphStandardColour.cpp \
- Media/Image/EuphStandardImage.cpp \
  Media/Image/EuphTGA.cpp \
  Media/Image/EuphWEBP.cpp \
  Memory/EuphMemory.cpp
@@ -81,7 +80,6 @@ HEADERS += \
  Media/Image/EuphPNG.hpp \
  Media/Image/EuphPixelFormat.hpp \
  Media/Image/EuphStandardColour.hpp \
- Media/Image/EuphStandardImage.hpp \
  Media/Image/EuphTGA.hpp \
  Media/Image/EuphWEBP.hpp \
  Memory/EuphMemory.hpp
