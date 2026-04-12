@@ -117,7 +117,20 @@ public:
 	std::pmr::vector<std::byte> colorMap;
 	std::pmr::vector<std::byte> imageData;
 	// Commands
-	TgaHeader(std::pmr::memory_resource* memRes) : colorMap(memRes), imageData(memRes) {
+	TgaHeader(std::pmr::memory_resource* memRes)
+		: idLen(0),
+		  colmapType(0),
+		  imageType(0),
+		  colorMapSpecification{},
+		  imageSpecification{},
+		  idField{},
+		  extensionOffset(0),
+		  developerAreaOffset(0),
+		  extensionInfo{},
+		  version(1),
+		  format(Type::INVALID),
+		  colorMap(memRes),
+		  imageData(memRes) {
 
 	}
 private:
@@ -222,8 +235,8 @@ template <Elv::Util::Endian endianness> Elv::Io::DataStream<endianness>& operato
 	output.write(right.imageData.data(),sizeof(std::byte), right.imageData.size());
 	right.extensionOffset = output.tell();
 	left << right.extensionInfo;
-	right.developerAreaOffset = output.tell();
-	output.write("MH33\0", sizeof(char), 5);
+	// No developer directory is written, keep this offset null per TGA 2.0 footer.
+	right.developerAreaOffset = 0;
 	left << right.extensionOffset;
 	left << right.developerAreaOffset;
 	output.seek(0,Elv::Io::SeekOrigin::END);
@@ -434,7 +447,9 @@ void encode(Elv::Io::Device& iodev, DecodeTarget& source, const std::optional<Ex
 		head.colmapType = 1;
 		head.colorMapSpecification.firstEntryIndex = 0;
 		head.colorMapSpecification.colorMapEntrySize = pixelByteSize(palette.format) * 8;
-		head.colorMapSpecification.colorMapLength = (palette.data.size() / static_cast<size_t>(head.colorMapSpecification.colorMapEntrySize));
+		const size_t paletteEntrySizeBytes = pixelByteSize(palette.format);
+		head.colorMapSpecification.colorMapLength =
+			static_cast<uint16_t>((paletteEntrySizeBytes > 0) ? (palette.data.size() / paletteEntrySizeBytes) : 0);
 		if(stealSourceImage) head.colorMap = std::move(palette.data);
 		else head.colorMap = palette.data;
 	} else head.colmapType = 0;
@@ -443,8 +458,8 @@ void encode(Elv::Io::Device& iodev, DecodeTarget& source, const std::optional<Ex
 	head.imageSpecification.height = frame.height;
 	if(stealSourceImage) head.imageData = std::move(frame.data);
 	else head.imageData = frame.data;
-	head.extensionInfo.extensionSize = 495;
 	memset(&head.extensionInfo,0,sizeof(TgaExtensionInformation));
+	head.extensionInfo.extensionSize = 495;
 	if(ext.has_value()) {
 		auto& extval = ext.value();
 		if(!extval.authorName.empty())
@@ -484,9 +499,9 @@ void encode(Elv::Io::Device& iodev, DecodeTarget& source, const std::optional<Ex
 		{
 			tm datetime;
 			gmtime_r(&extval.timestamp, &datetime);
-			head.extensionInfo.timestamp[0] = datetime.tm_mon;
+			head.extensionInfo.timestamp[0] = datetime.tm_mon + 1;
 			head.extensionInfo.timestamp[1] = datetime.tm_mday;
-			head.extensionInfo.timestamp[2] = datetime.tm_year;
+			head.extensionInfo.timestamp[2] = datetime.tm_year + 1900;
 			head.extensionInfo.timestamp[3] = datetime.tm_hour;
 			head.extensionInfo.timestamp[4] = datetime.tm_min;
 			head.extensionInfo.timestamp[5] = datetime.tm_sec;
