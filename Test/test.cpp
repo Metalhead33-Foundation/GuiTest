@@ -23,6 +23,7 @@
 #include <Euphemy/Media/Image/EuphPixelFormat.hpp>
 #include <Euphemy/Media/Image/EuphTGA.hpp>
 #include <Euphemy/Media/Image/EuphPNG.hpp>
+#include <Euphemy/Media/Image/EuphImage.hpp>
 
 template<class T>
 struct Mallocator
@@ -485,18 +486,18 @@ void testInterpolationFixed()
 	testInterpolator<Elv::Util::fixed32>();
 }
 
-/*void testTGA()
+void testTGA()
 {
 	Euph::Media::Image::DecodeTarget decodeTarget;
 	{
-		Euph::Media::Image::StandardImage<Euph::Media::Image::PixelBGR_U8> stdimg(256,256);
-		stdimg.clearToColour((Euph::Media::Image::IMutableImage2D::ColourProgrammer3)[](const glm::fvec2& normalizedPos){
+		Euph::Media::Image::Image2D<Euph::Media::Image::PixelBGR_U8> stdimg(256,256);
+		stdimg.clearToColour([](const glm::fvec2& normalizedPos){
 			float dx = normalizedPos.x - 0.5f;
 			float dy = normalizedPos.y - 0.5f;
 			float distance = 1.0f - (std::sqrt(dx * dx + dy * dy) / 0.7071f);
 			return glm::fvec4(normalizedPos.x,normalizedPos.y,distance,1.0f);
 		},true);
-		stdimg.saveInto(decodeTarget);
+		decodeTarget = fromImageToDecodeTarget(stdimg);
 	}
 	{
 		Euph::Io::File dllFile("/tmp/testImg.tga", Elv::Io::Mode::WRITE);
@@ -508,17 +509,17 @@ void testPNG()
 {
 	Euph::Media::Image::DecodeTarget decodeTarget;
 	{
-		Euph::Media::Image::StandardImage<Euph::Media::Image::PixelRGB_U8> stdimg(256,256);
-		stdimg.clearToColour((Euph::Media::Image::IMutableImage2D::ColourProgrammer3)[](const glm::fvec2& normalizedPos){
+		Euph::Media::Image::Image2D<Euph::Media::Image::PixelRGB_U8> stdimg(256,256);
+		stdimg.clearToColour([](const glm::fvec2& normalizedPos){
 			float dx = normalizedPos.x - 0.5f;
 			float dy = normalizedPos.y - 0.5f;
 			float distance = 1.0f - (std::sqrt(dx * dx + dy * dy) / 0.7071f);
 			return glm::fvec4(normalizedPos.x,normalizedPos.y,distance,1.0f);
 		},true);
-		stdimg.saveInto(decodeTarget);
+		decodeTarget = fromImageToDecodeTarget(stdimg);
 	}
 	{
 		Euph::Io::File dllFile("/tmp/testImg.png", Elv::Io::Mode::WRITE);
 		Euph::Media::Image::PNG::encode(dllFile,decodeTarget,0.5f);
 	}
-}*/
+}

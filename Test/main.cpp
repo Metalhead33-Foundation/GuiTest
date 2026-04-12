@@ -15,6 +15,7 @@ int main(void)
 	//testGlobalConfigFile();
 	//testCustomAllocator();
 	//testTGA();
+	testPNG();
 	return 0;
 }
 

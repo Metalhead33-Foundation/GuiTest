@@ -94,14 +94,15 @@ template <typename F>
 inline glm::fvec4 evalClearProgram(F&& program, const glm::uvec2& pos, float widthR, float heightR, const glm::fvec4& existing) {
 	using Fn = std::remove_reference_t<F>;
 	const glm::fvec2 normalizedPos(static_cast<float>(pos.x) * widthR, static_cast<float>(pos.y) * heightR);
-	if constexpr (std::is_invocable_v<Fn, glm::uvec2>) {
-		return program(pos);
-	} else if constexpr (std::is_invocable_v<Fn, glm::uvec2, glm::fvec4>) {
-		return program(pos, existing);
-	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2>) {
+	// Prefer normalized coordinates when both forms are implicitly invocable.
+	if constexpr (std::is_invocable_v<Fn, glm::fvec2>) {
 		return program(normalizedPos);
 	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2, glm::fvec4>) {
 		return program(normalizedPos, existing);
+	} else if constexpr (std::is_invocable_v<Fn, glm::uvec2>) {
+		return program(pos);
+	} else if constexpr (std::is_invocable_v<Fn, glm::uvec2, glm::fvec4>) {
+		return program(pos, existing);
 	} else {
 		static_assert(always_false_v<Fn>, "clearToColour program must be invocable with (uvec2), (uvec2,fvec4), (fvec2), or (fvec2,fvec4)");
 	}
@@ -110,10 +111,11 @@ inline glm::fvec4 evalClearProgram(F&& program, const glm::uvec2& pos, float wid
 template <typename F>
 inline void invokeIterator(F&& program, const glm::uvec2& pos, const glm::fvec4& colourKernel, float widthR, float heightR) {
 	using Fn = std::remove_reference_t<F>;
-	if constexpr (std::is_invocable_v<Fn, glm::uvec2, glm::fvec4>) {
-		program(pos, colourKernel);
-	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2, glm::fvec4>) {
+	// Prefer normalized coordinates when both forms are implicitly invocable.
+	if constexpr (std::is_invocable_v<Fn, glm::fvec2, glm::fvec4>) {
 		program(glm::fvec2(static_cast<float>(pos.x) * widthR, static_cast<float>(pos.y) * heightR), colourKernel);
+	} else if constexpr (std::is_invocable_v<Fn, glm::uvec2, glm::fvec4>) {
+		program(pos, colourKernel);
 	} else {
 		static_assert(always_false_v<Fn>, "iterator must be invocable with (uvec2,fvec4) or (fvec2,fvec4)");
 	}
@@ -666,6 +668,56 @@ using AnyImage2D = std::variant<
 	PalettedImage2D<PixelRGB555>,
 	PalettedImage2D<PixelRGB565>
 >;
+
+template <PixelConcept PixelType>
+inline DecodeTarget fromImageToDecodeTarget(const Image2D<PixelType>& source, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) {
+	DecodeTarget out(memRes);
+	out.setFormat(PixelType::FMT_ID);
+	out.setIsAnimated(false);
+	out.setDelayTime(std::nullopt);
+
+	const ImageDimensions& dims = source.getDimensions();
+	Frame& frame = out.addFrame(dims.width, dims.height);
+	const auto pixels = source.getPixels();
+	const size_t copyBytes = pixels.size() * sizeof(PixelType);
+	if(copyBytes > 0) {
+		std::memcpy(frame.data.data(), pixels.data(), copyBytes);
+	}
+	return out;
+}
+
+template <PixelConcept PixelType>
+inline DecodeTarget fromImageToDecodeTarget(const PalettedImage2D<PixelType>& source, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) {
+	DecodeTarget out(memRes);
+	out.setFormat(Format::INDEXED);
+	out.setIsAnimated(false);
+	out.setDelayTime(std::nullopt);
+
+	const ImageDimensions& dims = source.getDimensions();
+	Frame& frame = out.addFrame(dims.width, dims.height);
+	const auto pixels = source.getPixels();
+	const size_t copyBytes = pixels.size() * sizeof(uint8_t);
+	if(copyBytes > 0) {
+		std::memcpy(frame.data.data(), pixels.data(), copyBytes);
+	}
+
+	const auto palette = source.getPalette();
+	if(palette) {
+		Palette& outPalette = out.createPalette(PixelType::FMT_ID, 256, source.getTransparentColorIndex());
+		const size_t paletteBytes = palette->size() * sizeof(PixelType);
+		if(paletteBytes > 0) {
+			std::memcpy(outPalette.data.data(), palette->data(), paletteBytes);
+		}
+	}
+
+	return out;
+}
+
+inline DecodeTarget fromImageToDecodeTarget(const AnyImage2D& source, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) {
+	return std::visit([memRes](const auto& image) {
+		return fromImageToDecodeTarget(image, memRes);
+	}, source);
+}
 
 std::optional<AnyImage2D> fromDecodeTargetToImage(const DecodeTarget& source, std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
 

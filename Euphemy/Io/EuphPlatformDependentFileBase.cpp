@@ -215,7 +215,9 @@ PlatformDependentFileBase::PlatformDependentFileBase(PlatformDependentFileBase&&
 PlatformDependentFileBase& PlatformDependentFileBase::operator=(PlatformDependentFileBase&& mov)
 {
 	if (this != &mov) {
-		if(deleter) deleter(path.c_str());
+		if(deleter && !path.empty()) {
+			deleter(path.c_str());
+		}
 		this->path = std::move(mov.path);
 		this->deleter = std::move(mov.deleter);
 		mov.deleter = nullptr;
@@ -384,19 +386,19 @@ PlatformDependentFileBase::PlatformDependentFileBase(int fileDescriptor, const s
 #endif
 
 PlatformDependentFileBase::PlatformDependentFileBase(const std::string& path, Elv::Io::Mode mode)
-	: PlatformDependentFileHandleBase(), path(path)
+	: PlatformDependentFileHandleBase(), path(path), deleter(nullptr)
 {
 	initializeViaRegularLoad(this->path.c_str(), mode);
 }
 
 PlatformDependentFileBase::PlatformDependentFileBase(std::string&& path, Elv::Io::Mode mode)
-	: PlatformDependentFileHandleBase(), path(std::move(path))
+	: PlatformDependentFileHandleBase(), path(std::move(path)), deleter(nullptr)
 {
 	initializeViaRegularLoad(this->path.c_str(), mode);
 }
 
 PlatformDependentFileBase::PlatformDependentFileBase(const char* cpath, TemporaryFileCreationMode mode)
-	: PlatformDependentFileHandleBase()
+	: PlatformDependentFileHandleBase(), deleter(nullptr)
 {
 	switch (mode) {
 		case TemporaryFileCreationMode::MKSTEMP:
@@ -414,7 +416,9 @@ PlatformDependentFileBase::PlatformDependentFileBase(const char* cpath, Temporar
 
 PlatformDependentFileBase::~PlatformDependentFileBase()
 {
-	if(deleter) deleter(path.c_str());
+	if(deleter && !path.empty()) {
+		deleter(path.c_str());
+	}
 }
 
 }

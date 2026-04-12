@@ -156,7 +156,7 @@ class MH_EUPH_API PlatformDependentFileBase : public PlatformDependentFileHandle
 public:
 	typedef void (*Deleter)(const char*); ///< Type alias for the file deleter function.
 	std::string path;								 ///< Path to the file.
-	Deleter deleter;								  ///< Deleter function to clean up the file.
+	Deleter deleter = nullptr;						  ///< Deleter function to clean up the file.
 
 private:
 	PlatformDependentFileBase(const PlatformDependentFileHandleBase& cpy) = delete;
