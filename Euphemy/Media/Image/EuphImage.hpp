@@ -25,10 +25,10 @@ struct ImageDimensions {
 	unsigned width;
 	unsigned height;
 	unsigned stride;
-	float widthF; // width - 1, i.e. the maximum texel coordinate; used for texture sampling
-	float heightF; // height - 1, i.e. the maximum texel coordinate; used for texture sampling
-	float widthR; // reciprocal of widthF, for normalised-to-texel conversion
-	float heightR; // reciprocal of heightF, for normalised-to-texel conversion
+	float widthF;   // width - 1 (maximum texel X coordinate)
+	float heightF;  // height - 1 (maximum texel Y coordinate)
+	float widthR;   // reciprocal of widthF
+	float heightR;  // reciprocal of heightF
 
 	inline void recalculateStride(Format format) {
 		stride = width * pixelByteSize(format);
@@ -43,7 +43,7 @@ struct ImageDimensions {
 };
 
 template <typename T>
-concept ImageConcept =
+concept TextureTypeConcept =
 	requires(const T& image, const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) {
 		{ image.getDimensions() } -> std::same_as<const ImageDimensions&>;
 		{ image.getPixel(pos, colourKernel, wrap) } -> std::same_as<void>;
@@ -61,7 +61,390 @@ concept ColourIteratorConcept =
 	std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2, glm::fvec4> ||
 	std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2, glm::fvec4>;
 
-template <ImageConcept ImageType>
+template <TextureTypeConcept ImageType>
+inline void sampleTexture(const ImageType& image, const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap);
+
+namespace detail {
+
+template <typename> inline constexpr bool always_false_v = false;
+
+inline unsigned wrapCoordinate(unsigned coord, unsigned size, Wrap wrap) {
+	if(size == 0) {
+		return 0;
+	}
+	switch(wrap) {
+		case Wrap::REPEAT:
+			return coord % size;
+		case Wrap::MIRRORED_REPEAT: {
+			const unsigned doubleSize = 2 * size;
+			const unsigned m = coord % doubleSize;
+			return (m < size) ? m : (doubleSize - 1 - m);
+		}
+		case Wrap::CLAMP_TO_BORDER:
+		case Wrap::CLAMP_TO_EDGE:
+		default:
+			return std::min(coord, size - 1);
+	}
+}
+
+template <typename F>
+inline glm::fvec4 evalClearProgram(F&& program, const glm::uvec2& pos, float widthR, float heightR, const glm::fvec4& existing) {
+	using Fn = std::remove_reference_t<F>;
+	const glm::fvec2 normalizedPos(static_cast<float>(pos.x) * widthR, static_cast<float>(pos.y) * heightR);
+	if constexpr (std::is_invocable_v<Fn, glm::uvec2>) {
+		return program(pos);
+	} else if constexpr (std::is_invocable_v<Fn, glm::uvec2, glm::fvec4>) {
+		return program(pos, existing);
+	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2>) {
+		return program(normalizedPos);
+	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2, glm::fvec4>) {
+		return program(normalizedPos, existing);
+	} else {
+		static_assert(always_false_v<Fn>, "clearToColour program must be invocable with (uvec2), (uvec2,fvec4), (fvec2), or (fvec2,fvec4)");
+	}
+}
+
+template <typename F>
+inline void invokeIterator(F&& program, const glm::uvec2& pos, const glm::fvec4& colourKernel, float widthR, float heightR) {
+	using Fn = std::remove_reference_t<F>;
+	if constexpr (std::is_invocable_v<Fn, glm::uvec2, glm::fvec4>) {
+		program(pos, colourKernel);
+	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2, glm::fvec4>) {
+		program(glm::fvec2(static_cast<float>(pos.x) * widthR, static_cast<float>(pos.y) * heightR), colourKernel);
+	} else {
+		static_assert(always_false_v<Fn>, "iterator must be invocable with (uvec2,fvec4) or (fvec2,fvec4)");
+	}
+}
+
+} // namespace detail
+
+template <PixelConcept PixelType> class Image2D {
+private:
+	std::pmr::vector<PixelType> pixels;
+	ImageDimensions dimensions;
+
+	template <typename F>
+	static inline void clearToColourImpl(std::span<PixelType> px, unsigned width, unsigned height, float widthR, float heightR, F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
+		Elv::Util::over_2d_span_mut<PixelType>(px, [&](PixelType& dst, const glm::uvec2& pos) {
+			glm::fvec4 result;
+			constexpr glm::fvec4 unusedExisting(0.0f);
+			if constexpr (
+				std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2, glm::fvec4> ||
+				std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2, glm::fvec4>) {
+				glm::fvec4 existing;
+				dst.toKernel(existing);
+				result = detail::evalClearProgram(program, pos, widthR, heightR, existing);
+			} else {
+				result = detail::evalClearProgram(program, pos, widthR, heightR, unusedExisting);
+			}
+
+			if(dither) {
+				dst.fromKernelDithered(result, pos);
+			} else {
+				dst.fromKernel(result);
+			}
+		}, glm::uvec2(width, height), offset, affectedDimensions);
+	}
+
+public:
+	explicit Image2D(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+		: pixels(memResource), dimensions{0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f} {}
+
+	Image2D(unsigned width, unsigned height, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+		: pixels(memResource), dimensions{width, height, 0, 0.0f, 0.0f, 0.0f, 0.0f} {
+		dimensions.recalculateStride(PixelType::FMT_ID);
+		dimensions.recalculateFloats();
+		pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
+	}
+
+	Image2D(const Image2D&) = default;
+	Image2D(Image2D&&) noexcept = default;
+	Image2D& operator=(const Image2D&) = default;
+	Image2D& operator=(Image2D&&) noexcept = default;
+
+	Image2D(const Image2D& other, std::pmr::memory_resource* memResource)
+		: pixels(other.pixels, memResource), dimensions(other.dimensions) {}
+
+	Image2D(Image2D&& other, std::pmr::memory_resource* memResource)
+		: pixels(std::move(other.pixels), memResource), dimensions(other.dimensions) {}
+
+	inline ImageView toImageView() const {
+		return {
+			.data = pixels.data(),
+			.width = dimensions.width,
+			.height = dimensions.height,
+			.stride = dimensions.stride,
+			.format = PixelType::FMT_ID
+		};
+	}
+
+	inline const ImageDimensions& getDimensions() const {
+		return dimensions;
+	}
+
+	inline std::pmr::memory_resource* getMemoryResource() const {
+		return pixels.get_allocator().resource();
+	}
+
+	void setPixel(const glm::uvec2& pos, PixelType pix) {
+		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)] = pix;
+	}
+
+	void setPixel(const glm::uvec2& pos, const glm::fvec4& colourKernel) {
+		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)].fromKernel(colourKernel);
+	}
+
+	void setPixelDithered(const glm::uvec2& pos, const glm::fvec4& colourKernel) {
+		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)].fromKernelDithered(colourKernel, pos);
+	}
+
+	Format getFormat() const {
+		return PixelType::FMT_ID;
+	}
+
+	void getPixel(const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
+		const unsigned x = detail::wrapCoordinate(pos.x, dimensions.width, wrap);
+		const unsigned y = detail::wrapCoordinate(pos.y, dimensions.height, wrap);
+		pixels[toLinearIndex(dimensions.width, x, y)].toKernel(colourKernel);
+	}
+
+	template <typename F> requires ColourIteratorConcept<F>
+	void iterateOverPixels(F&& program) const {
+		Elv::Util::over_2d_span<PixelType>(pixels, [&](const PixelType& px, const glm::uvec2& pos) {
+			glm::fvec4 kernel;
+			px.toKernel(kernel);
+			detail::invokeIterator(program, pos, kernel, dimensions.widthR, dimensions.heightR);
+		}, glm::uvec2(dimensions.width, dimensions.height));
+	}
+
+	template <typename F> requires ColourIteratorConcept<F>
+	void iterateOverPixels(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions) const {
+		Elv::Util::over_2d_span<PixelType>(pixels, [&](const PixelType& px, const glm::uvec2& pos) {
+			glm::fvec4 kernel;
+			px.toKernel(kernel);
+			detail::invokeIterator(program, pos, kernel, dimensions.widthR, dimensions.heightR);
+		}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
+	}
+
+	void clearToColour(const glm::fvec4& colourKernel, bool dither) {
+		if(dither) {
+			Elv::Util::over_2d_span_mut<PixelType>(pixels, [&](PixelType& px, const glm::uvec2& pos) {
+				px.fromKernelDithered(colourKernel, pos);
+			}, glm::uvec2(dimensions.width, dimensions.height));
+		} else {
+			PixelType source;
+			source.fromKernel(colourKernel);
+			std::fill(pixels.begin(), pixels.end(), source);
+		}
+	}
+
+	template <typename F> requires ColourProgramConcept<F>
+	void clearToColour(F&& program, bool dither) {
+		clearToColourImpl(
+			pixels,
+			dimensions.width,
+			dimensions.height,
+			dimensions.widthR,
+			dimensions.heightR,
+			std::forward<F>(program),
+			glm::uvec2(0, 0),
+			glm::uvec2(dimensions.width, dimensions.height),
+			dither);
+	}
+
+	void clearToColour(const glm::fvec4& colourKernel, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
+		if(dither) {
+			Elv::Util::over_2d_span_mut<PixelType>(pixels, [&](PixelType& px, const glm::uvec2& pos) {
+				px.fromKernelDithered(colourKernel, pos);
+			}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
+		} else {
+			PixelType source;
+			source.fromKernel(colourKernel);
+			Elv::Util::over_2d_span_mut<PixelType>(pixels, [source](PixelType& px, const glm::uvec2&) {
+				px = source;
+			}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
+		}
+	}
+
+	template <typename F> requires ColourProgramConcept<F>
+	void clearToColour(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
+		clearToColourImpl(
+			pixels,
+			dimensions.width,
+			dimensions.height,
+			dimensions.widthR,
+			dimensions.heightR,
+			std::forward<F>(program),
+			offset,
+			affectedDimensions,
+			dither);
+	}
+
+	void resize(unsigned newWidth, unsigned newHeight) {
+		std::pmr::vector<PixelType> newPixels(pixels.get_allocator().resource());
+		newPixels.resize(static_cast<size_t>(newWidth) * static_cast<size_t>(newHeight));
+
+		const unsigned copyWidth = std::min(dimensions.width, newWidth);
+		const unsigned copyHeight = std::min(dimensions.height, newHeight);
+
+		for(unsigned y = 0; y < copyHeight; ++y) {
+			PixelType* dst = &newPixels[y * newWidth];
+			const PixelType* src = &pixels[y * dimensions.width];
+			if constexpr (std::is_trivially_copyable_v<PixelType>) {
+				std::memcpy(dst, src, static_cast<size_t>(copyWidth) * sizeof(PixelType));
+			} else {
+				std::copy_n(src, copyWidth, dst);
+			}
+		}
+
+		pixels = std::move(newPixels);
+		dimensions.width = newWidth;
+		dimensions.height = newHeight;
+		dimensions.recalculateStride(PixelType::FMT_ID);
+		dimensions.recalculateFloats();
+	}
+
+	void sampleTexture(const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) const {
+		Euph::Media::Image::sampleTexture(*this, pos, screenpos, colourKernel, filteringType, wrap);
+	}
+};
+
+template <PixelConcept PixelType> class PalettedImage2D {
+public:
+	using Palette = std::array<PixelType, 256>;
+
+private:
+	std::pmr::vector<uint8_t> pixels;
+	std::shared_ptr<const Palette> palette;
+	ImageDimensions dimensions;
+
+public:
+	explicit PalettedImage2D(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+		: pixels(memResource), palette(), dimensions{0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f} {}
+
+	PalettedImage2D(unsigned width, unsigned height, std::shared_ptr<const Palette> paletteData, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
+		: pixels(memResource), palette(std::move(paletteData)), dimensions{width, height, 0, 0.0f, 0.0f, 0.0f, 0.0f} {
+		dimensions.recalculateStride(Format::INDEXED);
+		dimensions.recalculateFloats();
+		pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
+	}
+
+	PalettedImage2D(const PalettedImage2D&) = default;
+	PalettedImage2D(PalettedImage2D&&) noexcept = default;
+	PalettedImage2D& operator=(const PalettedImage2D&) = default;
+	PalettedImage2D& operator=(PalettedImage2D&&) noexcept = default;
+
+	PalettedImage2D(const PalettedImage2D& other, std::pmr::memory_resource* memResource)
+		: pixels(other.pixels, memResource), palette(other.palette), dimensions(other.dimensions) {}
+
+	PalettedImage2D(PalettedImage2D&& other, std::pmr::memory_resource* memResource)
+		: pixels(std::move(other.pixels), memResource), palette(std::move(other.palette)), dimensions(other.dimensions) {}
+
+	inline ImageView toImageView() const {
+		return {
+			.data = pixels.data(),
+			.width = dimensions.width,
+			.height = dimensions.height,
+			.stride = dimensions.stride,
+			.format = Format::INDEXED // This view describes the index buffer only.
+		};
+	}
+
+	inline const ImageDimensions& getDimensions() const {
+		return dimensions;
+	}
+
+	inline std::pmr::memory_resource* getMemoryResource() const {
+		return pixels.get_allocator().resource();
+	}
+
+	inline std::shared_ptr<const Palette> getPalette() const {
+		return palette;
+	}
+
+	inline void setPalette(std::shared_ptr<const Palette> newPalette) {
+		palette = std::move(newPalette);
+	}
+
+	void setPixelIndex(const glm::uvec2& pos, uint8_t paletteIndex) {
+		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)] = paletteIndex;
+	}
+
+	uint8_t getPixelIndex(const glm::uvec2& pos, Wrap wrap) const {
+		const unsigned x = detail::wrapCoordinate(pos.x, dimensions.width, wrap);
+		const unsigned y = detail::wrapCoordinate(pos.y, dimensions.height, wrap);
+		return pixels[toLinearIndex(dimensions.width, x, y)];
+	}
+
+	void getPixel(const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
+		if(!palette) {
+			colourKernel = glm::fvec4(0.0f);
+			return;
+		}
+		const uint8_t index = getPixelIndex(pos, wrap);
+		(*palette)[index].toKernel(colourKernel);
+	}
+
+	template <typename F> requires ColourIteratorConcept<F>
+	void iterateOverPixels(F&& program) const {
+		if(!palette) {
+			return;
+		}
+		Elv::Util::over_2d_span<uint8_t>(pixels, [&](const uint8_t& index, const glm::uvec2& pos) {
+			glm::fvec4 kernel;
+			(*palette)[index].toKernel(kernel);
+			detail::invokeIterator(program, pos, kernel, dimensions.widthR, dimensions.heightR);
+		}, glm::uvec2(dimensions.width, dimensions.height));
+	}
+
+	template <typename F> requires ColourIteratorConcept<F>
+	void iterateOverPixels(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions) const {
+		if(!palette) {
+			return;
+		}
+		Elv::Util::over_2d_span<uint8_t>(pixels, [&](const uint8_t& index, const glm::uvec2& pos) {
+			glm::fvec4 kernel;
+			(*palette)[index].toKernel(kernel);
+			detail::invokeIterator(program, pos, kernel, dimensions.widthR, dimensions.heightR);
+		}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
+	}
+
+	void resize(unsigned newWidth, unsigned newHeight) {
+		std::pmr::vector<uint8_t> newPixels(pixels.get_allocator().resource());
+		newPixels.resize(static_cast<size_t>(newWidth) * static_cast<size_t>(newHeight));
+
+		const unsigned copyWidth = std::min(dimensions.width, newWidth);
+		const unsigned copyHeight = std::min(dimensions.height, newHeight);
+
+		for(unsigned y = 0; y < copyHeight; ++y) {
+			std::memcpy(&newPixels[y * newWidth], &pixels[y * dimensions.width], copyWidth * sizeof(uint8_t));
+		}
+
+		pixels = std::move(newPixels);
+		dimensions.width = newWidth;
+		dimensions.height = newHeight;
+		dimensions.recalculateStride(Format::INDEXED);
+		dimensions.recalculateFloats();
+	}
+
+	void sampleTexture(const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) const {
+		Euph::Media::Image::sampleTexture(*this, pos, screenpos, colourKernel, filteringType, wrap);
+	}
+
+	Image2D<PixelType> depalettize(std::pmr::memory_resource* memResource = std::pmr::get_default_resource()) const {
+		Image2D<PixelType> out(dimensions.width, dimensions.height, memResource);
+		if(!palette) {
+			return out;
+		}
+
+		Elv::Util::over_2d_span<uint8_t>(pixels, [&](const uint8_t& index, const glm::uvec2& pos) {
+			out.setPixel(pos, (*palette)[index]);
+		}, glm::uvec2(dimensions.width, dimensions.height));
+		return out;
+	}
+};
+
+template <TextureTypeConcept ImageType>
 inline void sampleTexture(const ImageType& image, const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) {
 	const ImageDimensions& dims = image.getDimensions();
 	if(dims.width == 0 || dims.height == 0) {
@@ -140,360 +523,9 @@ inline void sampleTexture(const ImageType& image, const glm::fvec2& pos, const g
 	}
 }
 
-namespace detail {
-
-template <typename> inline constexpr bool always_false_v = false;
-
-inline unsigned wrapCoordinate(unsigned coord, unsigned size, Wrap wrap) {
-	if(size == 0) {
-		return 0;
-	}
-	switch(wrap) {
-		case Wrap::REPEAT:
-			return coord % size;
-		case Wrap::MIRRORED_REPEAT: {
-			const unsigned doubleSize = 2 * size;
-			const unsigned m = coord % doubleSize;
-			return (m < size) ? m : (doubleSize - 1 - m);
-		}
-		case Wrap::CLAMP_TO_BORDER:
-		case Wrap::CLAMP_TO_EDGE:
-		default:
-			return std::min(coord, size - 1);
-	}
-}
-
-template <typename F>
-inline glm::fvec4 evalClearProgram(F&& program, const glm::uvec2& pos, float widthR, float heightR, const glm::fvec4* existing) {
-	using Fn = std::remove_reference_t<F>;
-	const glm::fvec2 normalizedPos(static_cast<float>(pos.x) * widthR, static_cast<float>(pos.y) * heightR);
-	if constexpr (std::is_invocable_v<Fn, glm::uvec2>) {
-		return program(pos);
-	} else if constexpr (std::is_invocable_v<Fn, glm::uvec2, glm::fvec4>) {
-		return program(pos, *existing);
-	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2>) {
-		return program(normalizedPos);
-	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2, glm::fvec4>) {
-		return program(normalizedPos, *existing);
-	} else {
-		static_assert(always_false_v<Fn>, "clearToColour program must be invocable with (uvec2), (uvec2,fvec4), (fvec2), or (fvec2,fvec4)");
-	}
-}
-
-template <typename F>
-inline void invokeIterator(F&& program, const glm::uvec2& pos, const glm::fvec4& colourKernel, float widthR, float heightR) {
-	using Fn = std::remove_reference_t<F>;
-	if constexpr (std::is_invocable_v<Fn, glm::uvec2, glm::fvec4>) {
-		program(pos, colourKernel);
-	} else if constexpr (std::is_invocable_v<Fn, glm::fvec2, glm::fvec4>) {
-		program(glm::fvec2(static_cast<float>(pos.x) * widthR, static_cast<float>(pos.y) * heightR), colourKernel);
-	} else {
-		static_assert(always_false_v<Fn>, "iterator must be invocable with (uvec2,fvec4) or (fvec2,fvec4)");
-	}
-}
-
-} // namespace detail
-
-template <PixelConcept PixelType> class Image2D {
-private:
-	std::pmr::vector<PixelType> pixels;
-	ImageDimensions dimensions;
-
-	template <typename F>
-	static inline void clearToColourImpl(std::span<PixelType> px, unsigned width, unsigned height, float widthR, float heightR, F&& program, bool dither) {
-		auto&& programRef = program;
-		Elv::Util::over_2d_span_mut<PixelType>(px, [&](PixelType& dst, const glm::uvec2& pos) {
-			glm::fvec4 existing;
-			glm::fvec4 result;
-			if constexpr (
-				std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2, glm::fvec4> ||
-				std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2, glm::fvec4>) {
-				dst.toKernel(existing);
-				result = detail::evalClearProgram(programRef, pos, widthR, heightR, &existing);
-			} else {
-				result = detail::evalClearProgram(programRef, pos, widthR, heightR, nullptr);
-			}
-			if(dither) {
-				dst.fromKernelDithered(result, pos);
-			} else {
-				dst.fromKernel(result);
-			}
-		}, glm::uvec2(width, height));
-	}
-
-	template <typename F>
-	static inline void clearToColourImpl(std::span<PixelType> px, unsigned width, unsigned height, float widthR, float heightR, F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
-		auto&& programRef = program;
-		Elv::Util::over_2d_span_mut<PixelType>(px, [&](PixelType& dst, const glm::uvec2& pos) {
-			glm::fvec4 existing;
-			glm::fvec4 result;
-			if constexpr (
-				std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2, glm::fvec4> ||
-				std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2, glm::fvec4>) {
-				dst.toKernel(existing);
-				result = detail::evalClearProgram(programRef, pos, widthR, heightR, &existing);
-			} else {
-				result = detail::evalClearProgram(programRef, pos, widthR, heightR, nullptr);
-			}
-			if(dither) {
-				dst.fromKernelDithered(result, pos);
-			} else {
-				dst.fromKernel(result);
-			}
-		}, glm::uvec2(width, height), offset, affectedDimensions);
-	}
-
-public:
-	explicit Image2D(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
-		: pixels(memResource), dimensions{0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f} {}
-
-	Image2D(unsigned width, unsigned height, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
-		: pixels(memResource), dimensions{width, height, 0, 0.0f, 0.0f, 0.0f, 0.0f} {
-		dimensions.recalculateStride(PixelType::FMT_ID);
-		dimensions.recalculateFloats();
-		pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
-	}
-
-	inline ImageView toImageView() const {
-		return {
-			.data = const_cast<void*>(static_cast<const void*>(pixels.data())),
-			.width = dimensions.width,
-			.height = dimensions.height,
-			.stride = dimensions.stride,
-			.format = PixelType::FMT_ID
-		};
-	}
-
-	inline const ImageDimensions& getDimensions() const {
-		return dimensions;
-	}
-
-	inline std::pmr::memory_resource* getMemoryResource() const {
-		return pixels.get_allocator().resource();
-	}
-
-	void setPixel(const glm::uvec2& pos, PixelType pix) {
-		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)] = pix;
-	}
-
-	void setPixel(const glm::uvec2& pos, const glm::fvec4& colourKernel) {
-		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)].fromKernel(colourKernel);
-	}
-
-	void setPixelDithered(const glm::uvec2& pos, const glm::fvec4& colourKernel) {
-		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)].fromKernelDithered(colourKernel, pos);
-	}
-
-	Format getFormat() const {
-		return PixelType::FMT_ID;
-	}
-
-	void getPixel(const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
-		const unsigned x = detail::wrapCoordinate(pos.x, dimensions.width, wrap);
-		const unsigned y = detail::wrapCoordinate(pos.y, dimensions.height, wrap);
-		pixels[toLinearIndex(dimensions.width, x, y)].toKernel(colourKernel);
-	}
-
-	template <typename F> requires ColourIteratorConcept<F>
-	void iterateOverPixels(F&& program) const {
-		auto&& programRef = program;
-		Elv::Util::over_2d_span<PixelType>(pixels, [&](const PixelType& px, const glm::uvec2& pos) {
-			glm::fvec4 kernel;
-			px.toKernel(kernel);
-			detail::invokeIterator(programRef, pos, kernel, dimensions.widthR, dimensions.heightR);
-		}, glm::uvec2(dimensions.width, dimensions.height));
-	}
-
-	template <typename F> requires ColourIteratorConcept<F>
-	void iterateOverPixels(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions) const {
-		auto&& programRef = program;
-		Elv::Util::over_2d_span<PixelType>(pixels, [&](const PixelType& px, const glm::uvec2& pos) {
-			glm::fvec4 kernel;
-			px.toKernel(kernel);
-			detail::invokeIterator(programRef, pos, kernel, dimensions.widthR, dimensions.heightR);
-		}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
-	}
-
-	void clearToColour(const glm::fvec4& colourKernel, bool dither) {
-		if(dither) {
-			Elv::Util::over_2d_span_mut<PixelType>(pixels, [&](PixelType& px, const glm::uvec2& pos) {
-				px.fromKernelDithered(colourKernel, pos);
-			}, glm::uvec2(dimensions.width, dimensions.height));
-		} else {
-			PixelType source;
-			source.fromKernel(colourKernel);
-			std::fill(pixels.begin(), pixels.end(), source);
-		}
-	}
-
-	template <typename F> requires ColourProgramConcept<F>
-	void clearToColour(F&& program, bool dither) {
-		clearToColourImpl(pixels, dimensions.width, dimensions.height, dimensions.widthR, dimensions.heightR, std::forward<F>(program), dither);
-	}
-
-	void clearToColour(const glm::fvec4& colourKernel, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
-		if(dither) {
-			Elv::Util::over_2d_span_mut<PixelType>(pixels, [&](PixelType& px, const glm::uvec2& pos) {
-				px.fromKernelDithered(colourKernel, pos);
-			}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
-		} else {
-			PixelType source;
-			source.fromKernel(colourKernel);
-			Elv::Util::over_2d_span_mut<PixelType>(pixels, [source](PixelType& px, const glm::uvec2&) {
-				px = source;
-			}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
-		}
-	}
-
-	template <typename F> requires ColourProgramConcept<F>
-	void clearToColour(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
-		clearToColourImpl(pixels, dimensions.width, dimensions.height, dimensions.widthR, dimensions.heightR, std::forward<F>(program), offset, affectedDimensions, dither);
-	}
-
-	bool resize(unsigned newWidth, unsigned newHeight) {
-		std::pmr::vector<PixelType> newPixels(pixels.get_allocator().resource());
-		newPixels.resize(static_cast<size_t>(newWidth) * static_cast<size_t>(newHeight));
-
-		const unsigned copyWidth = std::min(dimensions.width, newWidth);
-		const unsigned copyHeight = std::min(dimensions.height, newHeight);
-
-		for(unsigned y = 0; y < copyHeight; ++y) {
-			PixelType* dst = &newPixels[y * newWidth];
-			const PixelType* src = &pixels[y * dimensions.width];
-			if constexpr (std::is_trivially_copyable_v<PixelType>) {
-				std::memcpy(dst, src, static_cast<size_t>(copyWidth) * sizeof(PixelType));
-			} else {
-				std::copy_n(src, copyWidth, dst);
-			}
-		}
-
-		pixels = std::move(newPixels);
-		dimensions.width = newWidth;
-		dimensions.height = newHeight;
-		dimensions.recalculateStride(PixelType::FMT_ID);
-		dimensions.recalculateFloats();
-		return true;
-	}
-
-	void sampleTexture(const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) const {
-		Euph::Media::Image::sampleTexture(*this, pos, screenpos, colourKernel, filteringType, wrap);
-	}
-};
-
-template <PixelConcept PixelType> class PalettedImage2D {
-public:
-	using Palette = std::array<PixelType, 256>;
-
-private:
-	std::pmr::vector<uint8_t> pixels;
-	std::shared_ptr<const Palette> palette;
-	ImageDimensions dimensions;
-
-public:
-	explicit PalettedImage2D(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
-		: pixels(memResource), palette(), dimensions{0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f} {}
-
-	PalettedImage2D(unsigned width, unsigned height, std::shared_ptr<const Palette> paletteData, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
-		: pixels(memResource), palette(std::move(paletteData)), dimensions{width, height, 0, 0.0f, 0.0f, 0.0f, 0.0f} {
-		dimensions.recalculateStride(Format::INDEXED);
-		dimensions.recalculateFloats();
-		pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
-	}
-
-	inline ImageView toImageView() const {
-		return {
-			.data = const_cast<void*>(static_cast<const void*>(pixels.data())),
-			.width = dimensions.width,
-			.height = dimensions.height,
-			.stride = dimensions.stride,
-			.format = Format::INDEXED
-		};
-	}
-
-	inline const ImageDimensions& getDimensions() const {
-		return dimensions;
-	}
-
-	inline std::pmr::memory_resource* getMemoryResource() const {
-		return pixels.get_allocator().resource();
-	}
-
-	inline std::shared_ptr<const Palette> getPalette() const {
-		return palette;
-	}
-
-	inline void setPalette(std::shared_ptr<const Palette> newPalette) {
-		palette = std::move(newPalette);
-	}
-
-	void setPixelIndex(const glm::uvec2& pos, uint8_t paletteIndex) {
-		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)] = paletteIndex;
-	}
-
-	uint8_t getPixelIndex(const glm::uvec2& pos, Wrap wrap) const {
-		const unsigned x = detail::wrapCoordinate(pos.x, dimensions.width, wrap);
-		const unsigned y = detail::wrapCoordinate(pos.y, dimensions.height, wrap);
-		return pixels[toLinearIndex(dimensions.width, x, y)];
-	}
-
-	void getPixel(const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
-		if(!palette) {
-			colourKernel = glm::fvec4(0.0f);
-			return;
-		}
-		const uint8_t index = getPixelIndex(pos, wrap);
-		(*palette)[index].toKernel(colourKernel);
-	}
-
-	template <typename F> requires ColourIteratorConcept<F>
-	void iterateOverPixels(F&& program) const {
-		if(!palette) {
-			return;
-		}
-		auto&& programRef = program;
-		Elv::Util::over_2d_span<uint8_t>(pixels, [&](const uint8_t& index, const glm::uvec2& pos) {
-			glm::fvec4 kernel;
-			(*palette)[index].toKernel(kernel);
-			detail::invokeIterator(programRef, pos, kernel, dimensions.widthR, dimensions.heightR);
-		}, glm::uvec2(dimensions.width, dimensions.height));
-	}
-
-	template <typename F> requires ColourIteratorConcept<F>
-	void iterateOverPixels(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions) const {
-		if(!palette) {
-			return;
-		}
-		auto&& programRef = program;
-		Elv::Util::over_2d_span<uint8_t>(pixels, [&](const uint8_t& index, const glm::uvec2& pos) {
-			glm::fvec4 kernel;
-			(*palette)[index].toKernel(kernel);
-			detail::invokeIterator(programRef, pos, kernel, dimensions.widthR, dimensions.heightR);
-		}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
-	}
-
-	bool resize(unsigned newWidth, unsigned newHeight) {
-		std::pmr::vector<uint8_t> newPixels(pixels.get_allocator().resource());
-		newPixels.resize(static_cast<size_t>(newWidth) * static_cast<size_t>(newHeight));
-
-		const unsigned copyWidth = std::min(dimensions.width, newWidth);
-		const unsigned copyHeight = std::min(dimensions.height, newHeight);
-
-		for(unsigned y = 0; y < copyHeight; ++y) {
-			std::memcpy(&newPixels[y * newWidth], &pixels[y * dimensions.width], copyWidth * sizeof(uint8_t));
-		}
-
-		pixels = std::move(newPixels);
-		dimensions.width = newWidth;
-		dimensions.height = newHeight;
-		dimensions.recalculateStride(Format::INDEXED);
-		dimensions.recalculateFloats();
-		return true;
-	}
-
-	void sampleTexture(const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) const {
-		Euph::Media::Image::sampleTexture(*this, pos, screenpos, colourKernel, filteringType, wrap);
-	}
-};
+template <typename T> struct is_paletted_image : std::false_type {};
+template <typename P> struct is_paletted_image<PalettedImage2D<P>> : std::true_type {};
+template <typename T> inline constexpr bool is_paletted_image_v = is_paletted_image<T>::value;
 
 } // namespace Image
 } // namespace Media

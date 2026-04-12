@@ -318,7 +318,7 @@ struct ImageView {
 	 * @brief Pointer to the start of the raw image pixel data.
 	 * * The interpretation of this data is determined by the @ref format member.
 	 */
-	void* data;
+	const void* data;
 
 	/**
 	 * @brief The horizontal extent of the image in pixels.
