@@ -51,7 +51,7 @@ typedef Elv::Util::IntegralIterable<uint_fast32_t> SampleCount;
  * @brief Iterable type representing frames per second (sample rate)
  * @see IntegralIterable
  */
-typedef Elv::Util::IntegralIterable<uint_fast32_t> FrameRate;
+typedef Elv::Util::IntegralIterable<uint_fast32_t> SampleRate;
 
 /**
  * @typedef FrameCount
@@ -98,7 +98,7 @@ inline FrameCount framesFromSamples(const SampleCount& samples, const ChannelCou
  * @pre SecondType must be a floating-point type
  */
 template<typename SecondType = double>
-inline SecondType framesToSeconds(const FrameCount& frames, const FrameRate& framerate) {
+inline SecondType framesToSeconds(const FrameCount& frames, const SampleRate& framerate) {
 	static_assert (std::is_floating_point<SecondType>(),"Must use floating point types when calculating seconds!");
 	return SecondType(frames.var) / SecondType(framerate.var);
 }
@@ -113,7 +113,7 @@ inline SecondType framesToSeconds(const FrameCount& frames, const FrameRate& fra
  * @note Uses ceiling to ensure all time is accounted for
  */
 template<typename SecondType = double>
-inline FrameCount framesFromSeconds(SecondType seconds, const FrameRate& framerate) {
+inline FrameCount framesFromSeconds(SecondType seconds, const SampleRate& framerate) {
 	static_assert (std::is_floating_point<SecondType>(),"Must use floating point types when calculating seconds!");
 	return FrameCount(uintptr_t(std::ceil(seconds * SecondType(framerate.var)) ) );
 }

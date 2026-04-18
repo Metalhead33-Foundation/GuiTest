@@ -997,7 +997,7 @@ public:
 	 * @brief Get frame rate (sample rate)
 	 * @return Frame rate in Hz
 	 */
-	FrameRate getFrameRate() const;
+	SampleRate getFrameRate() const;
 
 	/**
 	 * @brief Get number of audio channels

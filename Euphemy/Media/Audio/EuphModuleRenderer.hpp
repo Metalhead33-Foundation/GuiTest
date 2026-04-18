@@ -220,7 +220,7 @@ public:
 	 * @param mono Destination buffer for mono audio
 	 * @return Number of frames actually rendered
 	 */
-	FrameCount readMono(FrameRate framerate, FrameCount frames, int16_t *mono);
+	FrameCount readMono(SampleRate framerate, FrameCount frames, int16_t *mono);
 
 	/**
 	 * @brief Render mono audio to 32-bit float buffer
@@ -229,7 +229,7 @@ public:
 	 * @param mono Destination buffer for mono audio
 	 * @return Number of frames actually rendered
 	 */
-	FrameCount readMono(FrameRate framerate, FrameCount frames, float *mono);
+	FrameCount readMono(SampleRate framerate, FrameCount frames, float *mono);
 
 	/**
 	 * @brief Render stereo audio to 16-bit integer buffers
@@ -239,7 +239,7 @@ public:
 	 * @param right Destination buffer for right channel
 	 * @return Number of frames actually rendered
 	 */
-	FrameCount readStereo(FrameRate framerate, FrameCount frames, int16_t *left, int16_t *right);
+	FrameCount readStereo(SampleRate framerate, FrameCount frames, int16_t *left, int16_t *right);
 
 	/**
 	 * @brief Render stereo audio to 32-bit float buffers
@@ -249,7 +249,7 @@ public:
 	 * @param right Destination buffer for right channel
 	 * @return Number of frames actually rendered
 	 */
-	FrameCount readStereo(FrameRate framerate, FrameCount frames, float *left, float *right);
+	FrameCount readStereo(SampleRate framerate, FrameCount frames, float *left, float *right);
 
 	/**
 	 * @brief Render quad audio to 16-bit integer buffers
@@ -261,7 +261,7 @@ public:
 	 * @param rear_right Destination buffer for rear right channel
 	 * @return Number of frames actually rendered
 	 */
-	FrameCount readQuad(FrameRate framerate, FrameCount frames, int16_t *left,
+	FrameCount readQuad(SampleRate framerate, FrameCount frames, int16_t *left,
 						int16_t *right, int16_t *rear_left, int16_t *rear_right);
 
 	/**
@@ -274,7 +274,7 @@ public:
 	 * @param rear_right Destination buffer for rear right channel
 	 * @return Number of frames actually rendered
 	 */
-	FrameCount readQuad(FrameRate framerate, FrameCount frames, float *left,
+	FrameCount readQuad(SampleRate framerate, FrameCount frames, float *left,
 						float *right, float *rear_left, float *rear_right);
 
 	/**
@@ -284,7 +284,7 @@ public:
 	 * @param interleaved_stereo Destination buffer (LRLRLR...)
 	 * @return Number of frames actually rendered
 	 */
-	FrameCount readInterleavedStereo(FrameRate framerate, FrameCount frames, int16_t *interleaved_stereo);
+	FrameCount readInterleavedStereo(SampleRate framerate, FrameCount frames, int16_t *interleaved_stereo);
 
 	/**
 	 * @brief Render interleaved stereo audio to 32-bit float buffer
@@ -293,7 +293,7 @@ public:
 	 * @param interleaved_stereo Destination buffer (LRLRLR...)
 	 * @return Number of frames actually rendered
 	 */
-	FrameCount readInterleavedStereo(FrameRate framerate, FrameCount frames, float *interleaved_stereo);
+	FrameCount readInterleavedStereo(SampleRate framerate, FrameCount frames, float *interleaved_stereo);
 
 	/**
 	 * @brief Render interleaved quad audio to 16-bit integer buffer
@@ -302,7 +302,7 @@ public:
 	 * @param interleaved_quad Destination buffer (LRLRLR... for front, then rear channels)
 	 * @return Number of frames actually rendered
 	 */
-	FrameCount readInterleavedQuad(FrameRate framerate, FrameCount frames, int16_t *interleaved_quad);
+	FrameCount readInterleavedQuad(SampleRate framerate, FrameCount frames, int16_t *interleaved_quad);
 
 	/**
 	 * @brief Render interleaved quad audio to 32-bit float buffer
@@ -311,7 +311,7 @@ public:
 	 * @param interleaved_quad Destination buffer (LRLRLR... for front, then rear channels)
 	 * @return Number of frames actually rendered
 	 */
-	FrameCount readInterleavedQuad(FrameRate framerate, FrameCount frames, float *interleaved_quad);
+	FrameCount readInterleavedQuad(SampleRate framerate, FrameCount frames, float *interleaved_quad);
 };
 
 }

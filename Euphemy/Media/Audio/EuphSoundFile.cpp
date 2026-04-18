@@ -208,9 +208,9 @@ FrameCount SoundFile::getFrameNum() const
 	return FrameCount( info.frames );
 }
 
-FrameRate SoundFile::getFrameRate() const
+SampleRate SoundFile::getFrameRate() const
 {
-	return FrameRate( info.samplerate );
+	return SampleRate( info.samplerate );
 }
 
 ChannelCount SoundFile::getChannels() const

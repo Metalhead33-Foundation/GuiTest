@@ -36,7 +36,12 @@ SOURCES += \
  Io/EuphZstd.cpp \
  Io/PhysFS.cpp \
  Media/Audio/EuphModuleRenderer.cpp \
+ Media/Audio/EuphResampler.cpp \
  Media/Audio/EuphSoundFile.cpp \
+ Media/Audio/FFTConvolver/AudioFFT.cpp \
+ Media/Audio/FFTConvolver/FFTConvolver.cpp \
+ Media/Audio/FFTConvolver/TwoStageFFTConvolver.cpp \
+ Media/Audio/FFTConvolver/Utilities.cpp \
  Media/Image/EuphDDS.cpp \
  Media/Image/EuphGIF.cpp \
  Media/Image/EuphImage.cpp \
@@ -70,7 +75,12 @@ HEADERS += \
  Io/PhysFS.hpp \
  Media/Audio/EuphAudioIterator.hpp \
  Media/Audio/EuphModuleRenderer.hpp \
+ Media/Audio/EuphResampler.hpp \
  Media/Audio/EuphSoundFile.hpp \
+ Media/Audio/FFTConvolver/AudioFFT.h \
+ Media/Audio/FFTConvolver/FFTConvolver.h \
+ Media/Audio/FFTConvolver/TwoStageFFTConvolver.h \
+ Media/Audio/FFTConvolver/Utilities.h \
  Media/Image/EuphDDS.hpp \
  Media/Image/EuphGIF.hpp \
  Media/Image/EuphImage.hpp \
@@ -86,4 +96,6 @@ HEADERS += \
 
 DISTFILES += \
     Euphemy.pri \
+    Media/Audio/FFTConvolver/FFTConvolver_COPYING.txt \
+    Media/Audio/FFTConvolver/FFTConvolver_README.md \
     README.md

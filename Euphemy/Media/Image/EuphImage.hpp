@@ -24,19 +24,30 @@ namespace Euph {
 namespace Media {
 namespace Image {
 
+/**
+ * @struct ImageDimensions
+ * @brief Stores image extents together with cached values used for sampling.
+ */
 struct ImageDimensions {
-	unsigned width;
-	unsigned height;
-	unsigned stride;
-	float widthF;   // width - 1 (maximum texel X coordinate)
-	float heightF;  // height - 1 (maximum texel Y coordinate)
-	float widthR;   // reciprocal of widthF
-	float heightR;  // reciprocal of heightF
+	unsigned width;  /**< Width in pixels. */
+	unsigned height; /**< Height in pixels. */
+	unsigned stride; /**< Row stride in bytes. */
+	float widthF;	 /**< width - 1 (maximum texel X coordinate). */
+	float heightF;	 /**< height - 1 (maximum texel Y coordinate). */
+	float widthR;	 /**< Reciprocal of widthF. */
+	float heightR;	 /**< Reciprocal of heightF. */
 
+	/**
+	 * @brief Recomputes row stride using a specific image format.
+	 * @param format Format used to compute bytes-per-pixel.
+	 */
 	inline void recalculateStride(Format format) {
 		stride = width * pixelByteSize(format);
 	}
 
+	/**
+	 * @brief Recomputes cached floating-point values used during texture sampling.
+	 */
 	inline void recalculateFloats() {
 		widthF = (width > 1) ? static_cast<float>(width - 1) : 0.0f;
 		heightF = (height > 1) ? static_cast<float>(height - 1) : 0.0f;
@@ -45,6 +56,10 @@ struct ImageDimensions {
 	}
 };
 
+/**
+ * @concept TextureTypeConcept
+ * @brief Constrains image-like types that can be sampled by this module.
+ */
 template <typename T>
 concept TextureTypeConcept =
 	requires(const T& image, const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) {
@@ -52,6 +67,10 @@ concept TextureTypeConcept =
 		{ image.getPixel(pos, colourKernel, wrap) } -> std::same_as<void>;
 	};
 
+/**
+ * @concept ColourProgramConcept
+ * @brief Constrains generators used by `clearToColour` overloads.
+ */
 template <typename F>
 concept ColourProgramConcept =
 	std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2> ||
@@ -59,11 +78,25 @@ concept ColourProgramConcept =
 	std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2> ||
 	std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2, glm::fvec4>;
 
+/**
+ * @concept ColourIteratorConcept
+ * @brief Constrains callbacks used to iterate decoded texel colours.
+ */
 template <typename F>
 concept ColourIteratorConcept =
 	std::is_invocable_v<std::remove_reference_t<F>, glm::uvec2, glm::fvec4> ||
 	std::is_invocable_v<std::remove_reference_t<F>, glm::fvec2, glm::fvec4>;
 
+/**
+ * @brief Samples a texture using the selected filtering and wrapping modes.
+ * @tparam ImageType Type satisfying TextureTypeConcept.
+ * @param image Source image.
+ * @param pos Normalized texture coordinate in [0,1] space.
+ * @param screenpos Screen-space pixel coordinate used by dithered modes.
+ * @param colourKernel Output colour in kernel representation.
+ * @param filteringType Filtering algorithm to apply.
+ * @param wrap Wrapping mode for out-of-range coordinates.
+ */
 template <TextureTypeConcept ImageType>
 inline void sampleTexture(const ImageType& image, const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap);
 
@@ -123,6 +156,11 @@ inline void invokeIterator(F&& program, const glm::uvec2& pos, const glm::fvec4&
 
 } // namespace detail
 
+/**
+ * @class Image2D
+ * @brief Owns a 2D image buffer with typed pixel storage.
+ * @tparam PixelType Pixel storage type.
+ */
 template <PixelConcept PixelType> class Image2D {
 private:
 	std::pmr::vector<PixelType> pixels;
@@ -152,9 +190,19 @@ private:
 	}
 
 public:
+	/**
+	 * @brief Constructs an empty image using a specific allocator resource.
+	 * @param memResource Polymorphic allocator resource.
+	 */
 	explicit Image2D(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
 		: pixels(memResource), dimensions{0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f} {}
 
+	/**
+	 * @brief Constructs an image of the requested dimensions.
+	 * @param width Width in pixels.
+	 * @param height Height in pixels.
+	 * @param memResource Polymorphic allocator resource.
+	 */
 	Image2D(unsigned width, unsigned height, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
 		: pixels(memResource), dimensions{width, height, 0, 0.0f, 0.0f, 0.0f, 0.0f} {
 		dimensions.recalculateStride(PixelType::FMT_ID);
@@ -167,15 +215,37 @@ public:
 	Image2D& operator=(const Image2D&) = default;
 	Image2D& operator=(Image2D&&) noexcept = default;
 
+	/**
+	 * @brief Copy-constructs this image into a new allocator resource.
+	 * @param other Source image.
+	 * @param memResource Destination allocator resource.
+	 */
 	Image2D(const Image2D& other, std::pmr::memory_resource* memResource)
 		: pixels(other.pixels, memResource), dimensions(other.dimensions) {}
 
+	/**
+	 * @brief Move-constructs this image into a new allocator resource.
+	 * @param other Source image.
+	 * @param memResource Destination allocator resource.
+	 */
 	Image2D(Image2D&& other, std::pmr::memory_resource* memResource)
 		: pixels(std::move(other.pixels), memResource), dimensions(other.dimensions) {}
 
+	/**
+	 * @brief Returns mutable access to the raw pixel buffer.
+	 * @return Mutable span of pixels.
+	 */
 	inline std::span<PixelType> getPixels() { return pixels; }
+	/**
+	 * @brief Returns read-only access to the raw pixel buffer.
+	 * @return Const span of pixels.
+	 */
 	inline std::span<const PixelType> getPixels() const { return pixels; }
 
+	/**
+	 * @brief Creates a lightweight non-owning image view.
+	 * @return ImageView describing this image buffer.
+	 */
 	inline ImageView toImageView() const {
 		return {
 			.data = pixels.data(),
@@ -186,36 +256,74 @@ public:
 		};
 	}
 
+	/**
+	 * @brief Returns image dimensions and cached sampling values.
+	 * @return Const reference to dimensions.
+	 */
 	inline const ImageDimensions& getDimensions() const {
 		return dimensions;
 	}
 
+	/**
+	 * @brief Returns the allocator resource used by the pixel storage.
+	 * @return Polymorphic memory resource pointer.
+	 */
 	inline std::pmr::memory_resource* getMemoryResource() const {
 		return pixels.get_allocator().resource();
 	}
 
+	/**
+	 * @brief Writes a pixel at the given coordinate.
+	 * @param pos Pixel position.
+	 * @param pix Pixel value in storage format.
+	 */
 	void setPixel(const glm::uvec2& pos, PixelType pix) {
 		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)] = pix;
 	}
 
+	/**
+	 * @brief Writes a pixel converted from a colour kernel value.
+	 * @param pos Pixel position.
+	 * @param colourKernel Colour value in kernel representation.
+	 */
 	void setPixel(const glm::uvec2& pos, const glm::fvec4& colourKernel) {
 		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)].fromKernel(colourKernel);
 	}
 
+	/**
+	 * @brief Writes a pixel from kernel colour with optional quantization dithering.
+	 * @param pos Pixel position.
+	 * @param colourKernel Colour value in kernel representation.
+	 */
 	void setPixelDithered(const glm::uvec2& pos, const glm::fvec4& colourKernel) {
 		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)].fromKernelDithered(colourKernel, pos);
 	}
 
+	/**
+	 * @brief Returns this image pixel format.
+	 * @return Pixel format identifier.
+	 */
 	Format getFormat() const {
 		return PixelType::FMT_ID;
 	}
 
+	/**
+	 * @brief Samples a pixel at an integer coordinate using wrap mode.
+	 * @param pos Input pixel coordinate.
+	 * @param colourKernel Output colour in kernel representation.
+	 * @param wrap Wrapping mode for out-of-range coordinates.
+	 */
 	void getPixel(const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
 		const unsigned x = detail::wrapCoordinate(pos.x, dimensions.width, wrap);
 		const unsigned y = detail::wrapCoordinate(pos.y, dimensions.height, wrap);
 		pixels[toLinearIndex(dimensions.width, x, y)].toKernel(colourKernel);
 	}
 
+	/**
+	 * @brief Iterates over all pixels and invokes a callback with decoded colour values.
+	 * @tparam F Callback type constrained by ColourIteratorConcept.
+	 * @param program Callback to invoke for each pixel.
+	 */
 	template <typename F> requires ColourIteratorConcept<F>
 	void iterateOverPixels(F&& program) const {
 		Elv::Util::over_2d_span<PixelType>(pixels, [&](const PixelType& px, const glm::uvec2& pos) {
@@ -225,6 +333,13 @@ public:
 		}, glm::uvec2(dimensions.width, dimensions.height));
 	}
 
+	/**
+	 * @brief Iterates over a sub-rectangle and invokes a callback with decoded colours.
+	 * @tparam F Callback type constrained by ColourIteratorConcept.
+	 * @param program Callback to invoke for each pixel.
+	 * @param offset Top-left region offset.
+	 * @param affectedDimensions Region size.
+	 */
 	template <typename F> requires ColourIteratorConcept<F>
 	void iterateOverPixels(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions) const {
 		Elv::Util::over_2d_span<PixelType>(pixels, [&](const PixelType& px, const glm::uvec2& pos) {
@@ -234,6 +349,11 @@ public:
 		}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
 	}
 
+	/**
+	 * @brief Fills the whole image with a constant kernel colour.
+	 * @param colourKernel Fill colour in kernel representation.
+	 * @param dither Enables pixel-position-dependent dithering.
+	 */
 	void clearToColour(const glm::fvec4& colourKernel, bool dither) {
 		if(dither) {
 			Elv::Util::over_2d_span_mut<PixelType>(pixels, [&](PixelType& px, const glm::uvec2& pos) {
@@ -246,6 +366,12 @@ public:
 		}
 	}
 
+	/**
+	 * @brief Fills the whole image using a generated colour program.
+	 * @tparam F Generator type constrained by ColourProgramConcept.
+	 * @param program Colour generator callback.
+	 * @param dither Enables pixel-position-dependent dithering.
+	 */
 	template <typename F> requires ColourProgramConcept<F>
 	void clearToColour(F&& program, bool dither) {
 		clearToColourImpl(
@@ -260,6 +386,13 @@ public:
 			dither);
 	}
 
+	/**
+	 * @brief Fills a sub-rectangle with a constant kernel colour.
+	 * @param colourKernel Fill colour in kernel representation.
+	 * @param offset Top-left region offset.
+	 * @param affectedDimensions Region size.
+	 * @param dither Enables pixel-position-dependent dithering.
+	 */
 	void clearToColour(const glm::fvec4& colourKernel, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
 		if(dither) {
 			Elv::Util::over_2d_span_mut<PixelType>(pixels, [&](PixelType& px, const glm::uvec2& pos) {
@@ -274,6 +407,14 @@ public:
 		}
 	}
 
+	/**
+	 * @brief Fills a sub-rectangle using a generated colour program.
+	 * @tparam F Generator type constrained by ColourProgramConcept.
+	 * @param program Colour generator callback.
+	 * @param offset Top-left region offset.
+	 * @param affectedDimensions Region size.
+	 * @param dither Enables pixel-position-dependent dithering.
+	 */
 	template <typename F> requires ColourProgramConcept<F>
 	void clearToColour(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions, bool dither) {
 		clearToColourImpl(
@@ -288,6 +429,11 @@ public:
 			dither);
 	}
 
+	/**
+	 * @brief Resizes the image preserving overlapping content.
+	 * @param newWidth New width in pixels.
+	 * @param newHeight New height in pixels.
+	 */
 	void resize(unsigned newWidth, unsigned newHeight) {
 		std::pmr::vector<PixelType> newPixels(pixels.get_allocator().resource());
 		newPixels.resize(static_cast<size_t>(newWidth) * static_cast<size_t>(newHeight));
@@ -312,13 +458,27 @@ public:
 		dimensions.recalculateFloats();
 	}
 
+	/**
+	 * @brief Samples this image as a texture using the generic sampler.
+	 * @param pos Normalized texture coordinate in [0,1] space.
+	 * @param screenpos Screen-space pixel coordinate used by dithered modes.
+	 * @param colourKernel Output colour in kernel representation.
+	 * @param filteringType Filtering algorithm to apply.
+	 * @param wrap Wrapping mode for out-of-range coordinates.
+	 */
 	void sampleTexture(const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) const {
 		Euph::Media::Image::sampleTexture(*this, pos, screenpos, colourKernel, filteringType, wrap);
 	}
 };
 
+/**
+ * @class PalettedImage2D
+ * @brief Owns an indexed image buffer with an external typed palette.
+ * @tparam PixelType Palette entry type.
+ */
 template <PixelConcept PixelType> class PalettedImage2D {
 public:
+	/** @brief Palette storage type used by paletted images. */
 	using Palette = std::array<PixelType, 256>;
 
 private:
@@ -328,12 +488,31 @@ private:
 	ImageDimensions dimensions;
 
 public:
+	/**
+	 * @brief Constructs an empty paletted image.
+	 * @param memResource Polymorphic allocator resource.
+	 */
 	explicit PalettedImage2D(std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
 		: pixels(memResource), palette(), transparentColorIndex(-1), dimensions{0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f} {}
 
+	/**
+	 * @brief Constructs a paletted image with opaque palette entries.
+	 * @param width Width in pixels.
+	 * @param height Height in pixels.
+	 * @param paletteData Shared palette data.
+	 * @param memResource Polymorphic allocator resource.
+	 */
 	PalettedImage2D(unsigned width, unsigned height, std::shared_ptr<const Palette> paletteData, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
 		: PalettedImage2D(width, height, std::move(paletteData), -1, memResource) {}
 
+	/**
+	 * @brief Constructs a paletted image with explicit transparent palette index.
+	 * @param width Width in pixels.
+	 * @param height Height in pixels.
+	 * @param paletteData Shared palette data.
+	 * @param transparentIndex Transparent index in [0,255], or negative for none.
+	 * @param memResource Polymorphic allocator resource.
+	 */
 	PalettedImage2D(unsigned width, unsigned height, std::shared_ptr<const Palette> paletteData, int transparentIndex, std::pmr::memory_resource* memResource = std::pmr::get_default_resource())
 		: pixels(memResource), palette(std::move(paletteData)), transparentColorIndex(transparentIndex), dimensions{width, height, 0, 0.0f, 0.0f, 0.0f, 0.0f} {
 		dimensions.recalculateStride(Format::INDEXED);
@@ -346,12 +525,26 @@ public:
 	PalettedImage2D& operator=(const PalettedImage2D&) = default;
 	PalettedImage2D& operator=(PalettedImage2D&&) noexcept = default;
 
+	/**
+	 * @brief Copy-constructs this image into a new allocator resource.
+	 * @param other Source image.
+	 * @param memResource Destination allocator resource.
+	 */
 	PalettedImage2D(const PalettedImage2D& other, std::pmr::memory_resource* memResource)
 		: pixels(other.pixels, memResource), palette(other.palette), dimensions(other.dimensions) {}
 
+	/**
+	 * @brief Move-constructs this image into a new allocator resource.
+	 * @param other Source image.
+	 * @param memResource Destination allocator resource.
+	 */
 	PalettedImage2D(PalettedImage2D&& other, std::pmr::memory_resource* memResource)
 		: pixels(std::move(other.pixels), memResource), palette(std::move(other.palette)), dimensions(other.dimensions) {}
 
+	/**
+	 * @brief Creates a non-owning view over the index buffer.
+	 * @return ImageView describing indexed pixel data.
+	 */
 	inline ImageView toImageView() const {
 		return {
 			.data = pixels.data(),
@@ -361,43 +554,92 @@ public:
 			.format = Format::INDEXED // This view describes the index buffer only.
 		};
 	}
+	/**
+	 * @brief Returns mutable access to palette index data.
+	 * @return Mutable span of indices.
+	 */
 	inline std::span<uint8_t> getPixels() { return pixels; }
+	/**
+	 * @brief Returns read-only access to palette index data.
+	 * @return Const span of indices.
+	 */
 	inline std::span<const uint8_t> getPixels() const { return pixels; }
 
+	/**
+	 * @brief Returns image dimensions and cached sampling values.
+	 * @return Const reference to dimensions.
+	 */
 	inline const ImageDimensions& getDimensions() const {
 		return dimensions;
 	}
 
+	/**
+	 * @brief Returns the allocator resource used by index storage.
+	 * @return Polymorphic memory resource pointer.
+	 */
 	inline std::pmr::memory_resource* getMemoryResource() const {
 		return pixels.get_allocator().resource();
 	}
 
+	/**
+	 * @brief Gets the shared palette pointer.
+	 * @return Shared pointer to const palette data.
+	 */
 	inline std::shared_ptr<const Palette> getPalette() const {
 		return palette;
 	}
 
+	/**
+	 * @brief Replaces the current palette.
+	 * @param newPalette New shared palette pointer.
+	 */
 	inline void setPalette(std::shared_ptr<const Palette> newPalette) {
 		palette = std::move(newPalette);
 	}
 
+	/**
+	 * @brief Returns the configured transparent palette index.
+	 * @return Transparent index, or a negative value when disabled.
+	 */
 	inline int getTransparentColorIndex() const {
 		return transparentColorIndex;
 	}
 
+	/**
+	 * @brief Updates the transparent palette index.
+	 * @param newTransparentColorIndex Transparent index, or negative to disable.
+	 */
 	inline void setTransparentColorIndex(int newTransparentColorIndex) {
 		transparentColorIndex = newTransparentColorIndex;
 	}
 
+	/**
+	 * @brief Writes a palette index at the given pixel coordinate.
+	 * @param pos Pixel position.
+	 * @param paletteIndex Palette index value.
+	 */
 	void setPixelIndex(const glm::uvec2& pos, uint8_t paletteIndex) {
 		pixels[toLinearIndex(dimensions.width, pos.x, pos.y)] = paletteIndex;
 	}
 
+	/**
+	 * @brief Reads a palette index with wrap handling.
+	 * @param pos Input pixel coordinate.
+	 * @param wrap Wrapping mode for out-of-range coordinates.
+	 * @return Palette index at the wrapped coordinate.
+	 */
 	uint8_t getPixelIndex(const glm::uvec2& pos, Wrap wrap) const {
 		const unsigned x = detail::wrapCoordinate(pos.x, dimensions.width, wrap);
 		const unsigned y = detail::wrapCoordinate(pos.y, dimensions.height, wrap);
 		return pixels[toLinearIndex(dimensions.width, x, y)];
 	}
 
+	/**
+	 * @brief Samples a decoded RGBA kernel colour from indexed storage.
+	 * @param pos Input pixel coordinate.
+	 * @param colourKernel Output colour in kernel representation.
+	 * @param wrap Wrapping mode for out-of-range coordinates.
+	 */
 	void getPixel(const glm::uvec2& pos, glm::fvec4& colourKernel, Wrap wrap) const {
 		if(!palette) {
 			colourKernel = glm::fvec4(0.0f);
@@ -410,6 +652,11 @@ public:
 		}
 	}
 
+	/**
+	 * @brief Iterates over all decoded pixel colours.
+	 * @tparam F Callback type constrained by ColourIteratorConcept.
+	 * @param program Callback to invoke for each pixel.
+	 */
 	template <typename F> requires ColourIteratorConcept<F>
 	void iterateOverPixels(F&& program) const {
 		if(!palette) {
@@ -422,6 +669,13 @@ public:
 		}, glm::uvec2(dimensions.width, dimensions.height));
 	}
 
+	/**
+	 * @brief Iterates over a decoded sub-rectangle.
+	 * @tparam F Callback type constrained by ColourIteratorConcept.
+	 * @param program Callback to invoke for each pixel.
+	 * @param offset Top-left region offset.
+	 * @param affectedDimensions Region size.
+	 */
 	template <typename F> requires ColourIteratorConcept<F>
 	void iterateOverPixels(F&& program, const glm::uvec2& offset, const glm::uvec2& affectedDimensions) const {
 		if(!palette) {
@@ -434,6 +688,11 @@ public:
 		}, glm::uvec2(dimensions.width, dimensions.height), offset, affectedDimensions);
 	}
 
+	/**
+	 * @brief Resizes indexed storage preserving overlapping content.
+	 * @param newWidth New width in pixels.
+	 * @param newHeight New height in pixels.
+	 */
 	void resize(unsigned newWidth, unsigned newHeight) {
 		std::pmr::vector<uint8_t> newPixels(pixels.get_allocator().resource());
 		newPixels.resize(static_cast<size_t>(newWidth) * static_cast<size_t>(newHeight));
@@ -452,10 +711,23 @@ public:
 		dimensions.recalculateFloats();
 	}
 
+	/**
+	 * @brief Samples this indexed image as a texture using generic filtering.
+	 * @param pos Normalized texture coordinate in [0,1] space.
+	 * @param screenpos Screen-space pixel coordinate used by dithered modes.
+	 * @param colourKernel Output colour in kernel representation.
+	 * @param filteringType Filtering algorithm to apply.
+	 * @param wrap Wrapping mode for out-of-range coordinates.
+	 */
 	void sampleTexture(const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) const {
 		Euph::Media::Image::sampleTexture(*this, pos, screenpos, colourKernel, filteringType, wrap);
 	}
 
+	/**
+	 * @brief Expands indexed storage into a fully de-palettized image.
+	 * @param memResource Optional destination allocator resource.
+	 * @return A new unpacked image.
+	 */
 	Image2D<PixelType> depalettize(std::pmr::memory_resource* memResource = std::pmr::get_default_resource()) const {
 		Image2D<PixelType> out(dimensions.width, dimensions.height, memResource);
 		if(!palette) {
@@ -469,6 +741,16 @@ public:
 	}
 };
 
+/**
+ * @brief Samples an image using one of the supported texture filtering modes.
+ * @tparam ImageType Type satisfying TextureTypeConcept.
+ * @param image Source image object.
+ * @param pos Normalized texture coordinate in [0,1] space.
+ * @param screenpos Screen-space pixel coordinate used by dithered modes.
+ * @param colourKernel Output colour in kernel representation.
+ * @param filteringType Filtering mode selector.
+ * @param wrap Wrapping mode for out-of-range coordinates.
+ */
 template <TextureTypeConcept ImageType>
 inline void sampleTexture(const ImageType& image, const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) {
 	const ImageDimensions& dims = image.getDimensions();
@@ -548,10 +830,16 @@ inline void sampleTexture(const ImageType& image, const glm::fvec2& pos, const g
 	}
 }
 
+/** @brief Type trait that reports whether a type is a PalettedImage2D specialization. */
 template <typename T> struct is_paletted_image : std::false_type {};
+/** @brief Specialized type trait for paletted image specializations. */
 template <typename P> struct is_paletted_image<PalettedImage2D<P>> : std::true_type {};
+/** @brief Convenience variable template for `is_paletted_image<T>::value`. */
 template <typename T> inline constexpr bool is_paletted_image_v = is_paletted_image<T>::value;
 
+/**
+ * @brief Runtime variant over all supported concrete image container types.
+ */
 using AnyImage2D = std::variant<
 	Image2D<PixelGreyscale_U8>,
 	Image2D<PixelGreyscale_U16>,
@@ -669,6 +957,13 @@ using AnyImage2D = std::variant<
 	PalettedImage2D<PixelRGB565>
 >;
 
+/**
+ * @brief Converts an unpacked image into a DecodeTarget.
+ * @tparam PixelType Pixel storage type.
+ * @param source Source image to copy.
+ * @param memRes Memory resource for the resulting DecodeTarget.
+ * @return DecodeTarget with one frame and matching format.
+ */
 template <PixelConcept PixelType>
 inline DecodeTarget fromImageToDecodeTarget(const Image2D<PixelType>& source, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) {
 	DecodeTarget out(memRes);
@@ -686,6 +981,13 @@ inline DecodeTarget fromImageToDecodeTarget(const Image2D<PixelType>& source, st
 	return out;
 }
 
+/**
+ * @brief Converts an indexed image into a DecodeTarget, including palette when present.
+ * @tparam PixelType Palette entry storage type.
+ * @param source Source indexed image to copy.
+ * @param memRes Memory resource for the resulting DecodeTarget.
+ * @return DecodeTarget with one indexed frame and optional palette.
+ */
 template <PixelConcept PixelType>
 inline DecodeTarget fromImageToDecodeTarget(const PalettedImage2D<PixelType>& source, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) {
 	DecodeTarget out(memRes);
@@ -713,12 +1015,24 @@ inline DecodeTarget fromImageToDecodeTarget(const PalettedImage2D<PixelType>& so
 	return out;
 }
 
+/**
+ * @brief Converts a runtime image variant into a DecodeTarget.
+ * @param source Source image variant.
+ * @param memRes Memory resource for the resulting DecodeTarget.
+ * @return DecodeTarget produced from the active variant alternative.
+ */
 inline DecodeTarget fromImageToDecodeTarget(const AnyImage2D& source, std::pmr::memory_resource* memRes = std::pmr::get_default_resource()) {
 	return std::visit([memRes](const auto& image) {
 		return fromImageToDecodeTarget(image, memRes);
 	}, source);
 }
 
+/**
+ * @brief Converts a DecodeTarget into the corresponding runtime image variant.
+ * @param source Source decode target.
+ * @param memRes Memory resource used by the returned image container.
+ * @return Converted image on success, or `std::nullopt` when format conversion fails.
+ */
 std::optional<AnyImage2D> fromDecodeTargetToImage(const DecodeTarget& source, std::pmr::memory_resource* memRes = std::pmr::get_default_resource());
 
 } // namespace Image
