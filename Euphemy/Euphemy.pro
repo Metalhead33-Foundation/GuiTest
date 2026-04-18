@@ -35,6 +35,7 @@ SOURCES += \
  Io/EuphTempFile.cpp \
  Io/EuphZstd.cpp \
  Io/PhysFS.cpp \
+ Media/Audio/EuphConvolver.cpp \
  Media/Audio/EuphModuleRenderer.cpp \
  Media/Audio/EuphResampler.cpp \
  Media/Audio/EuphSoundFile.cpp \
@@ -74,6 +75,7 @@ HEADERS += \
  Io/EuphZstd.hpp \
  Io/PhysFS.hpp \
  Media/Audio/EuphAudioIterator.hpp \
+ Media/Audio/EuphConvolver.hpp \
  Media/Audio/EuphModuleRenderer.hpp \
  Media/Audio/EuphResampler.hpp \
  Media/Audio/EuphSoundFile.hpp \
