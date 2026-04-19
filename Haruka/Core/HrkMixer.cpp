@@ -103,7 +103,11 @@ FrameCount Mixer::outputTo(Output& output)
 {
 	if(!output.frameCount.var) return FrameCount(0);
 	if(output.channels != this->channelCount) throw ChannelCountMismatchError(output.channels,this->channelCount);
-	if(output.samplerate != this->sampleRate) throw SamplerateMismatchError(output.samplerate,this->sampleRate);
+	if(output.samplerate == SAMPLE_RATE_DONT_CARE) {
+		output.samplerate = this->sampleRate;
+	} else if(output.samplerate != this->sampleRate) {
+		throw SamplerateMismatchError(output.samplerate,this->sampleRate);
+	}
 	if(channelCount.var > 1 && output.interleaving != interleavingType) throw InterleavingMismatchError(output.interleaving,interleavingType);
 	FrameCount processed = process();
 	memcpy(output.dst,buffer.data(),Hrk::samplesToBytes(Hrk::framesToSamples(processed,channelCount)));

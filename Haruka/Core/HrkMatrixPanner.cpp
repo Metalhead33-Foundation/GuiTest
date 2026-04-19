@@ -80,9 +80,16 @@ FrameCount MatrixPanner::outputTo(Output& output)
 	tmpOut.frameCount = framesToGo;
 	tmpOut.samplerate = output.samplerate;
 	tmpOut.interleaving = interleavingType;
+	const SampleRate requestedSampleRate = output.samplerate;
 	while(framesToGo.var) {
 		currentlyDoneFrames = playable->outputTo(tmpOut);
 		if(!currentlyDoneFrames.var) break;
+		if(requestedSampleRate != SAMPLE_RATE_DONT_CARE && tmpOut.samplerate != requestedSampleRate) {
+			throw SamplerateMismatchError(tmpOut.samplerate, requestedSampleRate);
+		}
+		if(output.samplerate == SAMPLE_RATE_DONT_CARE && tmpOut.samplerate != SAMPLE_RATE_DONT_CARE) {
+			output.samplerate = tmpOut.samplerate;
+		}
 		float* outPtr = &output.dst[Hrk::framesToSamples(processed, output.channels).var];
 		// This is the part we actually process the audio...
 			switch (interleavingType) {

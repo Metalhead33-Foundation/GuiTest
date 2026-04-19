@@ -45,9 +45,19 @@ FrameCount SimpleResampler::getInputFrames() const
 	return FrameCount(handle.input_frames);
 }
 
+FrameCount SimpleResampler::getInputFramesUsed() const
+{
+	return FrameCount(handle.input_frames_used);
+}
+
 FrameCount SimpleResampler::getOutputFrames() const
 {
 	return FrameCount(handle.output_frames);
+}
+
+FrameCount SimpleResampler::getOutputFramesGenerated() const
+{
+	return FrameCount(handle.output_frames_gen);
 }
 
 double SimpleResampler::getRatio() const
@@ -117,9 +127,19 @@ FrameCount FullResampler::getInputFrames() const
 	return FrameCount(handleB.input_frames);
 }
 
+FrameCount FullResampler::getInputFramesUsed() const
+{
+	return FrameCount(handleB.input_frames_used);
+}
+
 FrameCount FullResampler::getOutputFrames() const
 {
 	return FrameCount(handleB.output_frames);
+}
+
+FrameCount FullResampler::getOutputFramesGenerated() const
+{
+	return FrameCount(handleB.output_frames_gen);
 }
 
 double FullResampler::getRatio() const
