@@ -38,6 +38,7 @@ HEADERS += \
     Util/ElvHeapArray.hpp \
     Util/ElvIntegralIterator.hpp \
     Util/ElvInterpolation.hpp \
+    Util/ElvIntrusiveArray.hpp \
     Util/ElvMathUtil.hpp \
     Util/ElvNormDenorm.hpp \
     Util/ElvObserv.hpp \

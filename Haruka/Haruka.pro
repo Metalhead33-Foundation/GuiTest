@@ -24,7 +24,8 @@ HEADERS += \
     Core/HrkPlayable.hpp \
     Core/HrkProxyPlayable.hpp \
     Core/HrkResampler.hpp \
-    HarukaLib.hpp
+    HarukaLib.hpp \
+    IO/HrkSoundBuffer.hpp
 
 DISTFILES += \
     Haruka.pri \
