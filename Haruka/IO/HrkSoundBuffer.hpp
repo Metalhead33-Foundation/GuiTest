@@ -16,7 +16,7 @@ struct SoundBufferMetadata {
 	InterleavingType            interleaving;
 };
 
-typedef Elv::Util::IntrusiveArray<float, SoundBufferMetadata> SoundBufferHandle;
+typedef Elv::Util::IntrusiveArray<float, SoundBufferMetadata,32> SoundBufferHandle;
 
 }
 #endif // HRKSOUNDBUFFER_HPP

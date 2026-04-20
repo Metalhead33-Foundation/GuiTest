@@ -4,12 +4,17 @@
 #include <memory_resource>
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <new>
 #include <utility>
 #include <span>
+#include <type_traits>
 namespace Elv {
 namespace Util {
 
+constexpr size_t roundUpAlignment(size_t value, size_t alignment) noexcept {
+	return ((value + alignment - 1) / alignment) * alignment;
+}
 /**
  * @brief Reference-counted intrusive array with metadata in one contiguous slab.
  *
@@ -21,9 +26,15 @@ namespace Util {
  * @tparam Element Element type stored in the trailing array.
  * @tparam Meta Metadata type stored inside the allocation header.
  */
-template<typename Element, typename Meta>
+template<typename Element, typename Meta, size_t ExtraAlignment = alignof(Element)>
 class IntrusiveArray {
 public:
+	static constexpr const size_t alignment = roundUpAlignment(std::max(std::max(alignof(Meta), alignof(Element)),ExtraAlignment),ExtraAlignment);
+	static_assert(std::is_destructible_v<Meta>,
+		"IntrusiveArray requires Meta to be destructible.");
+	static_assert(std::is_constructible_v<Meta, Meta&&>,
+		"IntrusiveArray requires Meta to be move-constructible (or copy-constructible from rvalue).");
+
 	/** @brief Mutable span type over the element range. */
 	typedef std::span<Element> ElementSpan;
 	/** @brief Const span type over the element range. */
@@ -38,10 +49,16 @@ public:
 	// The header lives at the top of the slab. We align it to the stricter
 	// of the two alignment requirements so the trailing Element array is
 	// always correctly aligned without explicit padding calculation.
-	struct alignas(std::max(alignof(Meta), alignof(Element))) Header {
+	struct alignas(alignment) Header {
+		enum class ElementLifetimeState : uint8_t {
+			Uninitialised,
+			DefaultConstructed
+		};
+
 		std::atomic<uint32_t>      refCount;
 		std::pmr::memory_resource* allocator;
 		size_t                     elementCount; // stored so release() can compute slab size
+		ElementLifetimeState       elementLifetimeState;
 		Meta                       meta;
 
 		// Trailing elements are accessed via pointer arithmetic past the header.
@@ -56,8 +73,8 @@ public:
 
 	private:
 		// Construction only via IntrusiveArray::allocate()
-		Header(std::pmr::memory_resource* res, size_t count, Meta m)
-			: refCount(1), allocator(res), elementCount(count), meta(std::move(m)) {}
+		Header(std::pmr::memory_resource* res, size_t count, ElementLifetimeState state, Meta m)
+			: refCount(1), allocator(res), elementCount(count), elementLifetimeState(state), meta(std::move(m)) {}
 
 		~Header() = default;
 
@@ -194,9 +211,15 @@ public:
 	static IntrusiveArray allocate_uninitialised(
 		std::pmr::memory_resource* res, size_t count, Meta meta)
 	{
+		static_assert(std::is_trivially_default_constructible_v<Element>,
+			"allocate_uninitialised requires Element to be trivially default constructible.");
+		static_assert(std::is_trivially_destructible_v<Element>,
+			"allocate_uninitialised requires Element to be trivially destructible.");
+
 		size_t slabSize = sizeof(Header) + count * sizeof(Element);
 		void*  mem      = res->allocate(slabSize, alignof(Header));
-		Header* hdr = new(mem) Header(res, count, std::move(meta));
+		Header* hdr = new(mem) Header(
+			res, count, Header::ElementLifetimeState::Uninitialised, std::move(meta));
 		return IntrusiveArray(hdr);
 	}
 
@@ -213,11 +236,28 @@ public:
 	static IntrusiveArray allocate_default_constructed(
 		std::pmr::memory_resource* res, size_t count, Meta meta)
 	{
+		static_assert(std::is_default_constructible_v<Element>,
+			"allocate_default_constructed requires Element to be default constructible.");
+
 		size_t slabSize = sizeof(Header) + count * sizeof(Element);
 		void*  mem      = res->allocate(slabSize, alignof(Header));
-		Header* hdr = new(mem) Header(res, count, std::move(meta));
-		for(size_t i = 0; i < count; ++i) {
-			new(hdr->data() + i) Element();
+		Header* hdr = new(mem) Header(
+			res, count, Header::ElementLifetimeState::DefaultConstructed, std::move(meta));
+		size_t constructedCount = 0;
+		try {
+			for(size_t i = 0; i < count; ++i) {
+				new(hdr->data() + i) Element();
+				++constructedCount;
+			}
+		} catch(...) {
+			if constexpr(!std::is_trivially_destructible_v<Element>) {
+				for(size_t i = constructedCount; i > 0; --i) {
+					(hdr->data() + (i - 1))->~Element();
+				}
+			}
+			hdr->~Header();
+			res->deallocate(hdr, slabSize, alignof(Header));
+			throw;
 		}
 		return IntrusiveArray(hdr);
 	}
@@ -230,6 +270,15 @@ private:
 		if (hdr_->refCount.fetch_sub(1, std::memory_order_acq_rel) == 1) {
 			std::pmr::memory_resource* res   = hdr_->allocator;
 			size_t slabSize = sizeof(Header) + hdr_->elementCount * sizeof(Element);
+
+			if constexpr(!std::is_trivially_destructible_v<Element>) {
+				if (hdr_->elementLifetimeState == Header::ElementLifetimeState::DefaultConstructed) {
+					for(size_t i = hdr_->elementCount; i > 0; --i) {
+						(hdr_->data() + (i - 1))->~Element();
+					}
+				}
+			}
+
 			hdr_->~Header();
 			res->deallocate(hdr_, slabSize, alignof(Header));
 		}
