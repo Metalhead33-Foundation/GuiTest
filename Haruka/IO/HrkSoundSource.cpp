@@ -1,4 +1,6 @@
 #include "HrkSoundSource.hpp"
+#include <Haruka/Core/HrkAudioError.hpp>
+#include <cstring>
 namespace Hrk {
 const SoundBufferHandle& SoundSource::getBuffer() const
 {
@@ -20,16 +22,26 @@ Euph::Media::Audio::FrameCount SoundSource::outputTo(Output& output)
 	if(state.getPlayStatus() != PlayStatus::PLAYING) return FrameCount(0);
 	if(!buffer.valid()) return FrameCount(0);
 	const auto& metadata = buffer.meta();
+	// Early error checking
+	if(output.channels != metadata.channels) throw ChannelCountMismatchError(output.channels,metadata.channels);
+	if(output.samplerate == SAMPLE_RATE_DONT_CARE) {
+		output.samplerate = metadata.sampleRate;
+	} else if(output.samplerate != metadata.sampleRate) {
+		throw SamplerateMismatchError(output.samplerate,metadata.sampleRate);
+	}
+	if(metadata.channels.var > 1 && output.interleaving != metadata.interleaving) throw InterleavingMismatchError(output.interleaving,metadata.interleaving);
+	// Do we need to wrap around or just stop?
 	if(state.getCursor() >= metadata.frameCount) {
-		if(state.getRepeat()) state.setCursor(FrameIndex(0)) ;
+		if(state.getRepeat()) { state.setCursor(FrameIndex(0)); }
 		else {
 			state.setPlayStatus(PlayStatus::STOPPED);
 			return FrameCount(0);
 		}
 	}
-	FrameCount processed(0);
-	do {} while(false);
-	return processed;
+	FrameCount toProcess = std::min(output.frameCount,metadata.frameCount - state.getCursor());
+	// Well, that was easy
+	memcpy(output.dst,&buffer.data()[state.getCursor().var * metadata.channels.var],toProcess.var * metadata.channels.var * sizeof(float));
+	return toProcess;
 }
 
 const PlaybackState& SoundSource::getState() const

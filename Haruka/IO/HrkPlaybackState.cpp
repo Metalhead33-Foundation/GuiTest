@@ -33,7 +33,13 @@ void PlaybackState::setRepeat(bool newRepeat)
 {
 	repeat = newRepeat;
 }
-
-PlaybackState::PlaybackState() {}
+/*
+	FrameIndex cursor;
+	PlayStatus playStatus;
+	bool repeat;
+ */
+PlaybackState::PlaybackState()
+	: cursor(0), playStatus(PlayStatus::STOPPED), repeat(false)
+{}
 
 }

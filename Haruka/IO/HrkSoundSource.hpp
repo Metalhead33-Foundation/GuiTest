@@ -4,7 +4,7 @@
 #include <Haruka/IO/HrkSoundBuffer.hpp>
 #include <Haruka/IO/HrkPlaybackState.hpp>
 namespace Hrk {
-class MH_HARUKA_API SoundSource : Playable
+class MH_HARUKA_API SoundSource : public Playable, public IHasPlaybackState
 {
 private:
 	SoundBufferHandle buffer;
@@ -15,8 +15,8 @@ public:
 	void setBuffer(const SoundBufferHandle& newBuffer);
 	void setBuffer(SoundBufferHandle&& newBuffer);
 	Euph::Media::Audio::FrameCount outputTo(Output& output) override;
-	const PlaybackState& getState() const;
-	PlaybackState& getState();
+	const PlaybackState& getState() const override;
+	PlaybackState& getState() override;
 };
 
 }

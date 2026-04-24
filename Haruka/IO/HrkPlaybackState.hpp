@@ -11,6 +11,10 @@ private:
 	bool repeat;
 public:
 	PlaybackState();
+	PlaybackState(const PlaybackState& cpy) = default;
+	PlaybackState(PlaybackState&& mov) = default;
+	PlaybackState& operator=(const PlaybackState& cpy) = default;
+	PlaybackState& operator=(PlaybackState&& mov) = default;
 	FrameIndex getCursor() const;
 	void setCursor(Euph::Media::Audio::FrameIndex newCursor);
 	PlayStatus getPlayStatus() const;
@@ -18,6 +22,14 @@ public:
 	bool getRepeat() const;
 	void setRepeat(bool newRepeat);
 };
+
+class IHasPlaybackState {
+public:
+	virtual ~IHasPlaybackState() = default;
+	virtual const PlaybackState& getState() const = 0;
+	virtual PlaybackState& getState() = 0;
+};
+
 }
 
 #endif // HRKPLAYBACKSTATE_HPP
