@@ -22,6 +22,8 @@ Euph::Media::Audio::FrameCount SoundSource::outputTo(Output& output)
 	if(state.getPlayStatus() != PlayStatus::PLAYING) return FrameCount(0);
 	if(!buffer.valid()) return FrameCount(0);
 	const auto& metadata = buffer.meta();
+	if(!output.frameCount.var) return FrameCount(0);
+	if(!metadata.frameCount.var) return FrameCount(0);
 	// Early error checking
 	if(output.channels != metadata.channels) throw ChannelCountMismatchError(output.channels,metadata.channels);
 	if(output.samplerate == SAMPLE_RATE_DONT_CARE) {
@@ -30,18 +32,28 @@ Euph::Media::Audio::FrameCount SoundSource::outputTo(Output& output)
 		throw SamplerateMismatchError(output.samplerate,metadata.sampleRate);
 	}
 	if(metadata.channels.var > 1 && output.interleaving != metadata.interleaving) throw InterleavingMismatchError(output.interleaving,metadata.interleaving);
-	// Do we need to wrap around or just stop?
-	if(state.getCursor() >= metadata.frameCount) {
-		if(state.getRepeat()) { state.setCursor(FrameIndex(0)); }
-		else {
-			state.setPlayStatus(PlayStatus::STOPPED);
-			return FrameCount(0);
+	FrameCount processed(0);
+	FrameCount remaining = output.frameCount;
+	do {
+		if(state.getCursor() >= metadata.frameCount) {
+			if(state.getRepeat()) {
+				state.setCursor(FrameIndex(0));
+			} else {
+				state.setPlayStatus(PlayStatus::STOPPED);
+				break;
+			}
 		}
-	}
-	FrameCount toProcess = std::min(output.frameCount,metadata.frameCount - state.getCursor());
-	// Well, that was easy
-	memcpy(output.dst,&buffer.data()[state.getCursor().var * metadata.channels.var],toProcess.var * metadata.channels.var * sizeof(float));
-	return toProcess;
+		const FrameCount toProcess = std::min(remaining, metadata.frameCount - state.getCursor());
+		if(!toProcess.var) break;
+		const SampleCount dstOffset = Hrk::framesToSamples(processed, output.channels);
+		// Copy contiguous frames from the in-memory buffer.
+		memcpy(&output.dst[dstOffset.var], &buffer.data()[state.getCursor().var * metadata.channels.var],
+			   toProcess.var * metadata.channels.var * sizeof(float));
+		state.setCursor(state.getCursor() + toProcess);
+		processed += toProcess.var;
+		remaining -= toProcess.var;
+	} while(remaining.var);
+	return processed;
 }
 
 const PlaybackState& SoundSource::getState() const

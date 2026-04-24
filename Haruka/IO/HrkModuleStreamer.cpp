@@ -27,58 +27,69 @@ PlaybackState& ModuleStreamer::getState()
 
 FrameCount ModuleStreamer::outputTo(Output& output)
 {
-	// TODO: We'll probably need to implement some sort of ringbuffer to store the samples.
-	// I'm fairly sure that decoding on the go is going to be slow.
-	// Also, this issue/conundrum/dilemma is shared with SoundStreamer.
+	// TODO: Add buffered prefetching if direct decode proves too expensive in realtime paths.
+	// This concern is shared with SoundStreamer.
 	if(state.getPlayStatus() != PlayStatus::PLAYING) return FrameCount(0);
+	if(!output.frameCount.var) return FrameCount(0);
 	// Holy shit... openmpt has no way to retrieve the current frame position. So we can't even seek at all? Wtf.
-	/*if(state.getCursor() >= moduleRenderer.getFrameNum() ) {
-		if(state.getRepeat()) { state.setCursor(FrameIndex(0)); }
-		else {
-			state.setPlayStatus(PlayStatus::STOPPED);
-			return FrameCount(0);
-		}
-	} else soundfile.seekSet(FrameCount(state.getCursor().var));*/
 
-	// openmpt is EXTREMELY tolerant and flexible when it comes to sampling rates, interleaving types and channel count
+	// openmpt supports flexible render formats, so we normalize only when caller leaves fields unspecified.
 	if(output.samplerate == SAMPLE_RATE_DONT_CARE) {
 		output.samplerate = 44100;
 	}
 	if(output.interleaving == InterleavingType::DONT_CARE) {
 		output.interleaving = InterleavingType::INTERLEAVED;
 	}
-	if(state.getRepeat()) state.setCursor(FrameIndex(0)) ;
-	else {
-		state.setPlayStatus(PlayStatus::STOPPED);
-		return FrameCount(0);
-	}
+	moduleRenderer.setRepeating(state.getRepeat());
 
-	// TODO: We'll probably need to implement ringbuffering, because I have a strong suspicion that this naive method will be slow.
+	// TODO: Replace this direct-read path with a buffered strategy if needed.
 	FrameCount processed(0);
-	switch (output.interleaving) {
-		case InterleavingType::DONT_CARE: // Fall-through. Though this should never happen.
-		case InterleavingType::INTERLEAVED: {
-			switch(output.channels.var) {
-				case 1: processed = moduleRenderer.readMono(output.samplerate,output.frameCount,output.dst); break;
-				case 2: processed = moduleRenderer.readInterleavedStereo(output.samplerate,output.frameCount,output.dst); break;
-				case 4: processed = moduleRenderer.readInterleavedQuad(output.samplerate,output.frameCount,output.dst); break;
-				default: throw std::runtime_error("Invalid number of channels!");
+	FrameCount remaining = output.frameCount;
+	do {
+		FrameCount chunk(0);
+		switch (output.interleaving) {
+			case InterleavingType::DONT_CARE: // Fall-through. Though this should never happen.
+			case InterleavingType::INTERLEAVED: {
+				float* const dst = &output.dst[Hrk::framesToSamples(processed, output.channels).var];
+				switch(output.channels.var) {
+					case 1: chunk = moduleRenderer.readMono(output.samplerate, remaining, dst); break;
+					case 2: chunk = moduleRenderer.readInterleavedStereo(output.samplerate, remaining, dst); break;
+					case 4: chunk = moduleRenderer.readInterleavedQuad(output.samplerate, remaining, dst); break;
+					default: throw std::runtime_error("Invalid number of channels!");
+				}
+				break;
+			}
+			case InterleavingType::SEPARATE_CHANNELS: {
+				switch(output.channels.var) {
+					case 1:
+						chunk = moduleRenderer.readMono(output.samplerate, remaining, &output.dst[processed.var]);
+						break;
+					case 2:
+						chunk = moduleRenderer.readStereo(output.samplerate, remaining,
+														  &output.dst[processed.var],
+														  &output.dst[output.frameCount.var + processed.var]);
+						break;
+					case 4:
+						chunk = moduleRenderer.readQuad(output.samplerate, remaining,
+														&output.dst[processed.var],
+														&output.dst[output.frameCount.var + processed.var],
+														&output.dst[(output.frameCount.var * 2) + processed.var],
+														&output.dst[(output.frameCount.var * 3) + processed.var]);
+						break;
+					default: throw std::runtime_error("Invalid number of channels!");
+				}
+				break;
 			}
 		}
-		case InterleavingType::SEPARATE_CHANNELS: {
-			switch(output.channels.var) {
-				case 1: processed = moduleRenderer.readMono(output.samplerate,output.frameCount,output.dst); break;
-				case 2: processed = moduleRenderer.readStereo(output.samplerate,output.frameCount,
-														  output.dst,&output.dst[output.frameCount.var]); break;
-				case 4: processed = moduleRenderer.readQuad(output.samplerate,output.frameCount,
-														output.dst, &output.dst[output.frameCount.var],
-														&output.dst[output.frameCount.var*2],&output.dst[output.frameCount.var*3]); break;
-				default: throw std::runtime_error("Invalid number of channels!");
+		if(!chunk.var) {
+			if(!state.getRepeat()) {
+				state.setPlayStatus(PlayStatus::STOPPED);
 			}
-		}
 			break;
-	}
-	// And we'll need a more ergonomic means of updating the cursor of the state.
+		}
+		processed += chunk.var;
+		remaining -= chunk.var;
+	} while(remaining.var);
 	state.setCursor(state.getCursor() + processed);
 	return processed;
 }

@@ -1,4 +1,5 @@
 #include "HrkSoundStreamer.hpp"
+#include <Haruka/Core/HrkAudioError.hpp>
 namespace Hrk {
 const Euph::Media::Audio::SoundFile& SoundStreamer::getSoundfile() const
 {
@@ -26,22 +27,56 @@ PlaybackState& SoundStreamer::getState()
 
 FrameCount SoundStreamer::outputTo(Output& output)
 {
-	// TODO: We'll probably need to implement some sort of ringbuffer to store the samples.
-	// I'm fairly sure that decoding on the go is going to be slow.
-	// Also, this issue/conundrum/dilemma is shared with ModuleStreamer.
+	// TODO: Add buffered prefetching if direct decode proves too expensive in realtime paths.
+	// This concern is shared with ModuleStreamer.
 	if(state.getPlayStatus() != PlayStatus::PLAYING) return FrameCount(0);
-	if(state.getCursor() >= soundfile.getFrameNum() ) {
-		if(state.getRepeat()) { state.setCursor(FrameIndex(0)); }
-		else {
-			state.setPlayStatus(PlayStatus::STOPPED);
-			return FrameCount(0);
+	if(!output.frameCount.var) return FrameCount(0);
+
+	const ChannelCount sourceChannels = soundfile.getChannels();
+	const SampleRate sourceSampleRate = soundfile.getFrameRate();
+	const FrameCount sourceFrameCount = soundfile.getFrameNum();
+	if(output.channels != sourceChannels) throw ChannelCountMismatchError(output.channels, sourceChannels);
+	if(output.samplerate == SAMPLE_RATE_DONT_CARE) {
+		output.samplerate = sourceSampleRate;
+	} else if(output.samplerate != sourceSampleRate) {
+		throw SamplerateMismatchError(output.samplerate, sourceSampleRate);
+	}
+	if(sourceChannels.var > 1) {
+		if(output.interleaving == InterleavingType::DONT_CARE) {
+			output.interleaving = InterleavingType::INTERLEAVED;
+		} else if(output.interleaving != InterleavingType::INTERLEAVED) {
+			throw InterleavingMismatchError(output.interleaving, InterleavingType::INTERLEAVED);
 		}
-	} else soundfile.seekSet(FrameCount(state.getCursor().var)); // It would be so much better, if this happened as soon as we used setCursor!
+	}
+	if(!sourceFrameCount.var) return FrameCount(0);
+
 	FrameCount processed(0);
-	// TODO: Maybe replace this naive implementation with a ringbuffer?
-	processed = soundfile.readf(output.dst,output.frameCount);
-	// And we'll need a more ergonomic means of updating the cursor of the state.
-	state.setCursor(state.getCursor() + processed);
+	FrameCount remaining = output.frameCount;
+	// TODO: Replace this direct-read path with a buffered strategy if needed.
+	do {
+		if(state.getCursor() >= sourceFrameCount) {
+			if(state.getRepeat()) {
+				state.setCursor(FrameIndex(0));
+			} else {
+				state.setPlayStatus(PlayStatus::STOPPED);
+				break;
+			}
+		}
+		const FrameCount toRead = std::min(remaining, sourceFrameCount - state.getCursor());
+		if(!toRead.var) break;
+		soundfile.seekSet(FrameCount(state.getCursor().var));
+		float* dst = &output.dst[Hrk::framesToSamples(processed, output.channels).var];
+		const FrameCount chunk = soundfile.readf(dst, toRead);
+		if(!chunk.var) {
+			if(!state.getRepeat()) {
+				state.setPlayStatus(PlayStatus::STOPPED);
+			}
+			break;
+		}
+		state.setCursor(state.getCursor() + chunk);
+		processed += chunk.var;
+		remaining -= chunk.var;
+	} while(remaining.var);
 	return processed;
 }
 
