@@ -12,11 +12,11 @@ extern "C" {
 #define MH_KALDI_IMPL_API MH33_API_IMPORT
 #endif
 
-MH_KALDI_IMPL_API MhRenderingDeviceHandle create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo);
-MH_KALDI_IMPL_API void                   destroy_rendering_device(MhRenderingDeviceHandle device);
-MH_KALDI_IMPL_API const char* get_renderer_name(void);
-MH_KALDI_IMPL_API const char* get_version(void);
-MH_KALDI_IMPL_API const char* get_last_error_message(void);
+MH_KALDI_IMPL_API MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo);
+MH_KALDI_IMPL_API void                   kld_destroy_rendering_device(MhRenderingDeviceHandle device);
+MH_KALDI_IMPL_API const char* kld_get_renderer_name(void);
+MH_KALDI_IMPL_API const char* kld_get_version(void);
+MH_KALDI_IMPL_API const char* kld_get_last_error_message(void);
 
 #ifdef __cplusplus
 }

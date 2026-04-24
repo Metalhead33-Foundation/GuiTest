@@ -4,27 +4,27 @@ namespace D3D11 {
 Device::Device() {}
 
 }
-MhRenderingDeviceHandle create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo)
+MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo)
 {
 	// TODO: Actually implement
 	return nullptr;
 }
-void destroy_rendering_device(MhRenderingDeviceHandle device)
+void kld_destroy_rendering_device(MhRenderingDeviceHandle device)
 {
 	// TODO: Actually implement
 	(void)device;
 }
-const char* get_renderer_name(void)
+const char* kld_get_renderer_name(void)
 {
 	// TODO: Actually implement
-	return nullptr;
+	return "Direct3D11 Renderer";
 }
-const char* get_version(void)
+const char* kld_get_version(void)
 {
 	// TODO: Actually implement
-	return nullptr;
+	return "0.0.1";
 }
-const char* get_last_error_message(void)
+const char* kld_get_last_error_message(void)
 {
 	// TODO: Actually implement
 	return nullptr;
