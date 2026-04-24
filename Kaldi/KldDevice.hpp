@@ -1,22 +1,14 @@
 #ifndef KLDDEVICE_HPP
 #define KLDDEVICE_HPP
-#include <Kaldi/KaldiLib.hpp>
 #include <Kaldi/KaldiOperation.hpp>
-#include <future>
-#include <vector>
-#include <mutex>
+#include <span>
 
 namespace Kld {
 
-class MH_KALDI_API Device {
-protected:
-	std::vector<GfxOp> commandQueue;
-	mutable std::mutex mutex;
-	virtual void processCommandQeue() = 0;
+class Device {
 public:
 	virtual ~Device() = default;
-	void flushCommandQueue();
-	void pushCommand(const GfxOp& op);
+	virtual void processCommandQeue(std::span<const GfxOp> commands) = 0;
 };
 
 }

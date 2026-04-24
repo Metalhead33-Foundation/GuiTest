@@ -14,7 +14,9 @@ SOURCES +=  \
     Core/HrkMatrixPanner.cpp \
     Core/HrkMixer.cpp \
     Core/HrkProxyPlayable.cpp \
-    Core/HrkResampler.cpp
+    Core/HrkResampler.cpp \
+    IO/HrkPlaybackState.cpp \
+    IO/HrkSoundSource.cpp
 HEADERS += \
     Core/HrkAmbisonicPanner.hpp \
     Core/HrkAudioError.hpp \
@@ -25,7 +27,9 @@ HEADERS += \
     Core/HrkProxyPlayable.hpp \
     Core/HrkResampler.hpp \
     HarukaLib.hpp \
-    IO/HrkSoundBuffer.hpp
+    IO/HrkPlaybackState.hpp \
+    IO/HrkSoundBuffer.hpp \
+    IO/HrkSoundSource.hpp
 
 DISTFILES += \
     Haruka.pri \
