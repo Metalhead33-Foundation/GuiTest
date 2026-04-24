@@ -9,6 +9,7 @@ include(Kaldi.pri)
 
 # Avoid build errors with no files:
 HEADERS += \
+    KaldiLib.h \
     KaldiOperation.hpp \
     KldDevice.hpp \
     KldVertexFormat.hpp

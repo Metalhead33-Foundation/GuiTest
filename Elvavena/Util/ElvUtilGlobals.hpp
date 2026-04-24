@@ -71,10 +71,4 @@
 #define MH_UTIL_API MH33_API_IMPORT
 #endif
 
-namespace Elv {
-namespace Util {
-
-} // namespace Util
-} // namespace Elv
-
 #endif // ELVUTILGLOBALS_H
