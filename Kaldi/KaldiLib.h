@@ -28,10 +28,15 @@ typedef struct MhRenderingDeviceCreationInfo_t {
 
 // --- Function Pointer Typedefs for Dynamic Loading ---
 
+// Canonically exported as "kld_create_rendering_device"
 typedef MhRenderingDeviceHandle (*MhCreateRenderingDevice)(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo);
+// Canonically exported as "kld_destroy_rendering_device"
 typedef void                   (*MhDestroyRenderingDevice)(MhRenderingDeviceHandle device);
+// Canonically exported as "kld_get_renderer_name"
 typedef const char* (*MhGetRendererName)(void);
+// Canonically exported as "kld_get_version"
 typedef const char* (*MhGetVersion)(void);
+// Canonically exported as "kld_get_last_error_message"
 typedef const char* (*MhGetLastError)(void);
 
 #ifdef __cplusplus
