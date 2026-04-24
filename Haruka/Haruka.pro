@@ -17,6 +17,8 @@ SOURCES +=  \
     Core/HrkResampler.cpp \
     IO/HrkModuleStreamer.cpp \
     IO/HrkPlaybackState.cpp \
+    IO/HrkPlaybackStatePlayable.cpp \
+    IO/HrkRingBufferedStreamer.cpp \
     IO/HrkSoundSource.cpp \
     IO/HrkSoundStreamer.cpp
 HEADERS += \
@@ -31,6 +33,8 @@ HEADERS += \
     HarukaLib.hpp \
     IO/HrkModuleStreamer.hpp \
     IO/HrkPlaybackState.hpp \
+    IO/HrkPlaybackStatePlayable.hpp \
+    IO/HrkRingBufferedStreamer.hpp \
     IO/HrkSoundBuffer.hpp \
     IO/HrkSoundSource.hpp \
     IO/HrkSoundStreamer.hpp

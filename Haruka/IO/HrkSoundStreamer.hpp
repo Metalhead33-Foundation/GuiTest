@@ -1,21 +1,19 @@
 #ifndef HRKSOUNDSTREAMER_HPP
 #define HRKSOUNDSTREAMER_HPP
-#include <Haruka/Core/HrkPlayable.hpp>
-#include <Haruka/IO/HrkSoundBuffer.hpp>
-#include <Haruka/IO/HrkPlaybackState.hpp>
+#include <Haruka/IO/HrkRingBufferedStreamer.hpp>
 #include <Euphemy/Media/Audio/EuphSoundFile.hpp>
 
 namespace Hrk {
-class MH_HARUKA_API SoundStreamer : public Playable, public IHasPlaybackState
+class MH_HARUKA_API SoundStreamer : public RingBufferedStreamer
 {
 private:
 	Euph::Media::Audio::SoundFile soundfile;
-	PlaybackState state;
+	void resolveOutputFormat(Output& output, ChannelCount& streamChannels, SampleRate& streamSampleRate) override;
+	FrameCount decodeFrames(float* dstInterleaved, FrameCount frameCount, ChannelCount streamChannels, SampleRate streamSampleRate) override;
+	bool seekDecoder(FrameIndex cursor, ChannelCount streamChannels, SampleRate streamSampleRate) override;
+	bool rewindDecoder(ChannelCount streamChannels, SampleRate streamSampleRate) override;
 public:
-	SoundStreamer(Elv::Io::uDevice&& fileDev);
-	const PlaybackState& getState() const override;
-	PlaybackState& getState() override;
-	FrameCount outputTo(Output& output) override;
+	SoundStreamer(Elv::Io::uDevice&& fileDev, FrameCount ringCapacityFrames = FrameCount(8192), std::pmr::memory_resource* memRes = get_default_memory_resource());
 	const Euph::Media::Audio::SoundFile& getSoundfile() const;
 	Euph::Media::Audio::SoundFile& getSoundfile();
 };

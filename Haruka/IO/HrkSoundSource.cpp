@@ -55,16 +55,5 @@ Euph::Media::Audio::FrameCount SoundSource::outputTo(Output& output)
 	} while(remaining.var);
 	return processed;
 }
-
-const PlaybackState& SoundSource::getState() const
-{
-	return state;
-}
-
-PlaybackState& SoundSource::getState()
-{
-	return state;
-}
-
 SoundSource::SoundSource() {}
 }
