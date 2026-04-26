@@ -2,6 +2,7 @@
 #define KLDVERTEXFORMAT_HPP
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <span>
 
 #if defined (_MSC_VER)
@@ -101,6 +102,7 @@ enum PrimitiveType : uint8_t {
 	SN32x3 = ( SIZE_3 | TYPE_SINT | IS_NORMALIZED ),
 	SN32x4 = ( SIZE_4 | TYPE_SINT | IS_NORMALIZED )
 };
+
 struct AttributeDescriptor {
 	std::string_view SemanticName;	// Only relevnat for D3D afaik
 	unsigned SemanticIndex;	// Only relevnat for D3D afaik
@@ -110,6 +112,7 @@ struct AttributeDescriptor {
 	uintptr_t offset; // Converted to uint32_t for Vulkan, void* for OpenGL, UINT
 		   // for D3D
 };
+// Hint: VertexDescriptor instances are intended to be primarily declared and defined statically. If you allocate any instances on the heap or stack, you are probably doing something wrong. This comment is necessary to alleviate any lifetime concerns - because a LOT of functions will take `const VertexDescriptor*` pointers.
 struct VertexDescriptor {
 	size_t stride; // The size of a whole vertex.
 	std::span<const AttributeDescriptor> descriptors;

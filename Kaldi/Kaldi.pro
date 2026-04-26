@@ -11,7 +11,9 @@ include(Kaldi.pri)
 HEADERS += \
     KaldiLib.h \
     KaldiOperation.hpp \
+    KldCommandBuffer.hpp \
     KldDevice.hpp \
+    KldHal.hpp \
     KldVertexFormat.hpp
 
 DISTFILES += \
