@@ -52,5 +52,7 @@ void testInterpolationFixed();
 void testTGA();
 /** @brief Documents the testPNG declaration. */
 void testPNG();
+/** @brief Exercises the Euphemy asset streaming substrate. */
+void testAssetStreaming();
 
 #endif // TEST_HPP

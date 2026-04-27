@@ -12,10 +12,8 @@ int main(void)
 	std::ifstream ifs;
 	ifs.open("hello.ini");
 	GLOBAL_CONFIGURATION.fromString(ifs);
-	//testGlobalConfigFile();
-	//testCustomAllocator();
+	testAssetStreaming();
 	testTGA();
 	testPNG();
 	return 0;
 }
-
