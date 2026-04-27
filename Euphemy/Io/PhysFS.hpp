@@ -1,5 +1,13 @@
 #ifndef PHYSFS_HPP
 #define PHYSFS_HPP
+/**
+ * @file PhysFS.hpp
+ * @brief Declares the PhysFS API in the Euphemy/Io module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Io.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Elvavena/Io/ElvIoSystem.hpp>

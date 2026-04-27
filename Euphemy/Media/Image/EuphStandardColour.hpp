@@ -1,5 +1,13 @@
 #ifndef EUPHSTANDARDCOLOUR_HPP
 #define EUPHSTANDARDCOLOUR_HPP
+/**
+ * @file EuphStandardColour.hpp
+ * @brief Declares the EuphStandardColour API in the Euphemy/Media/Image module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Media/Image.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <map>
 #include <array>
 #include <cstdint>

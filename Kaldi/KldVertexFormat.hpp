@@ -1,5 +1,20 @@
 #ifndef KLDVERTEXFORMAT_HPP
 #define KLDVERTEXFORMAT_HPP
+/**
+ * @file KldVertexFormat.hpp
+ * @brief Declares portable vertex attribute and vertex-buffer layout metadata.
+ *
+ * Kaldi backends translate these compact format descriptors into API-specific
+ * declarations such as DXGI_FORMAT, VkFormat, or OpenGL vertex attribute state.
+ */
+/**
+ * @file KldVertexFormat.hpp
+ * @brief Declares the KldVertexFormat API in the Kaldi module.
+ *
+ * This header is part of the public declaration surface for Kaldi.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -19,6 +34,7 @@
 namespace Kld {
 
 
+/** @brief Packed primitive scalar type, vector width, and normalization flag. */
 enum PrimitiveType : uint8_t {
 	// Basics
 	INVALID = 0x00,
@@ -103,18 +119,27 @@ enum PrimitiveType : uint8_t {
 	SN32x4 = ( SIZE_4 | TYPE_SINT | IS_NORMALIZED )
 };
 
+/** @brief Describes one vertex attribute within a vertex buffer binding. */
 struct AttributeDescriptor {
-	std::string_view SemanticName;	// Only relevnat for D3D afaik
-	unsigned SemanticIndex;	// Only relevnat for D3D afaik
-	PrimitiveType type; // Maps to a DXGI_FORMAT in D3D, to a VkFormat in
-			// Vulkan, is split into GLenum (type), GLint (size) and
-			// GLboolean (normalized) in OpenGL
-	uintptr_t offset; // Converted to uint32_t for Vulkan, void* for OpenGL, UINT
-		   // for D3D
+	/** @brief API-facing semantic name, primarily relevant to Direct3D input layouts. */
+	std::string_view SemanticName;
+	/** @brief Semantic index paired with @ref SemanticName for APIs that use semantic slots. */
+	unsigned SemanticIndex;
+	/** @brief Portable element format translated to each backend's native vertex format. */
+	PrimitiveType type;
+	/** @brief Byte offset of the attribute inside one vertex. */
+	uintptr_t offset;
 };
-// Hint: VertexDescriptor instances are intended to be primarily declared and defined statically. If you allocate any instances on the heap or stack, you are probably doing something wrong. This comment is necessary to alleviate any lifetime concerns - because a LOT of functions will take `const VertexDescriptor*` pointers.
+/**
+ * @brief Describes the stride and attributes for one vertex buffer layout.
+ *
+ * VertexDescriptor instances are intended to be long-lived, often static,
+ * because command payloads store raw pointers to them until backend submission.
+ */
 struct VertexDescriptor {
-	size_t stride; // The size of a whole vertex.
+	/** @brief Byte size of one complete vertex. */
+	size_t stride;
+	/** @brief Externally owned span of attribute descriptors. */
 	std::span<const AttributeDescriptor> descriptors;
 };
 

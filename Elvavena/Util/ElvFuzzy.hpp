@@ -1,11 +1,20 @@
 #ifndef ELVFUZZY_HPP
 #define ELVFUZZY_HPP
+/**
+ * @file ElvFuzzy.hpp
+ * @brief Declares the ElvFuzzy API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Elvavena/Util/ElvInterpolation.hpp>
 #include <numeric>
 namespace Elv {
 namespace Util {
 
 #ifndef FUZZY_DEF_THRESHOLD
+/** @brief Documents the FUZZY_DEF_THRESHOLD constant or macro. */
 #define FUZZY_DEF_THRESHOLD 0.5
 #endif
 

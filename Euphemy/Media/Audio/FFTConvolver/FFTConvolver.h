@@ -1,3 +1,11 @@
+/**
+ * @file FFTConvolver.h
+ * @brief Declares the FFTConvolver API in the Euphemy/Media/Audio/FFTConvolver module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Media/Audio/FFTConvolver.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 // ==================================================================================
 // Copyright (c) 2017 HiFi-LoFi
 //

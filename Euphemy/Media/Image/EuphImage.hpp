@@ -1,5 +1,13 @@
 #ifndef EUPHIMAGE_HPP
 #define EUPHIMAGE_HPP
+/**
+ * @file EuphImage.hpp
+ * @brief Declares the EuphImage API in the Euphemy/Media/Image module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Media/Image.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 
 #include <Euphemy/Config/EuphLib.hpp>
 #include <Euphemy/Media/Image/EuphImageType.hpp>
@@ -102,8 +110,10 @@ inline void sampleTexture(const ImageType& image, const glm::fvec2& pos, const g
 
 namespace detail {
 
+/** @brief Documents the always_false_v declaration. */
 template <typename> inline constexpr bool always_false_v = false;
 
+/** @brief Documents the wrapCoordinate declaration. */
 inline unsigned wrapCoordinate(unsigned coord, unsigned size, Wrap wrap) {
 	if(size == 0) {
 		return 0;
@@ -124,6 +134,7 @@ inline unsigned wrapCoordinate(unsigned coord, unsigned size, Wrap wrap) {
 }
 
 template <typename F>
+/** @brief Documents the evalClearProgram declaration. */
 inline glm::fvec4 evalClearProgram(F&& program, const glm::uvec2& pos, float widthR, float heightR, const glm::fvec4& existing) {
 	using Fn = std::remove_reference_t<F>;
 	const glm::fvec2 normalizedPos(static_cast<float>(pos.x) * widthR, static_cast<float>(pos.y) * heightR);
@@ -142,6 +153,7 @@ inline glm::fvec4 evalClearProgram(F&& program, const glm::uvec2& pos, float wid
 }
 
 template <typename F>
+/** @brief Documents the invokeIterator declaration. */
 inline void invokeIterator(F&& program, const glm::uvec2& pos, const glm::fvec4& colourKernel, float widthR, float heightR) {
 	using Fn = std::remove_reference_t<F>;
 	// Prefer normalized coordinates when both forms are implicitly invocable.
@@ -211,8 +223,11 @@ public:
 	}
 
 	Image2D(const Image2D&) = default;
+	/** @brief Documents the Image2D type or declaration. */
 	Image2D(Image2D&&) noexcept = default;
+	/** @brief Documents the operator= helper. */
 	Image2D& operator=(const Image2D&) = default;
+	/** @brief Documents the operator= helper. */
 	Image2D& operator=(Image2D&&) noexcept = default;
 
 	/**
@@ -520,9 +535,13 @@ public:
 		pixels.resize(static_cast<size_t>(width) * static_cast<size_t>(height));
 	}
 
+	/** @brief Documents the PalettedImage2D type or declaration. */
 	PalettedImage2D(const PalettedImage2D&) = default;
+	/** @brief Documents the PalettedImage2D type or declaration. */
 	PalettedImage2D(PalettedImage2D&&) noexcept = default;
+	/** @brief Documents the operator= helper. */
 	PalettedImage2D& operator=(const PalettedImage2D&) = default;
+	/** @brief Documents the operator= helper. */
 	PalettedImage2D& operator=(PalettedImage2D&&) noexcept = default;
 
 	/**

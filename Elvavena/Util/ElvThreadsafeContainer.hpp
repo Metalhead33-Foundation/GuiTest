@@ -1,5 +1,13 @@
 #ifndef ELVTHREADSAFECONTAINER_HPP
 #define ELVTHREADSAFECONTAINER_HPP
+/**
+ * @file ElvThreadsafeContainer.hpp
+ * @brief Declares the ElvThreadsafeContainer API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <shared_mutex>
 #include <mutex>
 namespace Elv {

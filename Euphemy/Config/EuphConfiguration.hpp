@@ -1,5 +1,13 @@
 #ifndef EUPHCONFIGURATION_H
 #define EUPHCONFIGURATION_H
+/**
+ * @file EuphConfiguration.hpp
+ * @brief Declares the EuphConfiguration API in the Euphemy/Config module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Config.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Euphemy/Config/EuphConfigurationElement.hpp>
 #include <map>
 namespace Euph {

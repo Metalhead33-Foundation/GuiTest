@@ -1,5 +1,13 @@
 #ifndef ELVIOSYSTEM_HPP
 #define ELVIOSYSTEM_HPP
+/**
+ * @file ElvIoSystem.hpp
+ * @brief Declares the ElvIoSystem API in the Elvavena/Io module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Io.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <functional>
 namespace Elv {

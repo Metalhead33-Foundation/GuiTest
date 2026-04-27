@@ -4,7 +4,7 @@
  * @file KldDevice.hpp
  * @brief Backend submission interface for Kaldi graphics command queues.
  *
- * @ref Device is the server-side boundary of the VM-like API. Client code owns
+ * `Device` is the server-side boundary of the VM-like API. Client code owns
  * command storage; backend implementations translate submitted command spans to
  * their native graphics API and report portable status values.
  */
@@ -19,12 +19,12 @@ namespace Kld {
  *
  * Implementations execute or enqueue command data but do not own the memory
  * referenced by the span. If a backend defers parsing beyond the
- * @ref Device::processCommandQueue call, it must copy the @ref GfxOp payloads
+ * `Device`::processCommandQueue call, it must copy the `GfxOp` payloads
  * and any pointed-to data it needs, or otherwise ensure the documented
  * caller-owned payload lifetime has not ended.
  *
  * Backend implementers should validate command order, handle kinds, resource
- * states, and capability limits, returning @ref HalStatus instead of throwing
+ * states, and capability limits, returning `HalStatus` instead of throwing
  * or exposing API-specific error codes.
  */
 class Device {

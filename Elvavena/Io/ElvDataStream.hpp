@@ -1,5 +1,13 @@
 #ifndef ELVDATASTREAM_HPP
 #define ELVDATASTREAM_HPP
+/**
+ * @file ElvDataStream.hpp
+ * @brief Declares the ElvDataStream API in the Elvavena/Io module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Io.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Elvavena/Util/ElvContainerBasic.hpp>
 #include <Elvavena/Util/ElvEndianness.hpp>
@@ -149,6 +157,7 @@ void writeSLEB128(IODev& dev, SInt value) {
 template <typename T>
 struct ULEB128 {
 	T& ref; ///< Reference to the underlying unsigned integer value.
+	/** @brief Documents the ULEB128 constant or macro. */
 	explicit ULEB128(T& v) : ref(v) {}
 };
 
@@ -160,6 +169,7 @@ struct ULEB128 {
 template <typename T>
 struct SLEB128 {
 	T& ref; ///< Reference to the underlying signed integer value.
+	/** @brief Documents the SLEB128 constant or macro. */
 	explicit SLEB128(T& v) : ref(v) {}
 };
 

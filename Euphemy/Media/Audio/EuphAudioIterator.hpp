@@ -1,5 +1,13 @@
 #ifndef EUPHAUDIOITERATOR_HPP
 #define EUPHAUDIOITERATOR_HPP
+/**
+ * @file EuphAudioIterator.hpp
+ * @brief Declares the EuphAudioIterator API in the Euphemy/Media/Audio module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Media/Audio.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Elvavena/Util/ElvIntegralIterator.hpp>
 #include <cstdint>
 #include <cmath>
@@ -47,10 +55,11 @@ typedef Elv::Util::IntegralIterator<uintptr_t> FrameIndex;
 typedef Elv::Util::IntegralIterable<uint_fast32_t> SampleCount;
 
 /**
- * @typedef FrameRate
+ * @typedef SampleRate
  * @brief Iterable type representing frames per second (sample rate)
  * @see IntegralIterable
  */
+/** @brief Documents the SampleRate type or declaration. */
 typedef Elv::Util::IntegralIterable<uint_fast32_t> SampleRate;
 
 /**

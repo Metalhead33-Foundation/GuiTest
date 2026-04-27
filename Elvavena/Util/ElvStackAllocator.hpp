@@ -1,5 +1,13 @@
 #ifndef ELVSTACKALLOCATOR_H
 #define ELVSTACKALLOCATOR_H
+/**
+ * @file ElvStackAllocator.hpp
+ * @brief Declares the ElvStackAllocator API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Elvavena/Util/ElvAllocatorBasic.hpp>
 #include <array>
 #include <cassert>
@@ -99,6 +107,7 @@ public:
  * @brief Initialization of the static offset variable.
  */
 template <size_t Size, int id>
+/** @brief Documents the offset_ declaration. */
 std::size_t StaticStackAllocator<Size, id>::offset_ = 0;
 
 /**
@@ -107,6 +116,7 @@ std::size_t StaticStackAllocator<Size, id>::offset_ = 0;
  * @brief Initialization of the static buffer variable.
  */
 template <size_t Size, int id>
+/** @brief Documents the underlyingBuffer declaration. */
 std::array<std::byte, Size> StaticStackAllocator<Size, id>::underlyingBuffer;
 
 /**

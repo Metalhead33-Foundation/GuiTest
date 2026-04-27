@@ -1,5 +1,13 @@
 #ifndef ELVINTEGRALITERATOR_HPP
 #define ELVINTEGRALITERATOR_HPP
+/**
+ * @file ElvIntegralIterator.hpp
+ * @brief Declares the ElvIntegralIterator API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <iterator>
 namespace Elv {
 namespace Util {
@@ -247,10 +255,15 @@ template <typename T> struct IntegralIterator {
 	 * @name Iterator Traits
 	 * @{
 	 */
+	/** @brief Documents the iterator_category declaration. */
 	using iterator_category = std::bidirectional_iterator_tag;
+	/** @brief Documents the value_type declaration. */
 	using value_type = T;
+	/** @brief Documents the difference_type declaration. */
 	using difference_type = T;
+	/** @brief Documents the pointer declaration. */
 	using pointer = T*;
+	/** @brief Documents the reference declaration. */
 	using reference = T&;
 	/** @} */
 };

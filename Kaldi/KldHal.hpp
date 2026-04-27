@@ -5,8 +5,8 @@
  * @brief Public Kaldi HAL version, capability, and status contract.
  *
  * Backend-specific discovery belongs behind the backend implementation. Public
- * callers see the normalized @ref HalCapabilities snapshot and portable
- * @ref HalStatus values, not API-specific extension names, feature structs, or
+ * callers see the normalized `HalCapabilities` snapshot and portable
+ * `HalStatus` values, not API-specific extension names, feature structs, or
  * driver error objects.
  */
 #include <cstdint>
@@ -40,7 +40,7 @@ inline constexpr HalVersion KaldiHalVersion1_0 { 1, 0, 0 };
  * portable result consumed by higher layers.
  *
  * A conforming v1.0 backend supports the baseline command vocabulary advertised
- * by @ref KaldiHalVersion1_0 or reports @ref HalStatusCode::UnsupportedBaseline
+ * by @ref KaldiHalVersion1_0 or reports `HalStatus`Code::UnsupportedBaseline
  * during initialization. Limits describe what the backend can support portably;
  * higher layers should plan work against these numbers rather than backend
  * extension details.
@@ -135,7 +135,7 @@ struct HalStatus {
 	/** @brief Optional backend-owned diagnostic text; may be null. */
 	const char* message;
 
-	/** @brief Returns true when @ref code is @ref HalStatusCode::Success. */
+	/** @brief Returns true when @ref code is `HalStatus`Code::Success. */
 	constexpr bool ok() const { return code == HalStatusCode::Success; }
 };
 

@@ -1,5 +1,13 @@
 #ifndef ELVFREELIST_HPP
 #define ELVFREELIST_HPP
+/**
+ * @file ElvFreelist.hpp
+ * @brief Declares the ElvFreelist API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Elvavena/Util/ElvAllocatorBasic.hpp>
 #include <cassert>
 #include <vector>
@@ -30,7 +38,7 @@ private:
 	};
 
 	/**
-	 * @def MIN_BLOCK_SIZE
+	 * @var MIN_BLOCK_SIZE
 	 * @brief Minimum size of a block in the freelist (sizeof(FreeBlock)).
 	 */
 	static constexpr std::size_t MIN_BLOCK_SIZE = sizeof(FreeBlock);
@@ -292,7 +300,7 @@ private:
 	BaseAlloc baseAlloc;
 
 	/**
-	 * @def MIN_BLOCK_SIZE
+	 * @var MIN_BLOCK_SIZE
 	 * @brief The minimum size of a block (aligned to the size of FreeBlock).
 	 */
 	static constexpr std::size_t MIN_BLOCK_SIZE = sizeof(FreeBlock);
@@ -502,7 +510,7 @@ private:
 	};
 
 	/**
-	 * @def MIN_BLOCK_SIZE
+	 * @var MIN_BLOCK_SIZE
 	 * @brief The minimum size of a block that can be allocated, set to the size of a FreeBlock.
 	 */
 	static constexpr std::size_t MIN_BLOCK_SIZE = sizeof(FreeBlock);

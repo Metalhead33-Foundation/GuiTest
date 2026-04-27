@@ -1,5 +1,13 @@
 #ifndef ELVENDIANNESS_HPP
 #define ELVENDIANNESS_HPP
+/**
+ * @file ElvEndianness.hpp
+ * @brief Declares the ElvEndianness API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <cstdint>
 #include <array>
 #include <algorithm>
@@ -82,6 +90,7 @@ template <typename T> struct _endianness_swp {
  * @brief Specialization for uint8_t (no swap needed).
  */
 template <> struct _endianness_swp<uint8_t> {
+	/** @brief Documents the T constant or macro. */
 	typedef uint8_t T;
 	/**
 	 * @brief Dummy implementation, as no swap is required for uint8_t.
@@ -97,6 +106,7 @@ template <> struct _endianness_swp<uint8_t> {
  * @brief Specialization for uint16_t.
  */
 template <> struct _endianness_swp<uint16_t> {
+	/** @brief Documents the T constant or macro. */
 	typedef uint16_t T;
 	/**
 	 * @brief Swaps endianness of a uint16_t value.
@@ -120,6 +130,7 @@ template <> struct _endianness_swp<uint16_t> {
  * @brief Specialization for uint32_t.
  */
 template <> struct _endianness_swp<uint32_t> {
+	/** @brief Documents the T constant or macro. */
 	typedef uint32_t T;
 	/**
 	 * @brief Swaps endianness of a uint32_t value.
@@ -144,6 +155,7 @@ template <> struct _endianness_swp<uint32_t> {
  * @brief Specialization for uint64_t.
  */
 template <> struct _endianness_swp<uint64_t> {
+	/** @brief Documents the T constant or macro. */
 	typedef uint64_t T;
 	/**
 	 * @brief Swaps endianness of a uint64_t value.
@@ -172,6 +184,7 @@ template <> struct _endianness_swp<uint64_t> {
  * @brief Specialization for int8_t (utilizes uint8_t specialization).
  */
 template <> struct _endianness_swp<int8_t> {
+	/** @brief Documents the T constant or macro. */
 	typedef int8_t T;
 	/**
 	 * @brief Swaps endianness of an int8_t value (no-op, as it's equivalent to uint8_t).
@@ -187,6 +200,7 @@ template <> struct _endianness_swp<int8_t> {
  * @brief Specialization for int16_t (utilizes uint16_t specialization).
  */
 template <> struct _endianness_swp<int16_t> {
+	/** @brief Documents the T constant or macro. */
 	typedef int16_t T;
 	/**
 	 * @brief Swaps endianness of an int16_t value.
@@ -202,6 +216,7 @@ template <> struct _endianness_swp<int16_t> {
  * @brief Specialization for int32_t (utilizes uint32_t specialization).
  */
 template <> struct _endianness_swp<int32_t> {
+	/** @brief Documents the T constant or macro. */
 	typedef int32_t T;
 	/**
 	 * @brief Swaps endianness of an int32_t value.
@@ -217,6 +232,7 @@ template <> struct _endianness_swp<int32_t> {
  * @brief Specialization for int64_t (utilizes uint64_t specialization).
  */
 template <> struct _endianness_swp<int64_t> {
+	/** @brief Documents the T constant or macro. */
 	typedef int64_t T;
 	/**
 	 * @brief Swaps endianness of an int64_t value.
@@ -232,6 +248,7 @@ template <> struct _endianness_swp<int64_t> {
  * @brief Specialization for half_float::half (utilizes uint16_t specialization).
  */
 template <> struct _endianness_swp<half_float::half> {
+	/** @brief Documents the T constant or macro. */
 	typedef half_float::half T;
 	/**
 	 * @brief Swaps endianness of a half_float::half value.
@@ -250,6 +267,7 @@ template <> struct _endianness_swp<half_float::half> {
  * @brief Specialization for float (utilizes uint32_t specialization).
  */
 template <> struct _endianness_swp<float> {
+	/** @brief Documents the T constant or macro. */
 	typedef float T;
 	/**
 	 * @brief Swaps endianness of a float value.
@@ -268,6 +286,7 @@ template <> struct _endianness_swp<float> {
  * @brief Specialization for double (utilizes uint64_t specialization).
  */
 template <> struct _endianness_swp<double> {
+	/** @brief Documents the T constant or macro. */
 	typedef double T;
 	/**
 	 * @brief Swaps endianness of a double value.
@@ -286,6 +305,7 @@ template <> struct _endianness_swp<double> {
  * @brief Specialization for char16_t (utilizes uint16_t specialization).
  */
 template <> struct _endianness_swp<char16_t> {
+	/** @brief Documents the T constant or macro. */
 	typedef char16_t T;
 	/**
 	 * @brief Swaps endianness of a char16_t value.
@@ -304,6 +324,7 @@ template <> struct _endianness_swp<char16_t> {
  * @brief Specialization for char32_t (utilizes uint32_t specialization).
  */
 template <> struct _endianness_swp<char32_t> {
+	/** @brief Documents the T constant or macro. */
 	typedef char32_t T;
 	/**
 	 * @brief Swaps endianness of a char32_t value.

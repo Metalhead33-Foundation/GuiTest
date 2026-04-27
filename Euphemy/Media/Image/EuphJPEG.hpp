@@ -1,5 +1,13 @@
 #ifndef EUPHJPEG_HPP
 #define EUPHJPEG_HPP
+/**
+ * @file EuphJPEG.hpp
+ * @brief Declares the EuphJPEG API in the Euphemy/Media/Image module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Media/Image.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Euphemy/Media/Image/EuphImageDecodeTarget.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Euphemy/Config/EuphLib.hpp>
@@ -12,6 +20,7 @@ namespace JPEG {
 /*
 Common values are 0 (no subsampling), 1 (4:2:2), and 2 (4:2:0).
 */
+/** @brief Documents the SubsamplingMethod type or declaration. */
 enum class SubsamplingMethod : uint8_t {
 	NO_SUBSAMPLING = 0,
 	SUBSAMPLE_4_2_2 = 1,

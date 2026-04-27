@@ -1,5 +1,13 @@
 #ifndef ELVINTRUSIVEARRAY_HPP
 #define ELVINTRUSIVEARRAY_HPP
+/**
+ * @file ElvIntrusiveArray.hpp
+ * @brief Declares the ElvIntrusiveArray API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <atomic>
 #include <memory_resource>
 #include <algorithm>
@@ -12,6 +20,7 @@
 namespace Elv {
 namespace Util {
 
+/** @brief Documents the roundUpAlignment declaration. */
 constexpr size_t roundUpAlignment(size_t value, size_t alignment) noexcept {
 	return ((value + alignment - 1) / alignment) * alignment;
 }
@@ -50,15 +59,21 @@ public:
 	// of the two alignment requirements so the trailing Element array is
 	// always correctly aligned without explicit padding calculation.
 	struct alignas(alignment) Header {
+		/** @brief Documents the ElementLifetimeState type or declaration. */
 		enum class ElementLifetimeState : uint8_t {
 			Uninitialised,
 			DefaultConstructed
 		};
 
+		/** @brief Documents the refCount declaration. */
 		std::atomic<uint32_t>      refCount;
+		/** @brief Documents the allocator declaration. */
 		std::pmr::memory_resource* allocator;
+		/** @brief Documents the elementCount declaration. */
 		size_t                     elementCount; // stored so release() can compute slab size
+		/** @brief Documents the elementLifetimeState declaration. */
 		ElementLifetimeState       elementLifetimeState;
+		/** @brief Documents the meta declaration. */
 		Meta                       meta;
 
 		// Trailing elements are accessed via pointer arithmetic past the header.

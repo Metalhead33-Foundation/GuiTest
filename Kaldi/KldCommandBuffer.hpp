@@ -4,10 +4,10 @@
  * @file KldCommandBuffer.hpp
  * @brief Header-only object-oriented facade over Kaldi VM command buffers.
  *
- * This facade is a convenience layer over @ref GfxOp. It does not add a new
+ * This facade is a convenience layer over `GfxOp`. It does not add a new
  * backend contract: every helper simply appends one raw command payload to
  * client-owned storage. Resource proxy classes are move-only handles that record
- * typed destroy commands into their owning @ref CommandBuffer when destroyed.
+ * typed destroy commands into their owning `CommandBuffer` when destroyed.
  *
  * @section kaldi_facade_lifetime Facade lifetime rules
  *
@@ -18,10 +18,10 @@
  *
  * @section kaldi_facade_threading Threading model
  *
- * @ref CommandBuffer is single-threaded. Recording, clearing, submitting, and
+ * `CommandBuffer` is single-threaded. Recording, clearing, submitting, and
  * RAII proxy destruction all mutate or inspect the same command storage. Use
  * one command buffer per recording thread, optionally backed by a shared
- * @ref HandleAllocator, then merge streams with @ref mergeCommandBuffers in an
+ * `HandleAllocator`, then merge streams with `mergeCommandBuffers` in an
  * explicit order.
  */
 #include <Kaldi/KaldiOperation.hpp>
@@ -93,15 +93,17 @@ enum class ResourceHandleKind : uint8_t {
  * commands directly.
  */
 struct DeferredDestroy {
+	/** @brief Documents the kind declaration. */
 	ResourceHandleKind kind;
+	/** @brief Documents the id declaration. */
 	HandleId id;
 };
 
 /**
  * @brief Owning buffer proxy.
  *
- * Destroying an owning instance appends @ref Opcode::DestroyBufferObject to the
- * associated @ref CommandBuffer. Call @ref release to suppress RAII destruction.
+ * Destroying an owning instance appends `Opcode`::DestroyBufferObject to the
+ * associated `CommandBuffer`. Call @ref release to suppress RAII destruction.
  * Destruction is recording, so destroy proxies on the command buffer owner
  * thread or move the handle into an explicit deferred-destroy path.
  */
@@ -110,10 +112,13 @@ class Buffer {
 	CommandBuffer* owner{};
 public:
 	inline Buffer() = default;
+	/** @brief Documents the Buffer type or declaration. */
 	inline Buffer(HandleId id, CommandBuffer* commandBuffer) : resourceId(id), owner(commandBuffer) {}
 	Buffer(const Buffer&) = delete;
 	Buffer& operator=(const Buffer&) = delete;
+	/** @brief Documents the Buffer type or declaration. */
 	inline Buffer(Buffer&& other) noexcept : resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
+	/** @brief Documents the operator= helper. */
 	inline Buffer& operator=(Buffer&& other) noexcept;
 	inline ~Buffer();
 	/** @brief Returns the wrapped handle ID. */
@@ -128,13 +133,18 @@ class Texture {
 	CommandBuffer* owner{};
 public:
 	inline Texture() = default;
+	/** @brief Documents the Texture type or declaration. */
 	inline Texture(HandleId id, CommandBuffer* commandBuffer) : resourceId(id), owner(commandBuffer) {}
 	Texture(const Texture&) = delete;
 	Texture& operator=(const Texture&) = delete;
+	/** @brief Documents the Texture type or declaration. */
 	inline Texture(Texture&& other) noexcept : resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
+	/** @brief Documents the operator= helper. */
 	inline Texture& operator=(Texture&& other) noexcept;
 	inline ~Texture();
+	/** @brief Documents the id declaration. */
 	inline HandleId id() const { return resourceId; }
+	/** @brief Documents the release declaration. */
 	inline HandleId release() { return std::exchange(resourceId, 0); }
 };
 
@@ -144,13 +154,18 @@ class Image {
 	CommandBuffer* owner{};
 public:
 	inline Image() = default;
+	/** @brief Documents the Image type or declaration. */
 	inline Image(HandleId id, CommandBuffer* commandBuffer) : resourceId(id), owner(commandBuffer) {}
 	Image(const Image&) = delete;
 	Image& operator=(const Image&) = delete;
+	/** @brief Documents the Image type or declaration. */
 	inline Image(Image&& other) noexcept : resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
+	/** @brief Documents the operator= helper. */
 	inline Image& operator=(Image&& other) noexcept;
 	inline ~Image();
+	/** @brief Documents the id declaration. */
 	inline HandleId id() const { return resourceId; }
+	/** @brief Documents the release declaration. */
 	inline HandleId release() { return std::exchange(resourceId, 0); }
 };
 
@@ -160,13 +175,18 @@ class Sampler {
 	CommandBuffer* owner{};
 public:
 	inline Sampler() = default;
+	/** @brief Documents the Sampler type or declaration. */
 	inline Sampler(HandleId id, CommandBuffer* commandBuffer) : resourceId(id), owner(commandBuffer) {}
 	Sampler(const Sampler&) = delete;
 	Sampler& operator=(const Sampler&) = delete;
+	/** @brief Documents the Sampler type or declaration. */
 	inline Sampler(Sampler&& other) noexcept : resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
+	/** @brief Documents the operator= helper. */
 	inline Sampler& operator=(Sampler&& other) noexcept;
 	inline ~Sampler();
+	/** @brief Documents the id declaration. */
 	inline HandleId id() const { return resourceId; }
+	/** @brief Documents the release declaration. */
 	inline HandleId release() { return std::exchange(resourceId, 0); }
 };
 
@@ -176,13 +196,18 @@ class Framebuffer {
 	CommandBuffer* owner{};
 public:
 	inline Framebuffer() = default;
+	/** @brief Documents the Framebuffer type or declaration. */
 	inline Framebuffer(HandleId id, CommandBuffer* commandBuffer) : resourceId(id), owner(commandBuffer) {}
 	Framebuffer(const Framebuffer&) = delete;
 	Framebuffer& operator=(const Framebuffer&) = delete;
+	/** @brief Documents the Framebuffer type or declaration. */
 	inline Framebuffer(Framebuffer&& other) noexcept : resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
+	/** @brief Documents the operator= helper. */
 	inline Framebuffer& operator=(Framebuffer&& other) noexcept;
 	inline ~Framebuffer();
+	/** @brief Documents the id declaration. */
 	inline HandleId id() const { return resourceId; }
+	/** @brief Documents the release declaration. */
 	inline HandleId release() { return std::exchange(resourceId, 0); }
 };
 
@@ -192,13 +217,18 @@ class Pipeline {
 	CommandBuffer* owner{};
 public:
 	inline Pipeline() = default;
+	/** @brief Documents the Pipeline type or declaration. */
 	inline Pipeline(HandleId id, CommandBuffer* commandBuffer) : resourceId(id), owner(commandBuffer) {}
 	Pipeline(const Pipeline&) = delete;
 	Pipeline& operator=(const Pipeline&) = delete;
+	/** @brief Documents the Pipeline type or declaration. */
 	inline Pipeline(Pipeline&& other) noexcept : resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
+	/** @brief Documents the operator= helper. */
 	inline Pipeline& operator=(Pipeline&& other) noexcept;
 	inline ~Pipeline();
+	/** @brief Documents the id declaration. */
 	inline HandleId id() const { return resourceId; }
+	/** @brief Documents the release declaration. */
 	inline HandleId release() { return std::exchange(resourceId, 0); }
 };
 
@@ -208,13 +238,18 @@ class ComputePipeline {
 	CommandBuffer* owner{};
 public:
 	inline ComputePipeline() = default;
+	/** @brief Documents the ComputePipeline type or declaration. */
 	inline ComputePipeline(HandleId id, CommandBuffer* commandBuffer) : resourceId(id), owner(commandBuffer) {}
 	ComputePipeline(const ComputePipeline&) = delete;
 	ComputePipeline& operator=(const ComputePipeline&) = delete;
+	/** @brief Documents the ComputePipeline type or declaration. */
 	inline ComputePipeline(ComputePipeline&& other) noexcept : resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
+	/** @brief Documents the operator= helper. */
 	inline ComputePipeline& operator=(ComputePipeline&& other) noexcept;
 	inline ~ComputePipeline();
+	/** @brief Documents the id declaration. */
 	inline HandleId id() const { return resourceId; }
+	/** @brief Documents the release declaration. */
 	inline HandleId release() { return std::exchange(resourceId, 0); }
 };
 
@@ -224,13 +259,18 @@ class Fence {
 	CommandBuffer* owner{};
 public:
 	inline Fence() = default;
+	/** @brief Documents the Fence type or declaration. */
 	inline Fence(HandleId id, CommandBuffer* commandBuffer) : resourceId(id), owner(commandBuffer) {}
 	Fence(const Fence&) = delete;
 	Fence& operator=(const Fence&) = delete;
+	/** @brief Documents the Fence type or declaration. */
 	inline Fence(Fence&& other) noexcept : resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
+	/** @brief Documents the operator= helper. */
 	inline Fence& operator=(Fence&& other) noexcept;
 	inline ~Fence();
+	/** @brief Documents the id declaration. */
 	inline HandleId id() const { return resourceId; }
+	/** @brief Documents the release declaration. */
 	inline HandleId release() { return std::exchange(resourceId, 0); }
 };
 
@@ -240,13 +280,18 @@ class QueryPool {
 	CommandBuffer* owner{};
 public:
 	inline QueryPool() = default;
+	/** @brief Documents the QueryPool type or declaration. */
 	inline QueryPool(HandleId id, CommandBuffer* commandBuffer) : resourceId(id), owner(commandBuffer) {}
 	QueryPool(const QueryPool&) = delete;
 	QueryPool& operator=(const QueryPool&) = delete;
+	/** @brief Documents the QueryPool type or declaration. */
 	inline QueryPool(QueryPool&& other) noexcept : resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
+	/** @brief Documents the operator= helper. */
 	inline QueryPool& operator=(QueryPool&& other) noexcept;
 	inline ~QueryPool();
+	/** @brief Documents the id declaration. */
 	inline HandleId id() const { return resourceId; }
+	/** @brief Documents the release declaration. */
 	inline HandleId release() { return std::exchange(resourceId, 0); }
 };
 
@@ -255,7 +300,7 @@ public:
  *
  * The command buffer owns `std::pmr::vector<GfxOp>` storage and allocates local
  * monotonically increasing resource IDs starting at `1`. It does not execute
- * commands itself; use @ref submit to pass a span to a @ref Device.
+ * commands itself; use @ref submit to pass a span to a `Device`.
  *
  * All helpers append immediately. They do not validate backend limits, resource
  * states, or pointer lifetimes; that remains the responsibility of higher-level
@@ -310,12 +355,19 @@ public:
 	inline void destroyBuffer(HandleId id) { push({ Opcode::DestroyBufferObject, { .opDestroy = { id } } }); }
 	inline void destroyTexture(HandleId id) { push({ Opcode::DestroyTexture, { .opDestroy = { id } } }); }
 	inline void destroySampler(HandleId id) { push({ Opcode::DestroySampler, { .opDestroy = { id } } }); }
+	/** @brief Documents the destroyImage declaration. */
 	inline void destroyImage(HandleId id) { push({ Opcode::DestroyImage, { .opDestroyImage = { id } } }); }
+	/** @brief Documents the destroyFramebuffer declaration. */
 	inline void destroyFramebuffer(HandleId id) { push({ Opcode::DestroyFramebuffer, { .opDestroyFramebuffer = { id } } }); }
+	/** @brief Documents the destroyPipeline declaration. */
 	inline void destroyPipeline(HandleId id) { push({ Opcode::DestroyPipeline, { .opDestroyPipeline = { id } } }); }
+	/** @brief Documents the destroyComputePipeline declaration. */
 	inline void destroyComputePipeline(HandleId id) { push({ Opcode::DestroyComputePipeline, { .opDestroyComputePipeline = { id } } }); }
+	/** @brief Documents the destroyFence declaration. */
 	inline void destroyFence(HandleId id) { push({ Opcode::DestroyFence, { .opDestroyFence = { id } } }); }
+	/** @brief Documents the destroyQueryPool declaration. */
 	inline void destroyQueryPool(HandleId id) { push({ Opcode::DestroyQueryPool, { .opDestroyQueryPool = { id } } }); }
+	/** @brief Documents the destroySwapchain declaration. */
 	inline void destroySwapchain(HandleId id) { push({ Opcode::DestroySwapchain, { .opDestroySwapchain = { id } } }); }
 	///@}
 
@@ -326,81 +378,97 @@ public:
 		push({ Opcode::CreateBufferObject, { .opCreateBufferObject = { id, size, policy, data } } });
 		return Buffer(id, this);
 	}
+	/** @brief Documents the createTexture1D declaration. */
 	inline Texture createTexture1D(TextureFormat format, uint32_t width, const void* pixels = nullptr) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateTexture1D, { .opCreateTexture1D = { id, format, width, pixels } } });
 		return Texture(id, this);
 	}
+	/** @brief Documents the createTexture2D declaration. */
 	inline Texture createTexture2D(TextureFormat format, uint8_t mipLevels, bool generateMipmaps, uint16_t width, uint16_t height, const void* pixels = nullptr) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateTexture2D, { .opCreateTexture2D = { id, format, mipLevels, generateMipmaps, width, height, pixels } } });
 		return Texture(id, this);
 	}
+	/** @brief Documents the createCompressedTexture2D declaration. */
 	inline Texture createCompressedTexture2D(TextureFormat format, uint16_t width, uint16_t height, TextureCompressionLayout layout, const TextureMipData* mips, uint8_t mipCount) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateCompressedTexture2D, { .opCreateCompressedTexture2D = { id, format, width, height, layout, mips, mipCount } } });
 		return Texture(id, this);
 	}
+	/** @brief Documents the createTexture2DFromDecodeTarget declaration. */
 	inline Texture createTexture2DFromDecodeTarget(const DecodeTarget* source, uint8_t mipLevels, bool generateMipmaps) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateTexture2DFromDecodeTarget, { .opCreateTexture2DFromDecodeTarget = { id, source, mipLevels, generateMipmaps } } });
 		return Texture(id, this);
 	}
+	/** @brief Documents the createTexture3D declaration. */
 	inline Texture createTexture3D(TextureFormat format, bool generateMipmaps, uint16_t width, uint16_t height, uint16_t depth, const void* pixels = nullptr) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateTexture3D, { .opCreateTexture3D = { id, format, generateMipmaps, width, height, depth, pixels } } });
 		return Texture(id, this);
 	}
+	/** @brief Documents the createTextureCube declaration. */
 	inline Texture createTextureCube(TextureFormat format, uint8_t mipLevels, bool generateMipmaps, uint16_t size) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateTextureCube, { .opCreateTextureCube = { id, format, mipLevels, generateMipmaps, size } } });
 		return Texture(id, this);
 	}
+	/** @brief Documents the createTexture2DArray declaration. */
 	inline Texture createTexture2DArray(TextureFormat format, uint8_t mipLevels, bool generateMipmaps, uint16_t width, uint16_t height, uint16_t layers, const void* pixels = nullptr) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateTexture2DArray, { .opCreateTexture2DArray = { id, format, mipLevels, generateMipmaps, width, height, layers, pixels } } });
 		return Texture(id, this);
 	}
+	/** @brief Documents the createImage2D declaration. */
 	inline Image createImage2D(TextureFormat format, uint16_t width, uint16_t height, uint8_t mipLevels, uint32_t usage) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateImage2D, { .opCreateImage2D = { id, format, width, height, mipLevels, usage } } });
 		return Image(id, this);
 	}
+	/** @brief Documents the createMultisampledImage2D declaration. */
 	inline Image createMultisampledImage2D(TextureFormat format, uint16_t width, uint16_t height, uint8_t samples, uint32_t usage) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateMultisampledImage2D, { .opCreateMultisampledImage2D = { id, format, width, height, samples, usage } } });
 		return Image(id, this);
 	}
+	/** @brief Documents the createSampler declaration. */
 	inline Sampler createSampler(SamplerFiltering filtering, const SamplerWrapping (&wrapping)[3], float maxAnisotropy, float maxLod, float minLod, float lodBias) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateSampler, { .opCreateSampler = { id, filtering, { wrapping[0], wrapping[1], wrapping[2] }, maxAnisotropy, maxLod, minLod, lodBias } } });
 		return Sampler(id, this);
 	}
+	/** @brief Documents the createFramebuffer declaration. */
 	inline Framebuffer createFramebuffer(uint16_t width, uint16_t height, const FramebufferAttachment* attachments, uint32_t attachmentCount) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateFramebuffer, { .opCreateFramebuffer = { id, width, height, attachments, attachmentCount } } });
 		return Framebuffer(id, this);
 	}
+	/** @brief Documents the createPipeline declaration. */
 	inline Pipeline createPipeline(const char* name, const ShaderBinaryDescriptor* shaderBinaries, uint32_t shaderBinaryCount, const VertexDescriptor* vertexInput, const PipelineBindingLayout* bindingLayout = nullptr) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreatePipeline, { .opCreatePipeline = { id, name, shaderBinaries, shaderBinaryCount, vertexInput, bindingLayout } } });
 		return Pipeline(id, this);
 	}
+	/** @brief Documents the createComputePipeline declaration. */
 	inline ComputePipeline createComputePipeline(const char* name, const ShaderBinaryDescriptor* shader, const PipelineBindingLayout* bindingLayout = nullptr) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateComputePipeline, { .opCreateComputePipeline = { id, name, shader, bindingLayout } } });
 		return ComputePipeline(id, this);
 	}
+	/** @brief Documents the createFence declaration. */
 	inline Fence createFence(uint64_t initialValue = 0) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateFence, { .opCreateFence = { id, initialValue } } });
 		return Fence(id, this);
 	}
+	/** @brief Documents the createQueryPool declaration. */
 	inline QueryPool createQueryPool(QueryType type, uint32_t queryCount) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateQueryPool, { .opCreateQueryPool = { id, type, queryCount } } });
 		return QueryPool(id, this);
 	}
+	/** @brief Documents the createSwapchain declaration. */
 	inline HandleId createSwapchain(const SwapchainDescriptor* descriptor) {
 		const HandleId id = allocateId();
 		push({ Opcode::CreateSwapchain, { .opCreateSwapchain = { id, descriptor } } });
@@ -413,26 +481,47 @@ public:
 	inline void resizeBuffer(HandleId id, uint32_t size) { push({ Opcode::ResizeBufferObject, { .opResizeBufferObject = { id, size } } }); }
 	inline void updateBuffer(HandleId id, uint32_t offset, uint32_t size, const void* data) { push({ Opcode::UpdateBufferObject, { .opUpdateBufferObject = { id, offset, size, data } } }); }
 	inline void mapBuffer(HandleId id, uint32_t offset, uint32_t size, BufferMapAccess access, BufferMapCallback callback, void* userData) { push({ Opcode::MapBufferObject, { .opMapBufferObject = { id, offset, size, access, callback, userData } } }); }
+	/** @brief Documents the copyBuffer declaration. */
 	inline void copyBuffer(HandleId source, HandleId destination, uint32_t sourceOffset, uint32_t destinationOffset, uint32_t size) { push({ Opcode::CopyBuffer, { .opCopyBuffer = { source, destination, sourceOffset, destinationOffset, size } } }); }
+	/** @brief Documents the readBuffer declaration. */
 	inline void readBuffer(HandleId buffer, uint32_t offset, uint32_t size, BufferReadbackCallback callback, void* userData) { push({ Opcode::ReadBuffer, { .opReadBuffer = { buffer, offset, size, callback, userData } } }); }
+	/** @brief Documents the createVertexArray declaration. */
 	inline void createVertexArray(HandleId id, const VertexDescriptor* descriptor, uint32_t elementCount) { push({ Opcode::CreateVertexArrayObject, { .opCreateVertexArrayObject = { id, descriptor, elementCount } } }); }
+	/** @brief Documents the resizeTexture2D declaration. */
 	inline void resizeTexture2D(HandleId id, TextureFormat format, uint8_t mipLevels, bool generateMipmaps, uint16_t width, uint16_t height) { push({ Opcode::ResizeTexture2D, { .opResizeTexture2D = { id, format, mipLevels, generateMipmaps, width, height } } }); }
+	/** @brief Documents the updateTexture2D declaration. */
 	inline void updateTexture2D(HandleId id, TextureFormat format, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) { push({ Opcode::UpdateTexture2D, { .opUpdateTexture2D = { id, format, mipLevel, x, y, width, height, pixels } } }); }
+	/** @brief Documents the updateCompressedTexture2D declaration. */
 	inline void updateCompressedTexture2D(HandleId id, TextureFormat format, TextureCompressionLayout layout, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint32_t byteSize, const void* data) { push({ Opcode::UpdateCompressedTexture2D, { .opUpdateCompressedTexture2D = { id, format, layout, mipLevel, x, y, width, height, byteSize, data } } }); }
+	/** @brief Documents the updateTextureCubeFace declaration. */
 	inline void updateTextureCubeFace(HandleId id, TextureCubeFace face, TextureFormat format, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) { push({ Opcode::UpdateTextureCubeFace, { .opUpdateTextureCubeFace = { id, face, format, mipLevel, x, y, width, height, pixels } } }); }
+	/** @brief Documents the updateTexture2DArray declaration. */
 	inline void updateTexture2DArray(HandleId id, TextureFormat format, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) { push({ Opcode::UpdateTexture2DArray, { .opUpdateTexture2DArray = { id, format, mipLevel, layer, x, y, width, height, pixels } } }); }
+	/** @brief Documents the blitTexture2D declaration. */
 	inline void blitTexture2D(HandleId source, HandleId destination, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) { push({ Opcode::BlitTexture2D, { .opBlitTexture2D = { source, destination, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
+	/** @brief Documents the generateTextureMipmaps declaration. */
 	inline void generateTextureMipmaps(HandleId id) { push({ Opcode::GenerateTextureMipmaps, { .opGenerateTextureMipmaps = { id } } }); }
+	/** @brief Documents the resizeImage2D declaration. */
 	inline void resizeImage2D(HandleId id, TextureFormat format, uint16_t width, uint16_t height, uint8_t mipLevels, uint32_t usage) { push({ Opcode::ResizeImage2D, { .opResizeImage2D = { id, format, width, height, mipLevels, usage } } }); }
+	/** @brief Documents the updateImage2D declaration. */
 	inline void updateImage2D(HandleId id, TextureFormat format, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) { push({ Opcode::UpdateImage2D, { .opUpdateImage2D = { id, format, mipLevel, x, y, width, height, pixels } } }); }
+	/** @brief Documents the blitImage2D declaration. */
 	inline void blitImage2D(HandleId source, HandleId destination, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) { push({ Opcode::BlitImage2D, { .opBlitImage2D = { source, destination, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
+	/** @brief Documents the resolveImage2D declaration. */
 	inline void resolveImage2D(HandleId source, HandleId destination, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) { push({ Opcode::ResolveImage2D, { .opResolveImage2D = { source, destination, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
+	/** @brief Documents the copyBufferToImage2D declaration. */
 	inline void copyBufferToImage2D(HandleId sourceBuffer, HandleId destinationImage, uint32_t bufferOffset, uint32_t bufferRowPitch, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height) { push({ Opcode::CopyBufferToImage2D, { .opCopyBufferToImage2D = { sourceBuffer, destinationImage, bufferOffset, bufferRowPitch, mipLevel, layer, x, y, width, height } } }); }
+	/** @brief Documents the copyImage2DToBuffer declaration. */
 	inline void copyImage2DToBuffer(HandleId sourceImage, HandleId destinationBuffer, uint32_t bufferOffset, uint32_t bufferRowPitch, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height) { push({ Opcode::CopyImage2DToBuffer, { .opCopyImage2DToBuffer = { sourceImage, destinationBuffer, bufferOffset, bufferRowPitch, mipLevel, layer, x, y, width, height } } }); }
+	/** @brief Documents the copyImage2D declaration. */
 	inline void copyImage2D(HandleId sourceImage, HandleId destinationImage, uint8_t sourceMipLevel, uint16_t sourceLayer, uint8_t destinationMipLevel, uint16_t destinationLayer, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) { push({ Opcode::CopyImage2D, { .opCopyImage2D = { sourceImage, destinationImage, sourceMipLevel, sourceLayer, destinationMipLevel, destinationLayer, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
+	/** @brief Documents the readImage2D declaration. */
 	inline void readImage2D(HandleId image, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height, ImageReadbackCallback callback, void* userData) { push({ Opcode::ReadImage2D, { .opReadImage2D = { image, mipLevel, layer, x, y, width, height, callback, userData } } }); }
+	/** @brief Documents the resizeSwapchain declaration. */
 	inline void resizeSwapchain(HandleId id, uint16_t width, uint16_t height, const SwapchainImageBinding* imageBindings = nullptr, uint32_t imageBindingCount = 0) { push({ Opcode::ResizeSwapchain, { .opResizeSwapchain = { id, width, height, imageBindings, imageBindingCount } } }); }
+	/** @brief Documents the acquireSwapchainImage declaration. */
 	inline void acquireSwapchainImage(HandleId swapchain, SwapchainAcquireCallback callback, void* userData) { push({ Opcode::AcquireSwapchainImage, { .opAcquireSwapchainImage = { swapchain, callback, userData } } }); }
+	/** @brief Documents the presentSwapchain declaration. */
 	inline void presentSwapchain(HandleId swapchain = DefaultSwapchain, uint32_t imageIndex = 0) { push({ Opcode::PresentSwapchain, { .opPresentSwapchain = { swapchain, imageIndex } } }); }
 	///@}
 
@@ -441,27 +530,49 @@ public:
 	inline void beginFrame(HandleId framebuffer = DefaultFramebuffer) { push({ Opcode::BeginFrame, { .opBeginFrame = { framebuffer } } }); }
 	inline void endFrame(HandleId framebuffer = DefaultFramebuffer) { push({ Opcode::EndFrame, { .opEndFrame = { framebuffer } } }); }
 	inline void present(HandleId framebuffer = DefaultFramebuffer) { push({ Opcode::Present, { .opPresent = { framebuffer } } }); }
+	/** @brief Documents the bindFramebuffer declaration. */
 	inline void bindFramebuffer(HandleId id) { push({ Opcode::BindFramebuffer, { .opBindFramebuffer = { id } } }); }
+	/** @brief Documents the clearColorAttachment declaration. */
 	inline void clearColorAttachment(HandleId framebuffer, uint32_t colorAttachmentIndex, const float (&color)[4]) { push({ Opcode::ClearColorAttachment, { .opClearColorAttachment = { framebuffer, colorAttachmentIndex, { color[0], color[1], color[2], color[3] } } } }); }
+	/** @brief Documents the clearDepthStencilAttachment declaration. */
 	inline void clearDepthStencilAttachment(HandleId framebuffer, bool clearDepth, bool clearStencil, float depth, uint32_t stencil) { push({ Opcode::ClearDepthStencilAttachment, { .opClearDepthStencilAttachment = { framebuffer, clearDepth, clearStencil, depth, stencil } } }); }
+	/** @brief Documents the beginRenderPass declaration. */
 	inline void beginRenderPass(const RenderPassDescriptor* descriptor) { push({ Opcode::BeginRenderPass, { .opBeginRenderPass = { descriptor } } }); }
+	/** @brief Documents the endRenderPass declaration. */
 	inline void endRenderPass() { push({ Opcode::EndRenderPass, { .opEndRenderPass = { 0 } } }); }
+	/** @brief Documents the bindPipeline declaration. */
 	inline void bindPipeline(HandleId id) { push({ Opcode::BindPipeline, { .opBindPipeline = { id } } }); }
+	/** @brief Documents the bindComputePipeline declaration. */
 	inline void bindComputePipeline(HandleId id) { push({ Opcode::BindComputePipeline, { .opBindComputePipeline = { id } } }); }
+	/** @brief Documents the bindTexture declaration. */
 	inline void bindTexture(uint32_t slot, HandleId texture, TextureBindingType type) { push({ Opcode::BindTexture, { .opBindTexture = { slot, texture, type } } }); }
+	/** @brief Documents the bindSampler declaration. */
 	inline void bindSampler(uint32_t slot, HandleId sampler) { push({ Opcode::BindSampler, { .opBindSampler = { slot, sampler } } }); }
+	/** @brief Documents the bindUniformBuffer declaration. */
 	inline void bindUniformBuffer(uint32_t slot, HandleId buffer, uint32_t offset, uint32_t size) { push({ Opcode::BindUniformBuffer, { .opBindUniformBuffer = { slot, buffer, offset, size } } }); }
+	/** @brief Documents the bindStorageBuffer declaration. */
 	inline void bindStorageBuffer(uint32_t slot, HandleId buffer, uint32_t offset, uint32_t size, StorageAccess access) { push({ Opcode::BindStorageBuffer, { .opBindStorageBuffer = { slot, buffer, offset, size, access } } }); }
+	/** @brief Documents the bindStorageImage declaration. */
 	inline void bindStorageImage(uint32_t slot, HandleId image, uint8_t mipLevel, uint16_t layer, StorageAccess access) { push({ Opcode::BindStorageImage, { .opBindStorageImage = { slot, image, mipLevel, layer, access } } }); }
+	/** @brief Documents the bindVertexBuffer declaration. */
 	inline void bindVertexBuffer(uint32_t binding, HandleId buffer, uint32_t offset, uint32_t stride, uint32_t instanceDivisor = 0) { push({ Opcode::BindVertexBuffer, { .opBindVertexBuffer = { binding, buffer, offset, stride, instanceDivisor } } }); }
+	/** @brief Documents the bindIndexBuffer declaration. */
 	inline void bindIndexBuffer(HandleId buffer, uint32_t offset, IndexType type) { push({ Opcode::BindIndexBuffer, { .opBindIndexBuffer = { buffer, offset, type } } }); }
+	/** @brief Documents the drawTriangles declaration. */
 	inline void drawTriangles(uint32_t vertexOffset, uint32_t vertexCount) { push({ Opcode::DrawTriangles, { .opDrawTriangles = { vertexOffset, vertexCount } } }); }
+	/** @brief Documents the drawIndexedTriangles declaration. */
 	inline void drawIndexedTriangles(uint32_t indexOffset, uint32_t indexCount, uint32_t vertexOffset) { push({ Opcode::DrawIndexedTriangles, { .opDrawIndexedTriangles = { indexOffset, indexCount, vertexOffset } } }); }
+	/** @brief Documents the drawLines declaration. */
 	inline void drawLines(uint32_t vertexOffset, uint32_t vertexCount, float thickness) { push({ Opcode::DrawLines, { .opDrawLines = { vertexOffset, vertexCount, thickness } } }); }
+	/** @brief Documents the drawIndexedLines declaration. */
 	inline void drawIndexedLines(uint32_t indexOffset, uint32_t indexCount, uint32_t vertexOffset, float thickness) { push({ Opcode::DrawIndexedLines, { .opDrawIndexedLines = { indexOffset, indexCount, vertexOffset, thickness } } }); }
+	/** @brief Documents the drawTrianglesInstanced declaration. */
 	inline void drawTrianglesInstanced(uint32_t vertexOffset, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstInstance) { push({ Opcode::DrawTrianglesInstanced, { .opDrawTrianglesInstanced = { vertexOffset, vertexCount, instanceCount, firstInstance } } }); }
+	/** @brief Documents the drawIndexedTrianglesInstanced declaration. */
 	inline void drawIndexedTrianglesInstanced(uint32_t indexOffset, uint32_t indexCount, uint32_t vertexOffset, uint32_t instanceCount, uint32_t firstInstance) { push({ Opcode::DrawIndexedTrianglesInstanced, { .opDrawIndexedTrianglesInstanced = { indexOffset, indexCount, vertexOffset, instanceCount, firstInstance } } }); }
+	/** @brief Documents the drawLinesInstanced declaration. */
 	inline void drawLinesInstanced(uint32_t vertexOffset, uint32_t vertexCount, float thickness, uint32_t instanceCount, uint32_t firstInstance) { push({ Opcode::DrawLinesInstanced, { .opDrawLinesInstanced = { vertexOffset, vertexCount, thickness, instanceCount, firstInstance } } }); }
+	/** @brief Documents the drawIndexedLinesInstanced declaration. */
 	inline void drawIndexedLinesInstanced(uint32_t indexOffset, uint32_t indexCount, uint32_t vertexOffset, float thickness, uint32_t instanceCount, uint32_t firstInstance) { push({ Opcode::DrawIndexedLinesInstanced, { .opDrawIndexedLinesInstanced = { indexOffset, indexCount, vertexOffset, thickness, instanceCount, firstInstance } } }); }
 	///@}
 
@@ -470,24 +581,43 @@ public:
 	inline void setViewport(float x, float y, float width, float height, float minDepth, float maxDepth) { push({ Opcode::SetViewport, { .opSetViewport = { x, y, width, height, minDepth, maxDepth } } }); }
 	inline void setScissor(int32_t x, int32_t y, uint32_t width, uint32_t height) { push({ Opcode::SetScissor, { .opSetScissor = { x, y, width, height } } }); }
 	inline void setBlendState(const OpSetBlendState& state) { push({ Opcode::SetBlendState, { .opSetBlendState = state } }); }
+	/** @brief Documents the setDepthStencilState declaration. */
 	inline void setDepthStencilState(const OpSetDepthStencilState& state) { push({ Opcode::SetDepthStencilState, { .opSetDepthStencilState = state } }); }
+	/** @brief Documents the setRasterizerState declaration. */
 	inline void setRasterizerState(const OpSetRasterizerState& state) { push({ Opcode::SetRasterizerState, { .opSetRasterizerState = state } }); }
+	/** @brief Documents the transitionResource declaration. */
 	inline void transitionResource(HandleId id, ResourceKind kind, ResourceState oldState, ResourceState newState, uint32_t sourceStages, uint32_t destinationStages) { push({ Opcode::TransitionResource, { .opTransitionResource = { id, kind, oldState, newState, sourceStages, destinationStages } } }); }
+	/** @brief Documents the bufferBarrier declaration. */
 	inline void bufferBarrier(HandleId buffer, uint32_t offset, uint32_t size, uint32_t sourceStages, uint32_t destinationStages, uint32_t sourceAccess, uint32_t destinationAccess) { push({ Opcode::BufferBarrier, { .opBufferBarrier = { buffer, offset, size, sourceStages, destinationStages, sourceAccess, destinationAccess } } }); }
+	/** @brief Documents the imageBarrier declaration. */
 	inline void imageBarrier(const OpImageBarrier& barrier) { push({ Opcode::ImageBarrier, { .opImageBarrier = barrier } }); }
+	/** @brief Documents the signalFence declaration. */
 	inline void signalFence(HandleId id, uint64_t value) { push({ Opcode::SignalFence, { .opSignalFence = { id, value } } }); }
+	/** @brief Documents the waitFence declaration. */
 	inline void waitFence(HandleId id, uint64_t value) { push({ Opcode::WaitFence, { .opWaitFence = { id, value } } }); }
+	/** @brief Documents the dispatchCompute declaration. */
 	inline void dispatchCompute(uint32_t x, uint32_t y, uint32_t z) { push({ Opcode::DispatchCompute, { .opDispatchCompute = { x, y, z } } }); }
+	/** @brief Documents the dispatchComputeIndirect declaration. */
 	inline void dispatchComputeIndirect(HandleId buffer, uint32_t offset) { push({ Opcode::DispatchComputeIndirect, { .opDispatchComputeIndirect = { buffer, offset } } }); }
+	/** @brief Documents the drawIndirect declaration. */
 	inline void drawIndirect(HandleId buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) { push({ Opcode::DrawIndirect, { .opDrawIndirect = { buffer, offset, drawCount, stride } } }); }
+	/** @brief Documents the drawIndexedIndirect declaration. */
 	inline void drawIndexedIndirect(HandleId buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) { push({ Opcode::DrawIndexedIndirect, { .opDrawIndexedIndirect = { buffer, offset, drawCount, stride } } }); }
+	/** @brief Documents the resetQueryPool declaration. */
 	inline void resetQueryPool(HandleId id, uint32_t firstQuery, uint32_t queryCount) { push({ Opcode::ResetQueryPool, { .opResetQueryPool = { id, firstQuery, queryCount } } }); }
+	/** @brief Documents the beginQuery declaration. */
 	inline void beginQuery(HandleId id, uint32_t query) { push({ Opcode::BeginQuery, { .opBeginQuery = { id, query } } }); }
+	/** @brief Documents the endQuery declaration. */
 	inline void endQuery(HandleId id, uint32_t query) { push({ Opcode::EndQuery, { .opEndQuery = { id, query } } }); }
+	/** @brief Documents the writeTimestamp declaration. */
 	inline void writeTimestamp(HandleId id, uint32_t query, uint32_t pipelineStage) { push({ Opcode::WriteTimestamp, { .opWriteTimestamp = { id, query, pipelineStage } } }); }
+	/** @brief Documents the readQueryResults declaration. */
 	inline void readQueryResults(HandleId id, uint32_t firstQuery, uint32_t queryCount, QueryReadbackCallback callback, void* userData) { push({ Opcode::ReadQueryResults, { .opReadQueryResults = { id, firstQuery, queryCount, callback, userData } } }); }
+	/** @brief Documents the debugLabelBegin declaration. */
 	inline void debugLabelBegin(const char* name, const float (&color)[4]) { push({ Opcode::DebugLabelBegin, { .opDebugLabelBegin = { name, { color[0], color[1], color[2], color[3] } } } }); }
+	/** @brief Documents the debugLabelEnd declaration. */
 	inline void debugLabelEnd() { push({ Opcode::DebugLabelEnd, { .opDebugLabelEnd = { 0 } } }); }
+	/** @brief Documents the debugMarker declaration. */
 	inline void debugMarker(const char* name, const float (&color)[4]) { push({ Opcode::DebugMarker, { .opDebugMarker = { name, { color[0], color[1], color[2], color[3] } } } }); }
 	///@}
 };

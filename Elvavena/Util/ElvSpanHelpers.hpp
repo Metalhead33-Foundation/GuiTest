@@ -1,11 +1,26 @@
 #ifndef ELVSPANHELPERS_HPP
 #define ELVSPANHELPERS_HPP
+/**
+ * @file ElvSpanHelpers.hpp
+ * @brief Declares the ElvSpanHelpers API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <span>
 #include <cassert>
 #include <type_traits>
 #include <glm/glm.hpp>
 namespace Elv {
 namespace Util {
+
+/** @defgroup ByteSpanWrappers Byte Span Wrappers
+ *  @brief Helpers for exposing typed objects and spans as byte spans.
+ */
+/** @defgroup DataTransformers Data Transformers
+ *  @brief Helpers for transforming and iterating span-backed data.
+ */
 
 /**
  * @ingroup ByteSpanWrappers
@@ -121,6 +136,7 @@ template <typename T> struct span_wrappers {
 	}
 
 	template <typename Func>
+	/** @brief Documents the over_2d_span declaration. */
 	static void over_2d_span(const std::span<const T>& thingies, const glm::uvec2& dimensions, Func&& function) {
 		over_2d_span(thingies, function, dimensions);
 	}
@@ -147,6 +163,7 @@ template <typename T> struct span_wrappers {
 	}
 
 	template <typename Func>
+	/** @brief Documents the over_2d_span declaration. */
 	static void over_2d_span(const std::span<const T>& thingies, const glm::uvec2& dimensions, Func&& function,
 							 const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 		over_2d_span(thingies, function, dimensions, offset, affected_dimension);
@@ -169,6 +186,7 @@ template <typename T> struct span_wrappers {
 	}
 
 	template <typename Func>
+	/** @brief Documents the over_2d_span_mut declaration. */
 	static void over_2d_span_mut(std::span<T> thingies, const glm::uvec2& dimensions, Func&& function) {
 		over_2d_span_mut(thingies, function, dimensions);
 	}
@@ -195,12 +213,14 @@ template <typename T> struct span_wrappers {
 	}
 
 	template <typename Func>
+	/** @brief Documents the over_2d_span_mut declaration. */
 	static void over_2d_span_mut(std::span<T> thingies, const glm::uvec2& dimensions, Func&& function,
 							 const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 		over_2d_span_mut(thingies, function, dimensions, offset, affected_dimension);
 	}
 };
 
+/** @brief Documents the over_2d_spans declaration. */
 template <typename T1, typename T2, typename Func> void over_2d_spans(std::span<const T1> thingies1, std::span<T2> thingies2,
 				   Func&& function, const glm::uvec2& dimensions,
 				   const glm::uvec2& offset, const glm::uvec2& affected_dimension)
@@ -215,6 +235,7 @@ template <typename T1, typename T2, typename Func> void over_2d_spans(std::span<
 		}
 	}
 }
+/** @brief Documents the over_2d_spans declaration. */
 template <typename T1, typename T2, typename Func> void over_2d_spans(std::span<T1> thingies1, std::span<const T2> thingies2,
 				   Func&& function, const glm::uvec2& dimensions,
 				   const glm::uvec2& offset, const glm::uvec2& affected_dimension)
@@ -372,6 +393,7 @@ template <typename T> const std::span<const T> as_const_span(const std::span<con
 template <typename T, typename Func> void over_2d_span(const std::span<const T>& thingies, Func&& function, const glm::uvec2& dimensions) {
 	span_wrappers<T>::over_2d_span(thingies,function,dimensions);
 }
+/** @brief Documents the over_2d_span declaration. */
 template <typename T, typename Func> void over_2d_span(const std::span<const T>& thingies, const glm::uvec2& dimensions, Func&& function) {
 	span_wrappers<T>::over_2d_span(thingies, function, dimensions);
 }
@@ -390,6 +412,7 @@ template <typename T, typename Func> void over_2d_span(const std::span<const T>&
 						 const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 	span_wrappers<T>::over_2d_span(thingies,function,dimensions,offset,affected_dimension);
 }
+/** @brief Documents the over_2d_span declaration. */
 template <typename T, typename Func> void over_2d_span(const std::span<const T>& thingies, const glm::uvec2& dimensions, Func&& function,
 						 const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 	span_wrappers<T>::over_2d_span(thingies, function, dimensions, offset, affected_dimension);
@@ -407,6 +430,7 @@ template <typename T, typename Func> void over_2d_span(const std::span<const T>&
 template <typename T, typename Func> void over_2d_span_mut(std::span<T> thingies, Func&& function, const glm::uvec2& dimensions) {
 	span_wrappers<T>::over_2d_span_mut(thingies,function,dimensions);
 }
+/** @brief Documents the over_2d_span_mut declaration. */
 template <typename T, typename Func> void over_2d_span_mut(std::span<T> thingies, const glm::uvec2& dimensions, Func&& function) {
 	span_wrappers<T>::over_2d_span_mut(thingies, function, dimensions);
 }
@@ -425,12 +449,14 @@ template <typename T, typename Func> void over_2d_span_mut(std::span<T> thingies
 						 const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 	span_wrappers<T>::over_2d_span_mut(thingies,function,dimensions,offset,affected_dimension);
 }
+/** @brief Documents the over_2d_span_mut declaration. */
 template <typename T, typename Func> void over_2d_span_mut(std::span<T> thingies, const glm::uvec2& dimensions, Func&& function,
 						 const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 	span_wrappers<T>::over_2d_span_mut(thingies, function, dimensions, offset, affected_dimension);
 }
 
 template <typename Func>
+/** @brief Documents the over_2d_grid declaration. */
 inline void over_2d_grid(Func&& function, const glm::uvec2& dimensions, const glm::uvec2& offset, const glm::uvec2& affected_dimension) {
 	const unsigned max_x = std::min(dimensions.x,offset.x+affected_dimension.x);
 	const unsigned max_y = std::min(dimensions.y,offset.y+affected_dimension.y);

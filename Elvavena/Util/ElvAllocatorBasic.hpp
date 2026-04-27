@@ -1,5 +1,13 @@
 #ifndef ELVALLOCATORBASIC_HPP
 #define ELVALLOCATORBASIC_HPP
+/**
+ * @file ElvAllocatorBasic.hpp
+ * @brief Declares the ElvAllocatorBasic API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <cstddef>
 #include <concepts>
 #include <memory_resource>
@@ -180,16 +188,21 @@ SmartPointerWrappersForAlloc<T, Alloc>::shared_ptr make_shared(Args&&... args) {
 	return SmartPointerWrappersForAlloc<T, Alloc>::make_shared(std::forward<Args>(args)...);
 }
 
+/** @brief Documents the GenericDeleter type or declaration. */
 struct GenericDeleter {
+	/** @brief Documents the resource declaration. */
 	std::pmr::memory_resource* resource = std::pmr::get_default_resource();
+	/** @brief Documents the destroyAndDeallocate) declaration. */
 	void (*destroyAndDeallocate)(void*, std::pmr::memory_resource*) = nullptr;
 
+	/** @brief Documents the operator helper. */
 	void operator()(void* ptr) const {
 		if (!ptr || !destroyAndDeallocate) return;
 		destroyAndDeallocate(ptr, resource);
 	}
 
 	template <typename T>
+	/** @brief Documents the create declaration. */
 	static GenericDeleter create(std::pmr::memory_resource* resource = std::pmr::get_default_resource()) {
 		return GenericDeleter{
 			resource,
@@ -203,14 +216,18 @@ struct GenericDeleter {
 	}
 };
 
+/** @brief Documents the PolyMorphicSmartPointerFactory type or declaration. */
 template <typename T> struct PolyMorphicSmartPointerFactory {
 public:
 
 	// Typedefs for the smart pointers using polymorphic_allocator
+	/** @brief Documents the unique_ptr_type declaration. */
 	using unique_ptr_type = std::unique_ptr<T, GenericDeleter>;
+	/** @brief Documents the shared_ptr_type declaration. */
 	using shared_ptr_type = std::shared_ptr<T>;
 
 	// Static function to create a unique_ptr<T>
+	/** @brief Documents the make_unique declaration. */
 	template <typename... Args> static unique_ptr_type make_unique(std::pmr::memory_resource* resource = std::pmr::get_default_resource(), Args&&... args) {
 		std::pmr::polymorphic_allocator<T> alloc(resource);
 		T* ptr = alloc.allocate(1);
@@ -224,6 +241,7 @@ public:
 	}
 
 	// Static function to create a shared_ptr<T>
+	/** @brief Documents the make_shared declaration. */
 	template <typename... Args> static shared_ptr_type make_shared(std::pmr::memory_resource* resource = std::pmr::get_default_resource(), Args&&... args) {
 		std::pmr::polymorphic_allocator<T> alloc(resource);
 		T* ptr = alloc.allocate(1);
@@ -237,10 +255,12 @@ public:
 	}
 };
 template <typename T, typename... Args>
+/** @brief Documents the pmr_make_unique declaration. */
 PolyMorphicSmartPointerFactory<T>::unique_ptr_type pmr_make_unique(std::pmr::memory_resource* resource = std::pmr::get_default_resource(), Args&&... args) {
 	return PolyMorphicSmartPointerFactory<T>::make_unique(resource, std::forward<Args>(args)... );
 }
 template <typename T, typename... Args>
+/** @brief Documents the pmr_make_shared declaration. */
 PolyMorphicSmartPointerFactory<T>::shared_ptr_type pmr_make_shared(std::pmr::memory_resource* resource = std::pmr::get_default_resource(), Args&&... args) {
 	return PolyMorphicSmartPointerFactory<T>::make_shared(resource, std::forward<Args>(args)... );
 }
@@ -315,26 +335,33 @@ template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> stru
 	 * @brief Default constructor.
 	 */
 	AlexandrescuAllocatorAdapter() = default;
+	/** @brief Documents the AlexandrescuAllocatorAdapter type or declaration. */
 	AlexandrescuAllocatorAdapter(const Alloc& cpy) : alloc_(cpy) {
 
 	}
+	/** @brief Documents the AlexandrescuAllocatorAdapter type or declaration. */
 	AlexandrescuAllocatorAdapter(Alloc&& mov) : alloc_(std::move(mov)) {
 
 	}
+	/** @brief Documents the AlexandrescuAllocatorAdapter type or declaration. */
 	template<typename U> AlexandrescuAllocatorAdapter(const AlexandrescuAllocatorAdapter<Alloc,U>& cpy) : alloc_(cpy.alloc_) {
 
 	}
+	/** @brief Documents the AlexandrescuAllocatorAdapter type or declaration. */
 	template<typename U> AlexandrescuAllocatorAdapter(AlexandrescuAllocatorAdapter<Alloc,U>&& mov) : alloc_(std::move(mov.alloc_)) {
 
 	}
+	/** @brief Documents the operator= helper. */
 	template<typename U> AlexandrescuAllocatorAdapter& operator=(const AlexandrescuAllocatorAdapter<Alloc,U>& cpy) {
 		this->alloc_ = cpy.alloc_;
 		return *this;
 	}
+	/** @brief Documents the operator= helper. */
 	template<typename U> AlexandrescuAllocatorAdapter& operator=(AlexandrescuAllocatorAdapter<Alloc,U>&& mov) {
 		this->alloc_ = std::move(mov.alloc_);
 		return *this;
 	}
+	/** @brief Documents the AlexandrescuAllocatorAdapter type or declaration. */
 	template <typename... Args> AlexandrescuAllocatorAdapter(Args&&... args)
 		: alloc_(std::forward<Args>(args)...)
 	{
@@ -405,20 +432,35 @@ template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> stru
 	}
 };
 
+/** @brief Documents the StaticAlexandrescuAllocatorAdapter type or declaration. */
 template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> struct StaticAlexandrescuAllocatorAdapter {
+	/** @brief Documents the reference declaration. */
 	typedef T& reference;
+	/** @brief Documents the const_reference declaration. */
 	typedef const T& const_reference;
+	/** @brief Documents the pointer declaration. */
 	typedef T* pointer;
+	/** @brief Documents the const_pointer declaration. */
 	typedef const T* const_pointer;
+	/** @brief Documents the void_pointer declaration. */
 	typedef void* void_pointer;
+	/** @brief Documents the const_void_pointer declaration. */
 	typedef const void* const_void_pointer;
+	/** @brief Documents the value_type declaration. */
 	typedef T value_type;
+	/** @brief Documents the size_type declaration. */
 	typedef std::size_t size_type;
+	/** @brief Documents the difference_type declaration. */
 	typedef std::ptrdiff_t difference_type;
+	/** @brief Documents the allocator_type declaration. */
 	typedef StaticAlexandrescuAllocatorAdapter allocator_type;
+	/** @brief Documents the propagate_on_container_copy_assignment declaration. */
 	typedef std::false_type propagate_on_container_copy_assignment;
+	/** @brief Documents the propagate_on_container_move_assignment declaration. */
 	typedef std::false_type propagate_on_container_move_assignment;
+	/** @brief Documents the propagate_on_container_swap declaration. */
 	typedef std::false_type propagate_on_container_swap;
+	/** @brief Documents the is_always_equal declaration. */
 	typedef std::true_type is_always_equal;
 	//! The underlying AlexandrescuAllocator
 	static Alloc alloc_;
@@ -450,10 +492,12 @@ template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> stru
 	//! For STL compatibility
 	template <typename U>
 	struct rebind {
+		/** @brief Documents the other declaration. */
 		using other = StaticAlexandrescuAllocatorAdapter<Alloc, U>;
 	};
 	//! For STL compatibility
 	template <typename UAlloc, typename UT> requires AlexandrescuAllocator<UAlloc> constexpr StaticAlexandrescuAllocatorAdapter(const StaticAlexandrescuAllocatorAdapter <UAlloc, UT>&) noexcept {}
+	/** @brief Documents the operator== helper. */
 	friend bool operator==(const StaticAlexandrescuAllocatorAdapter& lhs, const StaticAlexandrescuAllocatorAdapter& rhs) {
 		return true;
 	}

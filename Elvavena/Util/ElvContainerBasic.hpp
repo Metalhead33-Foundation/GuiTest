@@ -1,5 +1,13 @@
 #ifndef ELVCONTAINERBASIC_HPP
 #define ELVCONTAINERBASIC_HPP
+/**
+ * @file ElvContainerBasic.hpp
+ * @brief Declares the ElvContainerBasic API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <concepts>
 #include <iterator>
 #include <type_traits>

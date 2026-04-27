@@ -1,5 +1,13 @@
 #ifndef ELVSTREXCEPTION_HPP
 #define ELVSTREXCEPTION_HPP
+/**
+ * @file ElvException.hpp
+ * @brief Declares the ElvException API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Elvavena/Util/ElvAllocatorBasic.hpp>
 #include <exception>
 #include <functional>

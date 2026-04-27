@@ -1,5 +1,13 @@
 #ifndef EUPHMEMORYDEVICE_HPP
 #define EUPHMEMORYDEVICE_HPP
+/**
+ * @file EuphMemoryDevice.hpp
+ * @brief Declares the EuphMemoryDevice API in the Euphemy/Io module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Io.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <vector>
 #include <memory_resource>
 #include <cstring>

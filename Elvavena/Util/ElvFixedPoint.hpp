@@ -1,5 +1,13 @@
 #ifndef ELVFIXEDPOINT_HPP
 #define ELVFIXEDPOINT_HPP
+/**
+ * @file ElvFixedPoint.hpp
+ * @brief Declares the ElvFixedPoint API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <cstdint>
 #include <cmath>
 #include <compare>
@@ -9,14 +17,9 @@
 #if __cplusplus <= 199711L
   #error This library needs at least a C++11 compliant compiler
 #endif
-/**
- * @defgroup fixed_point Fixed Point Arithmetic Class
- * @brief Provides a class template for fixed-point arithmetic.
- * @ingroup fp
- * @{
- */
-
+/** @brief Documents the FP_TEMPLATE_INTRO constant or macro. */
 #define FP_TEMPLATE_INTRO template <typename container_t = std::int32_t, container_t fraction_bits = sizeof(container_t)*4>
+/** @brief Documents the FP_TEMPLATE_INST constant or macro. */
 #define FP_TEMPLATE_INST fixed_point<container_t,fraction_bits>
 namespace Elv {
 namespace Util {
@@ -125,9 +128,12 @@ concept FixedPoint = requires(T a, T b, typename T::container_type c, long doubl
  * @tparam container_t The underlying integer type to store the fixed-point number. Defaults to std::int32_t.
  * @tparam fraction_bits The number of bits to use for the fractional part. Defaults to half of the bits in container_t.
  */
+/** @brief Documents the operator helper. */
 FP_TEMPLATE_INTRO
 struct fixed_point {
+	/** @brief Documents the is_fixed_point declaration. */
 	using is_fixed_point = void;
+	/** @brief Documents the container_type declaration. */
 	typedef container_t container_type;
 	/**
 	 * @var _container
@@ -1210,6 +1216,7 @@ std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& l
 	return left << right.to_double();
 }
 template <typename container_t, container_t fraction_bits, class CharT, class Traits = std::char_traits<CharT>>
+/** @brief Documents the operator helper. */
 std::basic_istream<CharT,Traits>& operator>>(std::basic_istream<CharT,Traits>& left, const fixed_point<container_t, fraction_bits>& right) {
 	double tmp;
 	left >> tmp;
@@ -1221,31 +1228,40 @@ Io::DataStream<endianness>& operator<<(Io::DataStream<endianness>& left, const f
 	return left << right._container;
 }
 template <typename container_t, container_t fraction_bits, Endian endianness>
+/** @brief Documents the operator helper. */
 Io::DataStream<endianness>& operator>>(Io::DataStream<endianness>& left, fixed_point<container_t, fraction_bits>& right) {
 	return left >> right._container;
 }
 
+/** @brief Documents the fixed16 declaration. */
 typedef fixed_point<std::int16_t> fixed16;
+/** @brief Documents the fixed32 declaration. */
 typedef fixed_point<std::int32_t> fixed32;
+/** @brief Documents the fixed64 declaration. */
 typedef fixed_point<std::int64_t> fixed64;
 #if defined (FIXED_DEFAULT_64_BIT)
 typedef fixed64 fixed;
 #elif defined (FIXED_DEFAULT_16_BIT)
 typedef fixed16 fixed;
 #else
+/** @brief Documents the fixed declaration. */
 typedef fixed32 fixed;
 #endif
 
 #ifndef FP_NO_LITERALS
+/** @brief Documents the operator""_fx16 helper. */
 constexpr fixed16 operator""_fx16(long double a) {
 	return fixed16::from_long_double(a);
 }
+/** @brief Documents the operator""_fx32 helper. */
 constexpr fixed32 operator""_fx32(long double a) {
 	return fixed32::from_long_double(a);
 }
+/** @brief Documents the operator""_fx64 helper. */
 constexpr fixed64 operator""_fx64(long double a) {
 	return fixed64::from_long_double(a);
 }
+/** @brief Documents the operator""_fx helper. */
 constexpr fixed operator""_fx(long double a) {
 	return fixed::from_long_double(a);
 }

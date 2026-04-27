@@ -1,5 +1,13 @@
 #ifndef EUPHMODULERENDERER_HPP
 #define EUPHMODULERENDERER_HPP
+/**
+ * @file EuphModuleRenderer.hpp
+ * @brief Declares the EuphModuleRenderer API in the Euphemy/Media/Audio module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Media/Audio.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Euphemy/Config/EuphLib.hpp>
 #include <Euphemy/Media/Audio/EuphAudioIterator.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>

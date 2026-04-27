@@ -1,5 +1,13 @@
 #ifndef ELVNORMDENORM_HPP
 #define ELVNORMDENORM_HPP
+/**
+ * @file ElvNormDenorm.hpp
+ * @brief Declares the ElvNormDenorm API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <limits>
 #include <cmath>
 #include <type_traits>

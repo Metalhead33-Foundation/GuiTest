@@ -1,5 +1,13 @@
 #ifndef EUPHPIXELFORMAT_HPP
 #define EUPHPIXELFORMAT_HPP
+/**
+ * @file EuphPixelFormat.hpp
+ * @brief Declares the EuphPixelFormat API in the Euphemy/Media/Image module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Media/Image.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Euphemy/Media/Image/EuphImageType.hpp>
 #include <glm/glm.hpp>
 #include <Elvavena/Util/half.hpp>
@@ -59,16 +67,27 @@ template <typename T, Format formatId> struct PixelGreyscale {
 		kernel.w = 1.0f;
 	}
 };
+/** @brief Documents the PixelGreyscale_U8 type or declaration. */
 typedef PixelGreyscale<uint8_t, Format::R8U> PixelGreyscale_U8;
+/** @brief Documents the PixelGreyscale_U16 type or declaration. */
 typedef PixelGreyscale<uint16_t, Format::R16U> PixelGreyscale_U16;
+/** @brief Documents the PixelGreyscale_U32 type or declaration. */
 typedef PixelGreyscale<uint32_t, Format::R32U> PixelGreyscale_U32;
+/** @brief Documents the PixelGreyscale_U64 type or declaration. */
 typedef PixelGreyscale<uint64_t, Format::INVALID> PixelGreyscale_U64;
+/** @brief Documents the PixelGreyscale_S8 type or declaration. */
 typedef PixelGreyscale<int8_t, Format::R8S> PixelGreyscale_S8;
+/** @brief Documents the PixelGreyscale_S16 type or declaration. */
 typedef PixelGreyscale<int16_t, Format::R16S> PixelGreyscale_S16;
+/** @brief Documents the PixelGreyscale_S32 type or declaration. */
 typedef PixelGreyscale<int32_t, Format::R32S> PixelGreyscale_S32;
+/** @brief Documents the PixelGreyscale_S64 type or declaration. */
 typedef PixelGreyscale<int64_t, Format::INVALID> PixelGreyscale_S64;
+/** @brief Documents the PixelGreyscale_F16 type or declaration. */
 typedef PixelGreyscale<half_float::half, Format::R16F> PixelGreyscale_F16;
+/** @brief Documents the PixelGreyscale_F32 type or declaration. */
 typedef PixelGreyscale<float, Format::R32F> PixelGreyscale_F32;
+/** @brief Documents the PixelGreyscale_F64 type or declaration. */
 typedef PixelGreyscale<double, Format::R64F> PixelGreyscale_F64;
 /**
  * @brief Generic two-channel pixel representation (R,G).
@@ -117,16 +136,27 @@ template <typename T, Format formatId> struct PixelRG {
 		kernel.w = 1.0f;
 	}
 };
+/** @brief Documents the PixelRG_U8 type or declaration. */
 typedef PixelRG<uint8_t, Format::RG8U> PixelRG_U8;
+/** @brief Documents the PixelRG_U16 type or declaration. */
 typedef PixelRG<uint16_t, Format::RG16U> PixelRG_U16;
+/** @brief Documents the PixelRG_U32 type or declaration. */
 typedef PixelRG<uint32_t, Format::RG32U> PixelRG_U32;
+/** @brief Documents the PixelRG_U64 type or declaration. */
 typedef PixelRG<uint64_t, Format::INVALID> PixelRG_U64;
+/** @brief Documents the PixelRG_S8 type or declaration. */
 typedef PixelRG<int8_t, Format::RG8S> PixelRG_S8;
+/** @brief Documents the PixelRG_S16 type or declaration. */
 typedef PixelRG<int16_t, Format::RG16S> PixelRG_S16;
+/** @brief Documents the PixelRG_S32 type or declaration. */
 typedef PixelRG<int32_t, Format::RG32S> PixelRG_S32;
+/** @brief Documents the PixelRG_S64 type or declaration. */
 typedef PixelRG<int64_t, Format::INVALID> PixelRG_S64;
+/** @brief Documents the PixelRG_F16 type or declaration. */
 typedef PixelRG<half_float::half, Format::RG16F> PixelRG_F16;
+/** @brief Documents the PixelRG_F32 type or declaration. */
 typedef PixelRG<float, Format::RG32F> PixelRG_F32;
+/** @brief Documents the PixelRG_F64 type or declaration. */
 typedef PixelRG<double, Format::RG64F> PixelRG_F64;
 
 /**
@@ -177,16 +207,27 @@ template <typename T, Format formatId> struct PixelRGB {
 		kernel.w = 1.0f;
 	}
 };
+/** @brief Documents the PixelRGB_U8 type or declaration. */
 typedef PixelRGB<uint8_t, Format::RGB8U> PixelRGB_U8;
+/** @brief Documents the PixelRGB_U16 type or declaration. */
 typedef PixelRGB<uint16_t, Format::RGB16U> PixelRGB_U16;
+/** @brief Documents the PixelRGB_U32 type or declaration. */
 typedef PixelRGB<uint32_t, Format::RGB32U> PixelRGB_U32;
+/** @brief Documents the PixelRGB_U64 type or declaration. */
 typedef PixelRGB<uint64_t, Format::INVALID> PixelRGB_U64;
+/** @brief Documents the PixelRGB_S8 type or declaration. */
 typedef PixelRGB<int8_t, Format::RGB8S> PixelRGB_S8;
+/** @brief Documents the PixelRGB_S16 type or declaration. */
 typedef PixelRGB<int16_t, Format::RGB16S> PixelRGB_S16;
+/** @brief Documents the PixelRGB_S32 type or declaration. */
 typedef PixelRGB<int32_t, Format::RGB32S> PixelRGB_S32;
+/** @brief Documents the PixelRGB_S64 type or declaration. */
 typedef PixelRGB<int64_t, Format::INVALID> PixelRGB_S64;
+/** @brief Documents the PixelRGB_F16 type or declaration. */
 typedef PixelRGB<half_float::half, Format::RGB16F> PixelRGB_F16;
+/** @brief Documents the PixelRGB_F32 type or declaration. */
 typedef PixelRGB<float, Format::RGB32F> PixelRGB_F32;
+/** @brief Documents the PixelRGB_F64 type or declaration. */
 typedef PixelRGB<double, Format::RGB64F> PixelRGB_F64;
 
 /**
@@ -237,16 +278,27 @@ template <typename T, Format formatId> struct PixelBGR {
 		kernel.w = 1.0f;
 	}
 };
+/** @brief Documents the PixelBGR_U8 type or declaration. */
 typedef PixelBGR<uint8_t, Format::BGR8U> PixelBGR_U8;
+/** @brief Documents the PixelBGR_U16 type or declaration. */
 typedef PixelBGR<uint16_t, Format::BGR16U> PixelBGR_U16;
+/** @brief Documents the PixelBGR_U32 type or declaration. */
 typedef PixelBGR<uint32_t, Format::BGR32U> PixelBGR_U32;
+/** @brief Documents the PixelBGR_U64 type or declaration. */
 typedef PixelBGR<uint64_t, Format::INVALID> PixelBGR_U64;
+/** @brief Documents the PixelBGR_S8 type or declaration. */
 typedef PixelBGR<int8_t, Format::BGR8S> PixelBGR_S8;
+/** @brief Documents the PixelBGR_S16 type or declaration. */
 typedef PixelBGR<int16_t, Format::BGR16S> PixelBGR_S16;
+/** @brief Documents the PixelBGR_S32 type or declaration. */
 typedef PixelBGR<int32_t, Format::BGR32S> PixelBGR_S32;
+/** @brief Documents the PixelBGR_S64 type or declaration. */
 typedef PixelBGR<int64_t, Format::INVALID> PixelBGR_S64;
+/** @brief Documents the PixelBGR_F16 type or declaration. */
 typedef PixelBGR<half_float::half, Format::BGR16F> PixelBGR_F16;
+/** @brief Documents the PixelBGR_F32 type or declaration. */
 typedef PixelBGR<float, Format::BGR32F> PixelBGR_F32;
+/** @brief Documents the PixelBGR_F64 type or declaration. */
 typedef PixelBGR<double, Format::BGR64F> PixelBGR_F64;
 
 /**
@@ -299,16 +351,27 @@ template <typename T, Format formatId> struct PixelRGBA {
 		kernel.w = Elv::Util::fnormalize(a);
 	}
 };
+/** @brief Documents the PixelRGBA_U8 type or declaration. */
 typedef PixelRGBA<uint8_t, Format::RGBA8U> PixelRGBA_U8;
+/** @brief Documents the PixelRGBA_U16 type or declaration. */
 typedef PixelRGBA<uint16_t, Format::RGBA16U> PixelRGBA_U16;
+/** @brief Documents the PixelRGBA_U32 type or declaration. */
 typedef PixelRGBA<uint32_t, Format::RGBA32U> PixelRGBA_U32;
+/** @brief Documents the PixelRGBA_U64 type or declaration. */
 typedef PixelRGBA<uint64_t, Format::INVALID> PixelRGBA_U64;
+/** @brief Documents the PixelRGBA_S8 type or declaration. */
 typedef PixelRGBA<int8_t, Format::RGBA8S> PixelRGBA_S8;
+/** @brief Documents the PixelRGBA_S16 type or declaration. */
 typedef PixelRGBA<int16_t, Format::RGBA16S> PixelRGBA_S16;
+/** @brief Documents the PixelRGBA_S32 type or declaration. */
 typedef PixelRGBA<int32_t, Format::RGBA32S> PixelRGBA_S32;
+/** @brief Documents the PixelRGBA_S64 type or declaration. */
 typedef PixelRGBA<int64_t, Format::INVALID> PixelRGBA_S64;
+/** @brief Documents the PixelRGBA_F16 type or declaration. */
 typedef PixelRGBA<half_float::half, Format::RGBA16F> PixelRGBA_F16;
+/** @brief Documents the PixelRGBA_F32 type or declaration. */
 typedef PixelRGBA<float, Format::RGBA32F> PixelRGBA_F32;
+/** @brief Documents the PixelRGBA_F64 type or declaration. */
 typedef PixelRGBA<double, Format::RGBA64F> PixelRGBA_F64;
 
 /**
@@ -361,16 +424,27 @@ template <typename T, Format formatId> struct PixelBGRA {
 		kernel.w = Elv::Util::fnormalize(a);
 	}
 };
+/** @brief Documents the PixelBGRA_U8 type or declaration. */
 typedef PixelBGRA<uint8_t, Format::BGRA8U> PixelBGRA_U8;
+/** @brief Documents the PixelBGRA_U16 type or declaration. */
 typedef PixelBGRA<uint16_t, Format::BGRA16U> PixelBGRA_U16;
+/** @brief Documents the PixelBGRA_U32 type or declaration. */
 typedef PixelBGRA<uint32_t, Format::BGRA32U> PixelBGRA_U32;
+/** @brief Documents the PixelBGRA_U64 type or declaration. */
 typedef PixelBGRA<uint64_t, Format::INVALID> PixelBGRA_U64;
+/** @brief Documents the PixelBGRA_S8 type or declaration. */
 typedef PixelBGRA<int8_t, Format::BGRA8S> PixelBGRA_S8;
+/** @brief Documents the PixelBGRA_S16 type or declaration. */
 typedef PixelBGRA<int16_t, Format::BGRA16S> PixelBGRA_S16;
+/** @brief Documents the PixelBGRA_S32 type or declaration. */
 typedef PixelBGRA<int32_t, Format::BGRA32S> PixelBGRA_S32;
+/** @brief Documents the PixelBGRA_S64 type or declaration. */
 typedef PixelBGRA<int64_t, Format::INVALID> PixelBGRA_S64;
+/** @brief Documents the PixelBGRA_F16 type or declaration. */
 typedef PixelBGRA<half_float::half, Format::BGRA16F> PixelBGRA_F16;
+/** @brief Documents the PixelBGRA_F32 type or declaration. */
 typedef PixelBGRA<float, Format::BGRA32F> PixelBGRA_F32;
+/** @brief Documents the PixelBGRA_F64 type or declaration. */
 typedef PixelBGRA<double, Format::BGRA64F> PixelBGRA_F64;
 
 /**
@@ -423,16 +497,27 @@ template <typename T, Format formatId> struct PixelARGB {
 		kernel.w = Elv::Util::fnormalize(a);
 	}
 };
+/** @brief Documents the PixelARGB_U8 type or declaration. */
 typedef PixelARGB<uint8_t, Format::ARGB8U> PixelARGB_U8;
+/** @brief Documents the PixelARGB_U16 type or declaration. */
 typedef PixelARGB<uint16_t, Format::ARGB16U> PixelARGB_U16;
+/** @brief Documents the PixelARGB_U32 type or declaration. */
 typedef PixelARGB<uint32_t, Format::ARGB32U> PixelARGB_U32;
+/** @brief Documents the PixelARGB_U64 type or declaration. */
 typedef PixelARGB<uint64_t, Format::INVALID> PixelARGB_U64;
+/** @brief Documents the PixelARGB_S8 type or declaration. */
 typedef PixelARGB<int8_t, Format::ARGB8S> PixelARGB_S8;
+/** @brief Documents the PixelARGB_S16 type or declaration. */
 typedef PixelARGB<int16_t, Format::ARGB16S> PixelARGB_S16;
+/** @brief Documents the PixelARGB_S32 type or declaration. */
 typedef PixelARGB<int32_t, Format::ARGB32S> PixelARGB_S32;
+/** @brief Documents the PixelARGB_S64 type or declaration. */
 typedef PixelARGB<int64_t, Format::INVALID> PixelARGB_S64;
+/** @brief Documents the PixelARGB_F16 type or declaration. */
 typedef PixelARGB<half_float::half, Format::ARGB16F> PixelARGB_F16;
+/** @brief Documents the PixelARGB_F32 type or declaration. */
 typedef PixelARGB<float, Format::ARGB32F> PixelARGB_F32;
+/** @brief Documents the PixelARGB_F64 type or declaration. */
 typedef PixelARGB<double, Format::ARGB64F> PixelARGB_F64;
 
 /// 8-bit texture format

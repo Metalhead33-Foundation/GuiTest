@@ -1,5 +1,13 @@
 #ifndef ELVBINARYTREE_HPP
 #define ELVBINARYTREE_HPP
+/**
+ * @file ElvBinaryTree.hpp
+ * @brief Declares the ElvBinaryTree API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Elvavena/Util/ElvAllocatorBasic.hpp>
 #include <type_traits>
 #include <stack>

@@ -1,5 +1,13 @@
 #ifndef DYNAMICLIB_HPP
 #define DYNAMICLIB_HPP
+/**
+ * @file ElvDynamicLib.hpp
+ * @brief Declares the ElvDynamicLib API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #ifdef _WIN32
 #include <windows.h>
 #elif defined (__unix)
@@ -10,9 +18,14 @@
 #include <Elvavena/Util/ElvUtilGlobals.hpp>
 #include <string>
 #include <type_traits>
+/** @brief Documents the funcptr) declaration. */
 typedef void(*funcptr)();
 namespace Elv {
 namespace Util {
+
+/** @defgroup Utilities General Utilities
+ *  @brief Cross-platform utility helpers in Elvavena.
+ */
 
 /**
  * @class DynamicLibrary

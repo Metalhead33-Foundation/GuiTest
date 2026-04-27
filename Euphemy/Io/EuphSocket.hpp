@@ -1,5 +1,13 @@
 #ifndef SOCKET_HPP
 #define SOCKET_HPP
+/**
+ * @file EuphSocket.hpp
+ * @brief Declares the EuphSocket API in the Euphemy/Io module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Io.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <cstdint>

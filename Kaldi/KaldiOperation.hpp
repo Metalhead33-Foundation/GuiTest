@@ -5,14 +5,14 @@
  * @brief Data-only graphics command payloads for the Kaldi VM-style renderer API.
  *
  * This header defines the client/server command vocabulary. Commands are plain
- * aggregates selected by @ref Opcode and carried by @ref GfxOp. Handles are
+ * aggregates selected by `Opcode` and carried by `GfxOp`. Handles are
  * opaque IDs; command payloads never own backend resources or pointed-to data.
  *
  * @section kaldi_command_model Command model
  *
  * Kaldi command buffers are intentionally VM-like: a client records a linear
  * stream of small POD payloads, then submits an externally owned span of
- * @ref GfxOp values to a backend @ref Device. Append order is execution order.
+ * `GfxOp` values to a backend `Device`. Append order is execution order.
  * The API does not define built-in materials, scene objects, visibility
  * systems, asset databases, or gameplay concepts; higher-level engines compile
  * those decisions down into this command vocabulary.
@@ -30,7 +30,7 @@
  * @section kaldi_backend_contract Backend contract
  *
  * Backends consume command spans, validate handles and resource states, report
- * failures through @ref HalStatus, and translate the portable vocabulary onto
+ * failures through `HalStatus`, and translate the portable vocabulary onto
  * APIs such as OpenGL 4.x, Direct3D 11, Vulkan, Direct3D 12, or WebGPU. A
  * destroy command is a logical retirement request: physical deletion must be
  * delayed until all previously submitted GPU work that can reference the
@@ -80,13 +80,13 @@ constexpr HandleId DefaultFramebuffer = 0;
 constexpr HandleId DefaultSwapchain = 0;
 
 /**
- * @brief Operation selector for @ref GfxOp.
+ * @brief Operation selector for `GfxOp`.
  *
- * Each opcode has a matching payload member in @ref GfxOp::opt, except legacy
+ * Each opcode has a matching payload member in `GfxOp`::opt, except legacy
  * destroy operations that intentionally reuse @ref OpDestroy.
  *
  * Backend implementers should treat unknown or unsupported opcodes as
- * @ref HalStatusCode::InvalidCommand or @ref HalStatusCode::UnsupportedBaseline,
+ * `HalStatus`Code::InvalidCommand or `HalStatus`Code::UnsupportedBaseline,
  * depending on whether the opcode is malformed for the submitted stream or
  * outside the backend's advertised contract.
  */
@@ -195,6 +195,7 @@ enum class Opcode : uint16_t {
  * @brief Generic one-ID destroy payload used by legacy resource destroy ops.
  */
 struct OpDestroy {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Just a dumb id.
 };
 /** @brief Bitmask flags describing intended buffer usage. */
@@ -212,21 +213,31 @@ enum BufferUsage : uint32_t {
  * @brief Creates a backend buffer object and optionally uploads initial data.
  */
 struct OpCreateBufferObject {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Preallocated by the backend
+	/** @brief Documents the size declaration. */
 	uint32_t size; // In bytes
+	/** @brief Documents the policy declaration. */
 	uint32_t policy; // @ref BufferUsage bitmask.
+	/** @brief Documents the data declaration. */
 	const void* data; // nullptr if you just want to reserve space
 };
 /** @brief Resizes an existing buffer object, preserving backend-defined contents where possible. */
 struct OpResizeBufferObject {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the size declaration. */
 	uint32_t size; // In bytes
 };
 /** @brief Uploads a byte range into an existing buffer object. */
 struct OpUpdateBufferObject {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset; // In bytes
+	/** @brief Documents the size declaration. */
 	uint32_t size; // In bytes
+	/** @brief Documents the data declaration. */
 	const void* data;
 };
 /** @brief CPU mapping access mode for @ref OpMapBufferObject callbacks. */
@@ -243,43 +254,66 @@ typedef void (*BufferMapCallback)(void* data, uint32_t size, void* userData);
  * The caller owns the callback and user-data lifetime until command execution.
  */
 struct OpMapBufferObject {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset; // In bytes
+	/** @brief Documents the size declaration. */
 	uint32_t size; // In bytes
+	/** @brief Documents the access declaration. */
 	BufferMapAccess access;
+	/** @brief Documents the callback declaration. */
 	BufferMapCallback callback;
+	/** @brief Documents the userData declaration. */
 	void* userData;
 };
 /** @brief Creates a vertex array object from a static vertex descriptor. */
 struct OpCreateVertexArrayObject {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Preallocated by the backend
+	/** @brief Documents the descriptor declaration. */
 	const VertexDescriptor* descriptor;
+	/** @brief Documents the elementCount declaration. */
 	uint32_t elementCount;
 };
 /** @brief Creates or reserves a 1D sampled texture. */
 struct OpCreateTexture1D {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Preallocated by the backend
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the width declaration. */
 	uint32_t width;
+	/** @brief Documents the pixels declaration. */
 	const void* pixels; // nullptr if you just want to reserve space
 	// Also, be very careful - because we execute commands asychronously, you must ensure that pointer remains valid until the command is executed
 	// Maybe I'll look for a workaround in the future, or force syncing and return promises.
 };
 /** @brief Creates or reserves a 2D sampled texture. */
 struct OpCreateTexture2D {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Preallocated by the backend
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the mipLevels declaration. */
 	uint8_t mipLevels;
+	/** @brief Documents the generateMipmaps declaration. */
 	bool generateMipmaps; // If TRUE, then mipLevels is the number of mipmaps to generate. If FALSE, mipLevels is the number of mipmaps already generated.
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the pixels declaration. */
 	const void* pixels; // nullptr if you just want to reserve space
 	// Same problems as with OpCreateTexture1D
 };
 /** @brief Block-compressed texture layout metadata. */
 struct TextureCompressionLayout {
+	/** @brief Documents the blockWidth declaration. */
 	uint8_t blockWidth;
+	/** @brief Documents the blockHeight declaration. */
 	uint8_t blockHeight;
+	/** @brief Documents the bytesPerBlock declaration. */
 	uint8_t bytesPerBlock;
 };
 /**
@@ -289,19 +323,30 @@ struct TextureCompressionLayout {
  * on the command that consumes it.
  */
 struct TextureMipData {
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the byteSize declaration. */
 	uint32_t byteSize;
+	/** @brief Documents the data declaration. */
 	const void* data;
 };
 /** @brief Creates a 2D sampled texture from opaque block-compressed mip data. */
 struct OpCreateCompressedTexture2D {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the layout declaration. */
 	TextureCompressionLayout layout;
+	/** @brief Documents the mips declaration. */
 	const TextureMipData* mips;
+	/** @brief Documents the mipCount declaration. */
 	uint8_t mipCount;
 };
 /**
@@ -311,67 +356,111 @@ struct OpCreateCompressedTexture2D {
  * already-computed mip chain. When true, only frame 0 is used as the source.
  */
 struct OpCreateTexture2DFromDecodeTarget {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the source declaration. */
 	const DecodeTarget* source;
+	/** @brief Documents the mipLevels declaration. */
 	uint8_t mipLevels;
+	/** @brief Documents the generateMipmaps declaration. */
 	bool generateMipmaps;
 };
 /** @brief Resizes a 2D sampled texture. */
 struct OpResizeTexture2D {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the mipLevels declaration. */
 	uint8_t mipLevels;
+	/** @brief Documents the generateMipmaps declaration. */
 	bool generateMipmaps;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
 };
 /** @brief Uploads a rectangular region into a 2D sampled texture. */
 struct OpUpdateTexture2D {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the mipLevel declaration. */
 	uint8_t mipLevel;
+	/** @brief Documents the x declaration. */
 	uint16_t x;
+	/** @brief Documents the y declaration. */
 	uint16_t y;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the pixels declaration. */
 	const void* pixels;
 };
 /** @brief Updates one compressed mip region with opaque block data. */
 struct OpUpdateCompressedTexture2D {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the layout declaration. */
 	TextureCompressionLayout layout;
+	/** @brief Documents the mipLevel declaration. */
 	uint8_t mipLevel;
+	/** @brief Documents the x declaration. */
 	uint16_t x;
+	/** @brief Documents the y declaration. */
 	uint16_t y;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the byteSize declaration. */
 	uint32_t byteSize;
+	/** @brief Documents the data declaration. */
 	const void* data;
 };
 /** @brief Copies a rectangular region between 2D sampled textures. */
 struct OpBlitTexture2D {
+	/** @brief Documents the source declaration. */
 	HandleId source;
+	/** @brief Documents the destination declaration. */
 	HandleId destination;
+	/** @brief Documents the sourceX declaration. */
 	uint16_t sourceX;
+	/** @brief Documents the sourceY declaration. */
 	uint16_t sourceY;
+	/** @brief Documents the destinationX declaration. */
 	uint16_t destinationX;
+	/** @brief Documents the destinationY declaration. */
 	uint16_t destinationY;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
 };
 /** @brief Requests mipmap generation for a sampled texture. */
 struct OpGenerateTextureMipmaps {
+	/** @brief Documents the id declaration. */
 	HandleId id;
 };
 /** @brief Creates or reserves a 3D sampled texture. */
 struct OpCreateTexture3D {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Preallocated by the backend
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the generateMipmaps declaration. */
 	bool generateMipmaps;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the depth declaration. */
 	uint16_t depth;
+	/** @brief Documents the pixels declaration. */
 	const void* pixels; // nullptr if you just want to reserve space
 	// Same problems as with OpCreateTexture1D
 };
@@ -386,45 +475,76 @@ enum class TextureCubeFace : uint8_t {
 };
 /** @brief Creates or reserves a cube sampled texture. */
 struct OpCreateTextureCube {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the mipLevels declaration. */
 	uint8_t mipLevels;
+	/** @brief Documents the generateMipmaps declaration. */
 	bool generateMipmaps;
+	/** @brief Documents the size declaration. */
 	uint16_t size;
 };
 /** @brief Uploads a rectangular region into one cube texture face. */
 struct OpUpdateTextureCubeFace {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the face declaration. */
 	TextureCubeFace face;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the mipLevel declaration. */
 	uint8_t mipLevel;
+	/** @brief Documents the x declaration. */
 	uint16_t x;
+	/** @brief Documents the y declaration. */
 	uint16_t y;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the pixels declaration. */
 	const void* pixels;
 };
 /** @brief Creates or reserves a 2D array sampled texture. */
 struct OpCreateTexture2DArray {
+	/** @brief Resource handle assigned to the created texture array. */
 	HandleId id;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the mipLevels declaration. */
 	uint8_t mipLevels;
+	/** @brief Documents the generateMipmaps declaration. */
 	bool generateMipmaps;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the layers declaration. */
 	uint16_t layers;
+	/** @brief Documents the pixels declaration. */
 	const void* pixels;
 };
 /** @brief Uploads a rectangular region into one 2D array texture layer. */
 struct OpUpdateTexture2DArray {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the mipLevel declaration. */
 	uint8_t mipLevel;
+	/** @brief Documents the layer declaration. */
 	uint16_t layer;
+	/** @brief Documents the x declaration. */
 	uint16_t x;
+	/** @brief Documents the y declaration. */
 	uint16_t y;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the pixels declaration. */
 	const void* pixels;
 };
 /** @brief Texture coordinate wrapping mode. */
@@ -445,12 +565,19 @@ enum class SamplerFiltering : uint8_t {
 };
 /** @brief Creates a sampler object. */
 struct OpCreateSampler {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Preallocated by the backend
+	/** @brief Documents the filtering declaration. */
 	SamplerFiltering filtering;
+	/** @brief Documents the wrapping[3] declaration. */
 	SamplerWrapping wrapping[3];
+	/** @brief Documents the maxAnisotropy declaration. */
 	float maxAnisotropy;
+	/** @brief Documents the maxLod declaration. */
 	float maxLod;
+	/** @brief Documents the minLod declaration. */
 	float minLod;
+	/** @brief Documents the lodBias declaration. */
 	float lodBias;
 };
 
@@ -468,66 +595,109 @@ enum ImageUsage : uint32_t {
 
 /** @brief Creates a 2D image resource for renderable or transfer storage. */
 struct OpCreateImage2D {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Preallocated by the backend
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the mipLevels declaration. */
 	uint8_t mipLevels;
+	/** @brief Documents the usage declaration. */
 	uint32_t usage;
 };
 /** @brief Resizes a 2D image resource. */
 struct OpResizeImage2D {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the mipLevels declaration. */
 	uint8_t mipLevels;
+	/** @brief Documents the usage declaration. */
 	uint32_t usage;
 };
 /** @brief Uploads a rectangular region into a 2D image resource. */
 struct OpUpdateImage2D {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the mipLevel declaration. */
 	uint8_t mipLevel;
+	/** @brief Documents the x declaration. */
 	uint16_t x;
+	/** @brief Documents the y declaration. */
 	uint16_t y;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the pixels declaration. */
 	const void* pixels;
 };
 /** @brief Copies a rectangular region between 2D image resources. */
 struct OpBlitImage2D {
+	/** @brief Documents the source declaration. */
 	HandleId source;
+	/** @brief Documents the destination declaration. */
 	HandleId destination;
+	/** @brief Documents the sourceX declaration. */
 	uint16_t sourceX;
+	/** @brief Documents the sourceY declaration. */
 	uint16_t sourceY;
+	/** @brief Documents the destinationX declaration. */
 	uint16_t destinationX;
+	/** @brief Documents the destinationY declaration. */
 	uint16_t destinationY;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
 };
 /** @brief Creates a 2D multisampled image resource for rendering or resolve operations. */
 struct OpCreateMultisampledImage2D {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the format declaration. */
 	TextureFormat format;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the samples declaration. */
 	uint8_t samples;
+	/** @brief Documents the usage declaration. */
 	uint32_t usage;
 };
 /** @brief Resolves a rectangular region from a multisampled image into a single-sample image. */
 struct OpResolveImage2D {
+	/** @brief Documents the source declaration. */
 	HandleId source;
+	/** @brief Documents the destination declaration. */
 	HandleId destination;
+	/** @brief Documents the sourceX declaration. */
 	uint16_t sourceX;
+	/** @brief Documents the sourceY declaration. */
 	uint16_t sourceY;
+	/** @brief Documents the destinationX declaration. */
 	uint16_t destinationX;
+	/** @brief Documents the destinationY declaration. */
 	uint16_t destinationY;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
 };
 /** @brief Destroys a 2D image resource. */
 struct OpDestroyImage {
+	/** @brief Documents the id declaration. */
 	HandleId id;
 };
 
@@ -541,57 +711,78 @@ enum class FramebufferAttachmentRole : uint8_t {
 
 /** @brief Describes one image attachment in a framebuffer. */
 struct FramebufferAttachment {
+	/** @brief Documents the image declaration. */
 	HandleId image;
+	/** @brief Documents the role declaration. */
 	FramebufferAttachmentRole role;
+	/** @brief Documents the colorAttachmentIndex declaration. */
 	uint32_t colorAttachmentIndex; // Only meaningful for color attachments.
 };
 
 /** @brief Creates a framebuffer from externally owned attachment descriptors. */
 struct OpCreateFramebuffer {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Preallocated by the backend
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the attachments declaration. */
 	const FramebufferAttachment* attachments;
+	/** @brief Documents the attachmentCount declaration. */
 	uint32_t attachmentCount;
 };
 /** @brief Destroys a framebuffer. */
 struct OpDestroyFramebuffer {
+	/** @brief Documents the id declaration. */
 	HandleId id;
 };
 
 /** @brief Binds the active framebuffer. */
 struct OpBindFramebuffer {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Use DefaultFramebuffer for the swapchain/default target.
 };
 
 /** @brief Begins work on a frame. */
 struct OpBeginFrame {
+	/** @brief Documents the framebuffer declaration. */
 	HandleId framebuffer; // Usually DefaultFramebuffer.
 };
 
 /** @brief Ends work on a frame before presentation. */
 struct OpEndFrame {
+	/** @brief Documents the framebuffer declaration. */
 	HandleId framebuffer; // Usually DefaultFramebuffer.
 };
 
 /** @brief Clears one color attachment of a framebuffer. */
 struct OpClearColorAttachment {
+	/** @brief Documents the framebuffer declaration. */
 	HandleId framebuffer;
+	/** @brief Documents the colorAttachmentIndex declaration. */
 	uint32_t colorAttachmentIndex;
+	/** @brief Documents the color[4] declaration. */
 	float color[4];
 };
 
 /** @brief Clears depth and/or stencil attachment data. */
 struct OpClearDepthStencilAttachment {
+	/** @brief Documents the framebuffer declaration. */
 	HandleId framebuffer;
+	/** @brief Documents the clearDepth declaration. */
 	bool clearDepth;
+	/** @brief Documents the clearStencil declaration. */
 	bool clearStencil;
+	/** @brief Documents the depth declaration. */
 	float depth;
+	/** @brief Documents the stencil declaration. */
 	uint32_t stencil;
 };
 
 /** @brief Presents a framebuffer, normally @ref DefaultFramebuffer. */
 struct OpPresent {
+	/** @brief Documents the framebuffer declaration. */
 	HandleId framebuffer; // Usually DefaultFramebuffer.
 };
 
@@ -612,9 +803,13 @@ enum class SwapchainStatus : uint8_t {
 
 /** @brief Caller-declared image/framebuffer handles for one swapchain image. */
 struct SwapchainImageBinding {
+	/** @brief Documents the imageIndex declaration. */
 	uint32_t imageIndex;
+	/** @brief Documents the colorImage declaration. */
 	HandleId colorImage;
+	/** @brief Documents the depthStencilImage declaration. */
 	HandleId depthStencilImage;
+	/** @brief Documents the framebuffer declaration. */
 	HandleId framebuffer;
 };
 
@@ -623,8 +818,8 @@ struct SwapchainImageBinding {
  *
  * Explicit swapchains are optional presentation objects for backends and
  * platforms that expose caller-visible swapchain control. The default-frame
- * path remains available through @ref Opcode::BeginFrame,
- * @ref Opcode::EndFrame, @ref Opcode::Present, @ref DefaultFramebuffer, and
+ * path remains available through `Opcode`::BeginFrame,
+ * `Opcode`::EndFrame, `Opcode`::Present, @ref DefaultFramebuffer, and
  * @ref DefaultSwapchain.
  *
  * The native surface pointer is opaque backend-facing data. It must remain valid
@@ -634,14 +829,23 @@ struct SwapchainImageBinding {
  * handles through @ref SwapchainAcquireInfo when applicable.
  */
 struct SwapchainDescriptor {
+	/** @brief Documents the nativeSurface declaration. */
 	void* nativeSurface;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the colorFormat declaration. */
 	TextureFormat colorFormat;
+	/** @brief Documents the depthStencilFormat declaration. */
 	TextureFormat depthStencilFormat;
+	/** @brief Documents the presentMode declaration. */
 	PresentMode presentMode;
+	/** @brief Documents the imageCount declaration. */
 	uint8_t imageCount;
+	/** @brief Documents the imageBindings declaration. */
 	const SwapchainImageBinding* imageBindings;
+	/** @brief Documents the imageBindingCount declaration. */
 	uint32_t imageBindingCount;
 };
 
@@ -653,11 +857,17 @@ struct SwapchainDescriptor {
  * is backend-owned and only valid for the callback duration.
  */
 struct SwapchainAcquireInfo {
+	/** @brief Documents the swapchain declaration. */
 	HandleId swapchain;
+	/** @brief Documents the status declaration. */
 	SwapchainStatus status;
+	/** @brief Documents the imageIndex declaration. */
 	uint32_t imageIndex;
+	/** @brief Documents the colorImage declaration. */
 	HandleId colorImage;
+	/** @brief Documents the depthStencilImage declaration. */
 	HandleId depthStencilImage;
+	/** @brief Documents the framebuffer declaration. */
 	HandleId framebuffer;
 };
 
@@ -671,21 +881,29 @@ typedef void (*SwapchainAcquireCallback)(const SwapchainAcquireInfo* acquireInfo
 
 /** @brief Creates an explicit swapchain from externally owned metadata. */
 struct OpCreateSwapchain {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the descriptor declaration. */
 	const SwapchainDescriptor* descriptor;
 };
 
 /** @brief Destroys an explicit swapchain. */
 struct OpDestroySwapchain {
+	/** @brief Documents the id declaration. */
 	HandleId id;
 };
 
 /** @brief Resizes an explicit swapchain and optionally replaces image bindings. */
 struct OpResizeSwapchain {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the imageBindings declaration. */
 	const SwapchainImageBinding* imageBindings;
+	/** @brief Documents the imageBindingCount declaration. */
 	uint32_t imageBindingCount;
 };
 
@@ -693,12 +911,15 @@ struct OpResizeSwapchain {
  * @brief Acquires a presentable image from a swapchain.
  *
  * A backend reports resize/loss conditions through @ref SwapchainAcquireInfo
- * and may also return @ref HalStatusCode::SwapchainLost from submission when
+ * and may also return `HalStatus`Code::SwapchainLost from submission when
  * the queue cannot continue without swapchain recreation.
  */
 struct OpAcquireSwapchainImage {
+	/** @brief Documents the swapchain declaration. */
 	HandleId swapchain;
+	/** @brief Documents the callback declaration. */
 	SwapchainAcquireCallback callback;
+	/** @brief Documents the userData declaration. */
 	void* userData;
 };
 
@@ -709,7 +930,9 @@ struct OpAcquireSwapchainImage {
  * expose only the simple default presentation path.
  */
 struct OpPresentSwapchain {
+	/** @brief Documents the swapchain declaration. */
 	HandleId swapchain;
+	/** @brief Documents the imageIndex declaration. */
 	uint32_t imageIndex;
 };
 
@@ -728,20 +951,31 @@ enum class AttachmentStoreOp : uint8_t {
 
 /** @brief One color attachment policy for a render pass. */
 struct RenderPassColorAttachment {
+	/** @brief Documents the colorAttachmentIndex declaration. */
 	uint32_t colorAttachmentIndex;
+	/** @brief Documents the loadOp declaration. */
 	AttachmentLoadOp loadOp;
+	/** @brief Documents the storeOp declaration. */
 	AttachmentStoreOp storeOp;
+	/** @brief Documents the clearColor[4] declaration. */
 	float clearColor[4];
 };
 
 /** @brief Depth/stencil attachment policy for a render pass. */
 struct RenderPassDepthStencilAttachment {
+	/** @brief Documents the enabled declaration. */
 	bool enabled;
+	/** @brief Documents the depthLoadOp declaration. */
 	AttachmentLoadOp depthLoadOp;
+	/** @brief Documents the depthStoreOp declaration. */
 	AttachmentStoreOp depthStoreOp;
+	/** @brief Documents the stencilLoadOp declaration. */
 	AttachmentLoadOp stencilLoadOp;
+	/** @brief Documents the stencilStoreOp declaration. */
 	AttachmentStoreOp stencilStoreOp;
+	/** @brief Documents the clearDepth declaration. */
 	float clearDepth;
+	/** @brief Documents the clearStencil declaration. */
 	uint32_t clearStencil;
 };
 
@@ -754,9 +988,13 @@ struct RenderPassDepthStencilAttachment {
  * backend processes the command queue.
  */
 struct RenderPassDescriptor {
+	/** @brief Documents the framebuffer declaration. */
 	HandleId framebuffer;
+	/** @brief Documents the colorAttachments declaration. */
 	const RenderPassColorAttachment* colorAttachments;
+	/** @brief Documents the colorAttachmentCount declaration. */
 	uint32_t colorAttachmentCount;
+	/** @brief Documents the depthStencilAttachment declaration. */
 	RenderPassDepthStencilAttachment depthStencilAttachment;
 };
 
@@ -768,11 +1006,13 @@ struct RenderPassDescriptor {
  * objects, command-list attachment setup, or immediate framebuffer state.
  */
 struct OpBeginRenderPass {
+	/** @brief Documents the descriptor declaration. */
 	const RenderPassDescriptor* descriptor;
 };
 
 /** @brief Ends the current render pass. */
 struct OpEndRenderPass {
+	/** @brief Documents the reserved declaration. */
 	uint8_t reserved;
 };
 
@@ -796,8 +1036,11 @@ enum class ShaderStage : uint8_t {
  * processed by the backend.
  */
 struct ShaderBinaryDescriptor {
+	/** @brief Documents the stage declaration. */
 	ShaderStage stage;
+	/** @brief Documents the spirv declaration. */
 	const uint32_t* spirv;
+	/** @brief Documents the wordCount declaration. */
 	size_t wordCount;
 };
 
@@ -819,38 +1062,55 @@ enum class StorageAccess : uint8_t {
 
 /** @brief Shader-visible sampled texture binding contract for a pipeline. */
 struct SampledTextureBindingLayout {
+	/** @brief Documents the slot declaration. */
 	uint32_t slot;
+	/** @brief Documents the type declaration. */
 	TextureBindingType type;
+	/** @brief Documents the count declaration. */
 	uint32_t count;
+	/** @brief Documents the stages declaration. */
 	ShaderStage stages;
 };
 
 /** @brief Shader-visible sampler binding contract for a pipeline. */
 struct SamplerBindingLayout {
+	/** @brief Documents the slot declaration. */
 	uint32_t slot;
+	/** @brief Documents the count declaration. */
 	uint32_t count;
+	/** @brief Documents the stages declaration. */
 	ShaderStage stages;
 };
 
 /** @brief Shader-visible uniform buffer binding contract for a pipeline. */
 struct UniformBufferBindingLayout {
+	/** @brief Documents the slot declaration. */
 	uint32_t slot;
+	/** @brief Documents the size declaration. */
 	uint32_t size;
+	/** @brief Documents the stages declaration. */
 	ShaderStage stages;
 };
 
 /** @brief Shader-visible storage buffer binding contract for a pipeline. */
 struct StorageBufferBindingLayout {
+	/** @brief Documents the slot declaration. */
 	uint32_t slot;
+	/** @brief Documents the size declaration. */
 	uint32_t size;
+	/** @brief Documents the access declaration. */
 	StorageAccess access;
+	/** @brief Documents the stages declaration. */
 	ShaderStage stages;
 };
 
 /** @brief Shader-visible storage image binding contract for a pipeline. */
 struct StorageImageBindingLayout {
+	/** @brief Documents the slot declaration. */
 	uint32_t slot;
+	/** @brief Documents the access declaration. */
 	StorageAccess access;
+	/** @brief Documents the stages declaration. */
 	ShaderStage stages;
 };
 
@@ -863,15 +1123,25 @@ struct StorageImageBindingLayout {
  * validating that the requested binding counts fit advertised capabilities.
  */
 struct PipelineBindingLayout {
+	/** @brief Documents the sampledTextures declaration. */
 	const SampledTextureBindingLayout* sampledTextures;
+	/** @brief Documents the sampledTextureCount declaration. */
 	uint32_t sampledTextureCount;
+	/** @brief Documents the samplers declaration. */
 	const SamplerBindingLayout* samplers;
+	/** @brief Documents the samplerCount declaration. */
 	uint32_t samplerCount;
+	/** @brief Documents the uniformBuffers declaration. */
 	const UniformBufferBindingLayout* uniformBuffers;
+	/** @brief Documents the uniformBufferCount declaration. */
 	uint32_t uniformBufferCount;
+	/** @brief Documents the storageBuffers declaration. */
 	const StorageBufferBindingLayout* storageBuffers;
+	/** @brief Documents the storageBufferCount declaration. */
 	uint32_t storageBufferCount;
+	/** @brief Documents the storageImages declaration. */
 	const StorageImageBindingLayout* storageImages;
+	/** @brief Documents the storageImageCount declaration. */
 	uint32_t storageImageCount;
 };
 
@@ -883,67 +1153,99 @@ struct PipelineBindingLayout {
  * the backend has processed the command queue.
  */
 struct OpCreatePipeline {
+	/** @brief Documents the id declaration. */
 	HandleId id; // Preallocated by the backend
+	/** @brief Documents the name declaration. */
 	const char* name; // Optional debug/cache label; nullptr for anonymous pipelines.
+	/** @brief Documents the shaderBinaries declaration. */
 	const ShaderBinaryDescriptor* shaderBinaries;
+	/** @brief Documents the shaderBinaryCount declaration. */
 	uint32_t shaderBinaryCount;
+	/** @brief Documents the vertexInput declaration. */
 	const VertexDescriptor* vertexInput;
+	/** @brief Documents the bindingLayout declaration. */
 	const PipelineBindingLayout* bindingLayout;
 };
 
 /** @brief Destroys a graphics pipeline. */
 struct OpDestroyPipeline {
+	/** @brief Documents the id declaration. */
 	HandleId id;
 };
 
 /** @brief Binds the active graphics pipeline. */
 struct OpBindPipeline {
+	/** @brief Documents the id declaration. */
 	HandleId id;
 };
 
 /** @brief Binds a sampled texture to a shader slot. */
 struct OpBindTexture {
+	/** @brief Documents the slot declaration. */
 	uint32_t slot;
+	/** @brief Documents the texture declaration. */
 	HandleId texture;
+	/** @brief Documents the type declaration. */
 	TextureBindingType type;
 };
 
 /** @brief Binds a sampler to a shader slot. */
 struct OpBindSampler {
+	/** @brief Documents the slot declaration. */
 	uint32_t slot;
+	/** @brief Documents the sampler declaration. */
 	HandleId sampler;
 };
 
 /** @brief Binds a uniform buffer range to a shader slot. */
 struct OpBindUniformBuffer {
+	/** @brief Documents the slot declaration. */
 	uint32_t slot;
+	/** @brief Documents the buffer declaration. */
 	HandleId buffer;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset;
+	/** @brief Documents the size declaration. */
 	uint32_t size;
 };
 /** @brief Binds a storage buffer range to a shader slot. */
 struct OpBindStorageBuffer {
+	/** @brief Documents the slot declaration. */
 	uint32_t slot;
+	/** @brief Documents the buffer declaration. */
 	HandleId buffer;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset;
+	/** @brief Documents the size declaration. */
 	uint32_t size;
+	/** @brief Documents the access declaration. */
 	StorageAccess access;
 };
 /** @brief Binds a storage image to a shader slot. */
 struct OpBindStorageImage {
+	/** @brief Documents the slot declaration. */
 	uint32_t slot;
+	/** @brief Documents the image declaration. */
 	HandleId image;
+	/** @brief Documents the mipLevel declaration. */
 	uint8_t mipLevel;
+	/** @brief Documents the layer declaration. */
 	uint16_t layer;
+	/** @brief Documents the access declaration. */
 	StorageAccess access;
 };
 
 /** @brief Binds a vertex buffer range. */
 struct OpBindVertexBuffer {
+	/** @brief Documents the binding declaration. */
 	uint32_t binding;
+	/** @brief Documents the buffer declaration. */
 	HandleId buffer;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset;
+	/** @brief Documents the stride declaration. */
 	uint32_t stride;
+	/** @brief Documents the instanceDivisor declaration. */
 	uint32_t instanceDivisor; // 0 for per-vertex input; nonzero for instanced input.
 };
 
@@ -955,86 +1257,131 @@ enum class IndexType : uint8_t {
 
 /** @brief Binds an index buffer. */
 struct OpBindIndexBuffer {
+	/** @brief Documents the buffer declaration. */
 	HandleId buffer;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset;
+	/** @brief Documents the type declaration. */
 	IndexType type;
 };
 
 /** @brief Issues an unindexed triangle draw. */
 struct OpDrawTriangles {
+	/** @brief Documents the vertexOffset declaration. */
 	uint32_t vertexOffset;
+	/** @brief Documents the vertexCount declaration. */
 	uint32_t vertexCount;
 };
 
 /** @brief Issues an indexed triangle draw. */
 struct OpDrawIndexedTriangles {
+	/** @brief Documents the indexOffset declaration. */
 	uint32_t indexOffset;
+	/** @brief Documents the indexCount declaration. */
 	uint32_t indexCount;
+	/** @brief Documents the vertexOffset declaration. */
 	uint32_t vertexOffset;
 };
 
 /** @brief Issues an unindexed line draw. */
 struct OpDrawLines {
+	/** @brief Documents the vertexOffset declaration. */
 	uint32_t vertexOffset;
+	/** @brief Documents the vertexCount declaration. */
 	uint32_t vertexCount;
+	/** @brief Documents the thickness declaration. */
 	float thickness;
 };
 
 /** @brief Issues an indexed line draw. */
 struct OpDrawIndexedLines {
+	/** @brief Documents the indexOffset declaration. */
 	uint32_t indexOffset;
+	/** @brief Documents the indexCount declaration. */
 	uint32_t indexCount;
+	/** @brief Documents the vertexOffset declaration. */
 	uint32_t vertexOffset;
+	/** @brief Documents the thickness declaration. */
 	float thickness;
 };
 /** @brief Issues an instanced unindexed triangle draw. */
 struct OpDrawTrianglesInstanced {
+	/** @brief Documents the vertexOffset declaration. */
 	uint32_t vertexOffset;
+	/** @brief Documents the vertexCount declaration. */
 	uint32_t vertexCount;
+	/** @brief Documents the instanceCount declaration. */
 	uint32_t instanceCount;
+	/** @brief Documents the firstInstance declaration. */
 	uint32_t firstInstance;
 };
 /** @brief Issues an instanced indexed triangle draw. */
 struct OpDrawIndexedTrianglesInstanced {
+	/** @brief Documents the indexOffset declaration. */
 	uint32_t indexOffset;
+	/** @brief Documents the indexCount declaration. */
 	uint32_t indexCount;
+	/** @brief Documents the vertexOffset declaration. */
 	uint32_t vertexOffset;
+	/** @brief Documents the instanceCount declaration. */
 	uint32_t instanceCount;
+	/** @brief Documents the firstInstance declaration. */
 	uint32_t firstInstance;
 };
 /** @brief Issues an instanced unindexed line draw. */
 struct OpDrawLinesInstanced {
+	/** @brief Documents the vertexOffset declaration. */
 	uint32_t vertexOffset;
+	/** @brief Documents the vertexCount declaration. */
 	uint32_t vertexCount;
+	/** @brief Documents the thickness declaration. */
 	float thickness;
+	/** @brief Documents the instanceCount declaration. */
 	uint32_t instanceCount;
+	/** @brief Documents the firstInstance declaration. */
 	uint32_t firstInstance;
 };
 /** @brief Issues an instanced indexed line draw. */
 struct OpDrawIndexedLinesInstanced {
+	/** @brief Documents the indexOffset declaration. */
 	uint32_t indexOffset;
+	/** @brief Documents the indexCount declaration. */
 	uint32_t indexCount;
+	/** @brief Documents the vertexOffset declaration. */
 	uint32_t vertexOffset;
+	/** @brief Documents the thickness declaration. */
 	float thickness;
+	/** @brief Documents the instanceCount declaration. */
 	uint32_t instanceCount;
+	/** @brief Documents the firstInstance declaration. */
 	uint32_t firstInstance;
 };
 
 /** @brief Sets the viewport rectangle and depth range. */
 struct OpSetViewport {
+	/** @brief Documents the x declaration. */
 	float x;
+	/** @brief Documents the y declaration. */
 	float y;
+	/** @brief Documents the width declaration. */
 	float width;
+	/** @brief Documents the height declaration. */
 	float height;
+	/** @brief Documents the minDepth declaration. */
 	float minDepth;
+	/** @brief Documents the maxDepth declaration. */
 	float maxDepth;
 };
 
 /** @brief Sets the scissor rectangle. */
 struct OpSetScissor {
+	/** @brief Documents the x declaration. */
 	int32_t x;
+	/** @brief Documents the y declaration. */
 	int32_t y;
+	/** @brief Documents the width declaration. */
 	uint32_t width;
+	/** @brief Documents the height declaration. */
 	uint32_t height;
 };
 
@@ -1072,13 +1419,21 @@ enum ColorWriteMask : uint8_t {
 
 /** @brief Sets color blend state for subsequent draws. */
 struct OpSetBlendState {
+	/** @brief Documents the enabled declaration. */
 	bool enabled;
+	/** @brief Documents the srcColor declaration. */
 	BlendFactor srcColor;
+	/** @brief Documents the dstColor declaration. */
 	BlendFactor dstColor;
+	/** @brief Documents the colorOp declaration. */
 	BlendOp colorOp;
+	/** @brief Documents the srcAlpha declaration. */
 	BlendFactor srcAlpha;
+	/** @brief Documents the dstAlpha declaration. */
 	BlendFactor dstAlpha;
+	/** @brief Documents the alphaOp declaration. */
 	BlendOp alphaOp;
+	/** @brief Documents the colorWriteMask declaration. */
 	uint8_t colorWriteMask;
 };
 
@@ -1108,22 +1463,35 @@ enum class StencilOp : uint8_t {
 
 /** @brief Stencil state for one face orientation. */
 struct StencilFaceState {
+	/** @brief Documents the failOp declaration. */
 	StencilOp failOp;
+	/** @brief Documents the passOp declaration. */
 	StencilOp passOp;
+	/** @brief Documents the depthFailOp declaration. */
 	StencilOp depthFailOp;
+	/** @brief Documents the compareOp declaration. */
 	CompareOp compareOp;
+	/** @brief Documents the compareMask declaration. */
 	uint32_t compareMask;
+	/** @brief Documents the writeMask declaration. */
 	uint32_t writeMask;
+	/** @brief Documents the reference declaration. */
 	uint32_t reference;
 };
 
 /** @brief Sets depth and stencil state for subsequent draws. */
 struct OpSetDepthStencilState {
+	/** @brief Documents the depthTestEnabled declaration. */
 	bool depthTestEnabled;
+	/** @brief Documents the depthWriteEnabled declaration. */
 	bool depthWriteEnabled;
+	/** @brief Documents the depthCompare declaration. */
 	CompareOp depthCompare;
+	/** @brief Documents the stencilTestEnabled declaration. */
 	bool stencilTestEnabled;
+	/** @brief Documents the front declaration. */
 	StencilFaceState front;
+	/** @brief Documents the back declaration. */
 	StencilFaceState back;
 };
 
@@ -1150,13 +1518,21 @@ enum class PolygonMode : uint8_t {
 
 /** @brief Sets rasterization state for subsequent draws. */
 struct OpSetRasterizerState {
+	/** @brief Documents the cullMode declaration. */
 	CullMode cullMode;
+	/** @brief Documents the frontFace declaration. */
 	FrontFace frontFace;
+	/** @brief Documents the polygonMode declaration. */
 	PolygonMode polygonMode;
+	/** @brief Documents the depthClampEnabled declaration. */
 	bool depthClampEnabled;
+	/** @brief Documents the depthBiasEnabled declaration. */
 	bool depthBiasEnabled;
+	/** @brief Documents the depthBiasConstantFactor declaration. */
 	float depthBiasConstantFactor;
+	/** @brief Documents the depthBiasClamp declaration. */
 	float depthBiasClamp;
+	/** @brief Documents the depthBiasSlopeFactor declaration. */
 	float depthBiasSlopeFactor;
 };
 
@@ -1218,60 +1594,91 @@ enum AccessFlags : uint32_t {
 
 /** @brief Transitions a whole resource between coarse states. */
 struct OpTransitionResource {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the kind declaration. */
 	ResourceKind kind;
+	/** @brief Documents the oldState declaration. */
 	ResourceState oldState;
+	/** @brief Documents the newState declaration. */
 	ResourceState newState;
+	/** @brief Documents the sourceStages declaration. */
 	uint32_t sourceStages;
+	/** @brief Documents the destinationStages declaration. */
 	uint32_t destinationStages;
 };
 
 /** @brief Defines memory visibility/order for a buffer range. */
 struct OpBufferBarrier {
+	/** @brief Documents the buffer declaration. */
 	HandleId buffer;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset;
+	/** @brief Documents the size declaration. */
 	uint32_t size;
+	/** @brief Documents the sourceStages declaration. */
 	uint32_t sourceStages;
+	/** @brief Documents the destinationStages declaration. */
 	uint32_t destinationStages;
+	/** @brief Documents the sourceAccess declaration. */
 	uint32_t sourceAccess;
+	/** @brief Documents the destinationAccess declaration. */
 	uint32_t destinationAccess;
 };
 
 /** @brief Defines memory visibility/order for an image subresource range. */
 struct OpImageBarrier {
+	/** @brief Documents the image declaration. */
 	HandleId image;
+	/** @brief Documents the baseMipLevel declaration. */
 	uint8_t baseMipLevel;
+	/** @brief Documents the mipLevelCount declaration. */
 	uint8_t mipLevelCount;
+	/** @brief Documents the baseLayer declaration. */
 	uint16_t baseLayer;
+	/** @brief Documents the layerCount declaration. */
 	uint16_t layerCount;
+	/** @brief Documents the oldState declaration. */
 	ResourceState oldState;
+	/** @brief Documents the newState declaration. */
 	ResourceState newState;
+	/** @brief Documents the sourceStages declaration. */
 	uint32_t sourceStages;
+	/** @brief Documents the destinationStages declaration. */
 	uint32_t destinationStages;
+	/** @brief Documents the sourceAccess declaration. */
 	uint32_t sourceAccess;
+	/** @brief Documents the destinationAccess declaration. */
 	uint32_t destinationAccess;
 };
 
 /** @brief Creates a timeline-style fence. */
 struct OpCreateFence {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the initialValue declaration. */
 	uint64_t initialValue;
 };
 
 /** @brief Destroys a fence. */
 struct OpDestroyFence {
+	/** @brief Documents the id declaration. */
 	HandleId id;
 };
 
 /** @brief Signals a fence value. */
 struct OpSignalFence {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the value declaration. */
 	uint64_t value;
 };
 
 /** @brief Waits for a fence value. */
 struct OpWaitFence {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the value declaration. */
 	uint64_t value;
 };
 
@@ -1283,14 +1690,19 @@ struct OpWaitFence {
  * has processed the command queue.
  */
 struct OpCreateComputePipeline {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the name declaration. */
 	const char* name; // Optional debug/cache label; nullptr for anonymous pipelines.
+	/** @brief Documents the shader declaration. */
 	const ShaderBinaryDescriptor* shader;
+	/** @brief Documents the bindingLayout declaration. */
 	const PipelineBindingLayout* bindingLayout;
 };
 
 /** @brief Destroys a compute pipeline. */
 struct OpDestroyComputePipeline {
+	/** @brief Documents the id declaration. */
 	HandleId id;
 };
 
@@ -1301,30 +1713,43 @@ struct OpBindComputePipeline {
 
 /** @brief Dispatches compute workgroups directly. */
 struct OpDispatchCompute {
+	/** @brief Documents the groupCountX declaration. */
 	uint32_t groupCountX;
+	/** @brief Documents the groupCountY declaration. */
 	uint32_t groupCountY;
+	/** @brief Documents the groupCountZ declaration. */
 	uint32_t groupCountZ;
 };
 
 /** @brief Dispatches compute workgroups from an indirect buffer. */
 struct OpDispatchComputeIndirect {
+	/** @brief Documents the buffer declaration. */
 	HandleId buffer;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset;
 };
 
 /** @brief Issues non-indexed indirect draw commands from a buffer. */
 struct OpDrawIndirect {
+	/** @brief Documents the buffer declaration. */
 	HandleId buffer;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset;
+	/** @brief Documents the drawCount declaration. */
 	uint32_t drawCount;
+	/** @brief Documents the stride declaration. */
 	uint32_t stride;
 };
 
 /** @brief Issues indexed indirect draw commands from a buffer. */
 struct OpDrawIndexedIndirect {
+	/** @brief Documents the buffer declaration. */
 	HandleId buffer;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset;
+	/** @brief Documents the drawCount declaration. */
 	uint32_t drawCount;
+	/** @brief Documents the stride declaration. */
 	uint32_t stride;
 };
 
@@ -1356,24 +1781,31 @@ enum class QueryType : uint8_t {
  *
  * Query pools are homogeneous: every query slot in the pool has the same
  * @ref QueryType. Backends should reject out-of-range query indices during
- * submission with @ref HalStatusCode::InvalidCommand or
- * @ref HalStatusCode::InvalidHandle as appropriate.
+ * submission with `HalStatus`Code::InvalidCommand or
+ * `HalStatus`Code::InvalidHandle as appropriate.
  */
 struct OpCreateQueryPool {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the type declaration. */
 	QueryType type;
+	/** @brief Documents the queryCount declaration. */
 	uint32_t queryCount;
 };
 
 /** @brief Destroys a query pool. */
 struct OpDestroyQueryPool {
+	/** @brief Documents the id declaration. */
 	HandleId id;
 };
 
 /** @brief Resets a range of queries in a query pool. */
 struct OpResetQueryPool {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the firstQuery declaration. */
 	uint32_t firstQuery;
+	/** @brief Documents the queryCount declaration. */
 	uint32_t queryCount;
 };
 
@@ -1384,7 +1816,9 @@ struct OpResetQueryPool {
  * queries are written with @ref OpWriteTimestamp instead.
  */
 struct OpBeginQuery {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the query declaration. */
 	uint32_t query;
 };
 
@@ -1395,7 +1829,9 @@ struct OpBeginQuery {
  * @ref OpBeginQuery in the same submitted command stream.
  */
 struct OpEndQuery {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the query declaration. */
 	uint32_t query;
 };
 
@@ -1406,8 +1842,11 @@ struct OpEndQuery {
  * coarse point in the pipeline at which to record the timestamp.
  */
 struct OpWriteTimestamp {
+	/** @brief Documents the id declaration. */
 	HandleId id;
+	/** @brief Documents the query declaration. */
 	uint32_t query;
+	/** @brief Documents the pipelineStage declaration. */
 	uint32_t pipelineStage;
 };
 
@@ -1420,71 +1859,122 @@ typedef void (*QueryReadbackCallback)(const uint64_t* values, uint32_t count, vo
 
 /** @brief Copies a byte range between buffers. */
 struct OpCopyBuffer {
+	/** @brief Documents the source declaration. */
 	HandleId source;
+	/** @brief Documents the destination declaration. */
 	HandleId destination;
+	/** @brief Documents the sourceOffset declaration. */
 	uint32_t sourceOffset;
+	/** @brief Documents the destinationOffset declaration. */
 	uint32_t destinationOffset;
+	/** @brief Documents the size declaration. */
 	uint32_t size;
 };
 /** @brief Copies buffer bytes into a 2D image subresource. */
 struct OpCopyBufferToImage2D {
+	/** @brief Documents the sourceBuffer declaration. */
 	HandleId sourceBuffer;
+	/** @brief Documents the destinationImage declaration. */
 	HandleId destinationImage;
+	/** @brief Documents the bufferOffset declaration. */
 	uint32_t bufferOffset;
+	/** @brief Documents the bufferRowPitch declaration. */
 	uint32_t bufferRowPitch;
+	/** @brief Documents the mipLevel declaration. */
 	uint8_t mipLevel;
+	/** @brief Documents the layer declaration. */
 	uint16_t layer;
+	/** @brief Documents the x declaration. */
 	uint16_t x;
+	/** @brief Documents the y declaration. */
 	uint16_t y;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
 };
 /** @brief Copies a 2D image subresource into a buffer. */
 struct OpCopyImage2DToBuffer {
+	/** @brief Documents the sourceImage declaration. */
 	HandleId sourceImage;
+	/** @brief Documents the destinationBuffer declaration. */
 	HandleId destinationBuffer;
+	/** @brief Documents the bufferOffset declaration. */
 	uint32_t bufferOffset;
+	/** @brief Documents the bufferRowPitch declaration. */
 	uint32_t bufferRowPitch;
+	/** @brief Documents the mipLevel declaration. */
 	uint8_t mipLevel;
+	/** @brief Documents the layer declaration. */
 	uint16_t layer;
+	/** @brief Documents the x declaration. */
 	uint16_t x;
+	/** @brief Documents the y declaration. */
 	uint16_t y;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
 };
 /** @brief Copies a rectangular region between 2D image subresources. */
 struct OpCopyImage2D {
+	/** @brief Documents the sourceImage declaration. */
 	HandleId sourceImage;
+	/** @brief Documents the destinationImage declaration. */
 	HandleId destinationImage;
+	/** @brief Documents the sourceMipLevel declaration. */
 	uint8_t sourceMipLevel;
+	/** @brief Documents the sourceLayer declaration. */
 	uint16_t sourceLayer;
+	/** @brief Documents the destinationMipLevel declaration. */
 	uint8_t destinationMipLevel;
+	/** @brief Documents the destinationLayer declaration. */
 	uint16_t destinationLayer;
+	/** @brief Documents the sourceX declaration. */
 	uint16_t sourceX;
+	/** @brief Documents the sourceY declaration. */
 	uint16_t sourceY;
+	/** @brief Documents the destinationX declaration. */
 	uint16_t destinationX;
+	/** @brief Documents the destinationY declaration. */
 	uint16_t destinationY;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
 };
 /** @brief Reads a buffer range and invokes a POD function-pointer callback. */
 struct OpReadBuffer {
+	/** @brief Documents the buffer declaration. */
 	HandleId buffer;
+	/** @brief Documents the offset declaration. */
 	uint32_t offset;
+	/** @brief Documents the size declaration. */
 	uint32_t size;
+	/** @brief Documents the callback declaration. */
 	BufferReadbackCallback callback;
+	/** @brief Documents the userData declaration. */
 	void* userData;
 };
 /** @brief Reads image pixels and invokes a POD function-pointer callback. */
 struct OpReadImage2D {
+	/** @brief Documents the image declaration. */
 	HandleId image;
+	/** @brief Documents the mipLevel declaration. */
 	uint8_t mipLevel;
+	/** @brief Documents the layer declaration. */
 	uint16_t layer;
+	/** @brief Documents the x declaration. */
 	uint16_t x;
+	/** @brief Documents the y declaration. */
 	uint16_t y;
+	/** @brief Documents the width declaration. */
 	uint16_t width;
+	/** @brief Documents the height declaration. */
 	uint16_t height;
+	/** @brief Documents the callback declaration. */
 	ImageReadbackCallback callback;
+	/** @brief Documents the userData declaration. */
 	void* userData;
 };
 /**
@@ -1494,27 +1984,37 @@ struct OpReadImage2D {
  * portably as binary visibility: 0 is fully occluded, nonzero is visible.
  */
 struct OpReadQueryResults {
+	/** @brief Documents the queryPool declaration. */
 	HandleId queryPool;
+	/** @brief Documents the firstQuery declaration. */
 	uint32_t firstQuery;
+	/** @brief Documents the queryCount declaration. */
 	uint32_t queryCount;
+	/** @brief Documents the callback declaration. */
 	QueryReadbackCallback callback;
+	/** @brief Documents the userData declaration. */
 	void* userData;
 };
 
 /** @brief Begins a named debug label region. */
 struct OpDebugLabelBegin {
+	/** @brief Documents the name declaration. */
 	const char* name;
+	/** @brief Documents the color[4] declaration. */
 	float color[4];
 };
 
 /** @brief Ends the most recent debug label region. */
 struct OpDebugLabelEnd {
+	/** @brief Documents the reserved declaration. */
 	uint8_t reserved;
 };
 
 /** @brief Emits a point debug marker. */
 struct OpDebugMarker {
+	/** @brief Documents the name declaration. */
 	const char* name;
+	/** @brief Documents the color[4] declaration. */
 	float color[4];
 };
 
@@ -1526,7 +2026,9 @@ struct OpDebugMarker {
  * dispatch.
  */
 struct GfxOp {
+	/** @brief Documents the opcode declaration. */
 	Opcode opcode;
+	/** @brief Active payload storage selected by @ref opcode. */
 	union {
 		OpDestroy opDestroy;
 		OpCreateBufferObject opCreateBufferObject;

@@ -1,5 +1,13 @@
 #ifndef EUPHTEMPFILE_HPP
 #define EUPHTEMPFILE_HPP
+/**
+ * @file EuphTempFile.hpp
+ * @brief Declares the EuphTempFile API in the Euphemy/Io module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Io.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Euphemy/Io/EuphMemoryMapped.hpp>

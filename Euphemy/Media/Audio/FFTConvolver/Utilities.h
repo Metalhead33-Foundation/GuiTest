@@ -1,3 +1,11 @@
+/**
+ * @file Utilities.h
+ * @brief Declares the Utilities API in the Euphemy/Media/Audio/FFTConvolver module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Media/Audio/FFTConvolver.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 // ==================================================================================
 // Copyright (c) 2017 HiFi-LoFi
 //
@@ -78,6 +86,7 @@ public:
     clear();
   }
 
+  /** @brief Documents the clear declaration. */
   void clear()
   {
     deallocate(_data);
@@ -85,6 +94,7 @@ public:
     _size = 0;
   }
 
+  /** @brief Documents the resize declaration. */
   void resize(size_t size)
   {
     if (_size != size)
@@ -101,16 +111,19 @@ public:
     setZero();
   }
 
+  /** @brief Documents the size declaration. */
   size_t size() const
   {
     return _size;
   }
 
+  /** @brief Documents the setZero declaration. */
   void setZero()
   {
     ::memset(_data, 0, _size * sizeof(T));
   }
 
+  /** @brief Documents the copyFrom declaration. */
   void copyFrom(const Buffer<T>& other)
   {
     assert(_size == other._size);
@@ -120,33 +133,39 @@ public:
     }
   }
 
+  /** @brief Documents the operator[] helper. */
   T& operator[](size_t index)
   {
     assert(_data && index < _size);
     return _data[index];
   }
 
+  /** @brief Documents the operator[] helper. */
   const T& operator[](size_t index) const
   {
     assert(_data && index < _size);
     return _data[index];
   }
 
+  /** @brief Documents the bool declaration. */
   operator bool() const
   {
     return (_data != 0 && _size > 0);
   }
 
+  /** @brief Documents the data declaration. */
   T* data()
   {
     return _data;
   }
 
+  /** @brief Documents the data declaration. */
   const T* data() const
   {
     return _data;
   }
 
+  /** @brief Documents the Swap type or declaration. */
   static void Swap(Buffer<T>& a, Buffer<T>& b)
   {
     std::swap(a._data, b._data);
@@ -204,6 +223,7 @@ typedef Buffer<Sample> SampleBuffer;
 class SplitComplex
 {
 public:
+  /** @brief Documents the SplitComplex type or declaration. */
   explicit SplitComplex(size_t initialSize = 0) : 
     _size(0),
     _re(),
@@ -217,6 +237,7 @@ public:
     clear();
   }
 
+  /** @brief Documents the clear declaration. */
   void clear()
   {
     _re.clear();
@@ -224,6 +245,7 @@ public:
     _size = 0;
   }
 
+  /** @brief Documents the resize declaration. */
   void resize(size_t newSize)
   {
     _re.resize(newSize);
@@ -231,38 +253,45 @@ public:
     _size = newSize;
   }
 
+  /** @brief Documents the setZero declaration. */
   void setZero()
   {
     _re.setZero();
     _im.setZero();
   }
 
+  /** @brief Documents the copyFrom declaration. */
   void copyFrom(const SplitComplex& other)
   {
     _re.copyFrom(other._re);
     _im.copyFrom(other._im);
   }
 
+  /** @brief Documents the re declaration. */
   Sample* re()
   {
     return _re.data();
   }
 
+  /** @brief Documents the re declaration. */
   const Sample* re() const
   {
     return _re.data();
   }
 
+  /** @brief Documents the im declaration. */
   Sample* im()
   {
     return _im.data();
   }
 
+  /** @brief Documents the im declaration. */
   const Sample* im() const
   {
     return _im.data();
   }
 
+  /** @brief Documents the size declaration. */
   size_t size() const
   {
     return _size;

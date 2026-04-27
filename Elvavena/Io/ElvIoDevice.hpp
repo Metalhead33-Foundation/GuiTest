@@ -1,5 +1,13 @@
 #ifndef ELVIODEVICE_HPP
 #define ELVIODEVICE_HPP
+/**
+ * @file ElvIoDevice.hpp
+ * @brief Declares the ElvIoDevice API in the Elvavena/Io module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Io.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Elvavena/Util/ElvUtilGlobals.hpp>
 #include <Elvavena/Util/ElvHeapArray.hpp>
 #include <Elvavena/Util/ElvMathUtil.hpp>
@@ -44,7 +52,7 @@ enum class SeekOrigin : uint8_t {
  * @brief Bitwise enumeration defining file access modes.
  *
  * These modes can be combined using bitwise OR operations to achieve multiple access types simultaneously.
- * For example, @ref READ_WRITE combines read and write permissions.
+ * For example, `READ`_WRITE combines read and write permissions.
  */
 enum class Mode : uint8_t {
 	/**
@@ -69,14 +77,14 @@ enum class Mode : uint8_t {
 	APPEND = 4,
 
 	/**
-	 * @brief Combination of @ref READ and @ref WRITE modes.
+	 * @brief Combination of `READ` and `WRITE` modes.
 	 *
 	 * Open the file for both reading and writing.
 	 */
 	READ_WRITE = (READ | WRITE),
 
 	/**
-	 * @brief Combination of @ref READ and @ref APPEND modes.
+	 * @brief Combination of `READ` and `APPEND` modes.
 	 *
 	 * Open the file for reading and appending. Less common, as appending typically doesn't require simultaneous read access.
 	 */

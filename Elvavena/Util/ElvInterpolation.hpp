@@ -1,5 +1,13 @@
 #ifndef ELVINTERPOLATION_HPP
 #define ELVINTERPOLATION_HPP
+/**
+ * @file ElvInterpolation.hpp
+ * @brief Declares the ElvInterpolation API in the Elvavena/Util module.
+ *
+ * This header is part of the public declaration surface for Elvavena/Util.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Elvavena/Util/ElvFixedPoint.hpp>
 #include <concepts>
 #include <span>

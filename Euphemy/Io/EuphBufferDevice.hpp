@@ -1,5 +1,13 @@
 #ifndef EUPHBUFFERDEVICE_HPP
 #define EUPHBUFFERDEVICE_HPP
+/**
+ * @file EuphBufferDevice.hpp
+ * @brief Declares the EuphBufferDevice API in the Euphemy/Io module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Io.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
 #include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <cstring>
@@ -9,19 +17,19 @@ namespace Euph {
 namespace Io {
 
 /**
- * @typedef ReadOnlyBufferWrapper_PolymorphicPointerFactory
+ * ReadOnlyBufferWrapper_PolymorphicPointerFactory:
  * @brief Internal pointer-factory alias generated for `ReadOnlyBufferWrapper`.
  */
 /**
- * @typedef uReadOnlyBufferWrapper
+ * uReadOnlyBufferWrapper:
  * @brief Unique-pointer alias for `ReadOnlyBufferWrapper`.
  */
 /**
- * @typedef sReadOnlyBufferWrapper
+ * sReadOnlyBufferWrapper:
  * @brief Shared-pointer alias for `ReadOnlyBufferWrapper`.
  */
 /**
- * @typedef wReadOnlyBufferWrapper
+ * wReadOnlyBufferWrapper:
  * @brief Weak-pointer alias for `ReadOnlyBufferWrapper`.
  */
 DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ReadOnlyBufferWrapper)
@@ -140,19 +148,19 @@ public:
 
 
 /**
- * @typedef StaticBufferWrapper_PolymorphicPointerFactory
+ * StaticBufferWrapper_PolymorphicPointerFactory:
  * @brief Internal pointer-factory alias generated for `StaticBufferWrapper`.
  */
 /**
- * @typedef uStaticBufferWrapper
+ * uStaticBufferWrapper:
  * @brief Unique-pointer alias for `StaticBufferWrapper`.
  */
 /**
- * @typedef sStaticBufferWrapper
+ * sStaticBufferWrapper:
  * @brief Shared-pointer alias for `StaticBufferWrapper`.
  */
 /**
- * @typedef wStaticBufferWrapper
+ * wStaticBufferWrapper:
  * @brief Weak-pointer alias for `StaticBufferWrapper`.
  */
 DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(StaticBufferWrapper)
