@@ -18,6 +18,9 @@ INCLUDEPATH += /usr/include/mozjs-115 /usr/include/nspr /usr/include/freetype2 .
 LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
 
 SOURCES += \
+ Asset/EuphAssetManager.cpp \
+ Asset/EuphAssetRegistry.cpp \
+ Asset/EuphAsyncIoScheduler.cpp \
  Config/EuphConfiguration.cpp \
  Config/EuphConfigurationElement.cpp \
  Io/EuphBufferDevice.cpp \
@@ -55,6 +58,10 @@ SOURCES += \
  Memory/EuphMemory.cpp
 
 HEADERS += \
+ Asset/EuphAssetManager.hpp \
+ Asset/EuphAssetRegistry.hpp \
+ Asset/EuphAssetTypes.hpp \
+ Asset/EuphAsyncIoScheduler.hpp \
  Config/EuphConfiguration.hpp \
  Config/EuphConfigurationElement.hpp \
  Config/EuphLib.hpp \

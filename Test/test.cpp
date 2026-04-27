@@ -24,6 +24,14 @@
 #include <Euphemy/Media/Image/EuphTGA.hpp>
 #include <Euphemy/Media/Image/EuphPNG.hpp>
 #include <Euphemy/Media/Image/EuphImage.hpp>
+#include <Euphemy/Asset/EuphAssetManager.hpp>
+#include <Euphemy/Io/EuphFile.hpp>
+#include <chrono>
+#include <condition_variable>
+#include <filesystem>
+#include <mutex>
+#include <stdexcept>
+#include <thread>
 
 template<class T>
 struct Mallocator
@@ -163,6 +171,184 @@ void testMapDatastream() {
 			std::cout << it->first << ' ' << it->second << std::endl;
 		}
 	}
+}
+
+static void requireAssetTest(bool condition, const char* message)
+{
+	if(!condition) {
+		throw std::runtime_error(message);
+	}
+}
+
+static std::string makeAssetTestPath(const char* name)
+{
+	return (std::filesystem::temp_directory_path() / name).string();
+}
+
+static void writeAssetTestFile(const std::string& path, std::span<const std::byte> bytes)
+{
+	Euph::Io::File file(path.c_str(), Elv::Io::Mode::WRITE);
+	requireAssetTest(file.isValid(), "Failed to create asset test file");
+	requireAssetTest(file.write(bytes.data(), 1, bytes.size()) == bytes.size(), "Failed to write asset test file");
+	file.flush();
+}
+
+static void writeAssetTestFile(const std::string& path, std::string_view text)
+{
+	writeAssetTestFile(path, std::span<const std::byte>(
+		reinterpret_cast<const std::byte*>(text.data()),
+		text.size()));
+}
+
+template <typename T>
+static bool waitForAssetReady(const Euph::Asset::AssetHandle<T>& handle, std::chrono::milliseconds timeout)
+{
+	const auto deadline = std::chrono::steady_clock::now() + timeout;
+	while(std::chrono::steady_clock::now() < deadline) {
+		if(handle.ready() || handle.state() == Euph::Asset::ResidencyState::Failed) {
+			return handle.ready();
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	}
+	return handle.ready();
+}
+
+static std::string blobToString(const Euph::Asset::Blob& blob)
+{
+	return std::string(reinterpret_cast<const char*>(blob.data()), blob.size());
+}
+
+void testAssetStreaming()
+{
+	using namespace Euph::Asset;
+	const std::string path = makeAssetTestPath("euphemy_asset_streaming_test.bin");
+	writeAssetTestFile(path, "abcdef");
+
+	Euph::Io::Filesystem filesystem;
+	{
+		AsyncIoScheduler scheduler(filesystem);
+		AsyncRead read = scheduler.read(path, 2, 3);
+		AsyncReadResult result = read.future().get();
+		requireAssetTest(result.ok(), "Async scheduler byte-range read failed");
+		requireAssetTest(std::string(reinterpret_cast<const char*>(result.data.data()), result.data.size()) == "cde",
+						 "Async scheduler returned the wrong byte range");
+	}
+
+	{
+		AsyncIoScheduler scheduler(filesystem, 1, nullptr, true);
+		std::mutex orderMutex;
+		std::vector<std::uint64_t> completionOrder;
+		AsyncRead low = scheduler.read(path, 0, 1, StreamPriority{0}, [&](const AsyncReadResult&) {
+			std::lock_guard<std::mutex> lock(orderMutex);
+			completionOrder.push_back(1);
+		});
+		AsyncRead high = scheduler.read(path, 1, 1, StreamPriority{10}, [&](const AsyncReadResult&) {
+			std::lock_guard<std::mutex> lock(orderMutex);
+			completionOrder.push_back(2);
+		});
+		scheduler.resume();
+		(void)low.future().get();
+		(void)high.future().get();
+		std::lock_guard<std::mutex> lock(orderMutex);
+		requireAssetTest(!completionOrder.empty() && completionOrder.front() == 2,
+						 "Async scheduler did not service higher-priority work first");
+	}
+
+	AssetRecord firstRecord;
+	firstRecord.id = 0x10;
+	firstRecord.path = path;
+	firstRecord.offset = 0;
+	firstRecord.storedSize = 3;
+	firstRecord.decodedSize = 3;
+	firstRecord.compression = Compression::None;
+	firstRecord.type = "blob";
+	firstRecord.dependencies = { 0x20 };
+
+	Euph::Conf::Configuration config(
+		"[asset:0000000000000010]\n"
+		"spath=" + path + "\n"
+		"uoffset=0\n"
+		"ustoredSize=3\n"
+		"udecodedSize=3\n"
+		"scompression=none\n"
+		"stype=blob\n"
+		"sdependencies=0000000000000020\n");
+	AssetRegistry manualRegistry;
+	manualRegistry.registerAsset(firstRecord);
+	AssetRegistry configRegistry;
+	configRegistry.loadFromConfiguration(config);
+	requireAssetTest(configRegistry.get(0x10) == manualRegistry.get(0x10),
+					 "Asset registry config loading does not match manual registration");
+
+	AssetRecord secondRecord = firstRecord;
+	secondRecord.id = 0x20;
+	secondRecord.offset = 3;
+	secondRecord.dependencies.clear();
+	manualRegistry.registerAsset(secondRecord);
+
+	{
+		AsyncIoScheduler scheduler(filesystem);
+		AssetManager manager(manualRegistry, scheduler, 64);
+		auto handleA = manager.request<Blob>(0x10);
+		auto handleB = manager.request<Blob>(0x10);
+		requireAssetTest(waitForAssetReady(handleA, std::chrono::seconds(2)), "Asset handle did not become ready");
+		requireAssetTest(handleB.ready(), "Coalesced duplicate asset handle did not become ready");
+		auto lockA = handleA.lock();
+		auto lockB = handleB.lock();
+		requireAssetTest(lockA && lockB && lockA.get() == lockB.get(), "Duplicate asset requests were not coalesced");
+		requireAssetTest(blobToString(*lockA) == "abc", "Asset manager decoded the wrong blob");
+
+		auto missing = manager.request<Blob>(0x9999);
+		requireAssetTest(missing.state() == ResidencyState::Failed && !missing.error().empty(),
+						 "Missing asset did not enter Failed state");
+	}
+
+	{
+		AsyncIoScheduler scheduler(filesystem);
+		AssetManager manager(manualRegistry, scheduler, 3);
+		auto first = manager.request<Blob>(0x10);
+		requireAssetTest(waitForAssetReady(first, std::chrono::seconds(2)), "First eviction-test asset did not load");
+		auto pinned = first.lock();
+		requireAssetTest(static_cast<bool>(pinned), "Pinned asset lease could not be acquired");
+		auto second = manager.request<Blob>(0x20);
+		requireAssetTest(waitForAssetReady(second, std::chrono::seconds(2)) || second.state() == ResidencyState::Unloaded,
+						 "Second eviction-test asset neither loaded nor evicted");
+		manager.collectGarbage();
+		requireAssetTest(first.ready() && first.lock(), "Pinned asset was evicted despite an external lease");
+		requireAssetTest(manager.getResidentBytes() <= 3 || static_cast<bool>(pinned),
+						 "Eviction budget accounting failed");
+	}
+
+	const std::string zstdPath = makeAssetTestPath("euphemy_asset_streaming_test.zst");
+	const std::string zstdPayload = "hello zstd";
+	{
+		Euph::Io::File compressedFile(zstdPath.c_str(), Elv::Io::Mode::WRITE);
+		Euph::Io::ZstdCompressor compressor(&compressedFile);
+		requireAssetTest(compressor.write(zstdPayload.data(), 1, zstdPayload.size()) == zstdPayload.size(),
+						 "Failed to write zstd asset payload");
+		compressor.flush();
+	}
+
+	AssetRecord zstdRecord;
+	zstdRecord.id = 0x30;
+	zstdRecord.path = zstdPath;
+	zstdRecord.offset = 0;
+	zstdRecord.storedSize = std::filesystem::file_size(zstdPath);
+	zstdRecord.decodedSize = zstdPayload.size();
+	zstdRecord.compression = Compression::Zstd;
+	zstdRecord.type = "blob";
+	manualRegistry.registerAsset(zstdRecord);
+	{
+		AsyncIoScheduler scheduler(filesystem);
+		AssetManager manager(manualRegistry, scheduler, 64);
+		auto zstdHandle = manager.request<Blob>(0x30);
+		requireAssetTest(waitForAssetReady(zstdHandle, std::chrono::seconds(2)), "Zstd asset did not become ready");
+		auto blob = zstdHandle.lock();
+		requireAssetTest(blob && blobToString(*blob) == zstdPayload, "Zstd asset round-trip decoded incorrectly");
+	}
+
+	std::filesystem::remove(path);
+	std::filesystem::remove(zstdPath);
 }
 void testMemoryAllocator() {
 	typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticBitmapAllocator<8,1024>,int> IntAllocator;
