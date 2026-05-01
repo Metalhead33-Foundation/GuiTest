@@ -193,6 +193,95 @@ template<Util::AsyncExecutor Executor> struct Async {
 			}
 		});
 	}
+
+	/**
+	 * @brief Asynchronously reads elements from a Device and invokes a callback on completion.
+	 *
+	 * This function performs a Device::read operation on the provided executor.
+	 * Once the read completes, the supplied callback is invoked with the number
+	 * of elements successfully read.
+	 *
+	 * The callback is executed within the executor's worker context (e.g. thread
+	 * pool worker or event loop thread), not on the calling thread.
+	 *
+	 * @tparam Callback Callable accepting a single size_t argument representing
+	 * the number of elements read.
+	 *
+	 * @param executor Executor used to run the operation.
+	 * @param device Device to read from. Must remain valid until the task completes.
+	 * @param buffer Destination buffer. Must remain valid until the task completes.
+	 * @param size Size of each element to read.
+	 * @param count Maximum number of elements to read.
+	 * @param callback Callback invoked after the read completes.
+	 *
+	 * @return Executor-specific future-like object containing the Device::read result.
+	 *
+	 * @note The callback is invoked before the future becomes ready.
+	 * @note The callback executes on the executor's thread, so it must be thread-safe.
+	 * @note The buffer and device must remain valid for the duration of the asynchronous operation.
+	 */
+	template<typename Callback> [[nodiscard]] static auto readThen(Executor& executor, Device& device, void* buffer, size_t size, size_t count, Callback&& callback)
+	{
+		return executor.enqueueAsync(
+			[&device, buffer, size, count,
+			 cb = std::forward<Callback>(callback)]() mutable
+			{
+				const size_t got = device.read(buffer, size, count);
+				cb(got);
+				return got;
+			});
+	}
+
+	/**
+	 * @brief Asynchronously reads all remaining bytes from a Device and invokes a callback.
+	 *
+	 * Reading starts at the Device's current position and continues until the
+	 * reported end of the Device. The read data is stored in a PMR-backed
+	 * ByteVector, which is both passed to the callback and returned via the
+	 * executor's future-like result.
+	 *
+	 * The callback is executed within the executor's worker context (e.g. thread
+	 * pool worker or event loop thread), not on the calling thread.
+	 *
+	 * @tparam Callback Callable accepting a std::span<const std::byte> representing
+	 * the read data.
+	 *
+	 * @param executor Executor used to run the operation.
+	 * @param device Device to read from. Must remain valid until the task completes.
+	 * @param callback Callback invoked after the read completes.
+	 * @param memRes Memory resource used by the returned ByteVector. The resource
+	 * must outlive both the asynchronous task and the returned vector.
+	 *
+	 * @return Executor-specific future-like object containing a ByteVector with the read data.
+	 *
+	 * @note The span passed to the callback is only valid for the duration of the callback.
+	 * @note The callback executes on the executor's thread, so it must be thread-safe.
+	 * @note The Device position is advanced by the read operation.
+	 * @note The memory resource must remain valid for as long as the returned ByteVector is used.
+	 */
+	template<typename Callback> [[nodiscard]] static auto readAllThen(Executor& executor, Device& device, Callback&& callback, std::pmr::memory_resource* memRes = std::pmr::get_default_resource())
+	{
+		return executor.enqueueAsync(
+			[&device, memRes,
+			 cb = std::forward<Callback>(callback)]() mutable
+			{
+				const auto pos = static_cast<size_t>(device.tell());
+				const auto total = device.size();
+				const auto remaining = total > pos ? total - pos : 0;
+
+				ByteVector result(memRes);
+				result.resize(remaining);
+
+				if (!result.empty())
+					device.read(result.data(), 1, result.size());
+
+				cb(std::span<const std::byte>(result.data(), result.size()));
+
+				return result;
+			});
+	}
+
+
 };
 
 } // namespace Io
