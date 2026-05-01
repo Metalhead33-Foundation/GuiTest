@@ -64,6 +64,9 @@ private:
 	/**
 	 * @var memoryResource
 	 * @brief PMR memory resource used for container/task allocations.
+	 *
+	 * The pointed-to resource is not owned by EventLoop and must outlive the
+	 * EventLoop and any futures/tasks that allocate through it.
 	 */
 	std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource();
 
@@ -88,16 +91,35 @@ private:
 	 */
 	void loopFunction();
 
-	// Non-copyable and non-movable
+	/**
+	 * @brief Copy construction is disabled because EventLoop owns a live thread.
+	 */
 	EventLoop(const EventLoop&) = delete;
+
+	/**
+	 * @brief Move construction is disabled to keep the worker thread bound to a stable object address.
+	 */
 	EventLoop(EventLoop&&) noexcept = delete;
+
+	/**
+	 * @brief Copy assignment is disabled because EventLoop owns synchronization primitives and a live thread.
+	 */
 	EventLoop& operator=(const EventLoop&) = delete;
+
+	/**
+	 * @brief Move assignment is disabled to keep synchronization state and worker thread ownership stable.
+	 */
 	EventLoop& operator=(EventLoop&&) noexcept = delete;
 
 public:
 	/**
 	 * @fn EventLoop
 	 * @brief Constructor, initializes the event loop and starts the dedicated thread.
+	 *
+	 * @param memory_resource Memory resource used for command and task
+	 * allocations. If nullptr is passed, std::pmr::get_default_resource() is
+	 * used instead. The resource must outlive the EventLoop and any returned
+	 * asynchronous results that allocated through it.
 	 */
 	EventLoop(std::pmr::memory_resource* memory_resource = std::pmr::get_default_resource());
 
@@ -187,8 +209,12 @@ public:
 		return fut;
 	}
 };
+
+/**
+ * @brief Verifies that EventLoop satisfies the generic asynchronous executor contract.
+ */
 static_assert(AsyncExecutor<EventLoop>);
 
-}
-}
+} // namespace Util
+} // namespace Elv
 #endif // ELVEVENTLOOP_HPP

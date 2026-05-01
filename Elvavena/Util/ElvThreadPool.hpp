@@ -32,7 +32,16 @@ namespace Util {
  */
 class MH_UTIL_API ThreadPool {
 private:
+	/**
+	 * @typedef Task
+	 * @brief Type-erased unit of work executed by worker threads.
+	 */
 	using Task = std::function<void()>;
+
+	/**
+	 * @typedef TaskContainer
+	 * @brief PMR-backed storage used by the pending-task queue.
+	 */
 	using TaskContainer = std::pmr::deque<Task>;
 
 	/**
@@ -66,13 +75,30 @@ private:
 
 	/**
 	 * @brief Memory resource used for PMR-backed allocations.
+	 *
+	 * The pointed-to resource is not owned by ThreadPool and must outlive the
+	 * pool and any futures/tasks that allocate through it.
 	 */
 	std::pmr::memory_resource* memory_resource_ = std::pmr::get_default_resource();
 
-	// Non-copyable and non-movable
+	/**
+	 * @brief Copy construction is disabled because ThreadPool owns live worker threads.
+	 */
 	ThreadPool(const ThreadPool&) = delete;
+
+	/**
+	 * @brief Move construction is disabled to keep worker synchronization state stable.
+	 */
 	ThreadPool(ThreadPool&&) noexcept = delete;
+
+	/**
+	 * @brief Copy assignment is disabled because ThreadPool owns synchronization primitives and live threads.
+	 */
 	ThreadPool& operator=(const ThreadPool&) = delete;
+
+	/**
+	 * @brief Move assignment is disabled to keep queued work and worker state stable.
+	 */
 	ThreadPool& operator=(ThreadPool&&) noexcept = delete;
 public:
 	/**
@@ -82,6 +108,9 @@ public:
 	 * used as the default.
 	 *
 	 * @param num_threads Number of worker threads to create.
+	 * @param memory_resource Memory resource used for queued task storage and
+	 * packaged task allocations. If nullptr is passed, the implementation uses
+	 * std::pmr::get_default_resource().
 	 */
 	ThreadPool(
 		size_t num_threads = std::thread::hardware_concurrency(),
@@ -166,9 +195,13 @@ public:
 		return fut;
 	}
 };
+
+/**
+ * @brief Verifies that ThreadPool satisfies the generic asynchronous executor contract.
+ */
 static_assert(AsyncExecutor<ThreadPool>);
 
-}
-}
+} // namespace Util
+} // namespace Elv
 
 #endif // ELVTHREADPOOL_HPP
