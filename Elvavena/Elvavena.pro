@@ -10,7 +10,8 @@ INCLUDEPATH += $$PWD/..
 SOURCES += \
     Io/ElvIoDeviceProxy.cpp \
     Util/ElvDynamicLib.cpp \
-    Util/ElvEventLoop.cpp
+    Util/ElvEventLoop.cpp \
+    Util/ElvThreadPool.cpp
 
 HEADERS += \
     Io/ElvDataStream.hpp \
@@ -45,6 +46,7 @@ HEADERS += \
     Util/ElvSpanHelpers.hpp \
     Util/ElvStackAllocator.hpp \
     Util/ElvStringhashMap.hpp \
+    Util/ElvThreadPool.hpp \
     Util/ElvThreadsafeContainer.hpp \
     Util/ElvThreadsafeQueue.hpp \
     Util/ElvUtilGlobals.hpp \
