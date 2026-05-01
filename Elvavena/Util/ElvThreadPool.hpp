@@ -14,6 +14,7 @@
 #include <type_traits>
 #include <utility>
 #include <Elvavena/Util/ElvUtilGlobals.hpp>
+#include <Elvavena/Util/ElvAsyncExecutor.hpp>
 
 namespace Elv {
 namespace Util {
@@ -68,6 +69,11 @@ private:
 	 */
 	std::pmr::memory_resource* memory_resource_ = std::pmr::get_default_resource();
 
+	// Non-copyable and non-movable
+	ThreadPool(const ThreadPool&) = delete;
+	ThreadPool(ThreadPool&&) noexcept = delete;
+	ThreadPool& operator=(const ThreadPool&) = delete;
+	ThreadPool& operator=(ThreadPool&&) noexcept = delete;
 public:
 	/**
 	 * @brief Constructs a thread pool with the given number of worker threads.
@@ -160,6 +166,7 @@ public:
 		return fut;
 	}
 };
+static_assert(AsyncExecutor<ThreadPool>);
 
 }
 }

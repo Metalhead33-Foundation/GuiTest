@@ -15,11 +15,13 @@ SOURCES += \
 
 HEADERS += \
     Io/ElvDataStream.hpp \
+    Io/ElvIoAsync.hpp \
     Io/ElvIoDevice.hpp \
     Io/ElvIoDeviceProxy.hpp \
     Io/ElvIoSystem.hpp \
     Util/ElvAlexandrescuResource.hpp \
     Util/ElvAllocatorBasic.hpp \
+    Util/ElvAsyncExecutor.hpp \
     Util/ElvBinaryTree.hpp \
     Util/ElvBitmapAllocator.hpp \
     Util/ElvChunkyArray.hpp \

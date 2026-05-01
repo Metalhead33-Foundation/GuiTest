@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 #include <Elvavena/Util/ElvUtilGlobals.hpp>
+#include <Elvavena/Util/ElvAsyncExecutor.hpp>
 namespace Elv {
 namespace Util {
 
@@ -186,6 +187,7 @@ public:
 		return fut;
 	}
 };
+static_assert(AsyncExecutor<EventLoop>);
 
 }
 }
