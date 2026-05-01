@@ -135,19 +135,10 @@ public:
 				std::forward<Func>(callable),
 				std::forward<Args>(args)...);
 		}
-
-		using return_type = std::invoke_result_t<Func, Args...>;
-		using packaged_task_type =
-			std::packaged_task<return_type(Args&&...)>;
-
-		packaged_task_type task(std::forward<Func>(callable));
-
-		enqueue([&]
-		{
-			task(std::forward<Args>(args)...);
-		});
-
-		return task.get_future().get();
+		else return enqueueAsync(
+				   std::forward<Func>(callable),
+				   std::forward<Args>(args)...
+				   ).get();
 	}
 
 	/**
@@ -162,31 +153,25 @@ public:
 	 * @param args Function arguments (forwarding references).
 	 * @return A future representing the result of the executed function.
 	 */
-	template<typename Func, typename... Args> [[nodiscard]] inline auto enqueueAsync(Func&& callable, Args&&...args)
+	template<typename Func, typename... Args> [[nodiscard]] auto enqueueAsync(Func&& callable, Args&&... args)
 	{
 		using return_type = std::invoke_result_t<Func, Args...>;
-		using packaged_task_type = std::packaged_task<return_type()>;
 
-		auto taskPtr = std::make_shared<packaged_task_type>(
+		auto taskPtr = std::make_shared<std::packaged_task<return_type()>>(
 			[func = std::forward<Func>(callable),
-			 argTuple = std::make_tuple(std::forward<Args>(args)...)]() mutable -> return_type
+			 argsTuple = std::make_tuple(std::forward<Args>(args)...)]() mutable -> return_type
 			{
-				return std::apply(
-					[&func](auto&&... unpackedArgs) mutable -> return_type
-					{
-						return std::invoke(
-							std::move(func),
-							std::forward<decltype(unpackedArgs)>(unpackedArgs)...);
-					},
-					std::move(argTuple));
-			});
+				return std::apply(std::move(func), std::move(argsTuple));
+			}
+			);
 
-		enqueue([taskPtr]() mutable
-		{
+		auto fut = taskPtr->get_future();
+
+		enqueue([taskPtr]() mutable {
 			(*taskPtr)();
 		});
 
-		return taskPtr->get_future();
+		return fut;
 	}
 };
 
