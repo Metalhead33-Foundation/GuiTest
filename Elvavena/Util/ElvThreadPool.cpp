@@ -2,14 +2,17 @@
 namespace Elv {
 namespace Util {
 
-ThreadPool::ThreadPool(size_t num_threads)
+ThreadPool::ThreadPool(size_t num_threads, std::pmr::memory_resource* memory_resource)
+	: threads_(memory_resource != nullptr ? memory_resource : std::pmr::get_default_resource())
+	, tasks_(ThreadPool::TaskContainer(memory_resource != nullptr ? memory_resource : std::pmr::get_default_resource()))
+	, memory_resource_(memory_resource != nullptr ? memory_resource : std::pmr::get_default_resource())
 {
 
 	// Creating worker threads
 	for (size_t i = 0; i < num_threads; ++i) {
 		threads_.emplace_back([this] {
 			while (true) {
-				std::function<void()> task;
+				ThreadPool::Task task;
 				// The reason for putting the below code
 				// here is to unlock the queue before
 				// executing the task so that other

@@ -9,12 +9,16 @@
  * and backend implementations that include this module.
  */
 #include <functional>
-#include <vector>
-#include <mutex>
 #include <condition_variable>
 #include <future>
+#include <memory>
+#include <memory_resource>
+#include <mutex>
 #include <thread>
 #include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
 #include <Elvavena/Util/ElvUtilGlobals.hpp>
 namespace Elv {
 namespace Util {
@@ -42,7 +46,7 @@ private:
 	 * @var writeBuffer
 	 * @brief Buffer to store commands waiting to be executed.
 	 */
-	std::vector<Command> writeBuffer;
+	std::pmr::vector<Command> writeBuffer;
 
 	/**
 	 * @var commandsMutex
@@ -55,6 +59,12 @@ private:
 	 * @brief Condition variable to signal when new commands are available.
 	 */
 	std::condition_variable condVar;
+
+	/**
+	 * @var memoryResource
+	 * @brief PMR memory resource used for container/task allocations.
+	 */
+	std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource();
 
 	/**
 	 * @var isRunning
@@ -88,7 +98,7 @@ public:
 	 * @fn EventLoop
 	 * @brief Constructor, initializes the event loop and starts the dedicated thread.
 	 */
-	EventLoop();
+	EventLoop(std::pmr::memory_resource* memory_resource = std::pmr::get_default_resource());
 
 	/**
 	 * @fn ~EventLoop
@@ -157,7 +167,9 @@ public:
 	{
 		using return_type = std::invoke_result_t<Func, Args...>;
 
-		auto taskPtr = std::make_shared<std::packaged_task<return_type()>>(
+		auto taskAllocator = std::pmr::polymorphic_allocator<std::packaged_task<return_type()> >(memoryResource);
+		auto taskPtr = std::allocate_shared<std::packaged_task<return_type()> >(
+			taskAllocator,
 			[func = std::forward<Func>(callable),
 			 argsTuple = std::make_tuple(std::forward<Args>(args)...)]() mutable -> return_type
 			{

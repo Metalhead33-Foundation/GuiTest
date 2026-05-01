@@ -13,7 +13,7 @@ namespace Util {
  */
 void EventLoop::loopFunction()
 {
-	std::vector<Command> readBuffer;
+	std::pmr::vector<Command> readBuffer(memoryResource);
 	while (isRunning)
 	{
 		{
@@ -35,8 +35,11 @@ void EventLoop::loopFunction()
 /**
  * @brief Starts the event loop thread.
  */
-EventLoop::EventLoop()
-	: isRunning(true), loopThread(&EventLoop::loopFunction, this)
+EventLoop::EventLoop(std::pmr::memory_resource* memory_resource)
+	: writeBuffer(memory_resource != nullptr ? memory_resource : std::pmr::get_default_resource())
+	, memoryResource(memory_resource != nullptr ? memory_resource : std::pmr::get_default_resource())
+	, isRunning(true)
+	, loopThread(&EventLoop::loopFunction, this)
 {
 }
 

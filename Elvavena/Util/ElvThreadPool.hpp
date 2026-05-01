@@ -2,11 +2,17 @@
 #define ELVTHREADPOOL_HPP
 
 #include <condition_variable>
+#include <deque>
 #include <functional>
 #include <future>
+#include <memory>
+#include <memory_resource>
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 #include <Elvavena/Util/ElvUtilGlobals.hpp>
 
 namespace Elv {
@@ -25,10 +31,13 @@ namespace Util {
  */
 class MH_UTIL_API ThreadPool {
 private:
+	using Task = std::function<void()>;
+	using TaskContainer = std::pmr::deque<Task>;
+
 	/**
 	 * @brief Worker threads owned by the pool.
 	 */
-	std::vector<std::thread> threads_;
+	std::pmr::vector<std::thread> threads_;
 
 	/**
 	 * @brief Queue storing pending tasks.
@@ -36,7 +45,7 @@ private:
 	 * Each task is represented as a void callable and is executed by one of the
 	 * worker threads.
 	 */
-	std::queue<std::function<void()> > tasks_;
+	std::queue<Task, TaskContainer> tasks_;
 
 	/**
 	 * @brief Mutex protecting access to the task queue and stop flag.
@@ -54,6 +63,11 @@ private:
 	 */
 	bool stop_ = false;
 
+	/**
+	 * @brief Memory resource used for PMR-backed allocations.
+	 */
+	std::pmr::memory_resource* memory_resource_ = std::pmr::get_default_resource();
+
 public:
 	/**
 	 * @brief Constructs a thread pool with the given number of worker threads.
@@ -63,7 +77,10 @@ public:
 	 *
 	 * @param num_threads Number of worker threads to create.
 	 */
-	ThreadPool(size_t num_threads = std::thread::hardware_concurrency());
+	ThreadPool(
+		size_t num_threads = std::thread::hardware_concurrency(),
+		std::pmr::memory_resource* memory_resource = std::pmr::get_default_resource()
+		);
 
 	/**
 	 * @brief Destroys the thread pool.
@@ -124,7 +141,9 @@ public:
 	{
 		using return_type = std::invoke_result_t<Func, Args...>;
 
-		auto taskPtr = std::make_shared<std::packaged_task<return_type()>>(
+		auto taskAllocator = std::pmr::polymorphic_allocator<std::packaged_task<return_type()> >(memory_resource_);
+		auto taskPtr = std::allocate_shared<std::packaged_task<return_type()> >(
+			taskAllocator,
 			[func = std::forward<Func>(callable),
 			 argsTuple = std::make_tuple(std::forward<Args>(args)...)]() mutable -> return_type
 			{
