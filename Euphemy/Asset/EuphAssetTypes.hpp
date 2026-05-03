@@ -7,7 +7,7 @@ namespace Euph {
 namespace Asset {
 
 using AssetId = std::uint64_t;
-enum class ResidencyState {
+enum class ResidencyState : std::uint8_t {
 	Missing,
 	Known,
 	Requested,
@@ -24,7 +24,7 @@ enum class ResidencyState {
 	Unloaded = Missing,
 	Queued = Requested
 };
-enum class FailureReason {
+enum class FailureReason : std::uint8_t {
 	None,
 	AssetNotFound,
 	MissingDependency,
