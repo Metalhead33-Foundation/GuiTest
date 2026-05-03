@@ -52,5 +52,7 @@ void testInterpolationFixed();
 void testTGA();
 /** @brief Documents the testPNG declaration. */
 void testPNG();
+/** @brief Exercises the Elv::Io::Async adapter API. */
+void testAsyncIo();
 
 #endif // TEST_HPP

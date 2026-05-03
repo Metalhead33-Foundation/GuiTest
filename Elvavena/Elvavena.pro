@@ -8,6 +8,7 @@ DEFINES += MH_UTIL_EXPORT
 INCLUDEPATH += $$PWD/..
 
 SOURCES += \
+    Io/ElvIoAsync.cpp \
     Io/ElvIoDeviceProxy.cpp \
     Util/ElvDynamicLib.cpp \
     Util/ElvEventLoop.cpp \

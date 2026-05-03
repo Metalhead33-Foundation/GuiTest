@@ -1,11 +1,16 @@
 #include "test.hpp"
+#include <algorithm>
+#include <array>
 #include <Elvavena/Util/ElvHeapArray.hpp>
 #include <Elvavena/Util/ElvChunkyArray.hpp>
 #include <Elvavena/Util/ElvIntegralIterator.hpp>
 #include <Elvavena/Util/ElvFreelist.hpp>
 #include <Elvavena/Util/ElvBitmapAllocator.hpp>
+#include <Elvavena/Util/ElvThreadPool.hpp>
+#include <Elvavena/Io/ElvIoAsync.hpp>
 #include <vector>
 #include <Euphemy/Io/EuphBufferDevice.hpp>
+#include <Euphemy/Io/EuphMemoryDevice.hpp>
 #include <Elvavena/Io/ElvDataStream.hpp>
 #include <map>
 #include <Euphemy/Io/EuphRandomDevice.hpp>
@@ -24,6 +29,12 @@
 #include <Euphemy/Media/Image/EuphTGA.hpp>
 #include <Euphemy/Media/Image/EuphPNG.hpp>
 #include <Euphemy/Media/Image/EuphImage.hpp>
+#include <iostream>
+#include <memory>
+#include <memory_resource>
+#include <span>
+#include <stdexcept>
+#include <stop_token>
 
 template<class T>
 struct Mallocator
@@ -132,6 +143,255 @@ static const std::vector<unsigned char> Encryptionkey { 0x30, 0x31, 0x32, 0x33, 
 												 0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35,
 												 0x36, 0x37, 0x38, 0x39, 0x30, 0x31, 0x32, 0x33,
 												 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31 };
+
+namespace {
+
+void requireCondition(bool condition, const char* message)
+{
+	if (!condition)
+		throw std::runtime_error(message);
+}
+
+bool bytesEqual(std::span<const std::byte> lhs, std::span<const std::byte> rhs)
+{
+	return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin());
+}
+
+template<typename Future>
+void requireRuntimeError(Future& future, const char* message)
+{
+	bool threw = false;
+	try {
+		(void)future.get();
+	} catch (const std::runtime_error&) {
+		threw = true;
+	}
+	requireCondition(threw, message);
+}
+
+template<typename Future>
+void requireCanceled(Future& future, const char* message)
+{
+	bool canceled = false;
+	try {
+		(void)future.get();
+	} catch (const Elv::Io::AsyncOperationCanceled&) {
+		canceled = true;
+	}
+	requireCondition(canceled, message);
+}
+
+class ThrowingDevice : public Elv::Io::Device {
+public:
+	size_t read(void*, size_t, size_t) override
+	{
+		throw std::runtime_error("ThrowingDevice read failed");
+	}
+
+	size_t write(const void*, size_t, size_t) override
+	{
+		throw std::runtime_error("ThrowingDevice write failed");
+	}
+
+	int seek(long, Elv::Io::SeekOrigin) override
+	{
+		throw std::runtime_error("ThrowingDevice seek failed");
+	}
+
+	long tell() override
+	{
+		return 0;
+	}
+
+	size_t size() override
+	{
+		return 1;
+	}
+
+	bool eof() override
+	{
+		return false;
+	}
+
+	Elv::Io::Mode getMode() const override
+	{
+		return Elv::Io::Mode::READ_WRITE;
+	}
+
+	bool flush() override
+	{
+		return true;
+	}
+
+	bool isValid() const override
+	{
+		return true;
+	}
+};
+
+} // namespace
+
+void testAsyncIo()
+{
+	using AsyncIo = Elv::Io::Async<Elv::Util::ThreadPool>;
+	using ByteResult = Elv::Io::AsyncResult<size_t>;
+	using SpanResult = Elv::Io::AsyncResult<std::span<const std::byte> >;
+
+	Elv::Util::ThreadPool pool(2);
+	const std::array<std::byte, 4> source {
+		std::byte{0x10},
+		std::byte{0x20},
+		std::byte{0x30},
+		std::byte{0x40}
+	};
+
+	Euph::Io::MemoryDevice device(Elv::Io::Mode::READ_WRITE);
+	requireCondition(AsyncIo::write(pool, device, source.data(), 1, source.size()).get() == source.size(), "Async::write returned the wrong byte count");
+	requireCondition(AsyncIo::flush(pool, device).get(), "Async::flush failed");
+	requireCondition(AsyncIo::size(pool, device).get() == source.size(), "Async::size returned the wrong size");
+	requireCondition(AsyncIo::seek(pool, device, 0, Elv::Io::SeekOrigin::SET).get() == 0, "Async::seek failed");
+
+	std::array<std::byte, 4> destination {};
+	requireCondition(AsyncIo::read(pool, device, destination.data(), 1, destination.size()).get() == destination.size(), "Async::read returned the wrong byte count");
+	requireCondition(bytesEqual(destination, source), "Async::read copied the wrong bytes");
+	requireCondition(AsyncIo::tell(pool, device).get() == static_cast<long>(source.size()), "Async::tell returned the wrong position");
+	requireCondition(AsyncIo::eof(pool, device).get(), "Async::eof should report end of memory device");
+	requireCondition(AsyncIo::isValid(pool, device).get(), "Async::isValid should report true");
+
+	bool seekThenCalled = false;
+	requireCondition(AsyncIo::seekThen(pool, device, 0, Elv::Io::SeekOrigin::SET, [&](const Elv::Io::AsyncResult<int>& result) {
+		seekThenCalled = true;
+		requireCondition(result.has_value() && result.value() == 0, "Async::seekThen callback received the wrong result");
+	}).get() == 0, "Async::seekThen future returned the wrong result");
+	requireCondition(seekThenCalled, "Async::seekThen did not invoke its callback");
+
+	requireCondition(AsyncIo::tellThen(pool, device, [](const Elv::Io::AsyncResult<long>& result) {
+		requireCondition(result.has_value() && result.value() == 0, "Async::tellThen callback received the wrong result");
+	}).get() == 0, "Async::tellThen future returned the wrong result");
+
+	requireCondition(AsyncIo::sizeThen(pool, device, [&](const Elv::Io::AsyncResult<size_t>& result) {
+		requireCondition(result.has_value() && result.value() == source.size(), "Async::sizeThen callback received the wrong result");
+	}).get() == source.size(), "Async::sizeThen future returned the wrong result");
+
+	requireCondition(AsyncIo::flushThen(pool, device, [](const Elv::Io::AsyncResult<bool>& result) {
+		requireCondition(result.has_value() && result.value(), "Async::flushThen callback received the wrong result");
+	}).get(), "Async::flushThen future returned the wrong result");
+
+	requireCondition(AsyncIo::isValidThen(pool, device, [](const Elv::Io::AsyncResult<bool>& result) {
+		requireCondition(result.has_value() && result.value(), "Async::isValidThen callback received the wrong result");
+	}).get(), "Async::isValidThen future returned the wrong result");
+
+	requireCondition(AsyncIo::eofThen(pool, device, [](const Elv::Io::AsyncResult<bool>& result) {
+		requireCondition(result.has_value() && result.value(), "Async::eofThen callback received the wrong result");
+	}).get(), "Async::eofThen future returned the wrong result");
+
+	bool readThenCalled = false;
+	size_t readThenBytes = 0;
+	std::array<std::byte, 2> partial {};
+	requireCondition(AsyncIo::readThen(pool, device, partial.data(), 1, partial.size(), [&](const ByteResult& result) {
+		readThenCalled = true;
+		requireCondition(result.has_value(), "Async::readThen callback expected success");
+		readThenBytes = result.value();
+	}).get() == partial.size(), "Async::readThen future returned the wrong byte count");
+	requireCondition(readThenCalled && readThenBytes == partial.size(), "Async::readThen callback was not invoked correctly");
+	requireCondition(bytesEqual(partial, std::span<const std::byte>(source.data(), partial.size())), "Async::readThen copied the wrong bytes");
+
+	requireCondition(AsyncIo::seek(pool, device, 0, Elv::Io::SeekOrigin::SET).get() == 0, "Async::seek failed before callback exception test");
+	size_t throwingCallbackCalls = 0;
+	auto callbackThrowFuture = AsyncIo::readThen(pool, device, partial.data(), 1, 1, [&](const ByteResult& result) {
+		++throwingCallbackCalls;
+		requireCondition(result.has_value() && result.value() == 1, "Async::readThen callback exception test received the wrong result");
+		throw std::runtime_error("Async::readThen callback failed");
+	});
+	requireRuntimeError(callbackThrowFuture, "Async::readThen future should propagate callback exceptions");
+	requireCondition(throwingCallbackCalls == 1, "Async::readThen should not invoke a throwing callback twice");
+
+	Euph::Io::MemoryDevice writeThenDevice(Elv::Io::Mode::WRITE);
+	bool writeThenCalled = false;
+	requireCondition(AsyncIo::writeThen(pool, writeThenDevice, source.data(), 1, source.size(), [&](const ByteResult& result) {
+		writeThenCalled = true;
+		requireCondition(result.has_value() && result.value() == source.size(), "Async::writeThen callback received the wrong result");
+	}).get() == source.size(), "Async::writeThen future returned the wrong byte count");
+	requireCondition(writeThenCalled, "Async::writeThen did not invoke its callback");
+
+	requireCondition(AsyncIo::seek(pool, device, 0, Elv::Io::SeekOrigin::SET).get() == 0, "Async::seek failed before readAllThen");
+	bool readAllThenCalled = false;
+	auto readAllThenFuture = AsyncIo::readAllThen(pool, device, std::pmr::get_default_resource(), [&](const SpanResult& result) {
+		readAllThenCalled = true;
+		requireCondition(result.has_value(), "Async::readAllThen callback expected success");
+		requireCondition(bytesEqual(result.value(), source), "Async::readAllThen callback received the wrong bytes");
+	});
+	const auto readAllThenBytes = readAllThenFuture.get();
+	requireCondition(readAllThenCalled, "Async::readAllThen did not invoke its callback");
+	requireCondition(bytesEqual(readAllThenBytes, source), "Async::readAllThen future returned the wrong bytes");
+
+	requireCondition(AsyncIo::seek(pool, device, 0, Elv::Io::SeekOrigin::SET).get() == 0, "Async::seek failed before custom PMR read");
+	std::array<std::byte, 1024> pmrStorage {};
+	std::pmr::monotonic_buffer_resource memRes(pmrStorage.data(), pmrStorage.size());
+	const auto customPmrBytes = AsyncIo::readAll(pool, device, &memRes).get();
+	requireCondition(bytesEqual(customPmrBytes, source), "Async::readAll with custom PMR returned the wrong bytes");
+
+	ThrowingDevice throwingDevice;
+	bool readFailureCallback = false;
+	std::array<std::byte, 1> scratch {};
+	auto failingRead = AsyncIo::readThen(pool, throwingDevice, scratch.data(), 1, scratch.size(), [&](const ByteResult& result) {
+		readFailureCallback = true;
+		requireCondition(!result.has_value(), "Async::readThen failure callback expected an error");
+		requireCondition(result.error() != nullptr, "Async::readThen failure callback did not receive an exception");
+		bool valueThrew = false;
+		try {
+			(void)result.value();
+		} catch (const std::runtime_error&) {
+			valueThrew = true;
+		}
+		requireCondition(valueThrew, "AsyncResult::value should rethrow read failure");
+	});
+	requireRuntimeError(failingRead, "Async::readThen future should rethrow device read failure");
+	requireCondition(readFailureCallback, "Async::readThen did not invoke its failure callback");
+
+	bool writeFailureCallback = false;
+	auto failingWrite = AsyncIo::writeThen(pool, throwingDevice, source.data(), 1, source.size(), [&](const ByteResult& result) {
+		writeFailureCallback = true;
+		requireCondition(!result.has_value(), "Async::writeThen failure callback expected an error");
+		requireCondition(result.error() != nullptr, "Async::writeThen failure callback did not receive an exception");
+	});
+	requireRuntimeError(failingWrite, "Async::writeThen future should rethrow device write failure");
+	requireCondition(writeFailureCallback, "Async::writeThen did not invoke its failure callback");
+
+	bool readAllFailureCallback = false;
+	auto failingReadAll = AsyncIo::readAllThen(pool, throwingDevice, [&](const SpanResult& result) {
+		readAllFailureCallback = true;
+		requireCondition(!result.has_value(), "Async::readAllThen failure callback expected an error");
+		requireCondition(result.error() != nullptr, "Async::readAllThen failure callback did not receive an exception");
+	});
+	requireRuntimeError(failingReadAll, "Async::readAllThen future should rethrow device read failure");
+	requireCondition(readAllFailureCallback, "Async::readAllThen did not invoke its failure callback");
+
+	std::stop_source cancelBeforeSource;
+	cancelBeforeSource.request_stop();
+	Euph::Io::MemoryDevice cancelBeforeDevice(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
+	auto cancelBeforeFuture = AsyncIo::readAll(pool, cancelBeforeDevice, cancelBeforeSource.get_token());
+	requireCanceled(cancelBeforeFuture, "Async::readAll should throw when canceled before start");
+
+	std::stop_source chunkStopSource;
+	Euph::Io::MemoryDevice chunkDevice(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
+	size_t chunkCallbacks = 0;
+	auto chunkFuture = AsyncIo::readChunks(pool, chunkDevice, chunkStopSource.get_token(), 2, [&](std::span<const std::byte> chunk) {
+		++chunkCallbacks;
+		requireCondition(chunk.size() == 2, "Async::readChunks returned the wrong chunk size");
+		chunkStopSource.request_stop();
+	});
+	requireCanceled(chunkFuture, "Async::readChunks should throw after cancellation is requested");
+	requireCondition(chunkCallbacks == 1, "Async::readChunks should stop after the first canceled chunk");
+
+	Elv::Io::sDevice sharedDevice = std::make_shared<Euph::Io::MemoryDevice>(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
+	auto sharedFuture = AsyncIo::readAll(pool, sharedDevice);
+	sharedDevice.reset();
+	const auto sharedBytes = sharedFuture.get();
+	requireCondition(bytesEqual(sharedBytes, source), "Async shared-device overload returned the wrong bytes");
+
+	std::cout << "Async I/O tests passed" << std::endl;
+}
 
 void randomDeviceTest() {
 	std::vector<int> intVec(12,0);
