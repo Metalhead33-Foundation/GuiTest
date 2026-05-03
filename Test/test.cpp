@@ -229,6 +229,54 @@ public:
 	}
 };
 
+class ZeroReadDevice : public Elv::Io::Device {
+public:
+	size_t read(void*, size_t, size_t) override
+	{
+		return 0;
+	}
+
+	size_t write(const void*, size_t, size_t) override
+	{
+		return 0;
+	}
+
+	int seek(long, Elv::Io::SeekOrigin) override
+	{
+		return 0;
+	}
+
+	long tell() override
+	{
+		return 0;
+	}
+
+	size_t size() override
+	{
+		return 4;
+	}
+
+	bool eof() override
+	{
+		return false;
+	}
+
+	Elv::Io::Mode getMode() const override
+	{
+		return Elv::Io::Mode::READ;
+	}
+
+	bool flush() override
+	{
+		return true;
+	}
+
+	bool isValid() const override
+	{
+		return true;
+	}
+};
+
 } // namespace
 
 void testAsyncIo()
@@ -325,6 +373,28 @@ void testAsyncIo()
 	requireCondition(readAllThenCalled, "Async::readAllThen did not invoke its callback");
 	requireCondition(bytesEqual(readAllThenBytes, source), "Async::readAllThen future returned the wrong bytes");
 
+	Euph::Io::MemoryDevice customReadAllDevice(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
+	const auto customChunkBytes = AsyncIo::readAll(pool, customReadAllDevice, std::pmr::get_default_resource(), 2).get();
+	requireCondition(bytesEqual(customChunkBytes, source), "Async::readAll with custom chunk size returned the wrong bytes");
+
+	Euph::Io::MemoryDevice customReadAllSharedDevice(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
+	const auto customChunkSharedBytes = AsyncIo::readAllShared(pool, customReadAllSharedDevice, std::pmr::get_default_resource(), 2).get();
+	requireCondition(bytesEqual(*customChunkSharedBytes, source), "Async::readAllShared with custom chunk size returned the wrong bytes");
+
+	Euph::Io::MemoryDevice customReadAllThenDevice(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
+	bool customReadAllThenCalled = false;
+	std::vector<std::byte> customReadAllThenCopy;
+	auto customReadAllThenFuture = AsyncIo::readAllThen(pool, customReadAllThenDevice, std::pmr::get_default_resource(), 2, [&](const SpanResult& result) {
+		customReadAllThenCalled = true;
+		requireCondition(result.has_value(), "Async::readAllThen custom chunk callback expected success");
+		customReadAllThenCopy.assign(result.value().begin(), result.value().end());
+		requireCondition(bytesEqual(result.value(), source), "Async::readAllThen custom chunk callback received the wrong bytes");
+	});
+	const auto customReadAllThenBytes = customReadAllThenFuture.get();
+	requireCondition(customReadAllThenCalled, "Async::readAllThen with custom chunk size did not invoke its callback");
+	requireCondition(bytesEqual(customReadAllThenCopy, source), "Async::readAllThen callback span was not valid during callback");
+	requireCondition(bytesEqual(customReadAllThenBytes, source), "Async::readAllThen with custom chunk size returned the wrong bytes");
+
 	requireCondition(AsyncIo::seek(pool, device, 0, Elv::Io::SeekOrigin::SET).get() == 0, "Async::seek failed before custom PMR read");
 	std::array<std::byte, 1024> pmrStorage {};
 	std::pmr::monotonic_buffer_resource memRes(pmrStorage.data(), pmrStorage.size());
@@ -383,6 +453,78 @@ void testAsyncIo()
 	});
 	requireCanceled(chunkFuture, "Async::readChunks should throw after cancellation is requested");
 	requireCondition(chunkCallbacks == 1, "Async::readChunks should stop after the first canceled chunk");
+
+	Euph::Io::MemoryDevice chunksThenDevice(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
+	size_t chunksThenBytes = 0;
+	size_t chunksThenCompletionBytes = 0;
+	bool chunksThenComplete = false;
+	auto chunksThenFuture = AsyncIo::readChunksThen(pool, chunksThenDevice, 2, [&](std::span<const std::byte> chunk) {
+		chunksThenBytes += chunk.size();
+	}, [&](const ByteResult& result) {
+		chunksThenComplete = true;
+		requireCondition(result.has_value(), "Async::readChunksThen completion expected success");
+		chunksThenCompletionBytes = result.value();
+	});
+	requireCondition(chunksThenFuture.get() == source.size(), "Async::readChunksThen returned the wrong total byte count");
+	requireCondition(chunksThenComplete, "Async::readChunksThen did not invoke its completion callback");
+	requireCondition(chunksThenBytes == source.size() && chunksThenCompletionBytes == source.size(), "Async::readChunksThen reported the wrong byte totals");
+
+	Euph::Io::MemoryDevice borrowedChunksThenDevice(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
+	std::array<std::byte, 2> borrowedChunk {};
+	size_t borrowedChunksThenBytes = 0;
+	bool borrowedChunksThenComplete = false;
+	auto borrowedChunksThenFuture = AsyncIo::readChunksThen(pool, borrowedChunksThenDevice, borrowedChunk.data(), borrowedChunk.size(), [&](std::span<const std::byte> chunk) {
+		borrowedChunksThenBytes += chunk.size();
+	}, [&](const ByteResult& result) {
+		borrowedChunksThenComplete = true;
+		requireCondition(result.has_value() && result.value() == source.size(), "Async::readChunksThen borrowed completion received the wrong result");
+	});
+	requireCondition(borrowedChunksThenFuture.get() == source.size(), "Async::readChunksThen borrowed overload returned the wrong total byte count");
+	requireCondition(borrowedChunksThenComplete && borrowedChunksThenBytes == source.size(), "Async::readChunksThen borrowed overload did not report all bytes");
+
+	ThrowingDevice chunksThenThrowingDevice;
+	bool chunksThenFailureComplete = false;
+	auto chunksThenFailureFuture = AsyncIo::readChunksThen(pool, chunksThenThrowingDevice, 2, [](std::span<const std::byte>) {
+		throw std::runtime_error("Async::readChunksThen should not deliver a chunk after device failure");
+	}, [&](const ByteResult& result) {
+		chunksThenFailureComplete = true;
+		requireCondition(!result.has_value(), "Async::readChunksThen device failure completion expected an error");
+		requireCondition(result.error() != nullptr, "Async::readChunksThen device failure completion did not receive an exception");
+	});
+	requireRuntimeError(chunksThenFailureFuture, "Async::readChunksThen future should rethrow device failures");
+	requireCondition(chunksThenFailureComplete, "Async::readChunksThen did not invoke completion callback after device failure");
+
+	std::stop_source chunksThenStopSource;
+	Euph::Io::MemoryDevice chunksThenCancelDevice(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
+	size_t chunksThenCancelCallbacks = 0;
+	bool chunksThenCancelComplete = false;
+	auto chunksThenCancelFuture = AsyncIo::readChunksThen(pool, chunksThenCancelDevice, chunksThenStopSource.get_token(), 2, [&](std::span<const std::byte> chunk) {
+		++chunksThenCancelCallbacks;
+		requireCondition(chunk.size() == 2, "Async::readChunksThen cancellation returned the wrong chunk size");
+		chunksThenStopSource.request_stop();
+	}, [&](const ByteResult& result) {
+		chunksThenCancelComplete = true;
+		requireCondition(!result.has_value(), "Async::readChunksThen cancellation completion expected an error");
+		requireCondition(result.error() != nullptr, "Async::readChunksThen cancellation completion did not receive an exception");
+	});
+	requireCanceled(chunksThenCancelFuture, "Async::readChunksThen future should throw after cancellation is requested");
+	requireCondition(chunksThenCancelComplete && chunksThenCancelCallbacks == 1, "Async::readChunksThen cancellation did not stop after the first chunk");
+
+	Euph::Io::MemoryDevice chunksThenCallbackFailureDevice(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
+	bool chunksThenCallbackFailureComplete = false;
+	auto chunksThenCallbackFailureFuture = AsyncIo::readChunksThen(pool, chunksThenCallbackFailureDevice, 2, [](std::span<const std::byte>) {
+		throw std::runtime_error("Async::readChunksThen per-chunk callback failed");
+	}, [&](const ByteResult& result) {
+		chunksThenCallbackFailureComplete = true;
+		requireCondition(!result.has_value(), "Async::readChunksThen chunk callback failure completion expected an error");
+		requireCondition(result.error() != nullptr, "Async::readChunksThen chunk callback failure completion did not receive an exception");
+	});
+	requireRuntimeError(chunksThenCallbackFailureFuture, "Async::readChunksThen future should rethrow per-chunk callback failures");
+	requireCondition(chunksThenCallbackFailureComplete, "Async::readChunksThen did not invoke completion callback after per-chunk callback failure");
+
+	ZeroReadDevice zeroReadDevice;
+	auto zeroReadFuture = AsyncIo::readAll(pool, zeroReadDevice);
+	requireRuntimeError(zeroReadFuture, "Async::readAll should fail when read returns zero before the expected byte count");
 
 	Elv::Io::sDevice sharedDevice = std::make_shared<Euph::Io::MemoryDevice>(Elv::Io::Mode::READ, std::vector<std::byte>(source.begin(), source.end()));
 	auto sharedFuture = AsyncIo::readAll(pool, sharedDevice);
