@@ -55,6 +55,7 @@ SOURCES += \
  Memory/EuphMemory.cpp
 
 HEADERS += \
+ Asset/EuphAssetTypes.hpp \
  Config/EuphConfiguration.hpp \
  Config/EuphConfigurationElement.hpp \
  Config/EuphLib.hpp \
