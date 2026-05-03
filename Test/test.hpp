@@ -54,5 +54,7 @@ void testTGA();
 void testPNG();
 /** @brief Exercises the Elv::Io::Async adapter API. */
 void testAsyncIo();
+/** @brief Exercises the genre-independent asset streaming runtime. */
+void testAssetRuntime();
 
 #endif // TEST_HPP

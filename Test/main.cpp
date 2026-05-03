@@ -14,6 +14,7 @@ int main(void)
 	GLOBAL_CONFIGURATION.fromString(ifs);
 	//testGlobalConfigFile();
 	//testCustomAllocator();
+	testAssetRuntime();
 	testAsyncIo();
 	testTGA();
 	testPNG();
