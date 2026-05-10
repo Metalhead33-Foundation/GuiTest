@@ -15,6 +15,7 @@ int main(void)
 	//testGlobalConfigFile();
 	//testCustomAllocator();
 	testAssetRuntime();
+	testGpuAssetStreamer();
 	testAsyncIo();
 	testTGA();
 	testPNG();

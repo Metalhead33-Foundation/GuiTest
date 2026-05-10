@@ -4,12 +4,16 @@ CONFIG += shared c++2a
 CONFIG -= qt
 
 DEFINES += MH_LOTTE_EXPORT
+INCLUDEPATH += $$PWD/..
 LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
 LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
+LIBS += -L$$OUT_PWD/../Kaldi -lKaldi
 
-# Avoid build errors with no files:
-SOURCES += 
+SOURCES += \
+    Asset/LteGpuAssetStreamer.cpp
+
 HEADERS += \
+    Asset/LteGpuAssetStreamer.hpp \
     LotteLib.hpp
 
 DISTFILES += \

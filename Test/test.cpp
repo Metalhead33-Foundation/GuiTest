@@ -9,6 +9,7 @@
 #include <Elvavena/Util/ElvThreadPool.hpp>
 #include <Elvavena/Io/ElvIoAsync.hpp>
 #include <Euphemy/Asset/EuphAssetRuntime.hpp>
+#include <Lotte/Asset/LteGpuAssetStreamer.hpp>
 #include <vector>
 #include <Euphemy/Io/EuphBufferDevice.hpp>
 #include <Euphemy/Io/EuphMemoryDevice.hpp>
@@ -711,6 +712,102 @@ void testAssetRuntime()
 	requireCondition(failingRegistry.failureReason(40) == FailureReason::IoError, "I/O failure should be reported on resource state");
 
 	std::cout << "Asset runtime tests passed" << std::endl;
+}
+
+void testGpuAssetStreamer()
+{
+	using namespace Euph::Asset;
+	using namespace Lotte::Asset;
+
+	ResourceRegistry cpuRegistry;
+	cpuRegistry.createHandle<GenericBlobResource>(100);
+	makeResident(cpuRegistry, 100);
+	cpuRegistry.setPayload(100, makeBytePayload({ std::byte { 1 }, std::byte { 2 }, std::byte { 3 }, std::byte { 4 } }));
+
+	GpuAssetStreamer gpu(cpuRegistry, 1000);
+	gpu.setBudget(16);
+	requireCondition(gpu.requestBuffer(100, { 7 }, { 1 }), "GPU buffer upload request should be accepted");
+	GpuCommandBatch upload = gpu.recordUploads();
+	requireCondition(upload.commandCount() == 1 && upload.uploads.size() == 1, "GPU upload recording should emit one create command");
+	requireCondition(upload.uploads.front().assetId == 100 && upload.uploads.front().handle == 1000, "GPU upload should allocate a stable Kaldi handle");
+	requireCondition(upload.retainedPayloads.size() == 1, "GPU upload batch should retain source payload memory");
+	requireCondition(!gpu.handle(100), "GPU handle should not be visible before upload commit");
+	gpu.commitUploads(upload);
+	requireCondition(gpu.handle(100) && *gpu.handle(100) == 1000, "GPU handle should become visible after upload commit");
+	requireCondition(gpu.currentUsage() == 4, "GPU streamer should account committed upload bytes");
+
+	cpuRegistry.createHandle<GenericBlobResource>(101);
+	requireCondition(gpu.requestBuffer(101), "Requesting a nonresident CPU resource should be accepted for diagnostic failure");
+	(void)gpu.recordUploads();
+	requireCondition(gpu.state(101) == GpuResidencyState::Failed && gpu.failureReason(101) == GpuFailureReason::CpuResourceNotResident, "GPU streamer should fail nonresident CPU resources with a diagnostic");
+
+	for (AssetId id : { AssetId(102), AssetId(103) }) {
+		cpuRegistry.createHandle<GenericBlobResource>(id);
+		makeResident(cpuRegistry, id);
+		cpuRegistry.setPayload(id, makeBytePayload({ static_cast<std::byte>(id == 102 ? 0x12 : 0x13), std::byte { 0 }, std::byte { 1 }, std::byte { 2 } }));
+	}
+	requireCondition(gpu.requestBuffer(102, {}, { 1 }), "Low-priority GPU upload should be queued");
+	requireCondition(gpu.requestBuffer(103, {}, { 9 }), "High-priority GPU upload should be queued");
+	GpuCommandBatch priorityUploads = gpu.recordUploads();
+	requireCondition(priorityUploads.uploads.size() == 2 && priorityUploads.uploads[0].assetId == 103 && priorityUploads.uploads[1].assetId == 102, "GPU uploads should record in priority order");
+	gpu.commitUploads(priorityUploads);
+	requireCondition(gpu.currentUsage() == 12, "GPU usage should include all committed buffers");
+
+	gpu.setBudget(64);
+	cpuRegistry.createHandle<ImageResource>(105);
+	makeResident(cpuRegistry, 105);
+	auto decodeTarget = std::make_shared<Euph::Media::Image::DecodeTarget>();
+	decodeTarget->setFormat(Euph::Media::Image::Format::RGBA8U);
+	decodeTarget->addFrame(2, 2);
+	cpuRegistry.setPayload(105, makeDecodeTargetPayload(decodeTarget));
+	requireCondition(gpu.requestTexture(105, { 1, false }, { 10 }), "Texture upload from DecodeTarget should be accepted");
+	GpuCommandBatch textureUpload = gpu.recordUploads();
+	requireCondition(textureUpload.uploads.size() == 1 && textureUpload.uploads.front().kind == GpuResourceKind::Texture, "Texture upload should record a Kaldi texture command");
+	requireCondition(textureUpload.retainedPayloads.size() == 1, "Texture upload should retain the DecodeTarget through command recording");
+	gpu.commitUploads(textureUpload);
+	requireCondition(gpu.handle(105).has_value(), "Texture handle should become visible after commit");
+
+	requireCondition(gpu.makeEvictable(100) && gpu.makeEvictable(102) && gpu.makeEvictable(103) && gpu.makeEvictable(105), "Committed GPU resources should become evictable");
+	gpu.pin(100);
+	requireCondition(gpu.retain(102), "GPU retain should protect resources from eviction");
+	gpu.setPriority(102, { 0 });
+	gpu.setPriority(103, { 0 });
+	gpu.setPriority(105, { 20 });
+	gpu.touch(102, 2);
+	gpu.touch(103, 1);
+	gpu.touch(105, 0);
+	gpu.setBudget(24);
+	GpuCommandBatch evictions = gpu.recordEvictions();
+	requireCondition(evictions.destroys.size() == 1 && evictions.destroys.front().assetId == 103, "Budget eviction should skip pinned/retained resources and evict the oldest low-priority resource");
+	gpu.commitEvictions(evictions);
+	requireCondition(!gpu.handle(103), "Committed eviction should hide the destroyed handle");
+	requireCondition(gpu.currentUsage() == 24, "Pinned, retained, and high-priority resources should remain resident after partial eviction");
+
+	requireCondition(gpu.release(102), "GPU release should drop the protection reference");
+	gpu.setBudget(20);
+	GpuCommandBatch followupEvictions = gpu.recordEvictions();
+	requireCondition(followupEvictions.destroys.size() == 1 && followupEvictions.destroys.front().assetId == 102, "Released resource should become eligible on the next budget pass");
+	gpu.commitEvictions(followupEvictions);
+	requireCondition(gpu.currentUsage() == 20, "Second eviction should update GPU usage");
+
+	requireCondition(!gpu.requestEvict(100), "Pinned resources should reject explicit eviction requests");
+	gpu.unpin(100);
+	requireCondition(gpu.requestEvict(100), "Unpinned resources should accept explicit eviction requests");
+	GpuCommandBatch explicitDestroy = gpu.recordEvictions();
+	requireCondition(explicitDestroy.destroys.size() == 1 && explicitDestroy.destroys.front().assetId == 100, "Explicit eviction should record even when it is not enough to satisfy budget");
+	gpu.commitEvictions(explicitDestroy);
+
+	cpuRegistry.createHandle<GenericBlobResource>(106);
+	makeResident(cpuRegistry, 106);
+	cpuRegistry.setPayload(106, makeBytePayload({ std::byte { 6 }, std::byte { 6 }, std::byte { 6 }, std::byte { 6 } }));
+	gpu.setBudget(64);
+	requireCondition(gpu.requestBuffer(106), "Upload failure test should queue a buffer");
+	GpuCommandBatch failedUpload = gpu.recordUploads();
+	requireCondition(failedUpload.uploads.size() == 1, "Upload failure test should record a create command before simulated rejection");
+	gpu.failUploads(failedUpload, GpuFailureReason::BackendRejected, "simulated rejection");
+	requireCondition(gpu.state(106) == GpuResidencyState::Failed && !gpu.handle(106), "Rejected upload should fail without publishing a handle");
+
+	std::cout << "GPU asset streamer tests passed" << std::endl;
 }
 
 void randomDeviceTest() {

@@ -56,5 +56,7 @@ void testPNG();
 void testAsyncIo();
 /** @brief Exercises the genre-independent asset streaming runtime. */
 void testAssetRuntime();
+/** @brief Exercises Lotte's GPU asset command scheduling bridge. */
+void testGpuAssetStreamer();
 
 #endif // TEST_HPP
