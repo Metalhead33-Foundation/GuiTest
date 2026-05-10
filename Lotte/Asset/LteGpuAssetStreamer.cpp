@@ -1,4 +1,8 @@
 #include "LteGpuAssetStreamer.hpp"
+/**
+ * @file LteGpuAssetStreamer.cpp
+ * @brief Implements Lotte's Euphemy-to-Kaldi GPU asset scheduling bridge.
+ */
 #include <algorithm>
 #include <utility>
 

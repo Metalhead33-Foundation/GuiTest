@@ -1,4 +1,8 @@
 #include "EuphAssetRuntime.hpp"
+/**
+ * @file EuphAssetRuntime.cpp
+ * @brief Implements Euphemy's CPU-side asset streaming runtime.
+ */
 
 #include <algorithm>
 #include <chrono>
