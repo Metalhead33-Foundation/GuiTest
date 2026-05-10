@@ -14,6 +14,7 @@ SOURCES += \
 
 HEADERS += \
     Asset/LteGpuAssetStreamer.hpp \
+    Text/LteFontFace.hpp \
     LotteLib.hpp
 
 DISTFILES += \
