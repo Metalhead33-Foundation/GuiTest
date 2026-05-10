@@ -17,6 +17,7 @@
 #include <vector>
 
 namespace Lotte {
+/** @brief Text and font data APIs for Lotte. */
 namespace Text {
 
 /** @brief FontPacker SDF channel layout. */
@@ -34,76 +35,124 @@ enum class DistanceType : std::uint8_t {
 
 /** @brief Two-component float vector used by kerning entries. */
 struct Vec2f {
+	/** @brief X component. */
 	float x = 0.0f;
+	/** @brief Y component. */
 	float y = 0.0f;
 };
 
 /** @brief One second-character kerning entry under a first character. */
 struct PerCharKerningEntry {
+	/** @brief Unicode code point of the second glyph in the kerning pair. */
 	std::uint32_t secondChar = 0;
+	/** @brief Kerning offset applied for the character pair. */
 	Vec2f kerning {};
 };
 
 /** @brief Sparse kerning entries for one first character. */
 struct KerningEntry {
+	/** @brief Unicode code point of the first glyph in each pair. */
 	std::uint32_t firstChar = 0;
+	/** @brief Kerning pairs keyed by second character. */
 	std::vector<PerCharKerningEntry> perCharKerning;
 };
 
 /** @brief Offset table entry used internally by the FontPacker binary format. */
 struct GlyphTOCEntry {
+	/** @brief Unicode code point of the glyph. */
 	std::uint32_t codePoint = 0;
+	/** @brief Absolute byte offset from the start of the file to glyph data. */
 	std::uint32_t offset = 0;
 };
 
 /** @brief Stored glyph metrics and SDF bitmap payload. */
 struct StoredCharacter {
+	/** @brief Whether this glyph entry contains usable metric and bitmap data. */
 	bool valid = false;
+	/** @brief Intended bitmap width in pixels. */
 	std::uint32_t width = 0;
+	/** @brief Intended bitmap height in pixels. */
 	std::uint32_t height = 0;
+	/** @brief Signed horizontal bearing in pixel units. */
 	std::int32_t bearingX = 0;
+	/** @brief Signed vertical bearing in pixel units. */
 	std::int32_t bearingY = 0;
+	/** @brief Horizontal advance in pixel units. */
 	std::uint32_t advanceX = 0;
+	/** @brief Vertical advance in pixel units. */
 	std::uint32_t advanceY = 0;
+	/** @brief Floating-point glyph metric width. */
 	float metricWidth = 0.0f;
+	/** @brief Floating-point glyph metric height. */
 	float metricHeight = 0.0f;
+	/** @brief FreeType-style horizontal bearing X. */
 	float horiBearingX = 0.0f;
+	/** @brief FreeType-style horizontal bearing Y. */
 	float horiBearingY = 0.0f;
+	/** @brief FreeType-style horizontal advance. */
 	float horiAdvance = 0.0f;
+	/** @brief FreeType-style vertical bearing X. */
 	float vertBearingX = 0.0f;
+	/** @brief FreeType-style vertical bearing Y. */
 	float vertBearingY = 0.0f;
+	/** @brief FreeType-style vertical advance. */
 	float vertAdvance = 0.0f;
+	/** @brief Raw SDF bitmap bytes, compressed when the parent font has jpeg set. */
 	std::vector<std::byte> sdf;
 };
 
 /** @brief Unicode code point paired with its stored glyph data. */
 struct Glyph {
+	/** @brief Unicode code point represented by the glyph. */
 	std::uint32_t codePoint = 0;
+	/** @brief Stored metric and bitmap payload for the glyph. */
 	StoredCharacter character {};
 };
 
 /** @brief Complete FontPacker preprocessed font face payload. */
 struct PreprocessedFontFace {
+	/** @brief UTF-8 font family name. */
 	std::string familyName;
+	/** @brief SDF channel layout. */
 	SDFType type = SDFType::SDF;
+	/** @brief Distance metric used to generate the SDF. */
 	DistanceType distType = DistanceType::Manhattan;
+	/** @brief Bitmap size in pixels. */
 	std::uint32_t bitmapSize = 0;
+	/** @brief Logical bitmap size before padding. */
 	std::uint32_t bitmapLogicalSize = 0;
+	/** @brief Bitmap padding in pixels. */
 	std::uint32_t bitmapPadding = 0;
+	/** @brief Whether vertical layout metrics are available. */
 	bool hasVert = false;
+	/** @brief Whether SDF payloads are JPEG-compressed. */
 	bool jpeg = false;
+	/** @brief Sparse font kerning table. */
 	std::vector<KerningEntry> kerning;
+	/** @brief Stored glyphs addressed by Unicode code point. */
 	std::vector<Glyph> glyphs;
 };
 
 /** @brief Short public alias for the only top-level record in the format. */
 using FontFace = PreprocessedFontFace;
 
+/**
+ * @brief Big-endian Elv data stream type for FontPacker binary font files.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ */
 template <Elv::Io::DeviceLike IoType = Elv::Io::Device>
 using FontDataStream = Elv::Io::DataStream<Elv::Util::Endian::Big, IoType>;
 
+/** @brief Internal helpers for FontPacker binary stream operators. */
 namespace Detail {
 
+/**
+ * @brief Converts an STL container size to the format's uint32_t size field.
+ * @param value STL container size.
+ * @param field Human-readable field name used in overflow diagnostics.
+ * @return Value narrowed to uint32_t.
+ * @throws std::overflow_error if the value cannot fit in uint32_t.
+ */
 inline std::uint32_t checkedUint32Size(std::size_t value, const char* field)
 {
 	if (value > static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max()))
@@ -111,6 +160,13 @@ inline std::uint32_t checkedUint32Size(std::size_t value, const char* field)
 	return static_cast<std::uint32_t>(value);
 }
 
+/**
+ * @brief Converts a device tell position to the format's uint32_t offset field.
+ * @param value Device position returned by tell().
+ * @param field Human-readable field name used in overflow diagnostics.
+ * @return Value narrowed to uint32_t.
+ * @throws std::overflow_error if the value is negative or too large.
+ */
 inline std::uint32_t checkedFileOffset(long value, const char* field)
 {
 	if (value < 0 || static_cast<unsigned long long>(value) > std::numeric_limits<std::uint32_t>::max())
@@ -118,6 +174,13 @@ inline std::uint32_t checkedFileOffset(long value, const char* field)
 	return static_cast<std::uint32_t>(value);
 }
 
+/**
+ * @brief Converts a format offset to the platform seek type.
+ * @param value FontPacker uint32_t offset.
+ * @param field Human-readable field name used in overflow diagnostics.
+ * @return Value widened to long for Elv::Io::Device::seek().
+ * @throws std::overflow_error if the platform cannot represent the offset.
+ */
 inline long checkedSeekOffset(std::uint32_t value, const char* field)
 {
 	if (static_cast<unsigned long long>(value) > static_cast<unsigned long long>(std::numeric_limits<long>::max()))
@@ -125,6 +188,14 @@ inline long checkedSeekOffset(std::uint32_t value, const char* field)
 	return static_cast<long>(value);
 }
 
+/**
+ * @brief Seeks a device to an absolute offset or throws on failure.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param device Device to seek.
+ * @param offset Absolute byte offset from the start of the file.
+ * @param field Human-readable target name used in diagnostics.
+ * @throws std::runtime_error if the seek fails.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline void seekAbsolute(IoType& device, long offset, const char* field)
 {
@@ -134,12 +205,26 @@ inline void seekAbsolute(IoType& device, long offset, const char* field)
 
 } // namespace Detail
 
+/**
+ * @brief Writes an SDFType enumeration as its uint8_t binary value.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Enumeration value to write.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, SDFType right)
 {
 	return left << static_cast<std::uint8_t>(right);
 }
 
+/**
+ * @brief Reads an SDFType enumeration from its uint8_t binary value.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Destination enumeration value.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, SDFType& right)
 {
@@ -149,12 +234,26 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, SDFType&
 	return left;
 }
 
+/**
+ * @brief Writes a DistanceType enumeration as its uint8_t binary value.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Enumeration value to write.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, DistanceType right)
 {
 	return left << static_cast<std::uint8_t>(right);
 }
 
+/**
+ * @brief Reads a DistanceType enumeration from its uint8_t binary value.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Destination enumeration value.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, DistanceType& right)
 {
@@ -164,54 +263,117 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, Distance
 	return left;
 }
 
+/**
+ * @brief Writes a two-component float vector.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Vector to write.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Vec2f& right)
 {
 	return left << right.x << right.y;
 }
 
+/**
+ * @brief Reads a two-component float vector.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Destination vector.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, Vec2f& right)
 {
 	return left >> right.x >> right.y;
 }
 
+/**
+ * @brief Writes a second-character kerning entry.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Kerning entry to write.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const PerCharKerningEntry& right)
 {
 	return left << right.secondChar << right.kerning;
 }
 
+/**
+ * @brief Reads a second-character kerning entry.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Destination kerning entry.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, PerCharKerningEntry& right)
 {
 	return left >> right.secondChar >> right.kerning;
 }
 
+/**
+ * @brief Writes all kerning pairs for one first character.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Kerning entry to write.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const KerningEntry& right)
 {
 	return left << right.firstChar << right.perCharKerning;
 }
 
+/**
+ * @brief Reads all kerning pairs for one first character.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Destination kerning entry.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, KerningEntry& right)
 {
 	return left >> right.firstChar >> right.perCharKerning;
 }
 
+/**
+ * @brief Writes one glyph table-of-contents entry.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right TOC entry to write.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const GlyphTOCEntry& right)
 {
 	return left << right.codePoint << right.offset;
 }
 
+/**
+ * @brief Reads one glyph table-of-contents entry.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Destination TOC entry.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, GlyphTOCEntry& right)
 {
 	return left >> right.codePoint >> right.offset;
 }
 
+/**
+ * @brief Writes a stored glyph payload.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Glyph payload to write.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const StoredCharacter& right)
 {
@@ -237,6 +399,13 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const St
 		<< right.sdf;
 }
 
+/**
+ * @brief Reads a stored glyph payload.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Destination glyph payload.
+ * @return Reference to the stream.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, StoredCharacter& right)
 {
@@ -264,6 +433,17 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, StoredCh
 	return left;
 }
 
+/**
+ * @brief Writes a complete FontPacker preprocessed font face.
+ * @details The exporter writes placeholder TOC entries, writes kerning and
+ * glyph payloads, then seeks back to patch absolute glyph offsets into the TOC.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Font face to write.
+ * @return Reference to the stream.
+ * @throws std::overflow_error if a count or offset cannot fit the binary format.
+ * @throws std::runtime_error if required seeking fails.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const PreprocessedFontFace& right)
 {
@@ -301,6 +481,17 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Pr
 	return left;
 }
 
+/**
+ * @brief Reads a complete FontPacker preprocessed font face.
+ * @details The importer reads the TOC and kerning block first, then seeks to
+ * each absolute glyph offset to import stored glyph payloads.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Destination font face.
+ * @return Reference to the stream.
+ * @throws std::overflow_error if an offset cannot be represented for seeking.
+ * @throws std::runtime_error if required seeking fails.
+ */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, PreprocessedFontFace& right)
 {

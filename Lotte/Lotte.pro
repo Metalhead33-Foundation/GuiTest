@@ -7,7 +7,8 @@ DEFINES += MH_LOTTE_EXPORT
 INCLUDEPATH += $$PWD/..
 LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
 LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
-LIBS += -L$$OUT_PWD/../Kaldi -lKaldi
+# Kaldi is used by Lotte as a header-only dependency. Do not add -lKaldi
+# or libKaldi here; there is no Kaldi library target to link against.
 
 SOURCES += \
     Asset/LteGpuAssetStreamer.cpp
