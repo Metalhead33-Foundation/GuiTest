@@ -13,6 +13,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -101,14 +102,6 @@ struct StoredCharacter {
 	std::vector<std::byte> sdf;
 };
 
-/** @brief Unicode code point paired with its stored glyph data. */
-struct Glyph {
-	/** @brief Unicode code point represented by the glyph. */
-	std::uint32_t codePoint = 0;
-	/** @brief Stored metric and bitmap payload for the glyph. */
-	StoredCharacter character {};
-};
-
 /** @brief Complete FontPacker preprocessed font face payload. */
 struct PreprocessedFontFace {
 	/** @brief UTF-8 font family name. */
@@ -129,8 +122,8 @@ struct PreprocessedFontFace {
 	bool jpeg = false;
 	/** @brief Sparse font kerning table. */
 	std::vector<KerningEntry> kerning;
-	/** @brief Stored glyphs addressed by Unicode code point. */
-	std::vector<Glyph> glyphs;
+	/** @brief Stored glyph payloads keyed by Unicode code point. */
+	std::unordered_map<std::uint32_t, StoredCharacter> glyphs;
 };
 
 /** @brief Short public alias for the only top-level record in the format. */
@@ -468,9 +461,9 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Pr
 
 	std::vector<GlyphTOCEntry> toc;
 	toc.reserve(right.glyphs.size());
-	for (const Glyph& glyph : right.glyphs) {
-		toc.push_back({ glyph.codePoint, Detail::checkedFileOffset(left.device.tell(), "glyph offset") });
-		left << glyph.character;
+	for (const auto& glyph : right.glyphs) {
+		toc.push_back({ glyph.first, Detail::checkedFileOffset(left.device.tell(), "glyph offset") });
+		left << glyph.second;
 	}
 
 	const long endPosition = left.device.tell();
@@ -519,11 +512,10 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, Preproce
 	long endPosition = left.device.tell();
 	for (const GlyphTOCEntry& entry : toc) {
 		Detail::seekAbsolute(left.device, Detail::checkedSeekOffset(entry.offset, "glyph offset"), "glyph data");
-		Glyph glyph;
-		glyph.codePoint = entry.codePoint;
-		left >> glyph.character;
+		StoredCharacter character;
+		left >> character;
 		endPosition = std::max(endPosition, left.device.tell());
-		decoded.glyphs.push_back(std::move(glyph));
+		decoded.glyphs.emplace(entry.codePoint, std::move(character));
 	}
 
 	Detail::seekAbsolute(left.device, endPosition, "end of font face");
