@@ -5,10 +5,10 @@
 #include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Elvavena/Util/ElvThreadPool.hpp>
-#include <Kaldi/KldCommandBuffer.hpp>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <future>
 #include <memory>
@@ -22,16 +22,17 @@ namespace Euph {
 namespace Asset {
 
 enum class ResourceKind : std::uint8_t {
-	Texture,
-	Buffer,
+	Image,
 	Audio,
-	GenericBlob
+	Blob,
+	Count
 };
 
-struct TextureResource { static constexpr ResourceKind kind = ResourceKind::Texture; };
-struct BufferResource { static constexpr ResourceKind kind = ResourceKind::Buffer; };
+struct ImageResource { static constexpr ResourceKind kind = ResourceKind::Image; };
 struct AudioResource { static constexpr ResourceKind kind = ResourceKind::Audio; };
-struct GenericBlobResource { static constexpr ResourceKind kind = ResourceKind::GenericBlob; };
+struct GenericBlobResource { static constexpr ResourceKind kind = ResourceKind::Blob; };
+using TextureResource = ImageResource;
+struct BufferResource { static constexpr ResourceKind kind = ResourceKind::Blob; };
 
 template<typename TTag> struct ResourceHandle {
 	AssetId id = 0;
@@ -44,7 +45,10 @@ template<typename TTag> struct ResourceHandle {
 
 struct CatalogValidation {
 	bool ok = true;
+	std::vector<AssetId> invalidRecords;
 	std::vector<AssetId> missingDependencies;
+	std::vector<AssetId> selfDependencies;
+	std::vector<AssetId> duplicateDependencies;
 };
 
 class MH_EUPH_API AssetCatalog {
@@ -52,13 +56,19 @@ private:
 	std::unordered_map<AssetId, AssetRecord> records;
 	std::unordered_map<std::string, AssetId> pathIndex;
 	static const std::vector<AssetId>& emptyDependencies();
+	void removePathIndexFor(AssetId id);
 public:
 	bool addRecord(AssetRecord record);
+	bool removeRecord(AssetId id);
+	void clear();
+	bool contains(AssetId id) const;
 	const AssetRecord* find(AssetId id) const;
 	const AssetRecord* findByPath(const std::string& path) const;
 	std::span<const AssetId> dependenciesOf(AssetId id) const;
+	std::vector<AssetId> assetIds() const;
 	CatalogValidation validateDependencies() const;
 	std::size_t size() const noexcept;
+	bool empty() const noexcept;
 };
 
 struct DependencyResult {
@@ -78,24 +88,35 @@ private:
 public:
 	explicit DependencyGraph(const AssetCatalog& assetCatalog);
 	DependencyResult resolveTransitive(AssetId id) const;
+	std::vector<AssetId> directDependencies(AssetId id) const;
+	std::vector<AssetId> dependentsOf(AssetId id) const;
+	bool hasDependency(AssetId asset, AssetId dependency) const;
 	bool dependenciesResident(AssetId id, const ResourceRegistry& registry, AssetId* blockingDependency = nullptr) const;
 };
 
 enum class BudgetKind : std::uint8_t {
 	CpuBytes,
-	GpuBytes,
 	AudioBytes,
 	IoInflightBytes,
 	DecodeInflightBytes,
-	GpuUploadInflightBytes,
 	Count
 };
+
+struct ResidentPayload {
+	std::shared_ptr<void> data;
+	std::uint64_t bytes = 0;
+	std::string type;
+
+	explicit operator bool() const noexcept { return data != nullptr; }
+};
+
+MH_EUPH_API ResidentPayload makeBytePayload(std::vector<std::byte> bytes, std::string type = "bytes");
 
 class MH_EUPH_API ResourceRegistry {
 public:
 	struct Entry {
 		AssetId id = 0;
-		ResourceKind kind = ResourceKind::GenericBlob;
+		ResourceKind kind = ResourceKind::Blob;
 		std::uint32_t generation = 1;
 		bool active = false;
 		ResidencyState state = ResidencyState::Missing;
@@ -107,13 +128,13 @@ public:
 		StreamPriority priority {};
 		std::uint64_t lastTouchedFrame = 0;
 		std::array<std::uint64_t, static_cast<std::size_t>(BudgetKind::Count)> costs {};
-		std::optional<Kld::HandleId> kaldiHandle;
+		ResidentPayload payload;
 	};
 private:
 	std::vector<Entry> entries;
 	std::vector<std::uint32_t> freeSlots;
 	std::unordered_map<AssetId, std::uint32_t> slotByAsset;
-	std::array<std::optional<std::uint32_t>, 4> placeholders;
+	std::array<std::optional<std::uint32_t>, static_cast<std::size_t>(ResourceKind::Count)> placeholders;
 
 	static std::size_t kindIndex(ResourceKind kind);
 	Entry* entryFor(AssetId id);
@@ -121,9 +142,11 @@ private:
 	template<typename TTag> const Entry* entryFor(ResourceHandle<TTag> handle) const;
 	template<typename TTag> Entry* entryFor(ResourceHandle<TTag> handle);
 	static bool legalTransition(ResidencyState from, ResidencyState to);
+	ResourceHandle<GenericBlobResource> createBlobHandle(AssetId id);
 public:
 	ResourceRegistry();
 
+	ResourceHandle<GenericBlobResource> create(ResourceKind kind, AssetId id);
 	template<typename TTag> ResourceHandle<TTag> createHandle(AssetId id);
 	bool destroy(AssetId id);
 
@@ -142,19 +165,25 @@ public:
 	void setPriority(AssetId id, StreamPriority priority);
 	StreamPriority priority(AssetId id) const;
 
+	bool retain(AssetId id);
+	bool release(AssetId id);
+	bool retainWeak(AssetId id);
+	bool releaseWeak(AssetId id);
+	std::uint32_t strongRefs(AssetId id) const;
+	std::uint32_t weakRefs(AssetId id) const;
+
 	void setCost(AssetId id, BudgetKind kind, std::uint64_t bytes);
 	std::uint64_t cost(AssetId id, BudgetKind kind) const;
 	std::uint64_t cpuCost(AssetId id) const;
-	std::uint64_t gpuCost(AssetId id) const;
+	std::uint64_t audioCost(AssetId id) const;
 	void clearCosts(AssetId id);
 
 	void setFlag(AssetId id, ResidencyFlag flag, bool enabled);
 	bool hasFlag(AssetId id, ResidencyFlag flag) const;
 
-	void setKaldiHandle(AssetId id, Kld::HandleId handle);
-	void clearKaldiHandle(AssetId id);
-	std::optional<Kld::HandleId> kaldiHandle(AssetId id) const;
-	template<typename TTag> std::optional<Kld::HandleId> kaldiHandle(ResourceHandle<TTag> handle) const;
+	void setPayload(AssetId id, ResidentPayload payload);
+	void clearPayload(AssetId id);
+	const ResidentPayload* payload(AssetId id) const;
 
 	template<typename TTag> void setPlaceholder(ResourceHandle<TTag> handle);
 	template<typename TTag> std::optional<ResourceHandle<TTag> > placeholder() const;
@@ -164,62 +193,90 @@ public:
 	const Entry* inspect(AssetId id) const;
 };
 
+template<typename TTag> class ResourceLease {
+private:
+	ResourceRegistry* registry = nullptr;
+	ResourceHandle<TTag> handle {};
+public:
+	ResourceLease() = default;
+	ResourceLease(ResourceRegistry& resourceRegistry, ResourceHandle<TTag> resourceHandle)
+		: registry(&resourceRegistry), handle(resourceHandle)
+	{
+		if (!registry->retain(handle.id))
+			registry = nullptr;
+	}
+	ResourceLease(const ResourceLease&) = delete;
+	ResourceLease& operator=(const ResourceLease&) = delete;
+	ResourceLease(ResourceLease&& other) noexcept
+		: registry(other.registry), handle(other.handle)
+	{
+		other.registry = nullptr;
+		other.handle = {};
+	}
+	ResourceLease& operator=(ResourceLease&& other) noexcept
+	{
+		if (this != &other) {
+			reset();
+			registry = other.registry;
+			handle = other.handle;
+			other.registry = nullptr;
+			other.handle = {};
+		}
+		return *this;
+	}
+	~ResourceLease() { reset(); }
+
+	void reset()
+	{
+		if (registry) {
+			registry->release(handle.id);
+			registry = nullptr;
+			handle = {};
+		}
+	}
+	ResourceHandle<TTag> get() const noexcept { return handle; }
+	explicit operator bool() const noexcept { return registry != nullptr; }
+};
+
+struct EvictionResult {
+	std::vector<AssetId> evicted;
+	std::vector<AssetId> blocked;
+	bool withinBudget = true;
+};
+
 class MH_EUPH_API ResidencyManager {
 private:
 	ResourceRegistry& registry;
+	const AssetCatalog* catalog = nullptr;
 	std::array<std::uint64_t, static_cast<std::size_t>(BudgetKind::Count)> budgets;
 
 	bool withinBudgets() const;
 	static std::uint64_t totalReleasableCost(const ResourceRegistry::Entry& entry);
-	static void recordDestroy(Kld::CommandBuffer& commandBuffer, const ResourceRegistry::Entry& entry);
+	bool hasResidentDependent(AssetId id) const;
 public:
-	explicit ResidencyManager(ResourceRegistry& resourceRegistry);
+	explicit ResidencyManager(ResourceRegistry& resourceRegistry, const AssetCatalog* assetCatalog = nullptr);
+	void setCatalog(const AssetCatalog* assetCatalog);
 	void setBudget(BudgetKind kind, std::uint64_t bytes);
 	std::uint64_t budget(BudgetKind kind) const;
 	std::uint64_t currentUsage(BudgetKind kind) const;
 	bool makeEvictable(AssetId id);
 	void pin(AssetId id);
 	void unpin(AssetId id);
-	std::vector<AssetId> evictUntilWithinBudget(Kld::CommandBuffer* commandBuffer = nullptr);
-};
-
-struct UploadItem {
-	AssetId id = 0;
-	std::shared_ptr<std::vector<std::byte> > payload;
-	std::uint64_t gpuBytes = 0;
-	std::optional<Kld::HandleId> kaldiHandle;
-};
-
-class MH_EUPH_API UploadQueue {
-public:
-	using RecordCallback = std::function<void(Kld::CommandBuffer&, const UploadItem&)>;
-private:
-	struct PendingUpload {
-		UploadItem item;
-		RecordCallback record;
-	};
-	ResourceRegistry& registry;
-	std::vector<PendingUpload> pending;
-	std::vector<PendingUpload> recorded;
-public:
-	explicit UploadQueue(ResourceRegistry& resourceRegistry);
-	void enqueue(UploadItem item, RecordCallback record);
-	std::uint64_t recordInto(Kld::CommandBuffer& commandBuffer, std::uint64_t maxUploadBytes);
-	void commitRecorded();
-	void failRecorded(FailureReason reason, const std::string& message);
-	std::size_t pendingCount() const noexcept;
-	std::size_t recordedCount() const noexcept;
+	EvictionResult evictUntilWithinBudgetDetailed();
+	std::vector<AssetId> evictUntilWithinBudget();
 };
 
 struct DecodedAsset {
-	std::vector<std::byte> cpuPayload;
+	ResidentPayload payload;
 	std::uint64_t cpuBytes = 0;
-	std::uint64_t gpuBytes = 0;
 	std::uint64_t audioBytes = 0;
-	bool requiresUpload = false;
-	std::shared_ptr<std::vector<std::byte> > uploadPayload;
-	UploadQueue::RecordCallback uploadRecord;
-	std::optional<Kld::HandleId> kaldiHandle;
+	ResourceKind kind = ResourceKind::Blob;
+};
+
+struct StreamingSchedulerOptions {
+	std::size_t maxIoJobs = 2;
+	bool autoRequestDependencies = true;
+	bool retryFailedRequests = false;
 };
 
 class MH_EUPH_API StreamingScheduler {
@@ -234,21 +291,31 @@ private:
 	Elv::Util::ThreadPool& executor;
 	Loader loader;
 	Decoder decoder;
-	UploadQueue* uploadQueue = nullptr;
+	StreamingSchedulerOptions options;
+	std::deque<AssetId> queued;
+	std::vector<AssetId> waiting;
 	std::vector<Job> jobs;
 
+	bool requestInternal(AssetId id, StreamPriority priority, bool dependencyRequest);
+	bool queueReadyRequest(AssetId id, StreamPriority priority);
+	void startQueuedRequests();
+	void wakeWaitingRequests();
+	bool hasQueued(AssetId id) const;
+	bool hasWaiting(AssetId id) const;
+	bool hasJob(AssetId id) const;
 	void completeIo(Job& job);
 	void completeDecode(Job& job);
 	void failJob(Job& job, FailureReason reason, const std::string& message);
 public:
-	StreamingScheduler(const AssetCatalog& assetCatalog, ResourceRegistry& resourceRegistry, Elv::Util::ThreadPool& threadPool, Loader loaderCallback, Decoder decoderCallback, UploadQueue* uploads = nullptr);
+	StreamingScheduler(const AssetCatalog& assetCatalog, ResourceRegistry& resourceRegistry, Elv::Util::ThreadPool& threadPool, Loader loaderCallback, Decoder decoderCallback, StreamingSchedulerOptions schedulerOptions = {});
 	~StreamingScheduler();
 	bool request(AssetId id, StreamPriority priority = {});
 	bool cancel(AssetId id);
 	void pollCompletions();
-	std::uint64_t enqueueUploads(Kld::CommandBuffer& commandBuffer, std::uint64_t maxUploadBytes);
 	ResidencyState state(AssetId id) const;
 	std::size_t pendingJobs() const noexcept;
+	std::size_t queuedRequests() const noexcept;
+	std::size_t waitingRequests() const noexcept;
 };
 
 template<typename TTag>
@@ -271,35 +338,11 @@ ResourceRegistry::Entry* ResourceRegistry::entryFor(ResourceHandle<TTag> handle)
 template<typename TTag>
 ResourceHandle<TTag> ResourceRegistry::createHandle(AssetId id)
 {
-	Entry* existing = entryFor(id);
-	if (existing) {
-		if (existing->kind != TTag::kind)
-			return {};
-		return { id, existing->generation, slotByAsset[id] };
-	}
-
-	std::uint32_t slot = 0;
-	if (!freeSlots.empty()) {
-		slot = freeSlots.back();
-		freeSlots.pop_back();
-		Entry& entry = entries[slot];
-		const std::uint32_t generation = entry.generation;
-		entry = Entry {};
-		entry.generation = generation == 0 ? 1 : generation;
-		entry.id = id;
-		entry.kind = TTag::kind;
-		entry.active = true;
-		entry.state = ResidencyState::Known;
-	} else {
-		slot = static_cast<std::uint32_t>(entries.size());
-		entries.push_back(Entry {});
-		entries.back().id = id;
-		entries.back().kind = TTag::kind;
-		entries.back().active = true;
-		entries.back().state = ResidencyState::Known;
-	}
-	slotByAsset[id] = slot;
-	return { id, entries[slot].generation, slot };
+	ResourceHandle<GenericBlobResource> generic = create(TTag::kind, id);
+	const Entry* entry = inspect(id);
+	if (!entry || entry->kind != TTag::kind)
+		return {};
+	return { id, generic.generation, generic.slot };
 }
 
 template<typename TTag>
@@ -323,13 +366,6 @@ bool ResourceRegistry::touch(ResourceHandle<TTag> handle, std::uint64_t frameInd
 		return false;
 	entry->lastTouchedFrame = frameIndex;
 	return true;
-}
-
-template<typename TTag>
-std::optional<Kld::HandleId> ResourceRegistry::kaldiHandle(ResourceHandle<TTag> handle) const
-{
-	const Entry* entry = entryFor(handle);
-	return entry ? entry->kaldiHandle : std::nullopt;
 }
 
 template<typename TTag>

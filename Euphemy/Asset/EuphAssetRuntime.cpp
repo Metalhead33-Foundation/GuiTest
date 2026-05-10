@@ -1,18 +1,16 @@
 #include "EuphAssetRuntime.hpp"
 
-#include <Elvavena/Io/ElvIoAsync.hpp>
 #include <algorithm>
 #include <chrono>
 #include <limits>
 #include <stdexcept>
+#include <unordered_set>
 #include <utility>
 
 namespace Euph {
 namespace Asset {
 
 namespace {
-
-using AsyncIo = Elv::Io::Async<Elv::Util::ThreadPool>;
 
 constexpr std::size_t budgetIndex(BudgetKind kind)
 {
@@ -24,7 +22,55 @@ bool futureReady(std::future_status status)
 	return status == std::future_status::ready;
 }
 
+ResourceKind kindFromRecord(const AssetRecord& record)
+{
+	if (record.type == "image" || record.type == "texture" || record.type == "png" || record.type == "jpg" || record.type == "jpeg" || record.type == "tga" || record.type == "dds")
+		return ResourceKind::Image;
+	if (record.type == "audio" || record.type == "sound" || record.type == "music" || record.type == "wav" || record.type == "ogg" || record.type == "module")
+		return ResourceKind::Audio;
+	return ResourceKind::Blob;
+}
+
+std::vector<std::byte> readRecordBytes(Elv::Io::Device& device, const AssetRecord& record, std::stop_token stopToken)
+{
+	if (stopToken.stop_requested())
+		throw std::runtime_error("Streaming read canceled");
+	if (!device.isValid())
+		throw std::runtime_error("Streaming read attempted on an invalid device");
+
+	const size_t deviceSize = device.size();
+	if (record.offset > deviceSize)
+		throw std::runtime_error("Asset offset is beyond device size");
+	if (device.seek(static_cast<long>(record.offset), Elv::Io::SeekOrigin::SET) != 0)
+		throw std::runtime_error("Asset read seek failed");
+
+	const size_t available = deviceSize - static_cast<size_t>(record.offset);
+	const size_t requested = record.storedSize == 0 ? available : static_cast<size_t>(record.storedSize);
+	if (requested > available)
+		throw std::runtime_error("Asset stored size exceeds device size");
+
+	std::vector<std::byte> bytes;
+	bytes.resize(requested);
+	size_t totalRead = 0;
+	while (totalRead < requested) {
+		if (stopToken.stop_requested())
+			throw std::runtime_error("Streaming read canceled");
+		const size_t got = device.read(bytes.data() + totalRead, 1, requested - totalRead);
+		if (got == 0)
+			throw std::runtime_error("Asset read ended before stored size");
+		totalRead += got;
+	}
+	return bytes;
+}
+
 } // namespace
+
+ResidentPayload makeBytePayload(std::vector<std::byte> bytes, std::string type)
+{
+	const std::uint64_t byteCount = bytes.size();
+	auto payload = std::make_shared<std::vector<std::byte> >(std::move(bytes));
+	return { payload, byteCount, std::move(type) };
+}
 
 const std::vector<AssetId>& AssetCatalog::emptyDependencies()
 {
@@ -32,17 +78,54 @@ const std::vector<AssetId>& AssetCatalog::emptyDependencies()
 	return empty;
 }
 
+void AssetCatalog::removePathIndexFor(AssetId id)
+{
+	for (auto it = pathIndex.begin(); it != pathIndex.end();) {
+		if (it->second == id)
+			it = pathIndex.erase(it);
+		else
+			++it;
+	}
+}
+
 bool AssetCatalog::addRecord(AssetRecord record)
 {
-	if (record.id == 0)
+	if (record.id == 0 || record.type.empty())
 		return false;
 
+	if (!record.path.empty()) {
+		const auto pathIt = pathIndex.find(record.path);
+		if (pathIt != pathIndex.end() && pathIt->second != record.id)
+			return false;
+	}
+
+	removePathIndexFor(record.id);
 	const AssetId id = record.id;
 	const std::string path = record.path;
 	records[id] = std::move(record);
 	if (!path.empty())
 		pathIndex[path] = id;
 	return true;
+}
+
+bool AssetCatalog::removeRecord(AssetId id)
+{
+	const auto removed = records.erase(id);
+	if (removed == 0)
+		return false;
+	removePathIndexFor(id);
+	return true;
+}
+
+void AssetCatalog::clear()
+{
+	records.clear();
+	pathIndex.clear();
+}
+
+bool AssetCatalog::contains(AssetId id) const
+{
+	return records.find(id) != records.end();
 }
 
 const AssetRecord* AssetCatalog::find(AssetId id) const
@@ -64,25 +147,55 @@ std::span<const AssetId> AssetCatalog::dependenciesOf(AssetId id) const
 	return std::span<const AssetId>(deps.data(), deps.size());
 }
 
+std::vector<AssetId> AssetCatalog::assetIds() const
+{
+	std::vector<AssetId> ids;
+	ids.reserve(records.size());
+	for (const auto& pair : records)
+		ids.push_back(pair.first);
+	std::sort(ids.begin(), ids.end());
+	return ids;
+}
+
 CatalogValidation AssetCatalog::validateDependencies() const
 {
 	CatalogValidation result;
 	for (const auto& pair : records) {
-		for (AssetId dependency : pair.second.dependencies) {
-			if (!find(dependency)) {
-				result.ok = false;
+		const AssetRecord& record = pair.second;
+		if (record.id == 0 || record.type.empty())
+			result.invalidRecords.push_back(pair.first);
+
+		std::unordered_set<AssetId> seen;
+		for (AssetId dependency : record.dependencies) {
+			if (dependency == record.id)
+				result.selfDependencies.push_back(record.id);
+			if (!seen.insert(dependency).second)
+				result.duplicateDependencies.push_back(record.id);
+			if (!find(dependency))
 				result.missingDependencies.push_back(dependency);
-			}
 		}
 	}
-	std::sort(result.missingDependencies.begin(), result.missingDependencies.end());
-	result.missingDependencies.erase(std::unique(result.missingDependencies.begin(), result.missingDependencies.end()), result.missingDependencies.end());
+
+	auto normalize = [](std::vector<AssetId>& values) {
+		std::sort(values.begin(), values.end());
+		values.erase(std::unique(values.begin(), values.end()), values.end());
+	};
+	normalize(result.invalidRecords);
+	normalize(result.missingDependencies);
+	normalize(result.selfDependencies);
+	normalize(result.duplicateDependencies);
+	result.ok = result.invalidRecords.empty() && result.missingDependencies.empty() && result.selfDependencies.empty() && result.duplicateDependencies.empty();
 	return result;
 }
 
 std::size_t AssetCatalog::size() const noexcept
 {
 	return records.size();
+}
+
+bool AssetCatalog::empty() const noexcept
+{
+	return records.empty();
 }
 
 DependencyGraph::DependencyGraph(const AssetCatalog& assetCatalog)
@@ -131,6 +244,30 @@ DependencyResult DependencyGraph::resolveTransitive(AssetId id) const
 		return result;
 	result.orderedDependencies.erase(std::remove(result.orderedDependencies.begin(), result.orderedDependencies.end(), id), result.orderedDependencies.end());
 	return result;
+}
+
+std::vector<AssetId> DependencyGraph::directDependencies(AssetId id) const
+{
+	std::span<const AssetId> deps = catalog.dependenciesOf(id);
+	return std::vector<AssetId>(deps.begin(), deps.end());
+}
+
+std::vector<AssetId> DependencyGraph::dependentsOf(AssetId id) const
+{
+	std::vector<AssetId> dependents;
+	for (AssetId candidate : catalog.assetIds()) {
+		if (hasDependency(candidate, id))
+			dependents.push_back(candidate);
+	}
+	return dependents;
+}
+
+bool DependencyGraph::hasDependency(AssetId asset, AssetId dependency) const
+{
+	const DependencyResult deps = resolveTransitive(asset);
+	if (!deps.ok)
+		return false;
+	return std::find(deps.orderedDependencies.begin(), deps.orderedDependencies.end(), dependency) != deps.orderedDependencies.end();
 }
 
 bool DependencyGraph::dependenciesResident(AssetId id, const ResourceRegistry& registry, AssetId* blockingDependency) const
@@ -187,7 +324,7 @@ bool ResourceRegistry::legalTransition(ResidencyState from, ResidencyState to)
 		case ResidencyState::Missing:
 			return to == ResidencyState::Known;
 		case ResidencyState::Known:
-			return to == ResidencyState::Requested || to == ResidencyState::Missing;
+			return to == ResidencyState::Requested || to == ResidencyState::WaitingDependencies || to == ResidencyState::Missing;
 		case ResidencyState::Requested:
 			return to == ResidencyState::WaitingDependencies || to == ResidencyState::LoadingIO || to == ResidencyState::Known;
 		case ResidencyState::WaitingDependencies:
@@ -195,10 +332,10 @@ bool ResourceRegistry::legalTransition(ResidencyState from, ResidencyState to)
 		case ResidencyState::LoadingIO:
 			return to == ResidencyState::Decoding || to == ResidencyState::Known;
 		case ResidencyState::Decoding:
-			return to == ResidencyState::WaitingUpload || to == ResidencyState::Resident || to == ResidencyState::Known;
-		case ResidencyState::WaitingUpload:
-			return to == ResidencyState::Uploading || to == ResidencyState::Resident || to == ResidencyState::Known;
-		case ResidencyState::Uploading:
+			return to == ResidencyState::WaitingCommit || to == ResidencyState::Resident || to == ResidencyState::Known;
+		case ResidencyState::WaitingCommit:
+			return to == ResidencyState::Committing || to == ResidencyState::Resident || to == ResidencyState::Known;
+		case ResidencyState::Committing:
 			return to == ResidencyState::Resident || to == ResidencyState::Known;
 		case ResidencyState::Resident:
 			return to == ResidencyState::Evictable || to == ResidencyState::Evicting;
@@ -217,6 +354,42 @@ ResourceRegistry::ResourceRegistry()
 	placeholders.fill(std::nullopt);
 }
 
+ResourceHandle<GenericBlobResource> ResourceRegistry::createBlobHandle(AssetId id)
+{
+	Entry* existing = entryFor(id);
+	if (existing)
+		return { id, existing->generation, slotByAsset[id] };
+
+	std::uint32_t slot = 0;
+	if (!freeSlots.empty()) {
+		slot = freeSlots.back();
+		freeSlots.pop_back();
+		Entry& entry = entries[slot];
+		const std::uint32_t generation = entry.generation;
+		entry = Entry {};
+		entry.generation = generation == 0 ? 1 : generation;
+		entry.id = id;
+		entry.active = true;
+		entry.state = ResidencyState::Known;
+	} else {
+		slot = static_cast<std::uint32_t>(entries.size());
+		entries.push_back(Entry {});
+		entries.back().id = id;
+		entries.back().active = true;
+		entries.back().state = ResidencyState::Known;
+	}
+	slotByAsset[id] = slot;
+	return { id, entries[slot].generation, slot };
+}
+
+ResourceHandle<GenericBlobResource> ResourceRegistry::create(ResourceKind kind, AssetId id)
+{
+	ResourceHandle<GenericBlobResource> handle = createBlobHandle(id);
+	if (Entry* entry = entryFor(id))
+		entry->kind = kind;
+	return handle;
+}
+
 bool ResourceRegistry::destroy(AssetId id)
 {
 	const auto it = slotByAsset.find(id);
@@ -224,17 +397,17 @@ bool ResourceRegistry::destroy(AssetId id)
 		return false;
 
 	Entry& entry = entries[it->second];
-	if (!entry.active)
+	if (!entry.active || entry.strongRefs != 0)
 		return false;
 
 	entry.active = false;
 	entry.generation += 1;
 	entry.state = ResidencyState::Missing;
 	entry.flags = ResidencyFlag::None;
-	entry.kaldiHandle.reset();
 	entry.failureReason = FailureReason::None;
 	entry.failureMessage.clear();
 	entry.costs.fill(0);
+	entry.payload = {};
 
 	for (auto& placeholderSlot : placeholders) {
 		if (placeholderSlot && *placeholderSlot == it->second)
@@ -283,6 +456,8 @@ bool ResourceRegistry::fail(AssetId id, FailureReason reason, std::string messag
 	entry->state = ResidencyState::Failed;
 	entry->failureReason = reason == FailureReason::None ? FailureReason::Unknown : reason;
 	entry->failureMessage = std::move(message);
+	entry->costs[budgetIndex(BudgetKind::IoInflightBytes)] = 0;
+	entry->costs[budgetIndex(BudgetKind::DecodeInflightBytes)] = 0;
 	return true;
 }
 
@@ -320,6 +495,54 @@ StreamPriority ResourceRegistry::priority(AssetId id) const
 	return entry ? entry->priority : StreamPriority {};
 }
 
+bool ResourceRegistry::retain(AssetId id)
+{
+	Entry* entry = entryFor(id);
+	if (!entry)
+		return false;
+	++entry->strongRefs;
+	return true;
+}
+
+bool ResourceRegistry::release(AssetId id)
+{
+	Entry* entry = entryFor(id);
+	if (!entry || entry->strongRefs == 0)
+		return false;
+	--entry->strongRefs;
+	return true;
+}
+
+bool ResourceRegistry::retainWeak(AssetId id)
+{
+	Entry* entry = entryFor(id);
+	if (!entry)
+		return false;
+	++entry->weakRefs;
+	return true;
+}
+
+bool ResourceRegistry::releaseWeak(AssetId id)
+{
+	Entry* entry = entryFor(id);
+	if (!entry || entry->weakRefs == 0)
+		return false;
+	--entry->weakRefs;
+	return true;
+}
+
+std::uint32_t ResourceRegistry::strongRefs(AssetId id) const
+{
+	const Entry* entry = entryFor(id);
+	return entry ? entry->strongRefs : 0;
+}
+
+std::uint32_t ResourceRegistry::weakRefs(AssetId id) const
+{
+	const Entry* entry = entryFor(id);
+	return entry ? entry->weakRefs : 0;
+}
+
 void ResourceRegistry::setCost(AssetId id, BudgetKind kind, std::uint64_t bytes)
 {
 	if (Entry* entry = entryFor(id))
@@ -337,9 +560,9 @@ std::uint64_t ResourceRegistry::cpuCost(AssetId id) const
 	return cost(id, BudgetKind::CpuBytes);
 }
 
-std::uint64_t ResourceRegistry::gpuCost(AssetId id) const
+std::uint64_t ResourceRegistry::audioCost(AssetId id) const
 {
-	return cost(id, BudgetKind::GpuBytes);
+	return cost(id, BudgetKind::AudioBytes);
 }
 
 void ResourceRegistry::clearCosts(AssetId id)
@@ -364,26 +587,28 @@ bool ResourceRegistry::hasFlag(AssetId id, ResidencyFlag flag) const
 	return entry ? Asset::hasFlag(entry->flags, flag) : false;
 }
 
-void ResourceRegistry::setKaldiHandle(AssetId id, Kld::HandleId handle)
+void ResourceRegistry::setPayload(AssetId id, ResidentPayload payload)
 {
 	if (Entry* entry = entryFor(id)) {
-		entry->kaldiHandle = handle;
-		setFlag(id, ResidencyFlag::GpuResident, true);
+		entry->payload = std::move(payload);
+		entry->costs[budgetIndex(BudgetKind::CpuBytes)] = entry->payload.bytes;
+		setFlag(id, ResidencyFlag::CpuResident, static_cast<bool>(entry->payload));
 	}
 }
 
-void ResourceRegistry::clearKaldiHandle(AssetId id)
+void ResourceRegistry::clearPayload(AssetId id)
 {
 	if (Entry* entry = entryFor(id)) {
-		entry->kaldiHandle.reset();
-		setFlag(id, ResidencyFlag::GpuResident, false);
+		entry->payload = {};
+		entry->costs[budgetIndex(BudgetKind::CpuBytes)] = 0;
+		setFlag(id, ResidencyFlag::CpuResident, false);
 	}
 }
 
-std::optional<Kld::HandleId> ResourceRegistry::kaldiHandle(AssetId id) const
+const ResidentPayload* ResourceRegistry::payload(AssetId id) const
 {
 	const Entry* entry = entryFor(id);
-	return entry ? entry->kaldiHandle : std::nullopt;
+	return entry ? &entry->payload : nullptr;
 }
 
 std::vector<AssetId> ResourceRegistry::activeAssetIds() const
@@ -394,6 +619,7 @@ std::vector<AssetId> ResourceRegistry::activeAssetIds() const
 		if (entry.active)
 			result.push_back(entry.id);
 	}
+	std::sort(result.begin(), result.end());
 	return result;
 }
 
@@ -402,10 +628,16 @@ const ResourceRegistry::Entry* ResourceRegistry::inspect(AssetId id) const
 	return entryFor(id);
 }
 
-ResidencyManager::ResidencyManager(ResourceRegistry& resourceRegistry)
+ResidencyManager::ResidencyManager(ResourceRegistry& resourceRegistry, const AssetCatalog* assetCatalog)
 	: registry(resourceRegistry)
+	, catalog(assetCatalog)
 {
 	budgets.fill(std::numeric_limits<std::uint64_t>::max());
+}
+
+void ResidencyManager::setCatalog(const AssetCatalog* assetCatalog)
+{
+	catalog = assetCatalog;
 }
 
 void ResidencyManager::setBudget(BudgetKind kind, std::uint64_t bytes)
@@ -458,29 +690,38 @@ std::uint64_t ResidencyManager::totalReleasableCost(const ResourceRegistry::Entr
 	return total;
 }
 
-void ResidencyManager::recordDestroy(Kld::CommandBuffer& commandBuffer, const ResourceRegistry::Entry& entry)
+bool ResidencyManager::hasResidentDependent(AssetId id) const
 {
-	if (!entry.kaldiHandle)
-		return;
+	if (!catalog)
+		return false;
 
-	switch (entry.kind) {
-		case ResourceKind::Texture: commandBuffer.destroyTexture(*entry.kaldiHandle); break;
-		case ResourceKind::Buffer: commandBuffer.destroyBuffer(*entry.kaldiHandle); break;
-		case ResourceKind::Audio: break;
-		case ResourceKind::GenericBlob: break;
+	DependencyGraph graph(*catalog);
+	for (AssetId other : registry.activeAssetIds()) {
+		if (other == id)
+			continue;
+		const ResourceRegistry::Entry* entry = registry.inspect(other);
+		if (!entry)
+			continue;
+		if ((entry->state == ResidencyState::Resident || entry->state == ResidencyState::Evictable) && graph.hasDependency(other, id))
+			return true;
 	}
+	return false;
 }
 
-std::vector<AssetId> ResidencyManager::evictUntilWithinBudget(Kld::CommandBuffer* commandBuffer)
+EvictionResult ResidencyManager::evictUntilWithinBudgetDetailed()
 {
-	std::vector<AssetId> evicted;
+	EvictionResult result;
 
 	while (!withinBudgets()) {
 		std::vector<const ResourceRegistry::Entry*> candidates;
 		for (AssetId id : registry.activeAssetIds()) {
 			const ResourceRegistry::Entry* entry = registry.inspect(id);
-			if (!entry || entry->state != ResidencyState::Evictable || Asset::hasFlag(entry->flags, ResidencyFlag::Pinned))
+			if (!entry || entry->state != ResidencyState::Evictable)
 				continue;
+			if (Asset::hasFlag(entry->flags, ResidencyFlag::Pinned) || entry->strongRefs != 0 || hasResidentDependent(id)) {
+				result.blocked.push_back(id);
+				continue;
+			}
 			candidates.push_back(entry);
 		}
 
@@ -499,94 +740,24 @@ std::vector<AssetId> ResidencyManager::evictUntilWithinBudget(Kld::CommandBuffer
 			return left->id < right->id;
 		});
 
-		const ResourceRegistry::Entry* victim = candidates.front();
-		const AssetId victimId = victim->id;
-		if (commandBuffer)
-			recordDestroy(*commandBuffer, *victim);
+		const AssetId victimId = candidates.front()->id;
 		registry.setState(victimId, ResidencyState::Evicting);
+		registry.clearPayload(victimId);
 		registry.clearCosts(victimId);
-		registry.clearKaldiHandle(victimId);
-		registry.setFlag(victimId, ResidencyFlag::CpuResident, false);
 		registry.setFlag(victimId, ResidencyFlag::EvictionRequested, false);
 		registry.setState(victimId, ResidencyState::Known);
-		evicted.push_back(victimId);
+		result.evicted.push_back(victimId);
 	}
 
-	return evicted;
+	std::sort(result.blocked.begin(), result.blocked.end());
+	result.blocked.erase(std::unique(result.blocked.begin(), result.blocked.end()), result.blocked.end());
+	result.withinBudget = withinBudgets();
+	return result;
 }
 
-UploadQueue::UploadQueue(ResourceRegistry& resourceRegistry)
-	: registry(resourceRegistry)
+std::vector<AssetId> ResidencyManager::evictUntilWithinBudget()
 {
-}
-
-void UploadQueue::enqueue(UploadItem item, RecordCallback record)
-{
-	if (!item.payload)
-		item.payload = std::make_shared<std::vector<std::byte> >();
-	registry.setCost(item.id, BudgetKind::GpuUploadInflightBytes, item.gpuBytes);
-	registry.setState(item.id, ResidencyState::WaitingUpload);
-	pending.push_back({ std::move(item), std::move(record) });
-}
-
-std::uint64_t UploadQueue::recordInto(Kld::CommandBuffer& commandBuffer, std::uint64_t maxUploadBytes)
-{
-	std::uint64_t recordedBytes = 0;
-	std::vector<PendingUpload> remaining;
-	remaining.reserve(pending.size());
-
-	for (PendingUpload& upload : pending) {
-		const std::uint64_t uploadBytes = upload.item.gpuBytes;
-		if (recordedBytes != 0 && recordedBytes + uploadBytes > maxUploadBytes) {
-			remaining.push_back(std::move(upload));
-			continue;
-		}
-		if (recordedBytes == 0 && uploadBytes > maxUploadBytes && maxUploadBytes != 0) {
-			remaining.push_back(std::move(upload));
-			continue;
-		}
-
-		registry.setState(upload.item.id, ResidencyState::Uploading);
-		if (upload.record)
-			upload.record(commandBuffer, upload.item);
-		recordedBytes += uploadBytes;
-		recorded.push_back(std::move(upload));
-	}
-
-	pending = std::move(remaining);
-	return recordedBytes;
-}
-
-void UploadQueue::commitRecorded()
-{
-	for (const PendingUpload& upload : recorded) {
-		registry.setCost(upload.item.id, BudgetKind::GpuBytes, upload.item.gpuBytes);
-		registry.setCost(upload.item.id, BudgetKind::GpuUploadInflightBytes, 0);
-		if (upload.item.kaldiHandle)
-			registry.setKaldiHandle(upload.item.id, *upload.item.kaldiHandle);
-		registry.setFlag(upload.item.id, ResidencyFlag::GpuResident, true);
-		registry.setState(upload.item.id, ResidencyState::Resident);
-	}
-	recorded.clear();
-}
-
-void UploadQueue::failRecorded(FailureReason reason, const std::string& message)
-{
-	for (const PendingUpload& upload : recorded) {
-		registry.setCost(upload.item.id, BudgetKind::GpuUploadInflightBytes, 0);
-		registry.fail(upload.item.id, reason, message);
-	}
-	recorded.clear();
-}
-
-std::size_t UploadQueue::pendingCount() const noexcept
-{
-	return pending.size();
-}
-
-std::size_t UploadQueue::recordedCount() const noexcept
-{
-	return recorded.size();
+	return evictUntilWithinBudgetDetailed().evicted;
 }
 
 struct StreamingScheduler::Job {
@@ -599,79 +770,110 @@ struct StreamingScheduler::Job {
 	AssetRecord record;
 	Stage stage = Stage::Io;
 	std::stop_source stopSource;
-	std::future<Elv::Io::ByteVector> ioFuture;
+	std::future<std::vector<std::byte> > ioFuture;
 	std::future<DecodedAsset> decodeFuture;
 };
 
-StreamingScheduler::StreamingScheduler(const AssetCatalog& assetCatalog, ResourceRegistry& resourceRegistry, Elv::Util::ThreadPool& threadPool, Loader loaderCallback, Decoder decoderCallback, UploadQueue* uploads)
+StreamingScheduler::StreamingScheduler(const AssetCatalog& assetCatalog, ResourceRegistry& resourceRegistry, Elv::Util::ThreadPool& threadPool, Loader loaderCallback, Decoder decoderCallback, StreamingSchedulerOptions schedulerOptions)
 	: catalog(assetCatalog)
 	, registry(resourceRegistry)
 	, executor(threadPool)
 	, loader(std::move(loaderCallback))
 	, decoder(std::move(decoderCallback))
-	, uploadQueue(uploads)
+	, options(schedulerOptions)
 {
+	if (options.maxIoJobs == 0)
+		options.maxIoJobs = 1;
 }
 
 StreamingScheduler::~StreamingScheduler() = default;
 
-bool StreamingScheduler::request(AssetId id, StreamPriority requestPriority)
+bool StreamingScheduler::hasQueued(AssetId id) const
 {
-	if (!registry.isAlive(id))
-		registry.createHandle<GenericBlobResource>(id);
+	return std::find(queued.begin(), queued.end(), id) != queued.end();
+}
 
-	const AssetRecord* record = catalog.find(id);
-	if (!record)
-		return registry.fail(id, FailureReason::AssetNotFound, "Asset record was not found");
+bool StreamingScheduler::hasWaiting(AssetId id) const
+{
+	return std::find(waiting.begin(), waiting.end(), id) != waiting.end();
+}
 
-	registry.setPriority(id, requestPriority);
+bool StreamingScheduler::hasJob(AssetId id) const
+{
+	return std::any_of(jobs.begin(), jobs.end(), [id](const Job& job) { return job.id == id; });
+}
+
+bool StreamingScheduler::queueReadyRequest(AssetId id, StreamPriority priority)
+{
+	registry.setPriority(id, priority);
+	const ResidencyState current = registry.state(id);
+	if (current == ResidencyState::Resident || current == ResidencyState::Evictable)
+		return true;
+	if (hasJob(id) || hasQueued(id))
+		return true;
 	if (!registry.setState(id, ResidencyState::Requested) && registry.state(id) != ResidencyState::Requested)
 		return false;
+	queued.push_back(id);
+	return true;
+}
+
+bool StreamingScheduler::requestInternal(AssetId id, StreamPriority requestPriority, bool dependencyRequest)
+{
+	const AssetRecord* record = catalog.find(id);
+	if (!record) {
+		registry.create(ResourceKind::Blob, id);
+		return registry.fail(id, FailureReason::AssetNotFound, "Asset record was not found");
+	}
+
+	if (!registry.isAlive(id))
+		registry.create(kindFromRecord(*record), id);
+	else if (registry.state(id) == ResidencyState::Failed && options.retryFailedRequests)
+		registry.setState(id, ResidencyState::Known);
+
+	registry.setPriority(id, requestPriority);
 
 	DependencyGraph graph(catalog);
 	const DependencyResult deps = graph.resolveTransitive(id);
-	if (!deps.ok) {
+	if (!deps.ok)
 		return registry.fail(id, deps.failure, deps.failure == FailureReason::DependencyCycle ? "Dependency cycle detected" : "Missing dependency");
+
+	bool dependenciesReady = true;
+	for (AssetId dependency : deps.orderedDependencies) {
+		const ResidencyState dependencyState = registry.state(dependency);
+		if (dependencyState != ResidencyState::Resident && dependencyState != ResidencyState::Evictable) {
+			dependenciesReady = false;
+			if (options.autoRequestDependencies)
+				requestInternal(dependency, requestPriority, true);
+		}
 	}
 
-	AssetId blockingDependency = 0;
-	if (!graph.dependenciesResident(id, registry, &blockingDependency)) {
+	if (!dependenciesReady) {
 		registry.setState(id, ResidencyState::WaitingDependencies);
+		if (!hasWaiting(id))
+			waiting.push_back(id);
 		return true;
 	}
 
-	if (!loader)
-		return registry.fail(id, FailureReason::IoError, "Streaming scheduler has no loader callback");
+	(void)dependencyRequest;
+	return queueReadyRequest(id, requestPriority);
+}
 
-	Elv::Io::sDevice device;
-	try {
-		device = loader(*record);
-	} catch (const std::exception& err) {
-		return registry.fail(id, FailureReason::IoError, err.what());
-	} catch (...) {
-		return registry.fail(id, FailureReason::IoError, "Loader failed");
-	}
-	if (!device)
-		return registry.fail(id, FailureReason::IoError, "Loader returned a null device");
-
-	registry.setState(id, ResidencyState::LoadingIO);
-	registry.setCost(id, BudgetKind::IoInflightBytes, record->storedSize);
-	std::stop_source stopSource;
-	auto future = AsyncIo::readAll(executor, std::move(device), stopSource.get_token());
-	jobs.push_back(Job {
-		id,
-		*record,
-		Job::Stage::Io,
-		std::move(stopSource),
-		std::move(future),
-		std::future<DecodedAsset>()
-	});
-	return true;
+bool StreamingScheduler::request(AssetId id, StreamPriority priority)
+{
+	return requestInternal(id, priority, false);
 }
 
 bool StreamingScheduler::cancel(AssetId id)
 {
 	bool canceled = false;
+	auto removeId = [id, &canceled](auto& container) {
+		const auto oldSize = container.size();
+		container.erase(std::remove(container.begin(), container.end(), id), container.end());
+		canceled = canceled || container.size() != oldSize;
+	};
+	removeId(queued);
+	removeId(waiting);
+
 	for (Job& job : jobs) {
 		if (job.id == id) {
 			job.stopSource.request_stop();
@@ -683,10 +885,80 @@ bool StreamingScheduler::cancel(AssetId id)
 	return canceled;
 }
 
+void StreamingScheduler::startQueuedRequests()
+{
+	while (jobs.size() < options.maxIoJobs && !queued.empty()) {
+		auto best = std::max_element(queued.begin(), queued.end(), [this](AssetId left, AssetId right) {
+			const StreamPriority leftPriority = registry.priority(left);
+			const StreamPriority rightPriority = registry.priority(right);
+			if (leftPriority.value != rightPriority.value)
+				return leftPriority.value < rightPriority.value;
+			return left > right;
+		});
+
+		const AssetId id = *best;
+		queued.erase(best);
+		const AssetRecord* record = catalog.find(id);
+		if (!record) {
+			registry.fail(id, FailureReason::AssetNotFound, "Asset record disappeared before load");
+			continue;
+		}
+		if (!loader) {
+			registry.fail(id, FailureReason::IoError, "Streaming scheduler has no loader callback");
+			continue;
+		}
+
+		Elv::Io::sDevice device;
+		try {
+			device = loader(*record);
+		} catch (const std::exception& err) {
+			registry.fail(id, FailureReason::IoError, err.what());
+			continue;
+		} catch (...) {
+			registry.fail(id, FailureReason::IoError, "Loader failed");
+			continue;
+		}
+		if (!device) {
+			registry.fail(id, FailureReason::IoError, "Loader returned a null device");
+			continue;
+		}
+
+		registry.setState(id, ResidencyState::LoadingIO);
+		registry.setCost(id, BudgetKind::IoInflightBytes, record->storedSize);
+		std::stop_source stopSource;
+		auto future = executor.enqueueAsync([device = std::move(device), record = *record, token = stopSource.get_token()]() mutable {
+			return readRecordBytes(*device, record, token);
+		});
+		jobs.push_back(Job {
+			id,
+			*record,
+			Job::Stage::Io,
+			std::move(stopSource),
+			std::move(future),
+			std::future<DecodedAsset>()
+		});
+	}
+}
+
+void StreamingScheduler::wakeWaitingRequests()
+{
+	std::vector<AssetId> stillWaiting;
+	for (AssetId id : waiting) {
+		DependencyGraph graph(catalog);
+		AssetId blockingDependency = 0;
+		if (graph.dependenciesResident(id, registry, &blockingDependency)) {
+			queueReadyRequest(id, registry.priority(id));
+		} else {
+			stillWaiting.push_back(id);
+		}
+	}
+	waiting = std::move(stillWaiting);
+}
+
 void StreamingScheduler::completeIo(Job& job)
 {
 	try {
-		Elv::Io::ByteVector bytes = job.ioFuture.get();
+		std::vector<std::byte> bytes = job.ioFuture.get();
 		registry.setCost(job.id, BudgetKind::IoInflightBytes, 0);
 		registry.setCost(job.id, BudgetKind::DecodeInflightBytes, bytes.size());
 		registry.setState(job.id, ResidencyState::Decoding);
@@ -710,24 +982,15 @@ void StreamingScheduler::completeDecode(Job& job)
 	try {
 		DecodedAsset decoded = job.decodeFuture.get();
 		registry.setCost(job.id, BudgetKind::DecodeInflightBytes, 0);
-		registry.setCost(job.id, BudgetKind::CpuBytes, decoded.cpuBytes != 0 ? decoded.cpuBytes : decoded.cpuPayload.size());
+		registry.setPayload(job.id, std::move(decoded.payload));
+		if (decoded.cpuBytes != 0)
+			registry.setCost(job.id, BudgetKind::CpuBytes, decoded.cpuBytes);
 		registry.setCost(job.id, BudgetKind::AudioBytes, decoded.audioBytes);
-		registry.setFlag(job.id, ResidencyFlag::CpuResident, !decoded.cpuPayload.empty() || decoded.cpuBytes != 0);
-
-		if (decoded.requiresUpload) {
-			if (!uploadQueue)
-				throw std::runtime_error("Decoded asset requires upload but no UploadQueue was provided");
-			if (!decoded.uploadPayload)
-				decoded.uploadPayload = std::make_shared<std::vector<std::byte> >();
-			UploadItem item;
-			item.id = job.id;
-			item.payload = std::move(decoded.uploadPayload);
-			item.gpuBytes = decoded.gpuBytes;
-			item.kaldiHandle = decoded.kaldiHandle;
-			uploadQueue->enqueue(std::move(item), std::move(decoded.uploadRecord));
-		} else {
-			registry.setState(job.id, ResidencyState::Resident);
+		if (ResourceRegistry::Entry const* entry = registry.inspect(job.id)) {
+			if (entry->kind != decoded.kind && decoded.kind != ResourceKind::Blob)
+				registry.create(decoded.kind, job.id);
 		}
+		registry.setState(job.id, ResidencyState::Resident);
 	} catch (const std::exception& err) {
 		failJob(job, FailureReason::DecodeError, err.what());
 	} catch (...) {
@@ -753,13 +1016,11 @@ void StreamingScheduler::pollCompletions()
 
 	jobs.erase(std::remove_if(jobs.begin(), jobs.end(), [this](const Job& job) {
 		const ResidencyState current = registry.state(job.id);
-		return current == ResidencyState::Resident || current == ResidencyState::WaitingUpload || current == ResidencyState::Failed;
+		return current == ResidencyState::Resident || current == ResidencyState::Failed;
 	}), jobs.end());
-}
 
-std::uint64_t StreamingScheduler::enqueueUploads(Kld::CommandBuffer& commandBuffer, std::uint64_t maxUploadBytes)
-{
-	return uploadQueue ? uploadQueue->recordInto(commandBuffer, maxUploadBytes) : 0;
+	wakeWaitingRequests();
+	startQueuedRequests();
 }
 
 ResidencyState StreamingScheduler::state(AssetId id) const
@@ -770,6 +1031,16 @@ ResidencyState StreamingScheduler::state(AssetId id) const
 std::size_t StreamingScheduler::pendingJobs() const noexcept
 {
 	return jobs.size();
+}
+
+std::size_t StreamingScheduler::queuedRequests() const noexcept
+{
+	return queued.size();
+}
+
+std::size_t StreamingScheduler::waitingRequests() const noexcept
+{
+	return waiting.size();
 }
 
 } // namespace Asset

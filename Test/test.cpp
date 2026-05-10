@@ -568,11 +568,11 @@ void testAssetRuntime()
 
 	ResourceRegistry registry;
 
-	const auto texture = registry.createHandle<TextureResource>(1);
+	const auto texture = registry.createHandle<ImageResource>(1);
 	makeResident(registry, 1);
 	requireCondition(registry.isAlive(texture), "Fresh texture handle should be alive");
 	requireCondition(registry.destroy(1), "Destroying a live resource should succeed");
-	const auto textureAgain = registry.createHandle<TextureResource>(1);
+	const auto textureAgain = registry.createHandle<ImageResource>(1);
 	requireCondition(!registry.isAlive(texture), "Old handle generation should be invalid after destroy/recreate");
 	requireCondition(registry.isAlive(textureAgain), "Recreated handle should be alive");
 	requireCondition(texture.generation != textureAgain.generation, "Recreated handle should have a different generation");
@@ -581,35 +581,53 @@ void testAssetRuntime()
 	AssetCatalog catalog;
 	requireCondition(catalog.addRecord({ 2, "dep.bin", 0, 4, 4, Compression::None, "blob", {} }), "Dependency record should be accepted");
 	requireCondition(catalog.addRecord({ 3, "parent.bin", 0, 4, 4, Compression::None, "blob", { 2 } }), "Parent record should be accepted");
+	requireCondition(catalog.addRecord({ 7, "offset.bin", 2, 4, 4, Compression::None, "blob", {} }), "Offset record should be accepted");
+	requireCondition(catalog.findByPath("parent.bin") && catalog.findByPath("parent.bin")->id == 3, "Catalog path lookup should work");
+	requireCondition(catalog.addRecord({ 3, "parent-renamed.bin", 0, 4, 4, Compression::None, "blob", { 2 } }), "Catalog should allow replacing an existing record");
+	requireCondition(catalog.findByPath("parent.bin") == nullptr && catalog.findByPath("parent-renamed.bin")->id == 3, "Catalog should update path indexes when replacing records");
 	requireCondition(catalog.validateDependencies().ok, "Catalog dependencies should validate");
 	requireCondition(catalog.dependenciesOf(3).size() == 1, "Catalog should expose dependency spans");
 
 	DependencyGraph graph(catalog);
 	const DependencyResult deps = graph.resolveTransitive(3);
 	requireCondition(deps.ok && deps.orderedDependencies.size() == 1 && deps.orderedDependencies.front() == 2, "Dependency graph should resolve transitive dependencies");
+	requireCondition(graph.hasDependency(3, 2), "Dependency graph should answer transitive dependency queries");
+	requireCondition(graph.dependentsOf(2).size() == 1 && graph.dependentsOf(2).front() == 3, "Dependency graph should list dependents");
 
 	registry.createHandle<GenericBlobResource>(2);
 	registry.createHandle<GenericBlobResource>(3);
 
 	Elv::Util::ThreadPool pool(2);
 	auto loader = [](const AssetRecord& record) -> Elv::Io::sDevice {
-		std::vector<std::byte> data(static_cast<std::size_t>(record.storedSize), std::byte { 0x42 });
+		std::vector<std::byte> data;
+		if (record.id == 7) {
+			data = { std::byte { 0x00 }, std::byte { 0x01 }, std::byte { 0x10 }, std::byte { 0x20 }, std::byte { 0x30 }, std::byte { 0x40 }, std::byte { 0x7f } };
+		} else {
+			data.assign(static_cast<std::size_t>(record.storedSize), static_cast<std::byte>(record.id));
+		}
 		return std::make_shared<Euph::Io::MemoryDevice>(Elv::Io::Mode::READ, std::move(data));
 	};
 	auto decoder = [](const AssetRecord&, std::span<const std::byte> bytes) {
 		DecodedAsset decoded;
-		decoded.cpuPayload.assign(bytes.begin(), bytes.end());
-		decoded.cpuBytes = decoded.cpuPayload.size();
+		decoded.payload = makeBytePayload(std::vector<std::byte>(bytes.begin(), bytes.end()));
+		decoded.cpuBytes = decoded.payload.bytes;
 		return decoded;
 	};
 
 	StreamingScheduler scheduler(catalog, registry, pool, loader, decoder);
-	requireCondition(scheduler.request(3, { 5 }), "Parent request should be accepted while waiting on dependencies");
+	requireCondition(scheduler.request(3, { 5 }), "Parent request should be accepted");
 	requireCondition(registry.state(3) == ResidencyState::WaitingDependencies, "Parent should wait until dependency is resident");
-	makeResident(registry, 2);
-	requireCondition(scheduler.request(3, { 5 }), "Parent request should start once dependency is resident");
+	pumpScheduler(scheduler, 2, ResidencyState::Resident);
 	pumpScheduler(scheduler, 3, ResidencyState::Resident);
 	requireCondition(registry.cpuCost(3) == 4, "Decoded resource should account CPU cost");
+	requireCondition(registry.payload(3) && registry.payload(3)->bytes == 4, "Decoded resource should retain resident payload");
+
+	requireCondition(scheduler.request(7, { 1 }), "Offset request should be accepted");
+	pumpScheduler(scheduler, 7, ResidencyState::Resident);
+	const ResidentPayload* offsetPayload = registry.payload(7);
+	requireCondition(offsetPayload && offsetPayload->bytes == 4, "Offset asset should read only stored bytes");
+	auto offsetBytes = std::static_pointer_cast<std::vector<std::byte> >(offsetPayload->data);
+	requireCondition(offsetBytes->at(0) == std::byte { 0x10 } && offsetBytes->at(3) == std::byte { 0x40 }, "Offset asset should read from AssetRecord::offset");
 
 	AssetCatalog badCatalog;
 	badCatalog.addRecord({ 4, "bad.bin", 0, 1, 1, Compression::None, "blob", { 404 } });
@@ -626,56 +644,59 @@ void testAssetRuntime()
 	requireCondition(cycleScheduler.request(5), "Cycle request should produce a terminal state");
 	requireCondition(cycleRegistry.state(5) == ResidencyState::Failed && cycleRegistry.failureReason(5) == FailureReason::DependencyCycle, "Dependency cycle should fail with diagnostic reason");
 
+	ResourceRegistry refRegistry;
+	const auto leasedHandle = refRegistry.createHandle<GenericBlobResource>(8);
+	makeResident(refRegistry, 8);
+	{
+		ResourceLease<GenericBlobResource> lease(refRegistry, leasedHandle);
+		requireCondition(lease && refRegistry.strongRefs(8) == 1, "ResourceLease should retain resources");
+		requireCondition(!refRegistry.destroy(8), "Destroy should reject strongly retained resources");
+	}
+	requireCondition(refRegistry.strongRefs(8) == 0 && refRegistry.destroy(8), "ResourceLease should release resources on destruction");
+
 	ResourceRegistry budgetRegistry;
-	ResidencyManager residency(budgetRegistry);
+	AssetCatalog budgetCatalog;
+	budgetCatalog.addRecord({ 10, "pinned.bin", 0, 1, 1, Compression::None, "blob", {} });
+	budgetCatalog.addRecord({ 11, "old.bin", 0, 1, 1, Compression::None, "blob", {} });
+	budgetCatalog.addRecord({ 12, "important.bin", 0, 1, 1, Compression::None, "blob", {} });
+	budgetCatalog.addRecord({ 13, "dependency.bin", 0, 1, 1, Compression::None, "blob", {} });
+	budgetCatalog.addRecord({ 14, "dependent.bin", 0, 1, 1, Compression::None, "blob", { 13 } });
+	ResidencyManager residency(budgetRegistry, &budgetCatalog);
 	for (AssetId id : { AssetId(10), AssetId(11), AssetId(12) }) {
 		budgetRegistry.createHandle<GenericBlobResource>(id);
 		makeResident(budgetRegistry, id);
 		budgetRegistry.setCost(id, BudgetKind::CpuBytes, 100);
 		requireCondition(residency.makeEvictable(id), "Resident resource should become evictable");
 	}
+	for (AssetId id : { AssetId(13), AssetId(14) }) {
+		budgetRegistry.createHandle<GenericBlobResource>(id);
+		makeResident(budgetRegistry, id);
+		budgetRegistry.setCost(id, BudgetKind::CpuBytes, 100);
+		requireCondition(residency.makeEvictable(id), "Resident dependency resources should become evictable");
+	}
 	budgetRegistry.setPriority(10, { 0 });
 	budgetRegistry.setPriority(11, { 0 });
 	budgetRegistry.setPriority(12, { 10 });
+	budgetRegistry.setPriority(13, { 0 });
+	budgetRegistry.setPriority(14, { 20 });
 	budgetRegistry.touch(10, 1);
 	budgetRegistry.touch(11, 2);
 	budgetRegistry.touch(12, 0);
+	budgetRegistry.touch(13, 0);
+	budgetRegistry.touch(14, 0);
 	residency.pin(10);
-	residency.setBudget(BudgetKind::CpuBytes, 150);
-	const std::vector<AssetId> evicted = residency.evictUntilWithinBudget();
-	requireCondition(evicted.size() == 2, "Residency manager should evict enough resources to satisfy budget");
-	requireCondition(evicted[0] == 11 && evicted[1] == 12, "Eviction should respect pinning, priority, touch age, and deterministic ordering");
+	residency.setBudget(BudgetKind::CpuBytes, 250);
+	const EvictionResult evicted = residency.evictUntilWithinBudgetDetailed();
+	requireCondition(evicted.evicted.size() == 3, "Residency manager should evict enough resources to satisfy budget");
+	requireCondition(evicted.evicted[0] == 11 && evicted.evicted[1] == 12 && evicted.evicted[2] == 14, "Eviction should respect pinning, priority, touch age, and deterministic ordering");
 	requireCondition(budgetRegistry.state(10) == ResidencyState::Evictable, "Pinned resource should not be evicted");
-
-	ResourceRegistry uploadRegistry;
-	const auto buffer = uploadRegistry.createHandle<BufferResource>(20);
-	(void)buffer;
-	makeResident(uploadRegistry, 20);
-	uploadRegistry.setState(20, ResidencyState::Evictable);
-	uploadRegistry.setState(20, ResidencyState::Requested);
-	uploadRegistry.setState(20, ResidencyState::LoadingIO);
-	uploadRegistry.setState(20, ResidencyState::Decoding);
-	UploadQueue uploads(uploadRegistry);
-	auto uploadPayload = std::make_shared<std::vector<std::byte> >(8, std::byte { 0x7f });
-	std::weak_ptr<std::vector<std::byte> > weakPayload = uploadPayload;
-	uploads.enqueue({ 20, uploadPayload, 8, Kld::HandleId(77) }, [](Kld::CommandBuffer&, const UploadItem& item) {
-		requireCondition(item.payload && item.payload->size() == 8, "Upload payload should stay alive through recording");
-	});
-	uploadPayload.reset();
-	requireCondition(!weakPayload.expired(), "Upload queue should own payload before recording");
-	Kld::CommandBuffer commands;
-	requireCondition(uploads.recordInto(commands, 64) == 8, "Upload queue should record within byte budget");
-	requireCondition(!weakPayload.expired(), "Recorded upload should still own payload before commit");
-	uploads.commitRecorded();
-	requireCondition(uploadRegistry.state(20) == ResidencyState::Resident && uploadRegistry.gpuCost(20) == 8, "Committed upload should mark resource resident and account GPU bytes");
-	requireCondition(uploadRegistry.kaldiHandle(20).has_value() && *uploadRegistry.kaldiHandle(20) == 77, "Committed upload should publish Kaldi handle");
-	requireCondition(weakPayload.expired(), "Upload payload should be released after commit");
+	requireCondition(std::find(evicted.blocked.begin(), evicted.blocked.end(), 13) != evicted.blocked.end(), "Dependency resource should be protected while its dependent is resident");
 
 	ResourceRegistry placeholderRegistry;
-	const auto fallback = placeholderRegistry.createHandle<TextureResource>(30);
-	const auto wanted = placeholderRegistry.createHandle<TextureResource>(31);
+	const auto fallback = placeholderRegistry.createHandle<ImageResource>(30);
+	const auto wanted = placeholderRegistry.createHandle<ImageResource>(31);
 	makeResident(placeholderRegistry, 30);
-	placeholderRegistry.setPlaceholder<TextureResource>(fallback);
+	placeholderRegistry.setPlaceholder<ImageResource>(fallback);
 	requireCondition(placeholderRegistry.resolveOrPlaceholder(wanted) == fallback, "Nonresident resource should resolve to typed placeholder");
 
 	AssetCatalog failingCatalog;

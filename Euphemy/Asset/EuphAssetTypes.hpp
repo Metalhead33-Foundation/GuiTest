@@ -14,15 +14,17 @@ enum class ResidencyState : std::uint8_t {
 	WaitingDependencies,
 	LoadingIO,
 	Decoding,
-	WaitingUpload,
-	Uploading,
+	WaitingCommit,
+	Committing,
 	Resident,
 	Evictable,
 	Evicting,
 	Failed,
 
 	Unloaded = Missing,
-	Queued = Requested
+	Queued = Requested,
+	WaitingUpload = WaitingCommit,
+	Uploading = Committing
 };
 enum class FailureReason : std::uint8_t {
 	None,
@@ -32,10 +34,11 @@ enum class FailureReason : std::uint8_t {
 	InvalidTransition,
 	IoError,
 	DecodeError,
-	UploadError,
+	CommitError,
 	Canceled,
 	BudgetExceeded,
-	Unknown
+	Unknown,
+	UploadError = CommitError
 };
 enum class ResidencyFlag : std::uint32_t {
 	None = 0,
@@ -43,7 +46,7 @@ enum class ResidencyFlag : std::uint32_t {
 	PlaceholderAllowed = 1u << 1,
 	Reloadable = 1u << 2,
 	CpuResident = 1u << 3,
-	GpuResident = 1u << 4,
+	ExternalResident = 1u << 4,
 	EvictionRequested = 1u << 5
 };
 enum class Compression {
