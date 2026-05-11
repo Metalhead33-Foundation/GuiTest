@@ -8,7 +8,6 @@ TARGET = MyGameApp
 LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
 LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
 LIBS += -L$$OUT_PWD/../Lotte -lLotte
-LIBS += -L$$OUT_PWD/../Kaldi -lKaldi
 
 INCLUDEPATH += $$PWD/..
 

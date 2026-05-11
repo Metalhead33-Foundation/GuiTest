@@ -7,6 +7,7 @@
 
 #include <Lotte/LotteLib.hpp>
 #include <Elvavena/Io/ElvDataStream.hpp>
+#include <glm/glm.hpp>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -16,6 +17,44 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+namespace Elv {
+namespace Io {
+
+/**
+ * @brief Writes a GLM two-component float vector to an Elv data stream.
+ * @details This overload lets DataStream serialize glm::fvec2 values found
+ * inside generic STL containers such as std::unordered_map.
+ * @tparam endianness Byte order used by the DataStream.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Data stream to write to.
+ * @param right Vector to write.
+ * @return Reference to the stream.
+ */
+template <Elv::Util::Endian endianness, DeviceLike IoType>
+inline DataStream<endianness, IoType>& operator<<(DataStream<endianness, IoType>& left, const glm::fvec2& right)
+{
+	return left << right.x << right.y;
+}
+
+/**
+ * @brief Reads a GLM two-component float vector from an Elv data stream.
+ * @details This overload lets DataStream deserialize glm::fvec2 values found
+ * inside generic STL containers such as std::unordered_map.
+ * @tparam endianness Byte order used by the DataStream.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Data stream to read from.
+ * @param right Destination vector.
+ * @return Reference to the stream.
+ */
+template <Elv::Util::Endian endianness, DeviceLike IoType>
+inline DataStream<endianness, IoType>& operator>>(DataStream<endianness, IoType>& left, glm::fvec2& right)
+{
+	return left >> right.x >> right.y;
+}
+
+} // namespace Io
+} // namespace Elv
 
 namespace Lotte {
 /** @brief Text and font data APIs for Lotte. */
@@ -34,29 +73,11 @@ enum class DistanceType : std::uint8_t {
 	Euclidean = 1  /**< L2 distance. */
 };
 
-/** @brief Two-component float vector used by kerning entries. */
-struct Vec2f {
-	/** @brief X component. */
-	float x = 0.0f;
-	/** @brief Y component. */
-	float y = 0.0f;
-};
+/** @brief Kerning offsets keyed by the second Unicode code point. */
+using PerCharacterKerning = std::unordered_map<std::uint32_t, glm::fvec2>;
 
-/** @brief One second-character kerning entry under a first character. */
-struct PerCharKerningEntry {
-	/** @brief Unicode code point of the second glyph in the kerning pair. */
-	std::uint32_t secondChar = 0;
-	/** @brief Kerning offset applied for the character pair. */
-	Vec2f kerning {};
-};
-
-/** @brief Sparse kerning entries for one first character. */
-struct KerningEntry {
-	/** @brief Unicode code point of the first glyph in each pair. */
-	std::uint32_t firstChar = 0;
-	/** @brief Kerning pairs keyed by second character. */
-	std::vector<PerCharKerningEntry> perCharKerning;
-};
+/** @brief Sparse kerning table keyed first by the first Unicode code point. */
+using KerningMap = std::unordered_map<std::uint32_t, PerCharacterKerning>;
 
 /** @brief Offset table entry used internally by the FontPacker binary format. */
 struct GlyphTOCEntry {
@@ -120,8 +141,8 @@ struct PreprocessedFontFace {
 	bool hasVert = false;
 	/** @brief Whether SDF payloads are JPEG-compressed. */
 	bool jpeg = false;
-	/** @brief Sparse font kerning table. */
-	std::vector<KerningEntry> kerning;
+	/** @brief Sparse font kerning table keyed as first code point, second code point, offset. */
+	KerningMap kerning;
 	/** @brief Stored glyph payloads keyed by Unicode code point. */
 	std::unordered_map<std::uint32_t, StoredCharacter> glyphs;
 };
@@ -254,84 +275,6 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, Distance
 	left >> value;
 	right = static_cast<DistanceType>(value);
 	return left;
-}
-
-/**
- * @brief Writes a two-component float vector.
- * @tparam IoType Elv device-like type wrapped by the DataStream.
- * @param left Big-endian FontPacker data stream.
- * @param right Vector to write.
- * @return Reference to the stream.
- */
-template <Elv::Io::DeviceLike IoType>
-inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Vec2f& right)
-{
-	return left << right.x << right.y;
-}
-
-/**
- * @brief Reads a two-component float vector.
- * @tparam IoType Elv device-like type wrapped by the DataStream.
- * @param left Big-endian FontPacker data stream.
- * @param right Destination vector.
- * @return Reference to the stream.
- */
-template <Elv::Io::DeviceLike IoType>
-inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, Vec2f& right)
-{
-	return left >> right.x >> right.y;
-}
-
-/**
- * @brief Writes a second-character kerning entry.
- * @tparam IoType Elv device-like type wrapped by the DataStream.
- * @param left Big-endian FontPacker data stream.
- * @param right Kerning entry to write.
- * @return Reference to the stream.
- */
-template <Elv::Io::DeviceLike IoType>
-inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const PerCharKerningEntry& right)
-{
-	return left << right.secondChar << right.kerning;
-}
-
-/**
- * @brief Reads a second-character kerning entry.
- * @tparam IoType Elv device-like type wrapped by the DataStream.
- * @param left Big-endian FontPacker data stream.
- * @param right Destination kerning entry.
- * @return Reference to the stream.
- */
-template <Elv::Io::DeviceLike IoType>
-inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, PerCharKerningEntry& right)
-{
-	return left >> right.secondChar >> right.kerning;
-}
-
-/**
- * @brief Writes all kerning pairs for one first character.
- * @tparam IoType Elv device-like type wrapped by the DataStream.
- * @param left Big-endian FontPacker data stream.
- * @param right Kerning entry to write.
- * @return Reference to the stream.
- */
-template <Elv::Io::DeviceLike IoType>
-inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const KerningEntry& right)
-{
-	return left << right.firstChar << right.perCharKerning;
-}
-
-/**
- * @brief Reads all kerning pairs for one first character.
- * @tparam IoType Elv device-like type wrapped by the DataStream.
- * @param left Big-endian FontPacker data stream.
- * @param right Destination kerning entry.
- * @return Reference to the stream.
- */
-template <Elv::Io::DeviceLike IoType>
-inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, KerningEntry& right)
-{
-	return left >> right.firstChar >> right.perCharKerning;
 }
 
 /**
