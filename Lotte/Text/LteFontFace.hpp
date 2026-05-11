@@ -431,16 +431,15 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Pr
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, PreprocessedFontFace& right)
 {
-	PreprocessedFontFace decoded;
 	left
-		>> decoded.familyName
-		>> decoded.type
-		>> decoded.distType
-		>> decoded.bitmapSize
-		>> decoded.bitmapLogicalSize
-		>> decoded.bitmapPadding
-		>> decoded.hasVert
-		>> decoded.jpeg;
+		>> right.familyName
+		>> right.type
+		>> right.distType
+		>> right.bitmapSize
+		>> right.bitmapLogicalSize
+		>> right.bitmapPadding
+		>> right.hasVert
+		>> right.jpeg;
 
 	std::uint32_t charCount = 0;
 	left >> charCount;
@@ -449,20 +448,20 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, Preproce
 	for (GlyphTOCEntry& entry : toc)
 		left >> entry;
 
-	left >> decoded.kerning;
+	left >> right.kerning;
 
-	decoded.glyphs.reserve(toc.size());
+	right.glyphs.reserve(toc.size());
 	long endPosition = left.device.tell();
 	for (const GlyphTOCEntry& entry : toc) {
 		Detail::seekAbsolute(left.device, Detail::checkedSeekOffset(entry.offset, "glyph offset"), "glyph data");
 		StoredCharacter character;
 		left >> character;
 		endPosition = std::max(endPosition, left.device.tell());
-		decoded.glyphs.emplace(entry.codePoint, std::move(character));
+		right.glyphs.emplace(entry.codePoint, std::move(character));
 	}
 
 	Detail::seekAbsolute(left.device, endPosition, "end of font face");
-	right = std::move(decoded);
+	//right = std::move(decoded);
 	return left;
 }
 

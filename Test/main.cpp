@@ -19,5 +19,6 @@ int main(void)
 	testAsyncIo();
 	testTGA();
 	testPNG();
+	testFontParser();
 	return 0;
 }

@@ -58,5 +58,7 @@ void testAsyncIo();
 void testAssetRuntime();
 /** @brief Exercises Lotte's GPU asset command scheduling bridge. */
 void testGpuAssetStreamer();
+/** @brief Exercises Lotte's Font parser. */
+void testFontParser();
 
 #endif // TEST_HPP

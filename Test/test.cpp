@@ -39,6 +39,7 @@
 #include <stop_token>
 #include <thread>
 #include <chrono>
+#include <Lotte/Text/LteFontFace.hpp>
 
 template<class T>
 struct Mallocator
@@ -1199,4 +1200,17 @@ void testPNG()
 		Euph::Io::File dllFile("/tmp/testImg.png", Elv::Io::Mode::WRITE);
 		Euph::Media::Image::PNG::encode(dllFile,decodeTarget,0.5f);
 	}
+}
+
+void testFontParser()
+{
+	Euph::Io::File fontFile("/home/legacy/vinque.bin", Elv::Io::Mode::READ);
+	Lotte::Text::FontDataStream stream(fontFile);
+	Lotte::Text::FontFace fface;
+	stream >> fface;
+	std::cout <<  "Family name: " << fface.familyName << "\n"
+			  << "Number of elements: " << fface.glyphs.size() << "\n"
+			  << "Padding: " << fface.bitmapPadding << "\n"
+			  << "Pixel size: " << fface.bitmapSize << "\n"
+			  << "Logical size: " << fface.bitmapLogicalSize << std::endl;
 }
