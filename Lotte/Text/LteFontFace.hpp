@@ -9,6 +9,7 @@
 #include <Elvavena/Io/ElvDataStream.hpp>
 #include <glm/glm.hpp>
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -59,6 +60,18 @@ inline DataStream<endianness, IoType>& operator>>(DataStream<endianness, IoType>
 namespace Lotte {
 /** @brief Text and font data APIs for Lotte. */
 namespace Text {
+
+/** @brief Four-byte magic identifier for FontPacker preprocessed font files. */
+inline constexpr std::array<char, 4> FontFaceMagic = { 'W', 'O', 'D', 'F' };
+
+/** @brief Current supported FontPacker preprocessed font face format version. */
+inline constexpr std::uint32_t FontFaceVersion = 1;
+
+/** @brief Fixed byte count for FontPacker image format tags. */
+inline constexpr std::size_t ImageFormatLength = 8;
+
+/** @brief Null-terminated, zero-padded FontPacker image format tag. */
+using ImageFormatTag = std::array<char, ImageFormatLength>;
 
 /** @brief FontPacker SDF channel layout. */
 enum class SDFType : std::uint8_t {
@@ -119,12 +132,14 @@ struct StoredCharacter {
 	float vertBearingY = 0.0f;
 	/** @brief FreeType-style vertical advance. */
 	float vertAdvance = 0.0f;
-	/** @brief Raw SDF bitmap bytes, compressed when the parent font has jpeg set. */
+	/** @brief Raw encoded SDF bitmap bytes using the parent font's imageFormat. */
 	std::vector<std::byte> sdf;
 };
 
 /** @brief Complete FontPacker preprocessed font face payload. */
 struct PreprocessedFontFace {
+	/** @brief FontPacker binary format version written after the WODF magic. */
+	std::uint32_t version = FontFaceVersion;
 	/** @brief UTF-8 font family name. */
 	std::string familyName;
 	/** @brief SDF channel layout. */
@@ -139,8 +154,18 @@ struct PreprocessedFontFace {
 	std::uint32_t bitmapPadding = 0;
 	/** @brief Whether vertical layout metrics are available. */
 	bool hasVert = false;
-	/** @brief Whether SDF payloads are JPEG-compressed. */
-	bool jpeg = false;
+	/** @brief Null-terminated image format tag used by encoded glyph payloads. */
+	ImageFormatTag imageFormat = { 'P', 'N', 'G', '\0' };
+	/** @brief Scaled face ascender in pixels. */
+	float ascender = 0.0f;
+	/** @brief Scaled face descender in pixels. */
+	float descender = 0.0f;
+	/** @brief Scaled baseline-to-baseline distance in pixels. */
+	float faceHeight = 0.0f;
+	/** @brief Scaled maximum advance in pixels. */
+	float maxAdvance = 0.0f;
+	/** @brief Original font units per EM. */
+	std::uint32_t unitsPerEm = 0;
 	/** @brief Sparse font kerning table keyed as first code point, second code point, offset. */
 	KerningMap kerning;
 	/** @brief Stored glyph payloads keyed by Unicode code point. */
@@ -159,6 +184,32 @@ using FontDataStream = Elv::Io::DataStream<Elv::Util::Endian::Big, IoType>;
 
 /** @brief Internal helpers for FontPacker binary stream operators. */
 namespace Detail {
+
+/**
+ * @brief Verifies a four-byte FontPacker container magic.
+ * @param actual Magic read from the stream.
+ * @param expected Magic required by the container.
+ * @param container Human-readable container name for diagnostics.
+ * @throws std::runtime_error if the magic does not match.
+ */
+inline void validateMagic(const std::array<char, 4>& actual, const std::array<char, 4>& expected, const char* container)
+{
+	if (actual != expected)
+		throw std::runtime_error(std::string("Unsupported ") + container + " magic");
+}
+
+/**
+ * @brief Verifies a FontPacker container version.
+ * @param version Version read from the stream.
+ * @param expected Currently supported version.
+ * @param container Human-readable container name for diagnostics.
+ * @throws std::runtime_error if the version is unsupported.
+ */
+inline void validateVersion(std::uint32_t version, std::uint32_t expected, const char* container)
+{
+	if (version != expected)
+		throw std::runtime_error(std::string("Unsupported ") + container + " version");
+}
 
 /**
  * @brief Converts an STL container size to the format's uint32_t size field.
@@ -384,6 +435,8 @@ template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const PreprocessedFontFace& right)
 {
 	left
+		<< FontFaceMagic
+		<< right.version
 		<< right.familyName
 		<< right.type
 		<< right.distType
@@ -391,7 +444,12 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Pr
 		<< right.bitmapLogicalSize
 		<< right.bitmapPadding
 		<< right.hasVert
-		<< right.jpeg;
+		<< right.imageFormat
+		<< right.ascender
+		<< right.descender
+		<< right.faceHeight
+		<< right.maxAdvance
+		<< right.unitsPerEm;
 
 	const std::uint32_t charCount = Detail::checkedUint32Size(right.glyphs.size(), "glyph count");
 	left << charCount;
@@ -431,15 +489,28 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Pr
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, PreprocessedFontFace& right)
 {
+	std::array<char, 4> magic {};
+	PreprocessedFontFace decoded;
 	left
-		>> right.familyName
-		>> right.type
-		>> right.distType
-		>> right.bitmapSize
-		>> right.bitmapLogicalSize
-		>> right.bitmapPadding
-		>> right.hasVert
-		>> right.jpeg;
+		>> magic
+		>> decoded.version;
+	Detail::validateMagic(magic, FontFaceMagic, "PreprocessedFontFace");
+	Detail::validateVersion(decoded.version, FontFaceVersion, "PreprocessedFontFace");
+
+	left
+		>> decoded.familyName
+		>> decoded.type
+		>> decoded.distType
+		>> decoded.bitmapSize
+		>> decoded.bitmapLogicalSize
+		>> decoded.bitmapPadding
+		>> decoded.hasVert
+		>> decoded.imageFormat
+		>> decoded.ascender
+		>> decoded.descender
+		>> decoded.faceHeight
+		>> decoded.maxAdvance
+		>> decoded.unitsPerEm;
 
 	std::uint32_t charCount = 0;
 	left >> charCount;
@@ -448,20 +519,20 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, Preproce
 	for (GlyphTOCEntry& entry : toc)
 		left >> entry;
 
-	left >> right.kerning;
+	left >> decoded.kerning;
 
-	right.glyphs.reserve(toc.size());
+	decoded.glyphs.reserve(toc.size());
 	long endPosition = left.device.tell();
 	for (const GlyphTOCEntry& entry : toc) {
 		Detail::seekAbsolute(left.device, Detail::checkedSeekOffset(entry.offset, "glyph offset"), "glyph data");
 		StoredCharacter character;
 		left >> character;
 		endPosition = std::max(endPosition, left.device.tell());
-		right.glyphs.emplace(entry.codePoint, std::move(character));
+		decoded.glyphs.emplace(entry.codePoint, std::move(character));
 	}
 
 	Detail::seekAbsolute(left.device, endPosition, "end of font face");
-	//right = std::move(decoded);
+	right = std::move(decoded);
 	return left;
 }
 

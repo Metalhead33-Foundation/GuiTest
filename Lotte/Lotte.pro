@@ -1,5 +1,5 @@
 TEMPLATE = lib
-TARGET = Lotte 
+TARGET = Lotte
 CONFIG += shared c++2a
 CONFIG -= qt
 
@@ -16,6 +16,7 @@ SOURCES += \
 HEADERS += \
     Asset/LteGpuAssetStreamer.hpp \
     Text/LteFontFace.hpp \
+    VectorGraphic/LteStoredVectorImage.hpp \
     LotteLib.hpp
 
 DISTFILES += \
