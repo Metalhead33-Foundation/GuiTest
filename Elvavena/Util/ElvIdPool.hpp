@@ -39,16 +39,6 @@ public:
 	explicit IdPool(const Allocator& alloc = Allocator())
 		: lastId(static_cast<T>(0)), freelist(alloc) {}
 
-	/**
-	 * @brief Constructs an empty ID pool.
-	 * @param freeListInitialSize The initial reserved pool size for the freelist, to avoid reallocations initially.
-	 * @param alloc The allocator instance to use for internal storage.
-	 */
-	explicit IdPool(size_t freeListInitialSize, const Allocator& alloc = Allocator())
-		: lastId(static_cast<T>(0)), freelist(alloc) {
-		freelist.reserve(freeListInitialSize);
-	}
-
 	// Deleted copy operations to prevent accidental duplication of thread synchronization primitives.
 	IdPool(const IdPool& cpy) = delete;
 	IdPool& operator=(const IdPool& cpy) = delete;
@@ -92,6 +82,24 @@ public:
 	}
 
 	/**
+	 * @brief Returns a batch of IDs back to the pool for future recycling.
+	 *
+	 * Efficiently processes multiple IDs under a single lock acquisition phase.
+	 *
+	 * @param ids A pointer to the continuous array containing IDs to release.
+	 * @param number The number of identifiers present in the @p ids array.
+	 *
+	 * @warning Just like single-release, providing duplicated or already-freed IDs
+	 *          within this block will result in undefined behavior.
+	 */
+	void releaseMultiple(const T* ids, size_t number) {
+		std::lock_guard<std::mutex> lock(mutex);
+		for (size_t i = 0; i < number; ++i) {
+			freelist.push_back(ids[i]);
+		}
+	}
+
+	/**
 	 * @brief Acquires a unique ID from the pool.
 	 *
 	 * This method will pop and reuse an ID from the internal free-list if one is
@@ -108,6 +116,33 @@ public:
 			return back;
 		} else {
 			return ++lastId;
+		}
+	}
+
+	/**
+	 * @brief Acquires a batch of unique IDs from the pool simultaneously.
+	 *
+	 * Minimizes lock contention by acquiring IDs in bulk. It will exhaust available
+	 * recycled elements from the internal free-list before generating sequential fresh IDs.
+	 *
+	 * @param ids A pointer to an allocated array large enough to hold @p number elements.
+	 * @param number The total number of unique identifiers requested.
+	 */
+	void acquireMultiple(T* ids, size_t number) {
+		if (number == 0) return;
+
+		std::lock_guard<std::mutex> lock(mutex);
+
+		size_t fromFreelist = std::min(number, freelist.size());
+		size_t i = 0;
+
+		for (; i < fromFreelist; ++i) {
+			ids[i] = freelist.back();
+			freelist.pop_back();
+		}
+
+		for (; i < number; ++i) {
+			ids[i] = ++lastId;
 		}
 	}
 };
