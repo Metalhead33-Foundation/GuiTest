@@ -39,6 +39,7 @@ HEADERS += \
     Util/ElvFreelist.hpp \
     Util/ElvFuzzy.hpp \
     Util/ElvHeapArray.hpp \
+    Util/ElvIdPool.hpp \
     Util/ElvIntegralIterator.hpp \
     Util/ElvInterpolation.hpp \
     Util/ElvIntrusiveArray.hpp \
