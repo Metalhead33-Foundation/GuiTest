@@ -103,7 +103,15 @@ public:
 	 *          within this block will result in undefined behavior.
 	 */
 	void releaseMultiple(const T* ids, size_t number) {
+		if (number == 0) return; // Quick escape if empty batch
+
 		std::lock_guard<std::mutex> lock(mutex);
+
+		// Check if appending these IDs will exceed current capacity
+		if (freelist.size() + number > freelist.capacity()) {
+			freelist.reserve(freelist.size() + number);
+		}
+
 		for (size_t i = 0; i < number; ++i) {
 			freelist.push_back(ids[i]);
 		}
@@ -153,6 +161,41 @@ public:
 
 		for (; i < number; ++i) {
 			ids[i] = ++lastId;
+		}
+	}
+
+	/**
+	 * @brief Acquires a batch of unique IDs and streams them directly into a callback function.
+	 *
+	 * Minimizes lock contention by acquiring IDs in bulk. Instead of writing out to a raw
+	 * array buffer, this method invokes the provided callback function for each acquired ID.
+	 *
+	 * @tparam Func A callable type that accepts an ID of type @p T as its argument.
+	 * @param number The total number of unique identifiers requested.
+	 * @param func The callback function or lambda expression to invoke for each generated ID.
+	 */
+	template <typename Func>
+	void acquireMultiple(size_t number, Func&& func) {
+		static_assert(std::is_invocable_v<Func, T>,
+					  "The provided callback must accept an argument compatible with type T (IdPool::Id).");
+
+		if (number == 0) return;
+
+		std::lock_guard<std::mutex> lock(mutex);
+
+		size_t fromFreelist = std::min(number, freelist.size());
+		size_t i = 0;
+
+		// 1. Stream recycled elements out of the freelist
+		for (; i < fromFreelist; ++i) {
+			T back = freelist.back();
+			freelist.pop_back();
+			func(back);
+		}
+
+		// 2. Stream freshly generated IDs
+		for (; i < number; ++i) {
+			func(++lastId);
 		}
 	}
 };
