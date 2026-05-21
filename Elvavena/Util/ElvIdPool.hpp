@@ -39,6 +39,16 @@ public:
 	explicit IdPool(const Allocator& alloc = Allocator())
 		: lastId(static_cast<T>(0)), freelist(alloc) {}
 
+	/**
+	 * @brief Constructs an empty ID pool.
+	 * @param freeListInitialSize The initial reserved pool size for the freelist, to avoid reallocations initially.
+	 * @param alloc The allocator instance to use for internal storage.
+	 */
+	explicit IdPool(size_t freeListInitialSize, const Allocator& alloc = Allocator())
+		: lastId(static_cast<T>(0)), freelist(alloc) {
+		freelist.reserve(freeListInitialSize);
+	}
+
 	// Deleted copy operations to prevent accidental duplication of thread synchronization primitives.
 	IdPool(const IdPool& cpy) = delete;
 	IdPool& operator=(const IdPool& cpy) = delete;
@@ -61,7 +71,7 @@ public:
 	 * @note This does not reflect IDs currently sitting inside the free-list.
 	 * @return The maximum raw ID value generated.
 	 */
-	T getLastId() const noexcept {
+	[[nodiscard]] T getLastId() const noexcept {
 		std::lock_guard<std::mutex> lock(mutex);
 		return lastId;
 	}
@@ -108,7 +118,7 @@ public:
 	 *
 	 * @return A unique identifier of type @p T.
 	 */
-	T acquireId() {
+	[[nodiscard]] T acquireId() {
 		std::lock_guard<std::mutex> lock(mutex);
 		if (freelist.size()) {
 			T back = freelist.back();
