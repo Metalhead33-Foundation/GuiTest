@@ -72,7 +72,7 @@ public:
 	 * @return The maximum raw ID value generated.
 	 */
 	[[nodiscard]] T getLastId() const noexcept {
-		std::lock_guard<std::mutex> lock(mutex);
+		std::scoped_lock lock(mutex);
 		return lastId;
 	}
 
@@ -87,7 +87,7 @@ public:
 	 *          single-time releases.
 	 */
 	void release(T toFree) {
-		std::lock_guard<std::mutex> lock(mutex);
+		std::scoped_lock lock(mutex);
 		freelist.push_back(toFree);
 	}
 
@@ -105,7 +105,7 @@ public:
 	void releaseMultiple(const T* ids, size_t number) {
 		if (number == 0) return; // Quick escape if empty batch
 
-		std::lock_guard<std::mutex> lock(mutex);
+		std::scoped_lock lock(mutex);
 
 		// Check if appending these IDs will exceed current capacity
 		if (freelist.size() + number > freelist.capacity()) {
@@ -127,7 +127,7 @@ public:
 	 * @return A unique identifier of type @p T.
 	 */
 	[[nodiscard]] T acquireId() {
-		std::lock_guard<std::mutex> lock(mutex);
+		std::scoped_lock lock(mutex);
 		if (freelist.size()) {
 			T back = freelist.back();
 			freelist.pop_back();
@@ -149,7 +149,7 @@ public:
 	void acquireMultiple(T* ids, size_t number) {
 		if (number == 0) return;
 
-		std::lock_guard<std::mutex> lock(mutex);
+		std::scoped_lock lock(mutex);
 
 		size_t fromFreelist = std::min(number, freelist.size());
 		size_t i = 0;
@@ -181,7 +181,7 @@ public:
 
 		if (number == 0) return;
 
-		std::lock_guard<std::mutex> lock(mutex);
+		std::scoped_lock lock(mutex);
 
 		size_t fromFreelist = std::min(number, freelist.size());
 		size_t i = 0;

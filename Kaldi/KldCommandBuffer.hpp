@@ -31,10 +31,9 @@
 #include <span>
 #include <utility>
 #include <vector>
+#include <Elvavena/Util/ElvIdPool.hpp>
 
 namespace Kld {
-
-class CommandBuffer;
 
 /** @brief Move-only RAII proxy for a buffer handle. */
 class Buffer;
@@ -55,22 +54,6 @@ class Fence;
 /** @brief Move-only RAII proxy for a query pool handle. */
 class QueryPool;
 
-/**
- * @brief Thread-safe monotonic handle allocator for coordinated recording.
- *
- * Use this when multiple worker command buffers need disjoint handle IDs before
- * their command streams are merged. ID allocation order has no execution
- * meaning; only command append/merge order defines execution order.
- */
-class HandleAllocator {
-	std::atomic<HandleId> nextId;
-public:
-	/** @brief Creates an allocator that returns IDs starting at firstId. */
-	inline explicit HandleAllocator(HandleId firstId = 1) : nextId(firstId) {}
-	/** @brief Allocates one unique handle ID. */
-	inline HandleId allocate() { return nextId.fetch_add(1, std::memory_order_relaxed); }
-};
-
 /** @brief Resource kind used by deferred destruction helpers. */
 enum class ResourceHandleKind : uint8_t {
 	Buffer,
@@ -83,6 +66,167 @@ enum class ResourceHandleKind : uint8_t {
 	Fence,
 	QueryPool,
 	Swapchain
+};
+
+template <typename HandleAllocator = std::allocator<HandleId>> class HandleStorage {
+public:
+	typedef Elv::Util::IdPool<HandleId, HandleAllocator> HandlePool;
+private:
+	HandlePool bufferIds;
+	HandlePool textureIds;
+	HandlePool samplerIds;
+	HandlePool imageIds;
+	HandlePool framebufferIds;
+	HandlePool pipelineIds;
+	HandlePool computePipelineIds;
+	HandlePool fenceIds;
+	HandlePool queryPoolIds;
+	HandlePool swapchainIds;
+public:
+	inline explicit HandleStorage(const HandleAllocator& handleAlloc = HandleAllocator())
+		: bufferIds(handleAlloc),
+		textureIds(handleAlloc),
+		samplerIds(handleAlloc),
+		imageIds(handleAlloc),
+		framebufferIds(handleAlloc),
+		pipelineIds(handleAlloc),
+		computePipelineIds(handleAlloc),
+		fenceIds(handleAlloc),
+		queryPoolIds(handleAlloc),
+		swapchainIds(handleAlloc)
+	{
+	}
+	inline explicit HandleStorage(size_t reservedbufferIdsFreelistSize,
+						   size_t reservedtextureIdsFreelistSize,
+						   size_t reservedsamplerIdsFreelistSize,
+						   size_t reservedimageIdsFreelistSize,
+						   size_t reservedframebufferIdsFreelistSize,
+						   size_t reservedpipelineIdsFreelistSize,
+						   size_t reservedcomputePipelineIdsFreelistSize,
+						   size_t reservedfenceIdsFreelistSize,
+						   size_t reservedqueryPoolIdsFreelistSize,
+						   size_t reservedswapchainIdsFreelistSize, const HandleAllocator& handleAlloc = HandleAllocator())
+		: bufferIds(reservedbufferIdsFreelistSize, handleAlloc),
+		textureIds(reservedtextureIdsFreelistSize, handleAlloc),
+		samplerIds(reservedsamplerIdsFreelistSize, handleAlloc),
+		imageIds(reservedimageIdsFreelistSize, handleAlloc),
+		framebufferIds(reservedframebufferIdsFreelistSize, handleAlloc),
+		pipelineIds(reservedpipelineIdsFreelistSize, handleAlloc),
+		computePipelineIds(reservedcomputePipelineIdsFreelistSize, handleAlloc),
+		fenceIds(reservedfenceIdsFreelistSize, handleAlloc),
+		queryPoolIds(reservedqueryPoolIdsFreelistSize, handleAlloc),
+		swapchainIds(reservedswapchainIdsFreelistSize, handleAlloc)
+	{
+	}
+	[[nodiscard]] inline HandleId acquireId(ResourceHandleKind kind) {
+		switch (kind) {
+			case ResourceHandleKind::Buffer: return bufferIds.acquireId();
+			case ResourceHandleKind::Texture: return textureIds.acquireId();
+			case ResourceHandleKind::Sampler: return samplerIds.acquireId();
+			case ResourceHandleKind::Image: return imageIds.acquireId();
+			case ResourceHandleKind::Framebuffer: return framebufferIds.acquireId();
+			case ResourceHandleKind::Pipeline: return pipelineIds.acquireId();
+			case ResourceHandleKind::ComputePipeline: return computePipelineIds.acquireId();
+			case ResourceHandleKind::Fence: return fenceIds.acquireId();
+			case ResourceHandleKind::QueryPool: return queryPoolIds.acquireId();
+			case ResourceHandleKind::Swapchain: return swapchainIds.acquireId();
+			default: return 0;
+		}
+	}
+	inline void acquireIds(ResourceHandleKind kind, HandleId* ids, size_t idCount) {
+		switch (kind) {
+			case ResourceHandleKind::Buffer: return bufferIds.acquireMultiple(ids, idCount);
+			case ResourceHandleKind::Texture: return textureIds.acquireMultiple(ids, idCount);
+			case ResourceHandleKind::Sampler: return samplerIds.acquireMultiple(ids, idCount);
+			case ResourceHandleKind::Image: return imageIds.acquireMultiple(ids, idCount);
+			case ResourceHandleKind::Framebuffer: return framebufferIds.acquireMultiple(ids, idCount);
+			case ResourceHandleKind::Pipeline: return pipelineIds.acquireMultiple(ids, idCount);
+			case ResourceHandleKind::ComputePipeline: return computePipelineIds.acquireMultiple(ids, idCount);
+			case ResourceHandleKind::Fence: return fenceIds.acquireMultiple(ids, idCount);
+			case ResourceHandleKind::QueryPool: return queryPoolIds.acquireMultiple(ids, idCount);
+			case ResourceHandleKind::Swapchain: return swapchainIds.acquireMultiple(ids, idCount);
+			default: return;
+		}
+	}
+	template <typename Function> inline void acquireIds(ResourceHandleKind kind, Function&& fun, size_t idCount) {
+		switch (kind) {
+			case ResourceHandleKind::Buffer: return bufferIds.acquireMultiple(fun, idCount);
+			case ResourceHandleKind::Texture: return textureIds.acquireMultiple(fun, idCount);
+			case ResourceHandleKind::Sampler: return samplerIds.acquireMultiple(fun, idCount);
+			case ResourceHandleKind::Image: return imageIds.acquireMultiple(fun, idCount);
+			case ResourceHandleKind::Framebuffer: return framebufferIds.acquireMultiple(fun, idCount);
+			case ResourceHandleKind::Pipeline: return pipelineIds.acquireMultiple(fun, idCount);
+			case ResourceHandleKind::ComputePipeline: return computePipelineIds.acquireMultiple(fun, idCount);
+			case ResourceHandleKind::Fence: return fenceIds.acquireMultiple(fun, idCount);
+			case ResourceHandleKind::QueryPool: return queryPoolIds.acquireMultiple(fun, idCount);
+			case ResourceHandleKind::Swapchain: return swapchainIds.acquireMultiple(fun, idCount);
+			default: return;
+		}
+	}
+	inline void freeId(ResourceHandleKind kind, HandleId id) {
+		switch (kind) {
+			case ResourceHandleKind::Buffer: bufferIds.release(id); break;
+			case ResourceHandleKind::Texture: textureIds.release(id); break;
+			case ResourceHandleKind::Sampler: samplerIds.release(id); break;
+			case ResourceHandleKind::Image: imageIds.release(id); break;
+			case ResourceHandleKind::Framebuffer: framebufferIds.release(id); break;
+			case ResourceHandleKind::Pipeline: pipelineIds.release(id); break;
+			case ResourceHandleKind::ComputePipeline: computePipelineIds.release(id); break;
+			case ResourceHandleKind::Fence: fenceIds.release(id); break;
+			case ResourceHandleKind::QueryPool: queryPoolIds.release(id); break;
+			case ResourceHandleKind::Swapchain: swapchainIds.release(id); break;
+			default: return;
+		}
+	}
+	inline void freeIds(ResourceHandleKind kind, const HandleId* ids, size_t idCount) {
+		switch (kind) {
+			case ResourceHandleKind::Buffer: bufferIds.releaseMultiple(ids, idCount); break;
+			case ResourceHandleKind::Texture: textureIds.releaseMultiple(ids, idCount); break;
+			case ResourceHandleKind::Sampler: samplerIds.releaseMultiple(ids, idCount); break;
+			case ResourceHandleKind::Image: imageIds.releaseMultiple(ids, idCount); break;
+			case ResourceHandleKind::Framebuffer: framebufferIds.releaseMultiple(ids, idCount); break;
+			case ResourceHandleKind::Pipeline: pipelineIds.releaseMultiple(ids, idCount); break;
+			case ResourceHandleKind::ComputePipeline: computePipelineIds.releaseMultiple(ids, idCount); break;
+			case ResourceHandleKind::Fence: fenceIds.releaseMultiple(ids, idCount); break;
+			case ResourceHandleKind::QueryPool: queryPoolIds.releaseMultiple(ids, idCount); break;
+			case ResourceHandleKind::Swapchain: swapchainIds.releaseMultiple(ids, idCount); break;
+			default: return;
+		}
+	}
+};
+
+template <typename HandleAllocator = std::allocator<HandleId>, typename CommandAllocator = std::allocator<GfxOp>>
+class CommandDispatcher : public HandleStorage<HandleAllocator> {
+public:
+	typedef std::vector<GfxOp,CommandAllocator> CommandBuffer;
+	typedef HandleStorage<HandleAllocator> HandleStore;
+	typedef std::span<GfxOp> CommandSpan;
+	typedef std::span<const GfxOp> ConstCommandSpan;
+private:
+	mutable std::mutex mutex;
+	CommandBuffer cmdBuff;
+public:
+	explicit CommandDispatcher(const HandleAllocator& handleAlloc = HandleAllocator(), const CommandAllocator& commandAlloc = CommandAllocator())
+		: HandleStore(handleAlloc), cmdBuff(commandAlloc)
+	{}
+	explicit CommandDispatcher(size_t reservedCommandBufferSize,
+						   size_t reservedbufferIdsFreelistSize,
+						   size_t reservedtextureIdsFreelistSize,
+						   size_t reservedsamplerIdsFreelistSize,
+						   size_t reservedimageIdsFreelistSize,
+						   size_t reservedframebufferIdsFreelistSize,
+						   size_t reservedpipelineIdsFreelistSize,
+						   size_t reservedcomputePipelineIdsFreelistSize,
+						   size_t reservedfenceIdsFreelistSize,
+						   size_t reservedqueryPoolIdsFreelistSize,
+						   size_t reservedswapchainIdsFreelistSize, const HandleAllocator& handleAlloc = HandleAllocator(),
+							   const CommandAllocator& commandAlloc = CommandAllocator())
+		: HandleStore(reservedbufferIdsFreelistSize, reservedtextureIdsFreelistSize, reservedsamplerIdsFreelistSize, reservedimageIdsFreelistSize,
+			reservedframebufferIdsFreelistSize, reservedpipelineIdsFreelistSize, reservedcomputePipelineIdsFreelistSize, reservedfenceIdsFreelistSize,
+					  reservedqueryPoolIdsFreelistSize, reservedswapchainIdsFreelistSize, handleAlloc), cmdBuff(commandAlloc)
+	{
+		cmdBuff.reserve(reservedCommandBufferSize);
+	}
 };
 
 /**
@@ -311,8 +455,16 @@ public:
  */
 class CommandBuffer {
 	std::pmr::vector<GfxOp> commandStorage;
-	HandleId nextId{1};
-	HandleAllocator* sharedAllocator{};
+	HandleAllocator bufferIds;
+	HandleAllocator textureIds;
+	HandleAllocator samplerIds;
+	HandleAllocator imageIds;
+	HandleAllocator framebufferIds;
+	HandleAllocator pipelineIds;
+	HandleAllocator computePipelineIds;
+	HandleAllocator fenceIds;
+	HandleAllocator queryPoolIds;
+	HandleAllocator swapchainIds;
 public:
 	/** @name Construction */
 	///@{
@@ -347,7 +499,22 @@ public:
 	/** @brief Appends an externally recorded command span in execution order. */
 	inline void append(std::span<const GfxOp> commands) { commandStorage.insert(commandStorage.end(), commands.begin(), commands.end()); }
 	/** @brief Allocates a handle ID from the local or shared allocator. */
-	inline HandleId allocateId() { return sharedAllocator ? sharedAllocator->allocate() : nextId++; }
+	inline HandleId allocateId(ResourceHandleKind handleKind) {
+		// return sharedAllocator ? sharedAllocator->allocate() : nextId++;
+		switch (handleKind) {
+			case ResourceHandleKind::Buffer:
+			case ResourceHandleKind::Texture:
+			case ResourceHandleKind::Sampler:
+			case ResourceHandleKind::Image:
+			case ResourceHandleKind::Framebuffer:
+			case ResourceHandleKind::Pipeline:
+			case ResourceHandleKind::ComputePipeline:
+			case ResourceHandleKind::Fence:
+			case ResourceHandleKind::QueryPool:
+			case ResourceHandleKind::Swapchain:
+				break;
+		}
+	}
 	///@}
 
 	/** @name Explicit destroy helpers */

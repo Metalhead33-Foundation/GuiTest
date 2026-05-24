@@ -57,7 +57,7 @@ public:
 	 * \param command The command functor to enqueue
 	 */
 	void enqueue(Command&& command) {
-		std::lock_guard<std::mutex> lock(commandsMutex);
+		std::scoped_lock lock(commandsMutex);
 		writeBuffer.emplace_back(std::move(command));
 		// No need to notify here since the rendering thread never sleeps
 	}
@@ -71,7 +71,7 @@ public:
 	void processCommands() {
 		if(writeBuffer.empty()) return;
 		{
-			std::lock_guard<std::mutex> lock(commandsMutex);
+			std::scoped_lock lock(commandsMutex);
 			std::swap(readBuffer, writeBuffer);
 		}
 
@@ -90,7 +90,7 @@ public:
 	 * \return The number of commands in the queue
 	 */
 	size_t sizeOfCommands() const {
-		std::lock_guard<std::mutex> lock(commandsMutex);
+		std::scoped_lock lock(commandsMutex);
 		return writeBuffer.size();
 	}
 

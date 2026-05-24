@@ -29,6 +29,7 @@ HEADERS += \
     Util/ElvContainerBasic.hpp \
     Util/ElvContinuousIterator.hpp \
     Util/ElvDither.hpp \
+    Util/ElvDoubleBufferedVector.hpp \
     Util/ElvDynamicLib.hpp \
     Util/ElvEdgeFunction.hpp \
     Util/ElvEndianness.hpp \

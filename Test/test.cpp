@@ -91,7 +91,7 @@ private:
 	static std::mutex managerMutex;
 public:
 	static Elv::Util::FreelistMemoryManager& getStaticManager() {
-		std::lock_guard<std::mutex> lock(managerMutex);
+		std::scoped_lock lock(managerMutex);
 		if(!manager) {
 			manager = uManager(new Elv::Util::FreelistMemoryManager(
 								   { 1024*8, 1024, 1024 }

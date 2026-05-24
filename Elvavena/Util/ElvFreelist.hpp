@@ -61,12 +61,6 @@ private:
 	 */
 	mutable std::recursive_mutex _mutex;
 
-	/**
-	 * @typedef Lock
-	 * @brief Convenience alias for a lock guard on the recursive mutex.
-	 */
-	typedef std::lock_guard<std::recursive_mutex> Lock;
-
 public:
 	/**
 	 * @brief Default constructor, initializing the freelist.
@@ -329,12 +323,6 @@ private:
 	 */
 	mutable std::recursive_mutex _mutex;
 
-	/**
-	 * @typedef Lock
-	 * @brief A lock guard for the mutex.
-	 */
-	typedef std::lock_guard<std::recursive_mutex> Lock;
-
 public:
 	/**
 	 * @brief Constructor.
@@ -362,7 +350,7 @@ public:
 	 * @return Blk A block descriptor containing the allocated memory pointer and size. Returns a null pointer and zero size if allocation fails.
 	 */
 	Blk allocateBlock(std::size_t n) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
 		n = alignUp(n);
 
@@ -411,7 +399,7 @@ public:
 	 * @param blk A reference to the memory block being deallocated. Ensure the block is owned by this allocator.
 	 */
 	void deallocateBlock(const Blk& blk) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		if (!ownsBlock(blk)) {
 			return; // Silently ignore blocks that don't belong to us
 		}
@@ -440,7 +428,7 @@ public:
 	 * @return True if the allocator owns the block, false otherwise.
 	 */
 	bool ownsBlock(const Blk& blk) const noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		return blk.ptr >= buffer_ &&
 			   blk.ptr < (buffer_ + totalSize_);
 	}
@@ -519,7 +507,6 @@ private:
 	char* buffer_; ///< Pointer to the beginning of the managed memory buffer.
 	FreeBlock* freeList_; ///< Pointer to the head of the free block list.
 	mutable std::recursive_mutex _mutex; ///< Mutex for thread-safe access.
-	typedef std::lock_guard<std::recursive_mutex> Lock; ///< Convenience type for locking the mutex.
 
 public:
 	/**
@@ -542,7 +529,7 @@ public:
 	 *	   due to alignment and minimum block size requirements.
 	 */
 	Blk allocateBlock(std::size_t n) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
 		n = alignUp(n);
 
@@ -589,7 +576,7 @@ public:
 	 * @note If the block does not belong to this allocator, the operation is silently ignored.
 	 */
 	void deallocateBlock(const Blk& blk) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		if (!ownsBlock(blk)) {
 			#ifndef NDEBUG
 			std::cerr << "Warning: Attempted to deallocate a block not owned by this allocator." << std::endl;
@@ -618,7 +605,7 @@ public:
 	 * @return True if the block is within the managed memory range, false otherwise.
 	 */
 	bool ownsBlock(const Blk& blk) const noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		return blk.ptr >= buffer_ &&
 			   blk.ptr < (buffer_ + totalSize_);
 	}
@@ -776,7 +763,7 @@ public:
 	 * Thread-safely returns an allocator, allowing for concurrent memory management across subsystems.
 	 */
 	ContiguousFreeListAllocator* getAllocator(std::size_t index) {
-		std::lock_guard<std::mutex> lock(allocMutex);
+		std::scoped_lock lock(allocMutex);
 		if (index >= allocators.size()) {
 			throw std::out_of_range("Allocator index out of range");
 		}
