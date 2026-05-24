@@ -276,11 +276,45 @@ public:
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ResourceProxyBase
+// ─────────────────────────────────────────────────────────────────────────────
+
+template <typename Derived, typename Dispatcher>
+class ResourceProxyBase {
+protected:
+	HandleId    resourceId{};
+	Dispatcher* owner{};
+
+	inline ResourceProxyBase() = default;
+	inline ResourceProxyBase(HandleId id, Dispatcher* dispatcher) : resourceId(id), owner(dispatcher) {}
+	inline ResourceProxyBase(ResourceProxyBase&& other) noexcept
+		: resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
+
+	inline Derived& moveAssign(Derived&& other) noexcept {
+		if (static_cast<Derived*>(this) != &other) {
+			static_cast<Derived*>(this)->destroyResource();
+			resourceId = other.release();
+			owner = std::exchange(other.owner, nullptr);
+		}
+		return static_cast<Derived&>(*this);
+	}
+
+public:
+	ResourceProxyBase(const ResourceProxyBase&)            = delete;
+	ResourceProxyBase& operator=(const ResourceProxyBase&) = delete;
+	/** @brief Returns the wrapped handle ID. */
+	inline HandleId id() const { return resourceId; }
+	/** @brief Allows passing the proxy anywhere a raw handle ID is expected. */
+	inline operator HandleId() const { return resourceId; }
+	/** @brief Releases ownership without enqueuing a destroy command. */
+	inline HandleId release() { return std::exchange(resourceId, 0); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // oop_detail  —  RAII proxies + full recording surface, parameterised once
 // ─────────────────────────────────────────────────────────────────────────────
 
 #define OOP_DETAIL_HEADER template <typename HandleAllocator = std::allocator<HandleId>, typename CommandAllocator = std::allocator<GfxOp>>
-#define OOP_DETAIL_HEADER_NODEFAULT template <typename HandleAllocator, typename CommandAllocator>
 
 
 OOP_DETAIL_HEADER struct oop_detail {
@@ -299,195 +333,271 @@ OOP_DETAIL_HEADER struct oop_detail {
 	class Fence;
 	class QueryPool;
 
-	// ─────────────────────────────────────────────────────────────────────────
-	// RAII proxy base pattern
-	//
-	// Every proxy:
-	//   • is move-only
-	//   • owns one HandleId + a non-owning Dispatcher*
-	//   • enqueues the appropriate destroy command on destruction / move-assign
-	//   • exposes id() and release() just like the SLOP version
-	//
-	// operator= and ~Proxy are defined *after* the Dispatcher command helpers
-	// are visible, so they can call e.g. owner->destroyBuffer(id).
-	// ─────────────────────────────────────────────────────────────────────────
-
 	/** @brief Move-only RAII proxy for a buffer handle. */
-	class Buffer {
-		HandleId    resourceId{};
-		Dispatcher* owner{};
+	class Buffer : public ResourceProxyBase<Buffer, Dispatcher> {
+		typedef ResourceProxyBase<Buffer, Dispatcher> Base;
+		using Base::moveAssign;
+		using Base::owner;
+		using Base::resourceId;
+		friend Base;
+		inline void destroyResource() {
+			if (!owner || !resourceId) return;
+			owner->freeId(ResourceHandleKind::Buffer, resourceId);
+			owner->push({ Opcode::DestroyBufferObject, { .opDestroy = { resourceId } } });
+			resourceId = 0;
+		}
 	public:
 		inline Buffer() = default;
-		inline Buffer(HandleId id, Dispatcher* dispatcher) : resourceId(id), owner(dispatcher) {}
+		inline Buffer(HandleId id, Dispatcher* dispatcher) : Base(id, dispatcher) {}
 		Buffer(const Buffer&)            = delete;
 		Buffer& operator=(const Buffer&) = delete;
-		inline Buffer(Buffer&& other) noexcept
-			: resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
-		inline Buffer& operator=(Buffer&& other) noexcept;
-		inline ~Buffer();
-		/** @brief Returns the wrapped handle ID. */
-		inline HandleId id()      const { return resourceId; }
-		/** @brief Releases ownership without enqueuing a destroy command. */
-		inline HandleId release()       { return std::exchange(resourceId, 0); }
+		inline Buffer(Buffer&& other) noexcept = default;
+		inline Buffer& operator=(Buffer&& other) noexcept { return moveAssign(std::move(other)); }
+		inline ~Buffer() { destroyResource(); }
+		inline void resize(uint32_t size) const { owner->push({ Opcode::ResizeBufferObject, { .opResizeBufferObject = { resourceId, size } } }); }
+		inline void update(uint32_t offset, uint32_t size, const void* data) const { owner->push({ Opcode::UpdateBufferObject, { .opUpdateBufferObject = { resourceId, offset, size, data } } }); }
+		inline void map(uint32_t offset, uint32_t size, BufferMapAccess access, BufferMapCallback callback, void* userData) const { owner->push({ Opcode::MapBufferObject, { .opMapBufferObject = { resourceId, offset, size, access, callback, userData } } }); }
+		inline void copyTo(HandleId destination, uint32_t sourceOffset, uint32_t destinationOffset, uint32_t size) const { owner->push({ Opcode::CopyBuffer, { .opCopyBuffer = { resourceId, destination, sourceOffset, destinationOffset, size } } }); }
+		inline void read(uint32_t offset, uint32_t size, BufferReadbackCallback callback, void* userData) const { owner->push({ Opcode::ReadBuffer, { .opReadBuffer = { resourceId, offset, size, callback, userData } } }); }
+		inline void createVertexArray(const VertexDescriptor* descriptor, uint32_t elementCount) const { owner->push({ Opcode::CreateVertexArrayObject, { .opCreateVertexArrayObject = { resourceId, descriptor, elementCount } } }); }
+		inline void bindUniform(uint32_t slot, uint32_t offset, uint32_t size) const { owner->push({ Opcode::BindUniformBuffer, { .opBindUniformBuffer = { slot, resourceId, offset, size } } }); }
+		inline void bindStorage(uint32_t slot, uint32_t offset, uint32_t size, StorageAccess access) const { owner->push({ Opcode::BindStorageBuffer, { .opBindStorageBuffer = { slot, resourceId, offset, size, access } } }); }
+		inline void bindVertex(uint32_t binding, uint32_t offset, uint32_t stride, uint32_t instanceDivisor = 0) const { owner->push({ Opcode::BindVertexBuffer, { .opBindVertexBuffer = { binding, resourceId, offset, stride, instanceDivisor } } }); }
+		inline void bindIndex(uint32_t offset, IndexType type) const { owner->push({ Opcode::BindIndexBuffer, { .opBindIndexBuffer = { resourceId, offset, type } } }); }
+		inline void dispatchComputeIndirect(uint32_t offset) const { owner->push({ Opcode::DispatchComputeIndirect, { .opDispatchComputeIndirect = { resourceId, offset } } }); }
+		inline void drawIndirect(uint32_t offset, uint32_t drawCount, uint32_t stride) const { owner->push({ Opcode::DrawIndirect, { .opDrawIndirect = { resourceId, offset, drawCount, stride } } }); }
+		inline void drawIndexedIndirect(uint32_t offset, uint32_t drawCount, uint32_t stride) const { owner->push({ Opcode::DrawIndexedIndirect, { .opDrawIndexedIndirect = { resourceId, offset, drawCount, stride } } }); }
+		inline void barrier(uint32_t offset, uint32_t size, uint32_t sourceStages, uint32_t destinationStages, uint32_t sourceAccess, uint32_t destinationAccess) const { owner->push({ Opcode::BufferBarrier, { .opBufferBarrier = { resourceId, offset, size, sourceStages, destinationStages, sourceAccess, destinationAccess } } }); }
+		inline void transition(ResourceState oldState, ResourceState newState, uint32_t sourceStages, uint32_t destinationStages) const { owner->push({ Opcode::TransitionResource, { .opTransitionResource = { resourceId, ResourceKind::Buffer, oldState, newState, sourceStages, destinationStages } } }); }
 	};
 
 	/** @brief Move-only RAII proxy for a sampled texture handle. */
-	class Texture {
-		HandleId    resourceId{};
-		Dispatcher* owner{};
+	class Texture : public ResourceProxyBase<Texture, Dispatcher> {
+		typedef ResourceProxyBase<Texture, Dispatcher> Base;
+		using Base::moveAssign;
+		using Base::owner;
+		using Base::resourceId;
+		friend Base;
+		inline void destroyResource() {
+			if (!owner || !resourceId) return;
+			owner->freeId(ResourceHandleKind::Texture, resourceId);
+			owner->push({ Opcode::DestroyTexture, { .opDestroy = { resourceId } } });
+			resourceId = 0;
+		}
 	public:
 		inline Texture() = default;
-		inline Texture(HandleId id, Dispatcher* dispatcher) : resourceId(id), owner(dispatcher) {}
+		inline Texture(HandleId id, Dispatcher* dispatcher) : Base(id, dispatcher) {}
 		Texture(const Texture&)            = delete;
 		Texture& operator=(const Texture&) = delete;
-		inline Texture(Texture&& other) noexcept
-			: resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
-		inline Texture& operator=(Texture&& other) noexcept;
-		inline ~Texture();
-		inline HandleId id()      const { return resourceId; }
-		inline HandleId release()       { return std::exchange(resourceId, 0); }
+		inline Texture(Texture&& other) noexcept = default;
+		inline Texture& operator=(Texture&& other) noexcept { return moveAssign(std::move(other)); }
+		inline ~Texture() { destroyResource(); }
+		inline void resize2D(TextureFormat format, uint8_t mipLevels, bool generateMipmaps, uint16_t width, uint16_t height) const { owner->push({ Opcode::ResizeTexture2D, { .opResizeTexture2D = { resourceId, format, mipLevels, generateMipmaps, width, height } } }); }
+		inline void update2D(TextureFormat format, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) const { owner->push({ Opcode::UpdateTexture2D, { .opUpdateTexture2D = { resourceId, format, mipLevel, x, y, width, height, pixels } } }); }
+		inline void updateCompressed2D(TextureFormat format, TextureCompressionLayout layout, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint32_t byteSize, const void* data) const { owner->push({ Opcode::UpdateCompressedTexture2D, { .opUpdateCompressedTexture2D = { resourceId, format, layout, mipLevel, x, y, width, height, byteSize, data } } }); }
+		inline void updateCubeFace(TextureCubeFace face, TextureFormat format, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) const { owner->push({ Opcode::UpdateTextureCubeFace, { .opUpdateTextureCubeFace = { resourceId, face, format, mipLevel, x, y, width, height, pixels } } }); }
+		inline void update2DArray(TextureFormat format, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) const { owner->push({ Opcode::UpdateTexture2DArray, { .opUpdateTexture2DArray = { resourceId, format, mipLevel, layer, x, y, width, height, pixels } } }); }
+		inline void blitTo(HandleId destination, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) const { owner->push({ Opcode::BlitTexture2D, { .opBlitTexture2D = { resourceId, destination, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
+		inline void generateMipmaps() const { owner->push({ Opcode::GenerateTextureMipmaps, { .opGenerateTextureMipmaps = { resourceId } } }); }
+		inline void bind(uint32_t slot, TextureBindingType type) const { owner->push({ Opcode::BindTexture, { .opBindTexture = { slot, resourceId, type } } }); }
+		inline void transition(ResourceState oldState, ResourceState newState, uint32_t sourceStages, uint32_t destinationStages) const { owner->push({ Opcode::TransitionResource, { .opTransitionResource = { resourceId, ResourceKind::Texture, oldState, newState, sourceStages, destinationStages } } }); }
 	};
 
 	/** @brief Move-only RAII proxy for an image handle. */
-	class Image {
-		HandleId    resourceId{};
-		Dispatcher* owner{};
+	class Image : public ResourceProxyBase<Image, Dispatcher> {
+		typedef ResourceProxyBase<Image, Dispatcher> Base;
+		using Base::moveAssign;
+		using Base::owner;
+		using Base::resourceId;
+		friend Base;
+		inline void destroyResource() {
+			if (!owner || !resourceId) return;
+			owner->freeId(ResourceHandleKind::Image, resourceId);
+			owner->push({ Opcode::DestroyImage, { .opDestroyImage = { resourceId } } });
+			resourceId = 0;
+		}
 	public:
 		inline Image() = default;
-		inline Image(HandleId id, Dispatcher* dispatcher) : resourceId(id), owner(dispatcher) {}
+		inline Image(HandleId id, Dispatcher* dispatcher) : Base(id, dispatcher) {}
 		Image(const Image&)            = delete;
 		Image& operator=(const Image&) = delete;
-		inline Image(Image&& other) noexcept
-			: resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
-		inline Image& operator=(Image&& other) noexcept;
-		inline ~Image();
-		inline HandleId id()      const { return resourceId; }
-		inline HandleId release()       { return std::exchange(resourceId, 0); }
+		inline Image(Image&& other) noexcept = default;
+		inline Image& operator=(Image&& other) noexcept { return moveAssign(std::move(other)); }
+		inline ~Image() { destroyResource(); }
+		inline void resize2D(TextureFormat format, uint16_t width, uint16_t height, uint8_t mipLevels, uint32_t usage) const { owner->push({ Opcode::ResizeImage2D, { .opResizeImage2D = { resourceId, format, width, height, mipLevels, usage } } }); }
+		inline void update2D(TextureFormat format, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) const { owner->push({ Opcode::UpdateImage2D, { .opUpdateImage2D = { resourceId, format, mipLevel, x, y, width, height, pixels } } }); }
+		inline void blitTo(HandleId destination, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) const { owner->push({ Opcode::BlitImage2D, { .opBlitImage2D = { resourceId, destination, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
+		inline void resolveTo(HandleId destination, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) const { owner->push({ Opcode::ResolveImage2D, { .opResolveImage2D = { resourceId, destination, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
+		inline void copyTo(HandleId destination, uint8_t sourceMipLevel, uint16_t sourceLayer, uint8_t destinationMipLevel, uint16_t destinationLayer, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) const { owner->push({ Opcode::CopyImage2D, { .opCopyImage2D = { resourceId, destination, sourceMipLevel, sourceLayer, destinationMipLevel, destinationLayer, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
+		inline void copyFromBuffer(HandleId sourceBuffer, uint32_t bufferOffset, uint32_t bufferRowPitch, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height) const { owner->push({ Opcode::CopyBufferToImage2D, { .opCopyBufferToImage2D = { sourceBuffer, resourceId, bufferOffset, bufferRowPitch, mipLevel, layer, x, y, width, height } } }); }
+		inline void copyToBuffer(HandleId destinationBuffer, uint32_t bufferOffset, uint32_t bufferRowPitch, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height) const { owner->push({ Opcode::CopyImage2DToBuffer, { .opCopyImage2DToBuffer = { resourceId, destinationBuffer, bufferOffset, bufferRowPitch, mipLevel, layer, x, y, width, height } } }); }
+		inline void read2D(uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height, ImageReadbackCallback callback, void* userData) const { owner->push({ Opcode::ReadImage2D, { .opReadImage2D = { resourceId, mipLevel, layer, x, y, width, height, callback, userData } } }); }
+		inline void bindStorage(uint32_t slot, uint8_t mipLevel, uint16_t layer, StorageAccess access) const { owner->push({ Opcode::BindStorageImage, { .opBindStorageImage = { slot, resourceId, mipLevel, layer, access } } }); }
+		inline void barrier(const OpImageBarrier& barrier) const { owner->push({ Opcode::ImageBarrier, { .opImageBarrier = barrier } }); }
+		inline void transition(ResourceState oldState, ResourceState newState, uint32_t sourceStages, uint32_t destinationStages) const { owner->push({ Opcode::TransitionResource, { .opTransitionResource = { resourceId, ResourceKind::Image, oldState, newState, sourceStages, destinationStages } } }); }
 	};
 
 	/** @brief Move-only RAII proxy for a sampler handle. */
-	class Sampler {
-		HandleId    resourceId{};
-		Dispatcher* owner{};
+	class Sampler : public ResourceProxyBase<Sampler, Dispatcher> {
+		typedef ResourceProxyBase<Sampler, Dispatcher> Base;
+		using Base::moveAssign;
+		using Base::owner;
+		using Base::resourceId;
+		friend Base;
+		inline void destroyResource() {
+			if (!owner || !resourceId) return;
+			owner->freeId(ResourceHandleKind::Sampler, resourceId);
+			owner->push({ Opcode::DestroySampler, { .opDestroy = { resourceId } } });
+			resourceId = 0;
+		}
 	public:
 		inline Sampler() = default;
-		inline Sampler(HandleId id, Dispatcher* dispatcher) : resourceId(id), owner(dispatcher) {}
+		inline Sampler(HandleId id, Dispatcher* dispatcher) : Base(id, dispatcher) {}
 		Sampler(const Sampler&)            = delete;
 		Sampler& operator=(const Sampler&) = delete;
-		inline Sampler(Sampler&& other) noexcept
-			: resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
-		inline Sampler& operator=(Sampler&& other) noexcept;
-		inline ~Sampler();
-		inline HandleId id()      const { return resourceId; }
-		inline HandleId release()       { return std::exchange(resourceId, 0); }
+		inline Sampler(Sampler&& other) noexcept = default;
+		inline Sampler& operator=(Sampler&& other) noexcept { return moveAssign(std::move(other)); }
+		inline ~Sampler() { destroyResource(); }
+		inline void bind(uint32_t slot) const { owner->push({ Opcode::BindSampler, { .opBindSampler = { slot, resourceId } } }); }
 	};
 
 	/** @brief Move-only RAII proxy for a framebuffer handle. */
-	class Framebuffer {
-		HandleId    resourceId{};
-		Dispatcher* owner{};
+	class Framebuffer : public ResourceProxyBase<Framebuffer, Dispatcher> {
+		typedef ResourceProxyBase<Framebuffer, Dispatcher> Base;
+		using Base::moveAssign;
+		using Base::owner;
+		using Base::resourceId;
+		friend Base;
+		inline void destroyResource() {
+			if (!owner || !resourceId) return;
+			owner->freeId(ResourceHandleKind::Framebuffer, resourceId);
+			owner->push({ Opcode::DestroyFramebuffer, { .opDestroyFramebuffer = { resourceId } } });
+			resourceId = 0;
+		}
 	public:
 		inline Framebuffer() = default;
-		inline Framebuffer(HandleId id, Dispatcher* dispatcher) : resourceId(id), owner(dispatcher) {}
+		inline Framebuffer(HandleId id, Dispatcher* dispatcher) : Base(id, dispatcher) {}
 		Framebuffer(const Framebuffer&)            = delete;
 		Framebuffer& operator=(const Framebuffer&) = delete;
-		inline Framebuffer(Framebuffer&& other) noexcept
-			: resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
-		inline Framebuffer& operator=(Framebuffer&& other) noexcept;
-		inline ~Framebuffer();
-		inline HandleId id()      const { return resourceId; }
-		inline HandleId release()       { return std::exchange(resourceId, 0); }
+		inline Framebuffer(Framebuffer&& other) noexcept = default;
+		inline Framebuffer& operator=(Framebuffer&& other) noexcept { return moveAssign(std::move(other)); }
+		inline ~Framebuffer() { destroyResource(); }
+		inline void bind() const { owner->push({ Opcode::BindFramebuffer, { .opBindFramebuffer = { resourceId } } }); }
+		inline void beginFrame() const { owner->push({ Opcode::BeginFrame, { .opBeginFrame = { resourceId } } }); }
+		inline void endFrame() const { owner->push({ Opcode::EndFrame, { .opEndFrame = { resourceId } } }); }
+		inline void present() const { owner->push({ Opcode::Present, { .opPresent = { resourceId } } }); }
+		inline void clearColor(uint32_t colorAttachmentIndex, const float (&color)[4]) const { owner->push({ Opcode::ClearColorAttachment, { .opClearColorAttachment = { resourceId, colorAttachmentIndex, { color[0], color[1], color[2], color[3] } } } }); }
+		inline void clearDepthStencil(bool clearDepth, bool clearStencil, float depth, uint32_t stencil) const { owner->push({ Opcode::ClearDepthStencilAttachment, { .opClearDepthStencilAttachment = { resourceId, clearDepth, clearStencil, depth, stencil } } }); }
+		inline void transition(ResourceState oldState, ResourceState newState, uint32_t sourceStages, uint32_t destinationStages) const { owner->push({ Opcode::TransitionResource, { .opTransitionResource = { resourceId, ResourceKind::Framebuffer, oldState, newState, sourceStages, destinationStages } } }); }
 	};
 
 	/** @brief Move-only RAII proxy for a graphics pipeline handle. */
-	class Pipeline {
-		HandleId    resourceId{};
-		Dispatcher* owner{};
+	class Pipeline : public ResourceProxyBase<Pipeline, Dispatcher> {
+		typedef ResourceProxyBase<Pipeline, Dispatcher> Base;
+		using Base::moveAssign;
+		using Base::owner;
+		using Base::resourceId;
+		friend Base;
+		inline void destroyResource() {
+			if (!owner || !resourceId) return;
+			owner->freeId(ResourceHandleKind::Pipeline, resourceId);
+			owner->push({ Opcode::DestroyPipeline, { .opDestroyPipeline = { resourceId } } });
+			resourceId = 0;
+		}
 	public:
 		inline Pipeline() = default;
-		inline Pipeline(HandleId id, Dispatcher* dispatcher) : resourceId(id), owner(dispatcher) {}
+		inline Pipeline(HandleId id, Dispatcher* dispatcher) : Base(id, dispatcher) {}
 		Pipeline(const Pipeline&)            = delete;
 		Pipeline& operator=(const Pipeline&) = delete;
-		inline Pipeline(Pipeline&& other) noexcept
-			: resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
-		inline Pipeline& operator=(Pipeline&& other) noexcept;
-		inline ~Pipeline();
-		inline HandleId id()      const { return resourceId; }
-		inline HandleId release()       { return std::exchange(resourceId, 0); }
+		inline Pipeline(Pipeline&& other) noexcept = default;
+		inline Pipeline& operator=(Pipeline&& other) noexcept { return moveAssign(std::move(other)); }
+		inline ~Pipeline() { destroyResource(); }
+		inline void bind() const { owner->push({ Opcode::BindPipeline, { .opBindPipeline = { resourceId } } }); }
 	};
 
 	/** @brief Move-only RAII proxy for a compute pipeline handle. */
-	class ComputePipeline {
-		HandleId    resourceId{};
-		Dispatcher* owner{};
+	class ComputePipeline : public ResourceProxyBase<ComputePipeline, Dispatcher> {
+		typedef ResourceProxyBase<ComputePipeline, Dispatcher> Base;
+		using Base::moveAssign;
+		using Base::owner;
+		using Base::resourceId;
+		friend Base;
+		inline void destroyResource() {
+			if (!owner || !resourceId) return;
+			owner->freeId(ResourceHandleKind::ComputePipeline, resourceId);
+			owner->push({ Opcode::DestroyComputePipeline, { .opDestroyComputePipeline = { resourceId } } });
+			resourceId = 0;
+		}
 	public:
 		inline ComputePipeline() = default;
-		inline ComputePipeline(HandleId id, Dispatcher* dispatcher) : resourceId(id), owner(dispatcher) {}
+		inline ComputePipeline(HandleId id, Dispatcher* dispatcher) : Base(id, dispatcher) {}
 		ComputePipeline(const ComputePipeline&)            = delete;
 		ComputePipeline& operator=(const ComputePipeline&) = delete;
-		inline ComputePipeline(ComputePipeline&& other) noexcept
-			: resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
-		inline ComputePipeline& operator=(ComputePipeline&& other) noexcept;
-		inline ~ComputePipeline();
-		inline HandleId id()      const { return resourceId; }
-		inline HandleId release()       { return std::exchange(resourceId, 0); }
+		inline ComputePipeline(ComputePipeline&& other) noexcept = default;
+		inline ComputePipeline& operator=(ComputePipeline&& other) noexcept { return moveAssign(std::move(other)); }
+		inline ~ComputePipeline() { destroyResource(); }
+		inline void bind() const { owner->push({ Opcode::BindComputePipeline, { .opBindComputePipeline = { resourceId } } }); }
 	};
 
 	/** @brief Move-only RAII proxy for a fence handle. */
-	class Fence {
-		HandleId    resourceId{};
-		Dispatcher* owner{};
+	class Fence : public ResourceProxyBase<Fence, Dispatcher> {
+		typedef ResourceProxyBase<Fence, Dispatcher> Base;
+		using Base::moveAssign;
+		using Base::owner;
+		using Base::resourceId;
+		friend Base;
+		inline void destroyResource() {
+			if (!owner || !resourceId) return;
+			owner->freeId(ResourceHandleKind::Fence, resourceId);
+			owner->push({ Opcode::DestroyFence, { .opDestroyFence = { resourceId } } });
+			resourceId = 0;
+		}
 	public:
 		inline Fence() = default;
-		inline Fence(HandleId id, Dispatcher* dispatcher) : resourceId(id), owner(dispatcher) {}
+		inline Fence(HandleId id, Dispatcher* dispatcher) : Base(id, dispatcher) {}
 		Fence(const Fence&)            = delete;
 		Fence& operator=(const Fence&) = delete;
-		inline Fence(Fence&& other) noexcept
-			: resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
-		inline Fence& operator=(Fence&& other) noexcept;
-		inline ~Fence();
-		inline HandleId id()      const { return resourceId; }
-		inline HandleId release()       { return std::exchange(resourceId, 0); }
+		inline Fence(Fence&& other) noexcept = default;
+		inline Fence& operator=(Fence&& other) noexcept { return moveAssign(std::move(other)); }
+		inline ~Fence() { destroyResource(); }
+		inline void signal(uint64_t value) const { owner->push({ Opcode::SignalFence, { .opSignalFence = { resourceId, value } } }); }
+		inline void wait(uint64_t value) const { owner->push({ Opcode::WaitFence, { .opWaitFence = { resourceId, value } } }); }
 	};
 
 	/** @brief Move-only RAII proxy for a query pool handle. */
-	class QueryPool {
-		HandleId    resourceId{};
-		Dispatcher* owner{};
+	class QueryPool : public ResourceProxyBase<QueryPool, Dispatcher> {
+		typedef ResourceProxyBase<QueryPool, Dispatcher> Base;
+		using Base::moveAssign;
+		using Base::owner;
+		using Base::resourceId;
+		friend Base;
+		inline void destroyResource() {
+			if (!owner || !resourceId) return;
+			owner->freeId(ResourceHandleKind::QueryPool, resourceId);
+			owner->push({ Opcode::DestroyQueryPool, { .opDestroyQueryPool = { resourceId } } });
+			resourceId = 0;
+		}
 	public:
 		inline QueryPool() = default;
-		inline QueryPool(HandleId id, Dispatcher* dispatcher) : resourceId(id), owner(dispatcher) {}
+		inline QueryPool(HandleId id, Dispatcher* dispatcher) : Base(id, dispatcher) {}
 		QueryPool(const QueryPool&)            = delete;
 		QueryPool& operator=(const QueryPool&) = delete;
-		inline QueryPool(QueryPool&& other) noexcept
-			: resourceId(other.release()), owner(std::exchange(other.owner, nullptr)) {}
-		inline QueryPool& operator=(QueryPool&& other) noexcept;
-		inline ~QueryPool();
-		inline HandleId id()      const { return resourceId; }
-		inline HandleId release()       { return std::exchange(resourceId, 0); }
+		inline QueryPool(QueryPool&& other) noexcept = default;
+		inline QueryPool& operator=(QueryPool&& other) noexcept { return moveAssign(std::move(other)); }
+		inline ~QueryPool() { destroyResource(); }
+		inline void reset(uint32_t firstQuery, uint32_t queryCount) const { owner->push({ Opcode::ResetQueryPool, { .opResetQueryPool = { resourceId, firstQuery, queryCount } } }); }
+		inline void begin(uint32_t query) const { owner->push({ Opcode::BeginQuery, { .opBeginQuery = { resourceId, query } } }); }
+		inline void end(uint32_t query) const { owner->push({ Opcode::EndQuery, { .opEndQuery = { resourceId, query } } }); }
+		inline void writeTimestamp(uint32_t query, uint32_t pipelineStage) const { owner->push({ Opcode::WriteTimestamp, { .opWriteTimestamp = { resourceId, query, pipelineStage } } }); }
+		inline void readResults(uint32_t firstQuery, uint32_t queryCount, QueryReadbackCallback callback, void* userData) const { owner->push({ Opcode::ReadQueryResults, { .opReadQueryResults = { resourceId, firstQuery, queryCount, callback, userData } } }); }
 	};
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// Recording surface
 	//
-	// Mirrors CommandBuffer in the SLOP version, but operates on a Dispatcher.
-	// All helpers are free functions so that the Dispatcher itself stays a plain
-	// data-and-queue object with no knowledge of GfxOp opcodes.
+	// Resource creation remains here because it allocates IDs. Commands that
+	// naturally operate on a resource ID live on the resource proxy classes.
 	// ─────────────────────────────────────────────────────────────────────────
-
-	/** @name Explicit destroy helpers */
-	///@{
-	static inline void destroyBuffer(Dispatcher& d, HandleId id)          { d.freeId(ResourceHandleKind::Buffer, id); d.push({ Opcode::DestroyBufferObject,    { .opDestroy              = { id } } }); }
-	static inline void destroyTexture(Dispatcher& d, HandleId id)         { d.freeId(ResourceHandleKind::Texture, id); d.push({ Opcode::DestroyTexture,         { .opDestroy              = { id } } }); }
-	static inline void destroySampler(Dispatcher& d, HandleId id)         { d.freeId(ResourceHandleKind::Sampler, id); d.push({ Opcode::DestroySampler,         { .opDestroy              = { id } } }); }
-	static inline void destroyImage(Dispatcher& d, HandleId id)           { d.freeId(ResourceHandleKind::Image, id); d.push({ Opcode::DestroyImage,           { .opDestroyImage         = { id } } }); }
-	static inline void destroyFramebuffer(Dispatcher& d, HandleId id)     { d.freeId(ResourceHandleKind::Framebuffer, id); d.push({ Opcode::DestroyFramebuffer,     { .opDestroyFramebuffer   = { id } } }); }
-	static inline void destroyPipeline(Dispatcher& d, HandleId id)        { d.freeId(ResourceHandleKind::Pipeline, id); d.push({ Opcode::DestroyPipeline,        { .opDestroyPipeline      = { id } } }); }
-	static inline void destroyComputePipeline(Dispatcher& d, HandleId id) { d.freeId(ResourceHandleKind::ComputePipeline, id); d.push({ Opcode::DestroyComputePipeline, { .opDestroyComputePipeline= { id } } }); }
-	static inline void destroyFence(Dispatcher& d, HandleId id)           { d.freeId(ResourceHandleKind::Fence, id); d.push({ Opcode::DestroyFence,           { .opDestroyFence         = { id } } }); }
-	static inline void destroyQueryPool(Dispatcher& d, HandleId id)       { d.freeId(ResourceHandleKind::QueryPool, id); d.push({ Opcode::DestroyQueryPool,       { .opDestroyQueryPool     = { id } } }); }
-	static inline void destroySwapchain(Dispatcher& d, HandleId id)       { d.freeId(ResourceHandleKind::Swapchain, id); d.push({ Opcode::DestroySwapchain,       { .opDestroySwapchain     = { id } } }); }
-	///@}
 
 	/** @name Resource creation helpers */
 	///@{
@@ -579,53 +689,20 @@ OOP_DETAIL_HEADER struct oop_detail {
 	}
 	///@}
 
-	/** @name Resource mutation, transfer, readback, and swapchain helpers */
+	/** @name Swapchain helpers */
 	///@{
-	static inline void resizeBuffer(Dispatcher& d, HandleId id, uint32_t size)                                                                                       { d.push({ Opcode::ResizeBufferObject,         { .opResizeBufferObject         = { id, size } } }); }
-	static inline void updateBuffer(Dispatcher& d, HandleId id, uint32_t offset, uint32_t size, const void* data)                                                   { d.push({ Opcode::UpdateBufferObject,         { .opUpdateBufferObject         = { id, offset, size, data } } }); }
-	static inline void mapBuffer(Dispatcher& d, HandleId id, uint32_t offset, uint32_t size, BufferMapAccess access, BufferMapCallback callback, void* userData)     { d.push({ Opcode::MapBufferObject,            { .opMapBufferObject            = { id, offset, size, access, callback, userData } } }); }
-	static inline void copyBuffer(Dispatcher& d, HandleId source, HandleId destination, uint32_t sourceOffset, uint32_t destinationOffset, uint32_t size)            { d.push({ Opcode::CopyBuffer,                 { .opCopyBuffer                 = { source, destination, sourceOffset, destinationOffset, size } } }); }
-	static inline void readBuffer(Dispatcher& d, HandleId buffer, uint32_t offset, uint32_t size, BufferReadbackCallback callback, void* userData)                   { d.push({ Opcode::ReadBuffer,                 { .opReadBuffer                 = { buffer, offset, size, callback, userData } } }); }
-	static inline void createVertexArray(Dispatcher& d, HandleId id, const VertexDescriptor* descriptor, uint32_t elementCount)                                     { d.push({ Opcode::CreateVertexArrayObject,    { .opCreateVertexArrayObject    = { id, descriptor, elementCount } } }); }
-	static inline void resizeTexture2D(Dispatcher& d, HandleId id, TextureFormat format, uint8_t mipLevels, bool generateMipmaps, uint16_t width, uint16_t height)  { d.push({ Opcode::ResizeTexture2D,            { .opResizeTexture2D            = { id, format, mipLevels, generateMipmaps, width, height } } }); }
-	static inline void updateTexture2D(Dispatcher& d, HandleId id, TextureFormat format, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) { d.push({ Opcode::UpdateTexture2D, { .opUpdateTexture2D = { id, format, mipLevel, x, y, width, height, pixels } } }); }
-	static inline void updateCompressedTexture2D(Dispatcher& d, HandleId id, TextureFormat format, TextureCompressionLayout layout, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint32_t byteSize, const void* data) { d.push({ Opcode::UpdateCompressedTexture2D, { .opUpdateCompressedTexture2D = { id, format, layout, mipLevel, x, y, width, height, byteSize, data } } }); }
-	static inline void updateTextureCubeFace(Dispatcher& d, HandleId id, TextureCubeFace face, TextureFormat format, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) { d.push({ Opcode::UpdateTextureCubeFace, { .opUpdateTextureCubeFace = { id, face, format, mipLevel, x, y, width, height, pixels } } }); }
-	static inline void updateTexture2DArray(Dispatcher& d, HandleId id, TextureFormat format, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) { d.push({ Opcode::UpdateTexture2DArray, { .opUpdateTexture2DArray = { id, format, mipLevel, layer, x, y, width, height, pixels } } }); }
-	static inline void blitTexture2D(Dispatcher& d, HandleId source, HandleId destination, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) { d.push({ Opcode::BlitTexture2D, { .opBlitTexture2D = { source, destination, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
-	static inline void generateTextureMipmaps(Dispatcher& d, HandleId id)                                                                                           { d.push({ Opcode::GenerateTextureMipmaps,     { .opGenerateTextureMipmaps     = { id } } }); }
-	static inline void resizeImage2D(Dispatcher& d, HandleId id, TextureFormat format, uint16_t width, uint16_t height, uint8_t mipLevels, uint32_t usage)         { d.push({ Opcode::ResizeImage2D,              { .opResizeImage2D              = { id, format, width, height, mipLevels, usage } } }); }
-	static inline void updateImage2D(Dispatcher& d, HandleId id, TextureFormat format, uint8_t mipLevel, uint16_t x, uint16_t y, uint16_t width, uint16_t height, const void* pixels) { d.push({ Opcode::UpdateImage2D, { .opUpdateImage2D = { id, format, mipLevel, x, y, width, height, pixels } } }); }
-	static inline void blitImage2D(Dispatcher& d, HandleId source, HandleId destination, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) { d.push({ Opcode::BlitImage2D, { .opBlitImage2D = { source, destination, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
-	static inline void resolveImage2D(Dispatcher& d, HandleId source, HandleId destination, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) { d.push({ Opcode::ResolveImage2D, { .opResolveImage2D = { source, destination, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
-	static inline void copyBufferToImage2D(Dispatcher& d, HandleId sourceBuffer, HandleId destinationImage, uint32_t bufferOffset, uint32_t bufferRowPitch, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height) { d.push({ Opcode::CopyBufferToImage2D, { .opCopyBufferToImage2D = { sourceBuffer, destinationImage, bufferOffset, bufferRowPitch, mipLevel, layer, x, y, width, height } } }); }
-	static inline void copyImage2DToBuffer(Dispatcher& d, HandleId sourceImage, HandleId destinationBuffer, uint32_t bufferOffset, uint32_t bufferRowPitch, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height) { d.push({ Opcode::CopyImage2DToBuffer, { .opCopyImage2DToBuffer = { sourceImage, destinationBuffer, bufferOffset, bufferRowPitch, mipLevel, layer, x, y, width, height } } }); }
-	static inline void copyImage2D(Dispatcher& d, HandleId sourceImage, HandleId destinationImage, uint8_t sourceMipLevel, uint16_t sourceLayer, uint8_t destinationMipLevel, uint16_t destinationLayer, uint16_t sourceX, uint16_t sourceY, uint16_t destinationX, uint16_t destinationY, uint16_t width, uint16_t height) { d.push({ Opcode::CopyImage2D, { .opCopyImage2D = { sourceImage, destinationImage, sourceMipLevel, sourceLayer, destinationMipLevel, destinationLayer, sourceX, sourceY, destinationX, destinationY, width, height } } }); }
-	static inline void readImage2D(Dispatcher& d, HandleId image, uint8_t mipLevel, uint16_t layer, uint16_t x, uint16_t y, uint16_t width, uint16_t height, ImageReadbackCallback callback, void* userData) { d.push({ Opcode::ReadImage2D, { .opReadImage2D = { image, mipLevel, layer, x, y, width, height, callback, userData } } }); }
 	static inline void resizeSwapchain(Dispatcher& d, HandleId id, uint16_t width, uint16_t height, const SwapchainImageBinding* imageBindings = nullptr, uint32_t imageBindingCount = 0) { d.push({ Opcode::ResizeSwapchain, { .opResizeSwapchain = { id, width, height, imageBindings, imageBindingCount } } }); }
 	static inline void acquireSwapchainImage(Dispatcher& d, HandleId swapchain, SwapchainAcquireCallback callback, void* userData) { d.push({ Opcode::AcquireSwapchainImage, { .opAcquireSwapchainImage = { swapchain, callback, userData } } }); }
 	static inline void presentSwapchain(Dispatcher& d, HandleId swapchain = DefaultSwapchain, uint32_t imageIndex = 0) { d.push({ Opcode::PresentSwapchain, { .opPresentSwapchain = { swapchain, imageIndex } } }); }
 	///@}
 
-	/** @name Framebuffer, render pass, and pipeline binding helpers */
+	/** @name Default framebuffer, render pass, and draw helpers */
 	///@{
 	static inline void beginFrame(Dispatcher& d, HandleId framebuffer = DefaultFramebuffer)    { d.push({ Opcode::BeginFrame,      { .opBeginFrame      = { framebuffer } } }); }
 	static inline void endFrame(Dispatcher& d, HandleId framebuffer = DefaultFramebuffer)      { d.push({ Opcode::EndFrame,        { .opEndFrame        = { framebuffer } } }); }
 	static inline void present(Dispatcher& d, HandleId framebuffer = DefaultFramebuffer)       { d.push({ Opcode::Present,         { .opPresent         = { framebuffer } } }); }
-	static inline void bindFramebuffer(Dispatcher& d, HandleId id)                             { d.push({ Opcode::BindFramebuffer, { .opBindFramebuffer = { id } } }); }
-	static inline void clearColorAttachment(Dispatcher& d, HandleId framebuffer, uint32_t colorAttachmentIndex, const float (&color)[4]) { d.push({ Opcode::ClearColorAttachment, { .opClearColorAttachment = { framebuffer, colorAttachmentIndex, { color[0], color[1], color[2], color[3] } } } }); }
-	static inline void clearDepthStencilAttachment(Dispatcher& d, HandleId framebuffer, bool clearDepth, bool clearStencil, float depth, uint32_t stencil) { d.push({ Opcode::ClearDepthStencilAttachment, { .opClearDepthStencilAttachment = { framebuffer, clearDepth, clearStencil, depth, stencil } } }); }
 	static inline void beginRenderPass(Dispatcher& d, const RenderPassDescriptor* descriptor)  { d.push({ Opcode::BeginRenderPass, { .opBeginRenderPass = { descriptor } } }); }
 	static inline void endRenderPass(Dispatcher& d)                                            { d.push({ Opcode::EndRenderPass,   { .opEndRenderPass   = { 0 } } }); }
-	static inline void bindPipeline(Dispatcher& d, HandleId id)                                { d.push({ Opcode::BindPipeline,    { .opBindPipeline    = { id } } }); }
-	static inline void bindComputePipeline(Dispatcher& d, HandleId id)                         { d.push({ Opcode::BindComputePipeline, { .opBindComputePipeline = { id } } }); }
-	static inline void bindTexture(Dispatcher& d, uint32_t slot, HandleId texture, TextureBindingType type) { d.push({ Opcode::BindTexture, { .opBindTexture = { slot, texture, type } } }); }
-	static inline void bindSampler(Dispatcher& d, uint32_t slot, HandleId sampler)             { d.push({ Opcode::BindSampler,     { .opBindSampler    = { slot, sampler } } }); }
-	static inline void bindUniformBuffer(Dispatcher& d, uint32_t slot, HandleId buffer, uint32_t offset, uint32_t size) { d.push({ Opcode::BindUniformBuffer, { .opBindUniformBuffer = { slot, buffer, offset, size } } }); }
-	static inline void bindStorageBuffer(Dispatcher& d, uint32_t slot, HandleId buffer, uint32_t offset, uint32_t size, StorageAccess access) { d.push({ Opcode::BindStorageBuffer, { .opBindStorageBuffer = { slot, buffer, offset, size, access } } }); }
-	static inline void bindStorageImage(Dispatcher& d, uint32_t slot, HandleId image, uint8_t mipLevel, uint16_t layer, StorageAccess access) { d.push({ Opcode::BindStorageImage, { .opBindStorageImage = { slot, image, mipLevel, layer, access } } }); }
-	static inline void bindVertexBuffer(Dispatcher& d, uint32_t binding, HandleId buffer, uint32_t offset, uint32_t stride, uint32_t instanceDivisor = 0) { d.push({ Opcode::BindVertexBuffer, { .opBindVertexBuffer = { binding, buffer, offset, stride, instanceDivisor } } }); }
-	static inline void bindIndexBuffer(Dispatcher& d, HandleId buffer, uint32_t offset, IndexType type) { d.push({ Opcode::BindIndexBuffer, { .opBindIndexBuffer = { buffer, offset, type } } }); }
 	static inline void drawTriangles(Dispatcher& d, uint32_t vertexOffset, uint32_t vertexCount) { d.push({ Opcode::DrawTriangles, { .opDrawTriangles = { vertexOffset, vertexCount } } }); }
 	static inline void drawIndexedTriangles(Dispatcher& d, uint32_t indexOffset, uint32_t indexCount, uint32_t vertexOffset) { d.push({ Opcode::DrawIndexedTriangles, { .opDrawIndexedTriangles = { indexOffset, indexCount, vertexOffset } } }); }
 	static inline void drawLines(Dispatcher& d, uint32_t vertexOffset, uint32_t vertexCount, float thickness) { d.push({ Opcode::DrawLines, { .opDrawLines = { vertexOffset, vertexCount, thickness } } }); }
@@ -643,175 +720,13 @@ OOP_DETAIL_HEADER struct oop_detail {
 	static inline void setBlendState(Dispatcher& d, const OpSetBlendState& state)              { d.push({ Opcode::SetBlendState,        { .opSetBlendState        = state } }); }
 	static inline void setDepthStencilState(Dispatcher& d, const OpSetDepthStencilState& state){ d.push({ Opcode::SetDepthStencilState,  { .opSetDepthStencilState = state } }); }
 	static inline void setRasterizerState(Dispatcher& d, const OpSetRasterizerState& state)    { d.push({ Opcode::SetRasterizerState,    { .opSetRasterizerState   = state } }); }
-	static inline void transitionResource(Dispatcher& d, HandleId id, ResourceKind kind, ResourceState oldState, ResourceState newState, uint32_t sourceStages, uint32_t destinationStages) { d.push({ Opcode::TransitionResource, { .opTransitionResource = { id, kind, oldState, newState, sourceStages, destinationStages } } }); }
-	static inline void bufferBarrier(Dispatcher& d, HandleId buffer, uint32_t offset, uint32_t size, uint32_t sourceStages, uint32_t destinationStages, uint32_t sourceAccess, uint32_t destinationAccess) { d.push({ Opcode::BufferBarrier, { .opBufferBarrier = { buffer, offset, size, sourceStages, destinationStages, sourceAccess, destinationAccess } } }); }
-	static inline void imageBarrier(Dispatcher& d, const OpImageBarrier& barrier)              { d.push({ Opcode::ImageBarrier,          { .opImageBarrier         = barrier } }); }
-	static inline void signalFence(Dispatcher& d, HandleId id, uint64_t value)                 { d.push({ Opcode::SignalFence,           { .opSignalFence          = { id, value } } }); }
-	static inline void waitFence(Dispatcher& d, HandleId id, uint64_t value)                   { d.push({ Opcode::WaitFence,             { .opWaitFence            = { id, value } } }); }
 	static inline void dispatchCompute(Dispatcher& d, uint32_t x, uint32_t y, uint32_t z)     { d.push({ Opcode::DispatchCompute,       { .opDispatchCompute      = { x, y, z } } }); }
-	static inline void dispatchComputeIndirect(Dispatcher& d, HandleId buffer, uint32_t offset){ d.push({ Opcode::DispatchComputeIndirect,{ .opDispatchComputeIndirect = { buffer, offset } } }); }
-	static inline void drawIndirect(Dispatcher& d, HandleId buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) { d.push({ Opcode::DrawIndirect, { .opDrawIndirect = { buffer, offset, drawCount, stride } } }); }
-	static inline void drawIndexedIndirect(Dispatcher& d, HandleId buffer, uint32_t offset, uint32_t drawCount, uint32_t stride) { d.push({ Opcode::DrawIndexedIndirect, { .opDrawIndexedIndirect = { buffer, offset, drawCount, stride } } }); }
-	static inline void resetQueryPool(Dispatcher& d, HandleId id, uint32_t firstQuery, uint32_t queryCount) { d.push({ Opcode::ResetQueryPool, { .opResetQueryPool = { id, firstQuery, queryCount } } }); }
-	static inline void beginQuery(Dispatcher& d, HandleId id, uint32_t query)                  { d.push({ Opcode::BeginQuery,  { .opBeginQuery  = { id, query } } }); }
-	static inline void endQuery(Dispatcher& d, HandleId id, uint32_t query)                    { d.push({ Opcode::EndQuery,    { .opEndQuery    = { id, query } } }); }
-	static inline void writeTimestamp(Dispatcher& d, HandleId id, uint32_t query, uint32_t pipelineStage) { d.push({ Opcode::WriteTimestamp, { .opWriteTimestamp = { id, query, pipelineStage } } }); }
-	static inline void readQueryResults(Dispatcher& d, HandleId id, uint32_t firstQuery, uint32_t queryCount, QueryReadbackCallback callback, void* userData) { d.push({ Opcode::ReadQueryResults, { .opReadQueryResults = { id, firstQuery, queryCount, callback, userData } } }); }
 	static inline void debugLabelBegin(Dispatcher& d, const char* name, const float (&color)[4]) { d.push({ Opcode::DebugLabelBegin, { .opDebugLabelBegin = { name, { color[0], color[1], color[2], color[3] } } } }); }
 	static inline void debugLabelEnd(Dispatcher& d)                                            { d.push({ Opcode::DebugLabelEnd, { .opDebugLabelEnd = { 0 } } }); }
 	static inline void debugMarker(Dispatcher& d, const char* name, const float (&color)[4])   { d.push({ Opcode::DebugMarker,   { .opDebugMarker   = { name, { color[0], color[1], color[2], color[3] } } } }); }
 	///@}
 
-	// ─────────────────────────────────────────────────────────────────────────
-	// Deferred-definition bodies for proxy move-assign and destructors.
-	//
-	// These are placed after all recording helpers are declared so that the
-	// calls to destroyXxx() above are fully visible.  They are defined inside
-	// the struct body so they remain in the same template instantiation scope.
-	// ─────────────────────────────────────────────────────────────────────────
-
-	// Buffer
-	// (inline keyword on out-of-class-but-in-struct definitions is redundant
-	//  but kept for readability parity with the SLOP version.)
 };
-
-// Proxy bodies — defined outside the struct body so the struct is complete,
-// but still inside the namespace and gated by the same template parameters.
-
-OOP_DETAIL_HEADER_NODEFAULT
-	inline typename oop_detail<HandleAllocator, CommandAllocator>::Buffer&
-	oop_detail<HandleAllocator, CommandAllocator>::Buffer::operator=(Buffer&& other) noexcept {
-	if (this != &other) {
-		if (owner && resourceId) oop_detail::destroyBuffer(*owner, resourceId);
-		resourceId = other.release();
-		owner = std::exchange(other.owner, nullptr);
-	}
-	return *this;
-}
-OOP_DETAIL_HEADER_NODEFAULT
-	inline oop_detail<HandleAllocator, CommandAllocator>::Buffer::~Buffer() {
-	if (owner && resourceId) oop_detail::destroyBuffer(*owner, resourceId);
-}
-
-OOP_DETAIL_HEADER_NODEFAULT
-	inline typename oop_detail<HandleAllocator, CommandAllocator>::Texture&
-	oop_detail<HandleAllocator, CommandAllocator>::Texture::operator=(Texture&& other) noexcept {
-	if (this != &other) {
-		if (owner && resourceId) oop_detail::destroyTexture(*owner, resourceId);
-		resourceId = other.release();
-		owner = std::exchange(other.owner, nullptr);
-	}
-	return *this;
-}
-OOP_DETAIL_HEADER_NODEFAULT
-	inline oop_detail<HandleAllocator, CommandAllocator>::Texture::~Texture() {
-	if (owner && resourceId) oop_detail::destroyTexture(*owner, resourceId);
-}
-
-OOP_DETAIL_HEADER_NODEFAULT
-	inline typename oop_detail<HandleAllocator, CommandAllocator>::Image&
-	oop_detail<HandleAllocator, CommandAllocator>::Image::operator=(Image&& other) noexcept {
-	if (this != &other) {
-		if (owner && resourceId) oop_detail::destroyImage(*owner, resourceId);
-		resourceId = other.release();
-		owner = std::exchange(other.owner, nullptr);
-	}
-	return *this;
-}
-OOP_DETAIL_HEADER_NODEFAULT
-	inline oop_detail<HandleAllocator, CommandAllocator>::Image::~Image() {
-	if (owner && resourceId) oop_detail::destroyImage(*owner, resourceId);
-}
-
-OOP_DETAIL_HEADER_NODEFAULT
-	inline typename oop_detail<HandleAllocator, CommandAllocator>::Sampler&
-	oop_detail<HandleAllocator, CommandAllocator>::Sampler::operator=(Sampler&& other) noexcept {
-	if (this != &other) {
-		if (owner && resourceId) oop_detail::destroySampler(*owner, resourceId);
-		resourceId = other.release();
-		owner = std::exchange(other.owner, nullptr);
-	}
-	return *this;
-}
-OOP_DETAIL_HEADER_NODEFAULT
-	inline oop_detail<HandleAllocator, CommandAllocator>::Sampler::~Sampler() {
-	if (owner && resourceId) oop_detail::destroySampler(*owner, resourceId);
-}
-
-OOP_DETAIL_HEADER_NODEFAULT
-	inline typename oop_detail<HandleAllocator, CommandAllocator>::Framebuffer&
-	oop_detail<HandleAllocator, CommandAllocator>::Framebuffer::operator=(Framebuffer&& other) noexcept {
-	if (this != &other) {
-		if (owner && resourceId) oop_detail::destroyFramebuffer(*owner, resourceId);
-		resourceId = other.release();
-		owner = std::exchange(other.owner, nullptr);
-	}
-	return *this;
-}
-OOP_DETAIL_HEADER_NODEFAULT
-	inline oop_detail<HandleAllocator, CommandAllocator>::Framebuffer::~Framebuffer() {
-	if (owner && resourceId) oop_detail::destroyFramebuffer(*owner, resourceId);
-}
-
-OOP_DETAIL_HEADER_NODEFAULT
-	inline typename oop_detail<HandleAllocator, CommandAllocator>::Pipeline&
-	oop_detail<HandleAllocator, CommandAllocator>::Pipeline::operator=(Pipeline&& other) noexcept {
-	if (this != &other) {
-		if (owner && resourceId) oop_detail::destroyPipeline(*owner, resourceId);
-		resourceId = other.release();
-		owner = std::exchange(other.owner, nullptr);
-	}
-	return *this;
-}
-OOP_DETAIL_HEADER_NODEFAULT
-	inline oop_detail<HandleAllocator, CommandAllocator>::Pipeline::~Pipeline() {
-	if (owner && resourceId) oop_detail::destroyPipeline(*owner, resourceId);
-}
-
-OOP_DETAIL_HEADER_NODEFAULT
-	inline typename oop_detail<HandleAllocator, CommandAllocator>::ComputePipeline&
-	oop_detail<HandleAllocator, CommandAllocator>::ComputePipeline::operator=(ComputePipeline&& other) noexcept {
-	if (this != &other) {
-		if (owner && resourceId) oop_detail::destroyComputePipeline(*owner, resourceId);
-		resourceId = other.release();
-		owner = std::exchange(other.owner, nullptr);
-	}
-	return *this;
-}
-OOP_DETAIL_HEADER_NODEFAULT
-	inline oop_detail<HandleAllocator, CommandAllocator>::ComputePipeline::~ComputePipeline() {
-	if (owner && resourceId) oop_detail::destroyComputePipeline(*owner, resourceId);
-}
-
-OOP_DETAIL_HEADER_NODEFAULT
-	inline typename oop_detail<HandleAllocator, CommandAllocator>::Fence&
-	oop_detail<HandleAllocator, CommandAllocator>::Fence::operator=(Fence&& other) noexcept {
-	if (this != &other) {
-		if (owner && resourceId) oop_detail::destroyFence(*owner, resourceId);
-		resourceId = other.release();
-		owner = std::exchange(other.owner, nullptr);
-	}
-	return *this;
-}
-OOP_DETAIL_HEADER_NODEFAULT
-	inline oop_detail<HandleAllocator, CommandAllocator>::Fence::~Fence() {
-	if (owner && resourceId) oop_detail::destroyFence(*owner, resourceId);
-}
-
-OOP_DETAIL_HEADER_NODEFAULT
-	inline typename oop_detail<HandleAllocator, CommandAllocator>::QueryPool&
-	oop_detail<HandleAllocator, CommandAllocator>::QueryPool::operator=(QueryPool&& other) noexcept {
-	if (this != &other) {
-		if (owner && resourceId) oop_detail::destroyQueryPool(*owner, resourceId);
-		resourceId = other.release();
-		owner = std::exchange(other.owner, nullptr);
-	}
-	return *this;
-}
-OOP_DETAIL_HEADER_NODEFAULT
-	inline oop_detail<HandleAllocator, CommandAllocator>::QueryPool::~QueryPool() {
-	if (owner && resourceId) oop_detail::destroyQueryPool(*owner, resourceId);
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Free helpers (parallel to the SLOP-era free functions)
@@ -876,19 +791,19 @@ public:
 
 	/** @brief Records typed destroy commands into a live dispatcher. */
 	inline void flushInto(Dispatcher& destination) {
-		using D = oop_detail<HandleAllocator, CommandAllocator>;
 		for (const DeferredDestroy& r : retirements) {
+			destination.freeId(r.kind, r.id);
 			switch (r.kind) {
-				case ResourceHandleKind::Buffer:          D::destroyBuffer(destination, r.id);          break;
-				case ResourceHandleKind::Texture:         D::destroyTexture(destination, r.id);         break;
-				case ResourceHandleKind::Sampler:         D::destroySampler(destination, r.id);         break;
-				case ResourceHandleKind::Image:           D::destroyImage(destination, r.id);           break;
-				case ResourceHandleKind::Framebuffer:     D::destroyFramebuffer(destination, r.id);     break;
-				case ResourceHandleKind::Pipeline:        D::destroyPipeline(destination, r.id);        break;
-				case ResourceHandleKind::ComputePipeline: D::destroyComputePipeline(destination, r.id); break;
-				case ResourceHandleKind::Fence:           D::destroyFence(destination, r.id);           break;
-				case ResourceHandleKind::QueryPool:       D::destroyQueryPool(destination, r.id);       break;
-				case ResourceHandleKind::Swapchain:       D::destroySwapchain(destination, r.id);       break;
+				case ResourceHandleKind::Buffer:          destination.push({ Opcode::DestroyBufferObject,    { .opDestroy                = { r.id } } }); break;
+				case ResourceHandleKind::Texture:         destination.push({ Opcode::DestroyTexture,         { .opDestroy                = { r.id } } }); break;
+				case ResourceHandleKind::Sampler:         destination.push({ Opcode::DestroySampler,         { .opDestroy                = { r.id } } }); break;
+				case ResourceHandleKind::Image:           destination.push({ Opcode::DestroyImage,           { .opDestroyImage           = { r.id } } }); break;
+				case ResourceHandleKind::Framebuffer:     destination.push({ Opcode::DestroyFramebuffer,     { .opDestroyFramebuffer     = { r.id } } }); break;
+				case ResourceHandleKind::Pipeline:        destination.push({ Opcode::DestroyPipeline,        { .opDestroyPipeline        = { r.id } } }); break;
+				case ResourceHandleKind::ComputePipeline: destination.push({ Opcode::DestroyComputePipeline, { .opDestroyComputePipeline = { r.id } } }); break;
+				case ResourceHandleKind::Fence:           destination.push({ Opcode::DestroyFence,           { .opDestroyFence           = { r.id } } }); break;
+				case ResourceHandleKind::QueryPool:       destination.push({ Opcode::DestroyQueryPool,       { .opDestroyQueryPool       = { r.id } } }); break;
+				case ResourceHandleKind::Swapchain:       destination.push({ Opcode::DestroySwapchain,       { .opDestroySwapchain       = { r.id } } }); break;
 			}
 		}
 		clear();

@@ -80,7 +80,7 @@ public:
 	 * @exception None (noexcept)
 	 */
 	Blk allocateBlock(std::size_t n) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
 		n = alignUp(n);
 
@@ -129,7 +129,7 @@ public:
 	 * @exception None (noexcept)
 	 */
 	void deallocateBlock(const Blk& blk) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		if (!ownsBlock(blk)) {
 			return; // Silently ignore non-owned blocks
 		}
@@ -158,7 +158,7 @@ public:
 	 * @exception None (noexcept)
 	 */
 	bool ownsBlock(const Blk& blk) const noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		return blk.ptr >= buffer_ &&
 			   blk.ptr < (buffer_ + Size);
 	}
