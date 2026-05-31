@@ -11,6 +11,7 @@
  */
 
 #include <Lotte/LotteLib.hpp>
+#include <Lotte/LteKld.hpp>
 #include <Euphemy/Asset/EuphAssetRuntime.hpp>
 #include <Euphemy/Media/Image/EuphImageDecodeTarget.hpp>
 #include <Kaldi/KldCommandBuffer.hpp>
@@ -129,8 +130,10 @@ struct RecordedGpuResource {
  */
 class MH_LOTTE_API GpuCommandBatch {
 public:
-	/** @brief Recorded Kaldi command buffer. */
-	Kld::CommandBuffer commands;
+	/** @brief Non-owning target for recorded Kaldi commands. */
+	CommandBuffer* commands = nullptr;
+	/** @brief Write-buffer offset where this batch's recording begins. */
+	std::size_t commandBegin = 0;
 	/** @brief Payloads kept alive for the command buffer's pointer arguments. */
 	std::vector<std::shared_ptr<void> > retainedPayloads;
 	/** @brief Resources created by this batch. */
@@ -138,14 +141,14 @@ public:
 	/** @brief Resources destroyed by this batch. */
 	std::vector<RecordedGpuResource> destroys;
 
-	/** @brief Creates an empty batch that allocates handles from allocator. */
-	explicit GpuCommandBatch(Kld::HandleAllocator& allocator, std::pmr::memory_resource* memory = std::pmr::get_default_resource());
+	/** @brief Creates an empty batch that records into target. */
+	explicit GpuCommandBatch(CommandBuffer& target, std::pmr::memory_resource* memory = std::pmr::get_default_resource());
 	GpuCommandBatch(const GpuCommandBatch&) = delete;
 	GpuCommandBatch& operator=(const GpuCommandBatch&) = delete;
 	/** @brief Moves a batch without copying retained payloads or commands. */
-	GpuCommandBatch(GpuCommandBatch&&) noexcept = default;
+	GpuCommandBatch(GpuCommandBatch&& other) noexcept;
 	/** @brief Replaces this batch with another moved batch. */
-	GpuCommandBatch& operator=(GpuCommandBatch&&) noexcept = default;
+	GpuCommandBatch& operator=(GpuCommandBatch&& other) noexcept;
 
 	/** @brief Returns true when no commands or resource effects were recorded. */
 	bool empty() const noexcept;
@@ -174,7 +177,9 @@ MH_LOTTE_API Euph::Asset::ResidentPayload makeDecodeTargetPayload(std::shared_pt
 class MH_LOTTE_API GpuAssetStreamer {
 private:
 	Euph::Asset::ResourceRegistry& cpuRegistry;
-	Kld::HandleAllocator handleAllocator;
+	HandleAllocator handleMemory;
+	OpAllocator opMemory;
+	CommandBuffer commandHub;
 	std::unordered_map<Euph::Asset::AssetId, GpuResourceRecord> records;
 	std::vector<Euph::Asset::AssetId> uploadQueue;
 	std::vector<Euph::Asset::AssetId> destroyQueue;

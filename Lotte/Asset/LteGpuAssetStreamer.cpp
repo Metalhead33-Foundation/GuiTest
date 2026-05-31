@@ -60,14 +60,43 @@ std::uint64_t estimateUploadBytes(const GpuResourceRecord& record, const Euph::A
 
 } // namespace
 
-GpuCommandBatch::GpuCommandBatch(Kld::HandleAllocator& allocator, std::pmr::memory_resource* memory)
-	: commands(allocator, memory)
+GpuCommandBatch::GpuCommandBatch(CommandBuffer& target, std::pmr::memory_resource* memory)
+	: commands(&target)
 {
+	(void)memory;
+	target.getCommandBuffer().onWriteBuffer([&](const auto& vec) {
+		commandBegin = vec.size();
+	});
+}
+
+GpuCommandBatch::GpuCommandBatch(GpuCommandBatch&& other) noexcept
+	: commands(other.commands),
+	  commandBegin(other.commandBegin),
+	  retainedPayloads(std::move(other.retainedPayloads)),
+	  uploads(std::move(other.uploads)),
+	  destroys(std::move(other.destroys))
+{
+	other.commands = nullptr;
+	other.commandBegin = 0;
+}
+
+GpuCommandBatch& GpuCommandBatch::operator=(GpuCommandBatch&& other) noexcept
+{
+	if (this == &other)
+		return *this;
+	commands = other.commands;
+	commandBegin = other.commandBegin;
+	retainedPayloads = std::move(other.retainedPayloads);
+	uploads = std::move(other.uploads);
+	destroys = std::move(other.destroys);
+	other.commands = nullptr;
+	other.commandBegin = 0;
+	return *this;
 }
 
 bool GpuCommandBatch::empty() const noexcept
 {
-	return commands.size() == 0 && uploads.empty() && destroys.empty();
+	return commandCount() == 0 && uploads.empty() && destroys.empty();
 }
 
 std::uint64_t GpuCommandBatch::uploadBytes() const noexcept
@@ -80,7 +109,13 @@ std::uint64_t GpuCommandBatch::uploadBytes() const noexcept
 
 std::size_t GpuCommandBatch::commandCount() const noexcept
 {
-	return commands.size();
+	if (!commands)
+		return 0;
+	std::size_t count = 0;
+	commands->getCommandBuffer().onWriteBuffer([&](const auto& vec) {
+		count = vec.size() >= commandBegin ? vec.size() - commandBegin : 0;
+	});
+	return count;
 }
 
 Euph::Asset::ResidentPayload makeDecodeTargetPayload(std::shared_ptr<Euph::Media::Image::DecodeTarget> target, std::uint64_t bytes)
@@ -95,8 +130,13 @@ Euph::Asset::ResidentPayload makeDecodeTargetPayload(std::shared_ptr<Euph::Media
 }
 
 GpuAssetStreamer::GpuAssetStreamer(Euph::Asset::ResourceRegistry& resourceRegistry, Kld::HandleId firstHandleId)
-	: cpuRegistry(resourceRegistry), handleAllocator(firstHandleId)
+	: cpuRegistry(resourceRegistry),
+	  handleMemory(std::pmr::get_default_resource()),
+	  opMemory(std::pmr::get_default_resource()),
+	  commandHub(handleMemory, opMemory)
 {
+	for (Kld::HandleId id = 1; id < firstHandleId; ++id)
+		(void)commandHub.acquireId(Kld::ResourceHandleKind::Buffer);
 }
 
 GpuResourceRecord& GpuAssetStreamer::ensureRecord(Euph::Asset::AssetId id, GpuResourceKind kind)
@@ -190,7 +230,7 @@ bool GpuAssetStreamer::recordBufferUpload(GpuCommandBatch& batch, GpuResourceRec
 		return false;
 	}
 
-	auto buffer = batch.commands.createBuffer(static_cast<std::uint32_t>(bytes->size()), record.bufferOptions.policy, bytes->empty() ? nullptr : bytes->data());
+	auto buffer = KldOopDetail::createBuffer(*batch.commands, static_cast<std::uint32_t>(bytes->size()), record.bufferOptions.policy, bytes->empty() ? nullptr : bytes->data());
 	record.handle = buffer.release();
 	record.gpuBytes = payload.bytes != 0 ? payload.bytes : static_cast<std::uint64_t>(bytes->size());
 	record.state = GpuResidencyState::RecordedUpload;
@@ -213,7 +253,7 @@ bool GpuAssetStreamer::recordTextureUpload(GpuCommandBatch& batch, GpuResourceRe
 		return false;
 	}
 
-	auto texture = batch.commands.createTexture2DFromDecodeTarget(target.get(), std::max<std::uint8_t>(1, record.textureOptions.mipLevels), record.textureOptions.generateMipmaps);
+	auto texture = KldOopDetail::createTexture2DFromDecodeTarget(*batch.commands, target.get(), std::max<std::uint8_t>(1, record.textureOptions.mipLevels), record.textureOptions.generateMipmaps);
 	record.handle = texture.release();
 	record.gpuBytes = payload.bytes != 0 ? payload.bytes : decodeTargetBytes(*target);
 	record.state = GpuResidencyState::RecordedUpload;
@@ -230,9 +270,18 @@ bool GpuAssetStreamer::recordDestroy(GpuCommandBatch& batch, GpuResourceRecord& 
 		return false;
 
 	switch (record.kind) {
-		case GpuResourceKind::Buffer: batch.commands.destroyBuffer(record.handle); break;
-		case GpuResourceKind::Texture: batch.commands.destroyTexture(record.handle); break;
-		case GpuResourceKind::Image: batch.commands.destroyImage(record.handle); break;
+		case GpuResourceKind::Buffer:
+			batch.commands->freeId(Kld::ResourceHandleKind::Buffer, record.handle);
+			batch.commands->push({ Kld::Opcode::DestroyBufferObject, { .opDestroy = { record.handle } } });
+			break;
+		case GpuResourceKind::Texture:
+			batch.commands->freeId(Kld::ResourceHandleKind::Texture, record.handle);
+			batch.commands->push({ Kld::Opcode::DestroyTexture, { .opDestroy = { record.handle } } });
+			break;
+		case GpuResourceKind::Image:
+			batch.commands->freeId(Kld::ResourceHandleKind::Image, record.handle);
+			batch.commands->push({ Kld::Opcode::DestroyImage, { .opDestroyImage = { record.handle } } });
+			break;
 	}
 	record.state = GpuResidencyState::RecordedDestroy;
 	record.failureReason = GpuFailureReason::None;
@@ -433,7 +482,7 @@ std::uint64_t GpuAssetStreamer::currentUsage() const noexcept
 
 GpuCommandBatch GpuAssetStreamer::recordUploads(std::uint64_t maxUploadBytes, std::pmr::memory_resource* memory)
 {
-	GpuCommandBatch batch(handleAllocator, memory);
+	GpuCommandBatch batch(commandHub, memory);
 	if (maxUploadBytes == 0)
 		return batch;
 
@@ -493,7 +542,7 @@ void GpuAssetStreamer::failUploads(const GpuCommandBatch& batch, GpuFailureReaso
 
 GpuCommandBatch GpuAssetStreamer::recordEvictions(std::size_t maxDestroyCount, std::pmr::memory_resource* memory)
 {
-	GpuCommandBatch batch(handleAllocator, memory);
+	GpuCommandBatch batch(commandHub, memory);
 	if (maxDestroyCount == 0)
 		return batch;
 
