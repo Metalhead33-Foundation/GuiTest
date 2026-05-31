@@ -24,14 +24,6 @@ namespace Util {
  */
 template <typename T>
 struct threadsafe {
-public:
-	/**
-	 * @brief Type alias for a lock guard on the internal recursive mutex.
-	 *
-	 * Automatically locks the mutex upon construction and unlocks upon destruction.
-	 */
-	typedef std::lock_guard<std::shared_mutex> Lock;
-
 private:
 	/**
 	 * @brief The protected data of type T.
@@ -55,7 +47,7 @@ public:
 	 * @param fun The function to execute with access to the non-const data.
 	 */
 	template <typename F> auto access(F&& fun) {
-		Lock lck(mut);
+		std::scoped_lock lck(mut);
 		return fun(data);
 	}
 
@@ -68,7 +60,7 @@ public:
 	 * @param fun The function to execute with const access to the data.
 	 */
 	template <typename F> auto access(F&& fun) const {
-		Lock lck(mut);
+		std::scoped_lock lck(mut);
 		return fun(data);
 	}
 };

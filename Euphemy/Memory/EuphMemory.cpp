@@ -15,7 +15,7 @@ enum AllocatorSubsystem {
 */
 
 Elv::Util::FreelistMemoryManager& MemoryManager::getStaticManager() {
-	std::lock_guard<std::mutex> lock(managerMutex);
+	std::scoped_lock lock(managerMutex);
 	if(!manager) {
 		manager = uManager(new Elv::Util::FreelistMemoryManager(
 							   {

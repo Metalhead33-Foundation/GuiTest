@@ -14,8 +14,11 @@ int main(void)
 	GLOBAL_CONFIGURATION.fromString(ifs);
 	//testGlobalConfigFile();
 	//testCustomAllocator();
+	testAssetRuntime();
+	testGpuAssetStreamer();
 	testAsyncIo();
 	testTGA();
 	testPNG();
+	testFontParser();
 	return 0;
 }

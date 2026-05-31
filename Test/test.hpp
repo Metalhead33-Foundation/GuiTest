@@ -54,5 +54,11 @@ void testTGA();
 void testPNG();
 /** @brief Exercises the Elv::Io::Async adapter API. */
 void testAsyncIo();
+/** @brief Exercises the genre-independent asset streaming runtime. */
+void testAssetRuntime();
+/** @brief Exercises Lotte's GPU asset command scheduling bridge. */
+void testGpuAssetStreamer();
+/** @brief Exercises Lotte's Font parser. */
+void testFontParser();
 
 #endif // TEST_HPP

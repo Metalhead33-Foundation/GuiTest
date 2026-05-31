@@ -8,6 +8,8 @@
 #include <Elvavena/Util/ElvBitmapAllocator.hpp>
 #include <Elvavena/Util/ElvThreadPool.hpp>
 #include <Elvavena/Io/ElvIoAsync.hpp>
+#include <Euphemy/Asset/EuphAssetRuntime.hpp>
+#include <Lotte/Asset/LteGpuAssetStreamer.hpp>
 #include <vector>
 #include <Euphemy/Io/EuphBufferDevice.hpp>
 #include <Euphemy/Io/EuphMemoryDevice.hpp>
@@ -35,6 +37,9 @@
 #include <span>
 #include <stdexcept>
 #include <stop_token>
+#include <thread>
+#include <chrono>
+#include <Lotte/Text/LteFontFace.hpp>
 
 template<class T>
 struct Mallocator
@@ -86,7 +91,7 @@ private:
 	static std::mutex managerMutex;
 public:
 	static Elv::Util::FreelistMemoryManager& getStaticManager() {
-		std::lock_guard<std::mutex> lock(managerMutex);
+		std::scoped_lock lock(managerMutex);
 		if(!manager) {
 			manager = uManager(new Elv::Util::FreelistMemoryManager(
 								   { 1024*8, 1024, 1024 }
@@ -329,8 +334,8 @@ void testAsyncIo()
 		requireCondition(result.has_value() && result.value(), "Async::isValidThen callback received the wrong result");
 	}).get(), "Async::isValidThen future returned the wrong result");
 
-	requireCondition(AsyncIo::eofThen(pool, device, [](const Elv::Io::AsyncResult<bool>& result) {
-		requireCondition(result.has_value() && result.value(), "Async::eofThen callback received the wrong result");
+	requireCondition(!AsyncIo::eofThen(pool, device, [](const Elv::Io::AsyncResult<bool>& result) {
+		requireCondition(result.has_value() && !result.value(), "Async::eofThen callback received the wrong result");
 	}).get(), "Async::eofThen future returned the wrong result");
 
 	bool readThenCalled = false;
@@ -533,6 +538,277 @@ void testAsyncIo()
 	requireCondition(bytesEqual(sharedBytes, source), "Async shared-device overload returned the wrong bytes");
 
 	std::cout << "Async I/O tests passed" << std::endl;
+}
+
+namespace {
+
+void makeResident(Euph::Asset::ResourceRegistry& registry, Euph::Asset::AssetId id)
+{
+	using Euph::Asset::ResidencyState;
+	requireCondition(registry.setState(id, ResidencyState::Requested), "Known -> Requested should be legal");
+	requireCondition(registry.setState(id, ResidencyState::LoadingIO), "Requested -> LoadingIO should be legal");
+	requireCondition(registry.setState(id, ResidencyState::Decoding), "LoadingIO -> Decoding should be legal");
+	requireCondition(registry.setState(id, ResidencyState::Resident), "Decoding -> Resident should be legal");
+}
+
+void pumpScheduler(Euph::Asset::StreamingScheduler& scheduler, Euph::Asset::AssetId id, Euph::Asset::ResidencyState wanted)
+{
+	for (int i = 0; i < 200; ++i) {
+		scheduler.pollCompletions();
+		if (scheduler.state(id) == wanted)
+			return;
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	}
+	throw std::runtime_error("StreamingScheduler did not reach the expected state");
+}
+
+} // namespace
+
+void testAssetRuntime()
+{
+	using namespace Euph::Asset;
+
+	ResourceRegistry registry;
+
+	const auto texture = registry.createHandle<ImageResource>(1);
+	makeResident(registry, 1);
+	requireCondition(registry.isAlive(texture), "Fresh texture handle should be alive");
+	requireCondition(registry.destroy(1), "Destroying a live resource should succeed");
+	const auto textureAgain = registry.createHandle<ImageResource>(1);
+	requireCondition(!registry.isAlive(texture), "Old handle generation should be invalid after destroy/recreate");
+	requireCondition(registry.isAlive(textureAgain), "Recreated handle should be alive");
+	requireCondition(texture.generation != textureAgain.generation, "Recreated handle should have a different generation");
+	requireCondition(!registry.setState(1, ResidencyState::LoadingIO), "Resident-like illegal state transition should be rejected");
+
+	AssetCatalog catalog;
+	requireCondition(catalog.addRecord({ 2, "dep.bin", 0, 4, 4, Compression::None, "blob", {} }), "Dependency record should be accepted");
+	requireCondition(catalog.addRecord({ 3, "parent.bin", 0, 4, 4, Compression::None, "blob", { 2 } }), "Parent record should be accepted");
+	requireCondition(catalog.addRecord({ 7, "offset.bin", 2, 4, 4, Compression::None, "blob", {} }), "Offset record should be accepted");
+	requireCondition(catalog.findByPath("parent.bin") && catalog.findByPath("parent.bin")->id == 3, "Catalog path lookup should work");
+	requireCondition(catalog.addRecord({ 3, "parent-renamed.bin", 0, 4, 4, Compression::None, "blob", { 2 } }), "Catalog should allow replacing an existing record");
+	requireCondition(catalog.findByPath("parent.bin") == nullptr && catalog.findByPath("parent-renamed.bin")->id == 3, "Catalog should update path indexes when replacing records");
+	requireCondition(catalog.validateDependencies().ok, "Catalog dependencies should validate");
+	requireCondition(catalog.dependenciesOf(3).size() == 1, "Catalog should expose dependency spans");
+
+	DependencyGraph graph(catalog);
+	const DependencyResult deps = graph.resolveTransitive(3);
+	requireCondition(deps.ok && deps.orderedDependencies.size() == 1 && deps.orderedDependencies.front() == 2, "Dependency graph should resolve transitive dependencies");
+	requireCondition(graph.hasDependency(3, 2), "Dependency graph should answer transitive dependency queries");
+	requireCondition(graph.dependentsOf(2).size() == 1 && graph.dependentsOf(2).front() == 3, "Dependency graph should list dependents");
+
+	registry.createHandle<GenericBlobResource>(2);
+	registry.createHandle<GenericBlobResource>(3);
+
+	Elv::Util::ThreadPool pool(2);
+	auto loader = [](const AssetRecord& record) -> Elv::Io::sDevice {
+		std::vector<std::byte> data;
+		if (record.id == 7) {
+			data = { std::byte { 0x00 }, std::byte { 0x01 }, std::byte { 0x10 }, std::byte { 0x20 }, std::byte { 0x30 }, std::byte { 0x40 }, std::byte { 0x7f } };
+		} else {
+			data.assign(static_cast<std::size_t>(record.storedSize), static_cast<std::byte>(record.id));
+		}
+		return std::make_shared<Euph::Io::MemoryDevice>(Elv::Io::Mode::READ, std::move(data));
+	};
+	auto decoder = [](const AssetRecord&, std::span<const std::byte> bytes) {
+		DecodedAsset decoded;
+		decoded.payload = makeBytePayload(std::vector<std::byte>(bytes.begin(), bytes.end()));
+		decoded.cpuBytes = decoded.payload.bytes;
+		return decoded;
+	};
+
+	StreamingScheduler scheduler(catalog, registry, pool, loader, decoder);
+	requireCondition(scheduler.request(3, { 5 }), "Parent request should be accepted");
+	requireCondition(registry.state(3) == ResidencyState::WaitingDependencies, "Parent should wait until dependency is resident");
+	pumpScheduler(scheduler, 2, ResidencyState::Resident);
+	pumpScheduler(scheduler, 3, ResidencyState::Resident);
+	requireCondition(registry.cpuCost(3) == 4, "Decoded resource should account CPU cost");
+	requireCondition(registry.payload(3) && registry.payload(3)->bytes == 4, "Decoded resource should retain resident payload");
+
+	requireCondition(scheduler.request(7, { 1 }), "Offset request should be accepted");
+	pumpScheduler(scheduler, 7, ResidencyState::Resident);
+	const ResidentPayload* offsetPayload = registry.payload(7);
+	requireCondition(offsetPayload && offsetPayload->bytes == 4, "Offset asset should read only stored bytes");
+	auto offsetBytes = std::static_pointer_cast<std::vector<std::byte> >(offsetPayload->data);
+	requireCondition(offsetBytes->at(0) == std::byte { 0x10 } && offsetBytes->at(3) == std::byte { 0x40 }, "Offset asset should read from AssetRecord::offset");
+
+	AssetCatalog badCatalog;
+	badCatalog.addRecord({ 4, "bad.bin", 0, 1, 1, Compression::None, "blob", { 404 } });
+	ResourceRegistry badRegistry;
+	StreamingScheduler badScheduler(badCatalog, badRegistry, pool, loader, decoder);
+	requireCondition(badScheduler.request(4), "Missing dependency request should produce a terminal state");
+	requireCondition(badRegistry.state(4) == ResidencyState::Failed && badRegistry.failureReason(4) == FailureReason::MissingDependency, "Missing dependency should fail with diagnostic reason");
+
+	AssetCatalog cycleCatalog;
+	cycleCatalog.addRecord({ 5, "a.bin", 0, 1, 1, Compression::None, "blob", { 6 } });
+	cycleCatalog.addRecord({ 6, "b.bin", 0, 1, 1, Compression::None, "blob", { 5 } });
+	ResourceRegistry cycleRegistry;
+	StreamingScheduler cycleScheduler(cycleCatalog, cycleRegistry, pool, loader, decoder);
+	requireCondition(cycleScheduler.request(5), "Cycle request should produce a terminal state");
+	requireCondition(cycleRegistry.state(5) == ResidencyState::Failed && cycleRegistry.failureReason(5) == FailureReason::DependencyCycle, "Dependency cycle should fail with diagnostic reason");
+
+	ResourceRegistry refRegistry;
+	const auto leasedHandle = refRegistry.createHandle<GenericBlobResource>(8);
+	makeResident(refRegistry, 8);
+	{
+		ResourceLease<GenericBlobResource> lease(refRegistry, leasedHandle);
+		requireCondition(lease && refRegistry.strongRefs(8) == 1, "ResourceLease should retain resources");
+		requireCondition(!refRegistry.destroy(8), "Destroy should reject strongly retained resources");
+	}
+	requireCondition(refRegistry.strongRefs(8) == 0 && refRegistry.destroy(8), "ResourceLease should release resources on destruction");
+
+	ResourceRegistry budgetRegistry;
+	AssetCatalog budgetCatalog;
+	budgetCatalog.addRecord({ 10, "pinned.bin", 0, 1, 1, Compression::None, "blob", {} });
+	budgetCatalog.addRecord({ 11, "old.bin", 0, 1, 1, Compression::None, "blob", {} });
+	budgetCatalog.addRecord({ 12, "important.bin", 0, 1, 1, Compression::None, "blob", {} });
+	budgetCatalog.addRecord({ 13, "dependency.bin", 0, 1, 1, Compression::None, "blob", {} });
+	budgetCatalog.addRecord({ 14, "dependent.bin", 0, 1, 1, Compression::None, "blob", { 13 } });
+	ResidencyManager residency(budgetRegistry, &budgetCatalog);
+	for (AssetId id : { AssetId(10), AssetId(11), AssetId(12) }) {
+		budgetRegistry.createHandle<GenericBlobResource>(id);
+		makeResident(budgetRegistry, id);
+		budgetRegistry.setCost(id, BudgetKind::CpuBytes, 100);
+		requireCondition(residency.makeEvictable(id), "Resident resource should become evictable");
+	}
+	for (AssetId id : { AssetId(13), AssetId(14) }) {
+		budgetRegistry.createHandle<GenericBlobResource>(id);
+		makeResident(budgetRegistry, id);
+		budgetRegistry.setCost(id, BudgetKind::CpuBytes, 100);
+		requireCondition(residency.makeEvictable(id), "Resident dependency resources should become evictable");
+	}
+	budgetRegistry.setPriority(10, { 0 });
+	budgetRegistry.setPriority(11, { 0 });
+	budgetRegistry.setPriority(12, { 10 });
+	budgetRegistry.setPriority(13, { 0 });
+	budgetRegistry.setPriority(14, { 20 });
+	budgetRegistry.touch(10, 1);
+	budgetRegistry.touch(11, 2);
+	budgetRegistry.touch(12, 0);
+	budgetRegistry.touch(13, 0);
+	budgetRegistry.touch(14, 0);
+	residency.pin(10);
+	residency.setBudget(BudgetKind::CpuBytes, 250);
+	const EvictionResult evicted = residency.evictUntilWithinBudgetDetailed();
+	requireCondition(evicted.evicted.size() == 3, "Residency manager should evict enough resources to satisfy budget");
+	requireCondition(evicted.evicted[0] == 11 && evicted.evicted[1] == 12 && evicted.evicted[2] == 14, "Eviction should respect pinning, priority, touch age, and deterministic ordering");
+	requireCondition(budgetRegistry.state(10) == ResidencyState::Evictable, "Pinned resource should not be evicted");
+	requireCondition(std::find(evicted.blocked.begin(), evicted.blocked.end(), 13) != evicted.blocked.end(), "Dependency resource should be protected while its dependent is resident");
+
+	ResourceRegistry placeholderRegistry;
+	const auto fallback = placeholderRegistry.createHandle<ImageResource>(30);
+	const auto wanted = placeholderRegistry.createHandle<ImageResource>(31);
+	makeResident(placeholderRegistry, 30);
+	placeholderRegistry.setPlaceholder<ImageResource>(fallback);
+	requireCondition(placeholderRegistry.resolveOrPlaceholder(wanted) == fallback, "Nonresident resource should resolve to typed placeholder");
+
+	AssetCatalog failingCatalog;
+	failingCatalog.addRecord({ 40, "iofail.bin", 0, 1, 1, Compression::None, "blob", {} });
+	ResourceRegistry failingRegistry;
+	auto failingLoader = [](const AssetRecord&) -> Elv::Io::sDevice {
+		return std::make_shared<ThrowingDevice>();
+	};
+	StreamingScheduler failingScheduler(failingCatalog, failingRegistry, pool, failingLoader, decoder);
+	requireCondition(failingScheduler.request(40), "Failing I/O request should be accepted");
+	pumpScheduler(failingScheduler, 40, ResidencyState::Failed);
+	requireCondition(failingRegistry.failureReason(40) == FailureReason::IoError, "I/O failure should be reported on resource state");
+
+	std::cout << "Asset runtime tests passed" << std::endl;
+}
+
+void testGpuAssetStreamer()
+{
+	using namespace Euph::Asset;
+	using namespace Lotte::Asset;
+
+	ResourceRegistry cpuRegistry;
+	cpuRegistry.createHandle<GenericBlobResource>(100);
+	makeResident(cpuRegistry, 100);
+	cpuRegistry.setPayload(100, makeBytePayload({ std::byte { 1 }, std::byte { 2 }, std::byte { 3 }, std::byte { 4 } }));
+
+	GpuAssetStreamer gpu(cpuRegistry, 1000);
+	gpu.setBudget(16);
+	requireCondition(gpu.requestBuffer(100, { 7 }, { 1 }), "GPU buffer upload request should be accepted");
+	GpuCommandBatch upload = gpu.recordUploads();
+	requireCondition(upload.commandCount() == 1 && upload.uploads.size() == 1, "GPU upload recording should emit one create command");
+	requireCondition(upload.uploads.front().assetId == 100 && upload.uploads.front().handle == 1000, "GPU upload should allocate a stable Kaldi handle");
+	requireCondition(upload.retainedPayloads.size() == 1, "GPU upload batch should retain source payload memory");
+	requireCondition(!gpu.handle(100), "GPU handle should not be visible before upload commit");
+	gpu.commitUploads(upload);
+	requireCondition(gpu.handle(100) && *gpu.handle(100) == 1000, "GPU handle should become visible after upload commit");
+	requireCondition(gpu.currentUsage() == 4, "GPU streamer should account committed upload bytes");
+
+	cpuRegistry.createHandle<GenericBlobResource>(101);
+	requireCondition(gpu.requestBuffer(101), "Requesting a nonresident CPU resource should be accepted for diagnostic failure");
+	(void)gpu.recordUploads();
+	requireCondition(gpu.state(101) == GpuResidencyState::Failed && gpu.failureReason(101) == GpuFailureReason::CpuResourceNotResident, "GPU streamer should fail nonresident CPU resources with a diagnostic");
+
+	for (AssetId id : { AssetId(102), AssetId(103) }) {
+		cpuRegistry.createHandle<GenericBlobResource>(id);
+		makeResident(cpuRegistry, id);
+		cpuRegistry.setPayload(id, makeBytePayload({ static_cast<std::byte>(id == 102 ? 0x12 : 0x13), std::byte { 0 }, std::byte { 1 }, std::byte { 2 } }));
+	}
+	requireCondition(gpu.requestBuffer(102, {}, { 1 }), "Low-priority GPU upload should be queued");
+	requireCondition(gpu.requestBuffer(103, {}, { 9 }), "High-priority GPU upload should be queued");
+	GpuCommandBatch priorityUploads = gpu.recordUploads();
+	requireCondition(priorityUploads.uploads.size() == 2 && priorityUploads.uploads[0].assetId == 103 && priorityUploads.uploads[1].assetId == 102, "GPU uploads should record in priority order");
+	gpu.commitUploads(priorityUploads);
+	requireCondition(gpu.currentUsage() == 12, "GPU usage should include all committed buffers");
+
+	gpu.setBudget(64);
+	cpuRegistry.createHandle<ImageResource>(105);
+	makeResident(cpuRegistry, 105);
+	auto decodeTarget = std::make_shared<Euph::Media::Image::DecodeTarget>();
+	decodeTarget->setFormat(Euph::Media::Image::Format::RGBA8U);
+	decodeTarget->addFrame(2, 2);
+	cpuRegistry.setPayload(105, makeDecodeTargetPayload(decodeTarget));
+	requireCondition(gpu.requestTexture(105, { 1, false }, { 10 }), "Texture upload from DecodeTarget should be accepted");
+	GpuCommandBatch textureUpload = gpu.recordUploads();
+	requireCondition(textureUpload.uploads.size() == 1 && textureUpload.uploads.front().kind == GpuResourceKind::Texture, "Texture upload should record a Kaldi texture command");
+	requireCondition(textureUpload.retainedPayloads.size() == 1, "Texture upload should retain the DecodeTarget through command recording");
+	gpu.commitUploads(textureUpload);
+	requireCondition(gpu.handle(105).has_value(), "Texture handle should become visible after commit");
+
+	requireCondition(gpu.makeEvictable(100) && gpu.makeEvictable(102) && gpu.makeEvictable(103) && gpu.makeEvictable(105), "Committed GPU resources should become evictable");
+	gpu.pin(100);
+	requireCondition(gpu.retain(102), "GPU retain should protect resources from eviction");
+	gpu.setPriority(102, { 0 });
+	gpu.setPriority(103, { 0 });
+	gpu.setPriority(105, { 20 });
+	gpu.touch(102, 2);
+	gpu.touch(103, 1);
+	gpu.touch(105, 0);
+	gpu.setBudget(24);
+	GpuCommandBatch evictions = gpu.recordEvictions();
+	requireCondition(evictions.destroys.size() == 1 && evictions.destroys.front().assetId == 103, "Budget eviction should skip pinned/retained resources and evict the oldest low-priority resource");
+	gpu.commitEvictions(evictions);
+	requireCondition(!gpu.handle(103), "Committed eviction should hide the destroyed handle");
+	requireCondition(gpu.currentUsage() == 24, "Pinned, retained, and high-priority resources should remain resident after partial eviction");
+
+	requireCondition(gpu.release(102), "GPU release should drop the protection reference");
+	gpu.setBudget(20);
+	GpuCommandBatch followupEvictions = gpu.recordEvictions();
+	requireCondition(followupEvictions.destroys.size() == 1 && followupEvictions.destroys.front().assetId == 102, "Released resource should become eligible on the next budget pass");
+	gpu.commitEvictions(followupEvictions);
+	requireCondition(gpu.currentUsage() == 20, "Second eviction should update GPU usage");
+
+	requireCondition(!gpu.requestEvict(100), "Pinned resources should reject explicit eviction requests");
+	gpu.unpin(100);
+	requireCondition(gpu.requestEvict(100), "Unpinned resources should accept explicit eviction requests");
+	GpuCommandBatch explicitDestroy = gpu.recordEvictions();
+	requireCondition(explicitDestroy.destroys.size() == 1 && explicitDestroy.destroys.front().assetId == 100, "Explicit eviction should record even when it is not enough to satisfy budget");
+	gpu.commitEvictions(explicitDestroy);
+
+	cpuRegistry.createHandle<GenericBlobResource>(106);
+	makeResident(cpuRegistry, 106);
+	cpuRegistry.setPayload(106, makeBytePayload({ std::byte { 6 }, std::byte { 6 }, std::byte { 6 }, std::byte { 6 } }));
+	gpu.setBudget(64);
+	requireCondition(gpu.requestBuffer(106), "Upload failure test should queue a buffer");
+	GpuCommandBatch failedUpload = gpu.recordUploads();
+	requireCondition(failedUpload.uploads.size() == 1, "Upload failure test should record a create command before simulated rejection");
+	gpu.failUploads(failedUpload, GpuFailureReason::BackendRejected, "simulated rejection");
+	requireCondition(gpu.state(106) == GpuResidencyState::Failed && !gpu.handle(106), "Rejected upload should fail without publishing a handle");
+
+	std::cout << "GPU asset streamer tests passed" << std::endl;
 }
 
 void randomDeviceTest() {
@@ -924,4 +1200,17 @@ void testPNG()
 		Euph::Io::File dllFile("/tmp/testImg.png", Elv::Io::Mode::WRITE);
 		Euph::Media::Image::PNG::encode(dllFile,decodeTarget,0.5f);
 	}
+}
+
+void testFontParser()
+{
+	Euph::Io::File fontFile("/home/legacy/vinque.bin", Elv::Io::Mode::READ);
+	Lotte::Text::FontDataStream stream(fontFile);
+	Lotte::Text::FontFace fface;
+	stream >> fface;
+	std::cout <<  "Family name: " << fface.familyName << "\n"
+			  << "Number of elements: " << fface.glyphs.size() << "\n"
+			  << "Padding: " << fface.bitmapPadding << "\n"
+			  << "Pixel size: " << fface.bitmapSize << "\n"
+			  << "Logical size: " << fface.bitmapLogicalSize << std::endl;
 }

@@ -71,7 +71,7 @@ bool EventLoop::running() const
 void EventLoop::enqueue(Command&& callable)
 {
 	{
-		std::lock_guard<std::mutex> lockguard(commandsMutex);
+		std::scoped_lock lockguard(commandsMutex);
 		writeBuffer.emplace_back(std::move(callable));
 	}
 	condVar.notify_one();
