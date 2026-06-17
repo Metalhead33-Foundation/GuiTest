@@ -1,0 +1,206 @@
+#ifndef EUPHSTANDARDCOLOUR_HPP
+#define EUPHSTANDARDCOLOUR_HPP
+/**
+ * @file EuphStandardColour.hpp
+ * @brief Declares the EuphStandardColour API in the Euphemy/Media/Image module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Media/Image.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
+#include <map>
+#include <array>
+#include <cstdint>
+#include <string_view>
+#include <Euphemy/Media/Image/EuphPixelFormat.hpp>
+#include <Euphemy/Config/EuphLib.hpp>
+namespace Euph {
+namespace Media {
+namespace Image {
+
+/**
+ * @brief Enumeration of standard colors.
+ *
+ * This enum class represents a set of standard colors with their corresponding names.
+ * Each color is mapped to a unique value of type uint8_t.
+ */
+enum class StandardColourEnum : uint8_t {
+	aliceblue,
+	antiquewhite,
+	aqua,
+	aquamarine,
+	azure,
+	beige,
+	bisque,
+	black,
+	blanchedalmond,
+	blue,
+	blueviolet,
+	brown,
+	burlywood,
+	cadetblue,
+	chartreuse,
+	chocolate,
+	coral,
+	cornflowerblue,
+	cornsilk,
+	crimson,
+	cyan,
+	darkblue,
+	darkcyan,
+	darkgoldenrod,
+	darkgray,
+	darkgreen,
+	darkkhaki,
+	darkmagenta,
+	darkolivegreen,
+	darkorange,
+	darkorchid,
+	darkred,
+	darksalmon,
+	darkseagreen,
+	darkslateblue,
+	darkslategray,
+	darkturquoise,
+	darkviolet,
+	deeppink,
+	deepskyblue,
+	dimgray,
+	dodgerblue,
+	firebrick,
+	floralwhite,
+	forestgreen,
+	fuchsia,
+	gainsboro,
+	ghostwhite,
+	gold,
+	goldenrod,
+	gray,
+	green,
+	greenyellow,
+	honeydew,
+	hotpink,
+	indianred,
+	indigo,
+	ivory,
+	khaki,
+	lavender,
+	lavenderblush,
+	lawngreen,
+	lemonchiffon,
+	lightblue,
+	lightcoral,
+	lightcyan,
+	lightgoldenrodyellow,
+	lightgray,
+	lightgreen,
+	lightpink,
+	lightsalmon,
+	lightseagreen,
+	lightskyblue,
+	lightslategray,
+	lightsteelblue,
+	lightyellow,
+	lime,
+	limegreen,
+	linen,
+	magenta,
+	maroon,
+	mediumaquamarine,
+	mediumblue,
+	mediumorchid,
+	mediumpurple,
+	mediumseagreen,
+	mediumslateblue,
+	mediumspringgreen,
+	mediumturquoise,
+	mediumvioletred,
+	midnightblue,
+	mintcream,
+	mistyrose,
+	moccasin,
+	navajowhite,
+	navy,
+	oldlace,
+	olive,
+	olivedrab,
+	orange,
+	orangered,
+	orchid,
+	palegoldenrod,
+	palegreen,
+	paleturquoise,
+	palevioletred,
+	papayawhip,
+	peachpuff,
+	peru,
+	pink,
+	plum,
+	powderblue,
+	purple,
+	rebeccapurple,
+	red,
+	rosybrown,
+	royalblue,
+	saddlebrown,
+	salmon,
+	sandybrown,
+	seagreen,
+	seashell,
+	sienna,
+	silver,
+	skyblue,
+	slateblue,
+	slategray,
+	snow,
+	springgreen,
+	steelblue,
+	tan,
+	teal,
+	thistle,
+	tomato,
+	turquoise,
+	violet,
+	wheat,
+	white,
+	whitesmoke,
+	yellow,
+	yellowgreen
+};
+
+/**
+ * @brief Type alias for a map associating color names to their corresponding enum values.
+ *
+ * This map uses std::string as the key and StandardColourEnum as the value.
+ * The keys are compared using std::less<> which provides a lexicographical ordering.
+ */
+typedef std::map<std::string, StandardColourEnum, std::less<>> StringToStandardColourEnumMap;
+
+/**
+ * @brief Retrieves the RGB color value for a given StandardColourEnum.
+ *
+ * @param index The StandardColourEnum value representing the desired color.
+ * @return A constant reference to a PixelRGB_U8 object containing the RGB values.
+ */
+const PixelRGB_U8& MH_EUPH_API getStandardColour(StandardColourEnum index);
+
+/**
+ * @brief Retrieves the RGB color value for a given color name.
+ *
+ * @param name The name of the color as a std::string_view.
+ * @return A constant reference to a PixelRGB_U8 object containing the RGB values.
+ * @throws An exception if the color name is not found in the map.
+ */
+const PixelRGB_U8& MH_EUPH_API getStandardColour(const std::string_view name);
+
+/**
+ * @brief Retrieves a map of all valid color names to their corresponding StandardColourEnum values.
+ *
+ * @return A constant reference to a StringToStandardColourEnumMap containing all valid color names.
+ */
+const StringToStandardColourEnumMap& MH_EUPH_API getAllValidColorNames();
+
+}
+}
+}
+#endif // EUPHSTANDARDCOLOUR_HPP
