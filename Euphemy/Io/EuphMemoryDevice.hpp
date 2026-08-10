@@ -1,0 +1,145 @@
+#ifndef EUPHMEMORYDEVICE_HPP
+#define EUPHMEMORYDEVICE_HPP
+/**
+ * @file EuphMemoryDevice.hpp
+ * @brief Declares the EuphMemoryDevice API in the Euphemy/Io module.
+ *
+ * This header is part of the public declaration surface for Euphemy/Io.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
+#include <vector>
+#include <memory_resource>
+#include <cstring>
+#include <algorithm>
+#include <Elvavena/Io/ElvIoDevice.hpp>
+#include <Euphemy/Config/EuphLib.hpp>
+namespace Euph {
+namespace Io {
+
+/**
+ * @brief In-memory implementation of Device using a standard memory resource vector.
+ */
+class MH_EUPH_API MemoryDevice : public Elv::Io::Device {
+private:
+	std::vector<std::byte> m_data;
+	size_t m_position;
+	Elv::Io::Mode m_mode;
+	bool m_valid;
+
+	// Helper to check bitwise enum flags
+	bool hasFlag(Elv::Io::Mode flag) const;
+
+public:
+	/**
+	 * @brief Constructs a new Memory Device.
+	 * * @param mode Access mode for the device.
+	 */
+	MemoryDevice(Elv::Io::Mode mode);
+	/**
+	 * @brief Constructs a new Memory Device.
+	 * * @param mode Access mode for the device.
+	 * * @param moved_data Vector whose ownership is acquired.
+	 */
+	MemoryDevice(Elv::Io::Mode mode, std::vector<std::byte>&& moved_data);
+
+	// Delete copy semantics as device handles are typically unique or shared via pointers
+	MemoryDevice(const MemoryDevice&) = delete;
+	MemoryDevice& operator=(const MemoryDevice&) = delete;
+
+	// Allow move semantics
+	/**
+	 * @brief Move constructor.
+	 * @param mov Source device to move from.
+	 */
+	MemoryDevice(MemoryDevice&& mov) noexcept;
+	/**
+	 * @brief Move assignment operator.
+	 * @param mov Source device to move from.
+	 * @return Reference to this device.
+	 */
+	MemoryDevice& operator=(MemoryDevice&& mov) noexcept;
+
+	~MemoryDevice() override;
+
+	/**
+	 * @brief Reads elements from the internal memory buffer.
+	 * @param buffer Destination memory.
+	 * @param size Size of each element.
+	 * @param count Number of elements to read.
+	 * @return Number of elements successfully read.
+	 */
+	size_t read(void* buffer, size_t size, size_t count) override;
+
+	/**
+	 * @brief Writes elements into the internal memory buffer.
+	 * @param buffer Source memory.
+	 * @param size Size of each element.
+	 * @param count Number of elements to write.
+	 * @return Number of elements successfully written.
+	 */
+	size_t write(const void* buffer, size_t size, size_t count) override;
+
+	/**
+	 * @brief Moves the current cursor position.
+	 * @param offset Byte offset relative to @p whence.
+	 * @param whence Seek origin.
+	 * @return `0` on success, non-zero on error.
+	 */
+	int seek(long offset, Elv::Io::SeekOrigin whence) override;
+
+	/**
+	 * @brief Returns the current cursor position.
+	 * @return Current byte offset.
+	 */
+	long tell() override;
+
+	/**
+	 * @brief Returns the current size of the memory buffer.
+	 * @return Buffer size in bytes.
+	 */
+	size_t size() override;
+
+	/**
+	 * @brief Checks whether the cursor reached end of buffer.
+	 * @return `true` when at or beyond end-of-buffer.
+	 */
+	bool eof() override;
+
+	/**
+	 * @brief Returns the open mode of this device.
+	 * @return Device mode flags.
+	 */
+	Elv::Io::Mode getMode() const override;
+
+	/**
+	 * @brief Flushes buffered writes.
+	 * @return `true` because writes are immediately applied in memory.
+	 */
+	bool flush() override;
+
+	/**
+	 * @brief Reports whether this device is in a valid state.
+	 * @return `true` when initialized correctly.
+	 */
+	bool isValid() const override;
+
+	// --- Specific to MemoryDevice ---
+
+	/**
+	 * @brief Direct read-only access to the underlying memory buffer.
+	 */
+	const std::vector<std::byte>& getBuffer() const;
+	/**
+	 * @brief Direct read-and-write access to the underlying memory buffer.
+	 */
+	std::vector<std::byte>& getBuffer();
+	/**
+	 * @brief Yields ownership of the underlying memory buffer. Warning - DO NOT USE DEVICE AFTERWARDS!
+	 */
+	void yield(std::vector<std::byte>& target);
+};
+
+} // namespace Io
+} // namespace Euph
+#endif // EUPHMEMORYDEVICE_HPP
