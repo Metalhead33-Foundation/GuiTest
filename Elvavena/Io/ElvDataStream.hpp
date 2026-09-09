@@ -933,37 +933,22 @@ struct DataStream {
 	 * @param data std::basic_string_view to be written.
 	 * @return Reference to the current DataStream instance.
 	 */
-		template< class CharT, class Traits = std::char_traits<CharT>>
-		inline DataStream& operator<<(const std::basic_string_view<CharT, Traits>& data) {
-		*this << static_cast<uint32_t>(data.size());
-		if constexpr(sizeof(CharT) == sizeof(std::byte)) {
-			device.write(data.data(), 1, data.size());
-			return *this;
-		} else {
-			return writeElements<CharT>(data.begin(), data.end(), false);
-		}
-	}
+	template<class CharT, class Traits = std::char_traits<CharT>>
+	inline DataStream& operator<<(std::basic_string_view<CharT, Traits> data) {
+		const uint32_t total_count = static_cast<uint32_t>(data.size() + 1); // +1 for null terminator
 
-	/**
-	 * @brief Operator to write a std::basic_string to the stream.
-	 *
-	 * Writes the size and contents of a std::basic_string to the device.
-	 *
-	 * @tparam CharT Character type of the string.
-	 * @tparam Traits Traits class of the string.
-	 * @tparam Allocator Allocator type of the string.
-	 * @param data std::basic_string to be written.
-	 * @return Reference to the current DataStream instance.
-	 */
-	template< class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
-	inline DataStream& operator<<(const std::basic_string<CharT, Traits, Allocator>& data) {
-		*this << static_cast<uint32_t>(data.size());
-		if constexpr(sizeof(CharT) == sizeof(std::byte)) {
+		if constexpr (sizeof(CharT) == sizeof(std::byte)) {
+			*this << total_count;
 			device.write(data.data(), 1, data.size());
-			return *this;
+			const CharT null_char{};
+			device.write(&null_char, 1, 1);
 		} else {
-			return writeElements<CharT>(data.begin(), data.end(), false);
+			// Pass iterators covering elements + null terminator
+			writeElements<CharT>(data.begin(), data.end(), false);
+			const CharT null_char{};
+			writeElements<CharT>(&null_char, &null_char + 1, false);
 		}
+		return *this;
 	}
 
 	/**
@@ -977,17 +962,32 @@ struct DataStream {
 	 * @param data std::basic_string to be read.
 	 * @return Reference to the current DataStream instance.
 	 */
-	template< class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
+	template<class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
 	inline DataStream& operator>>(std::basic_string<CharT, Traits, Allocator>& data) {
-		uint32_t size;
-		*this >> size;
-		data.resize(size);
-		if constexpr(sizeof(CharT) == sizeof(std::byte)) {
-			device.read(data.data(), 1, data.size());
+		uint32_t total_count = 0;
+		*this >> total_count;
+
+		if (total_count == 0) {
+			data.clear();
 			return *this;
-		} else {
-			return readElementsInto<CharT>(data.begin(), data.end());
 		}
+
+		// Resize string to exclude the serialized null terminator from the std::string length
+		data.resize(total_count - 1);
+
+		if constexpr (sizeof(CharT) == sizeof(std::byte)) {
+			device.read(data.data(), 1, data.size());
+
+			// Read and discard the trailing null terminator from stream
+			CharT null_char;
+			device.read(&null_char, 1, 1);
+		} else {
+			readElementsInto<CharT>(data.begin(), data.end());
+
+			CharT null_char;
+			readElementsInto<CharT>(&null_char, &null_char + 1);
+		}
+		return *this;
 	}
 
 	/**
