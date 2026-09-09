@@ -1136,12 +1136,8 @@ struct DataStream {
 		requires Util::VectorLike<Container>
 	inline DataStream& operator<<(const Container& data) {
 		*this << static_cast<uint32_t>(data.size());
-		if constexpr(sizeof(typename Container::value_type) == sizeof(std::byte)) {
-			device.write(data.data(), 1, data.size());
-			return *this;
-		} else {
-			return writeElements<typename Container::value_type>(data.begin(), data.end(), false);
-		}
+		// Delegate iteration & bulk byte optimizations entirely to writeElements
+		return writeElements<typename Container::value_type>(data.begin(), data.end(), false);
 	}
 
 	/**
@@ -1156,15 +1152,11 @@ struct DataStream {
 	template <typename Container>
 		requires Util::VectorLike<Container>
 	inline DataStream& operator>>(Container& data) {
-		uint32_t size;
+		uint32_t size = 0;
 		*this >> size;
 		data.resize(size);
-		if constexpr(sizeof(typename Container::value_type) == sizeof(std::byte)) {
-			device.read(data.data(), 1, data.size());
-			return *this;
-		} else {
-			return readElementsInto<typename Container::value_type>(data.begin(), data.end());
-		}
+		// Delegate iteration & bulk byte optimizations entirely to readElementsInto
+		return readElementsInto<typename Container::value_type>(data.begin(), data.end());
 	}
 
 	/**
@@ -1180,6 +1172,7 @@ struct DataStream {
 		requires Util::MapLike<Container>
 	inline DataStream& operator<<(const Container& data) {
 		*this << static_cast<uint32_t>(data.size());
+		// Maps store std::pair<const Key, Value>, which operator<< handles per pair
 		return writeElements<typename Container::value_type>(data.begin(), data.end(), false);
 	}
 
@@ -1195,9 +1188,16 @@ struct DataStream {
 	template <typename Container>
 		requires Util::MapLike<Container>
 	inline DataStream& operator>>(Container& data) {
-		uint32_t size;
+		uint32_t size = 0;
 		*this >> size;
-		for(uint32_t i = 0; i < size; ++i) {
+		data.clear(); // FIX 1: Clear existing elements before reading new ones
+
+		// Pre-reserve for unordered_map / hash maps if supported
+		if constexpr (requires { data.reserve(size); }) {
+			data.reserve(size);
+		}
+
+		for (uint32_t i = 0; i < size; ++i) {
 			typename Container::key_type tmpKey;
 			typename Container::mapped_type tmpVal;
 			*this >> tmpKey >> tmpVal;
@@ -1219,7 +1219,8 @@ struct DataStream {
 		requires Util::SequentialContainer<Container>
 	inline DataStream& operator<<(const Container& data) {
 		*this << static_cast<uint32_t>(data.size());
-		return writeElements<Container::value_type>(data.begin(), data.end(), false);
+		// FIX 2: Added typename before Container::value_type
+		return writeElements<typename Container::value_type>(data.begin(), data.end(), false);
 	}
 
 	/**
@@ -1234,12 +1235,27 @@ struct DataStream {
 	template <typename Container>
 		requires Util::SequentialContainer<Container>
 	inline DataStream& operator>>(Container& data) {
-		uint32_t size;
+		uint32_t size = 0;
 		*this >> size;
-		for(uint32_t i = 0; i < size; ++i) {
+		data.clear(); // FIX 1: Clear existing elements before reading new ones
+
+		// Pre-reserve if the sequential container supports it (e.g., std::unordered_set)
+		if constexpr (requires { data.reserve(size); }) {
+			data.reserve(size);
+		}
+
+		for (uint32_t i = 0; i < size; ++i) {
 			typename Container::value_type tmpData;
 			*this >> tmpData;
-			data.insert(std::move(tmpData));
+
+			// Use emplace or insert depending on what the container supports
+			if constexpr (requires { data.emplace_back(std::move(tmpData)); }) {
+				data.emplace_back(std::move(tmpData));
+			} else if constexpr (requires { data.emplace(std::move(tmpData)); }) {
+				data.emplace(std::move(tmpData));
+			} else {
+				data.insert(std::move(tmpData));
+			}
 		}
 		return *this;
 	}
