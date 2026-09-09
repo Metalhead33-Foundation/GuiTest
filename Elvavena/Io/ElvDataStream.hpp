@@ -944,7 +944,7 @@ struct DataStream {
 			device.write(&null_char, 1, 1);
 		} else {
 			// Pass iterators covering elements + null terminator
-			writeElements<CharT>(data.begin(), data.end(), false);
+			writeElements<CharT>(data.begin(), data.end(), true);
 			const CharT null_char{};
 			writeElements<CharT>(&null_char, &null_char + 1, false);
 		}
