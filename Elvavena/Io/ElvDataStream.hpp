@@ -991,10 +991,10 @@ struct DataStream {
 	 */
 	template <typename T>
 	inline DataStream& operator<<(const std::optional<T>& opt) {
-		bool hasValue = opt.has_value();
+		const bool hasValue = opt.has_value();
 		*this << hasValue;
-		if(hasValue) {
-			*this << opt.value();
+		if (hasValue) {
+			*this << *opt; // Unchecked access (safe because hasValue was checked)
 		}
 		return *this;
 	}
@@ -1010,14 +1010,19 @@ struct DataStream {
 	 */
 	template <typename T>
 	inline DataStream& operator>>(std::optional<T>& opt) {
-		bool hasValue;
+		bool hasValue = false;
 		*this >> hasValue;
-		if(hasValue) {
-			T value;
-			*this >> value;
-			opt.emplace(std::move(value));
+
+		if (hasValue) {
+			if (opt.has_value()) {
+				// Reuse existing memory buffer directly
+				*this >> *opt;
+			} else {
+				// Emplace default value, then read directly into optional's buffer
+				*this >> opt.emplace();
+			}
 		} else {
-			opt = std::nullopt;
+			opt.reset(); // Clear optional if no value present
 		}
 		return *this;
 	}
@@ -1049,7 +1054,8 @@ struct DataStream {
 	 */
 	template <typename T1, typename T2>
 	inline DataStream& operator>>(std::pair<T1, T2>& pair) {
-		return *this >> pair.first >> pair.second;
+		return *this >> const_cast<std::remove_const_t<T1>&>(pair.first)
+		>> const_cast<std::remove_const_t<T2>&>(pair.second);
 	}
 
 	/**
