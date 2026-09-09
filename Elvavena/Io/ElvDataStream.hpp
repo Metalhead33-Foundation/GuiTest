@@ -935,20 +935,22 @@ struct DataStream {
 	 */
 	template<class CharT, class Traits = std::char_traits<CharT>>
 	inline DataStream& operator<<(std::basic_string_view<CharT, Traits> data) {
-		const uint32_t total_count = static_cast<uint32_t>(data.size() + 1); // +1 for null terminator
+		const uint32_t total_elements = static_cast<uint32_t>(data.size() + 1); // Content + null terminator
 
 		if constexpr (sizeof(CharT) == sizeof(std::byte)) {
-			*this << total_count;
+			*this << total_elements;
 			device.write(data.data(), 1, data.size());
 			const CharT null_char{};
 			device.write(&null_char, 1, 1);
+			return *this;
 		} else {
-			// Pass iterators covering elements + null terminator
-			writeElements<CharT>(data.begin(), data.end(), true);
+			// writeElements handles writing size when writeSize = true
+			// Create a null-terminated view or write content + null sequentially:
+			*this << total_elements;
+			writeElements<CharT>(data.begin(), data.end(), false);
 			const CharT null_char{};
-			writeElements<CharT>(&null_char, &null_char + 1, false);
+			return *this << null_char;
 		}
-		return *this;
 	}
 
 	/**
@@ -964,28 +966,25 @@ struct DataStream {
 	 */
 	template<class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
 	inline DataStream& operator>>(std::basic_string<CharT, Traits, Allocator>& data) {
-		uint32_t total_count = 0;
-		*this >> total_count;
+		uint32_t total_elements = 0;
+		*this >> total_elements;
 
-		if (total_count == 0) {
+		if (total_elements == 0) {
 			data.clear();
 			return *this;
 		}
 
-		// Resize string to exclude the serialized null terminator from the std::string length
-		data.resize(total_count - 1);
+		// Allocate space for characters (excluding null-terminator in string.size())
+		data.resize(total_elements - 1);
 
 		if constexpr (sizeof(CharT) == sizeof(std::byte)) {
 			device.read(data.data(), 1, data.size());
-
-			// Read and discard the trailing null terminator from stream
 			CharT null_char;
-			device.read(&null_char, 1, 1);
+			device.read(&null_char, 1, 1); // Consume null terminator from stream
 		} else {
 			readElementsInto<CharT>(data.begin(), data.end());
-
 			CharT null_char;
-			readElementsInto<CharT>(&null_char, &null_char + 1);
+			*this >> null_char; // Consume null terminator from stream
 		}
 		return *this;
 	}
@@ -1076,11 +1075,22 @@ struct DataStream {
 	 */
 	template <typename Element, typename Iterator>
 	DataStream& writeElements(Iterator first, Iterator last, bool writeSize = true) {
-		if(writeSize) {
-			uint32_t elements = std::distance(first, last);
-			*this << elements;
+		if (writeSize) {
+			auto count = std::distance(first, last);
+			*this << static_cast<uint32_t>(count);
 		}
-		std::for_each(first, last, [this](const Element& iter) { *this << iter; });
+
+		// Optimization: Bulk-write contiguous, trivially-copyable elements in 1 operation
+		if constexpr (std::is_trivially_copyable_v<Element> && std::contiguous_iterator<Iterator>) {
+			if (first != last) {
+				const auto bytes = static_cast<size_t>(std::distance(first, last)) * sizeof(Element);
+				device.write(std::to_address(first), 1, bytes);
+			}
+		} else {
+			std::for_each(first, last, [this](const auto& item) {
+				*this << item;
+			});
+		}
 		return *this;
 	}
 
@@ -1097,7 +1107,17 @@ struct DataStream {
 	 */
 	template <typename Element, typename Iterator>
 	DataStream& readElementsInto(Iterator first, Iterator last) {
-		std::for_each(first, last, [this](Element& iter) { *this >> iter; });
+		// Optimization: Bulk-read contiguous, trivially-copyable elements in 1 operation
+		if constexpr (std::is_trivially_copyable_v<Element> && std::contiguous_iterator<Iterator>) {
+			if (first != last) {
+				const auto bytes = static_cast<size_t>(std::distance(first, last)) * sizeof(Element);
+				device.read(std::to_address(first), 1, bytes);
+			}
+		} else {
+			std::for_each(first, last, [this](auto&& item) {
+				*this >> item;
+			});
+		}
 		return *this;
 	}
 
