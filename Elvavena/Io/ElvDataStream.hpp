@@ -935,22 +935,18 @@ struct DataStream {
 	 */
 	template<class CharT, class Traits = std::char_traits<CharT>>
 	inline DataStream& operator<<(std::basic_string_view<CharT, Traits> data) {
-		const uint32_t total_elements = static_cast<uint32_t>(data.size() + 1); // Content + null terminator
+		const uint32_t total_elements = static_cast<uint32_t>(data.size() + 1); // Content + null
 
-		if constexpr (sizeof(CharT) == sizeof(std::byte)) {
-			*this << total_elements;
-			device.write(data.data(), 1, data.size());
-			const CharT null_char{};
-			device.write(&null_char, 1, 1);
-			return *this;
-		} else {
-			// writeElements handles writing size when writeSize = true
-			// Create a null-terminated view or write content + null sequentially:
-			*this << total_elements;
-			writeElements<CharT>(data.begin(), data.end(), false);
-			const CharT null_char{};
-			return *this << null_char;
-		}
+		// Write element count (endian-converted via operator<<(uint32_t))
+		*this << total_elements;
+
+		// writeElements handles fast block writes for 1-byte/native chars
+		// and element-by-element endian conversion for multi-byte chars
+		writeElements<CharT>(data.begin(), data.end(), false);
+
+		// Write null terminator (converted via operator<<(CharT))
+		const CharT null_char{};
+		return *this << null_char;
 	}
 
 	/**
@@ -974,19 +970,14 @@ struct DataStream {
 			return *this;
 		}
 
-		// Allocate space for characters (excluding null-terminator in string.size())
-		data.resize(total_elements - 1);
+		data.resize(total_elements - 1); // Exclude trailing null from string length
 
-		if constexpr (sizeof(CharT) == sizeof(std::byte)) {
-			device.read(data.data(), 1, data.size());
-			CharT null_char;
-			device.read(&null_char, 1, 1); // Consume null terminator from stream
-		} else {
-			readElementsInto<CharT>(data.begin(), data.end());
-			CharT null_char;
-			*this >> null_char; // Consume null terminator from stream
-		}
-		return *this;
+		// Reads payload characters
+		readElementsInto<CharT>(data.begin(), data.end());
+
+		// Consume and discard trailing null terminator from stream
+		CharT null_char;
+		return *this >> null_char;
 	}
 
 	/**
