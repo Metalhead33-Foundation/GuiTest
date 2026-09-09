@@ -1076,17 +1076,23 @@ struct DataStream {
 	template <typename Element, typename Iterator>
 	DataStream& writeElements(Iterator first, Iterator last, bool writeSize = true) {
 		if (writeSize) {
-			auto count = std::distance(first, last);
-			*this << static_cast<uint32_t>(count);
+			*this << static_cast<uint32_t>(std::distance(first, last));
 		}
 
-		// Optimization: Bulk-write contiguous, trivially-copyable elements in 1 operation
-		if constexpr (std::is_trivially_copyable_v<Element> && std::contiguous_iterator<Iterator>) {
+		// Check if endianness swap is unnecessary
+		constexpr bool is_native_endian = (io_endianness == Util::Endian::Native);
+		constexpr bool is_single_byte = (sizeof(Element) == 1);
+
+		// Bulk write ONLY if single-byte OR if stream endianness matches host endianness
+		if constexpr ((is_single_byte || is_native_endian) &&
+					  std::is_trivially_copyable_v<Element> &&
+					  std::contiguous_iterator<Iterator>) {
 			if (first != last) {
 				const auto bytes = static_cast<size_t>(std::distance(first, last)) * sizeof(Element);
 				device.write(std::to_address(first), 1, bytes);
 			}
 		} else {
+			// Must iterate so operator<<(Element) applies convert_endian
 			std::for_each(first, last, [this](const auto& item) {
 				*this << item;
 			});
@@ -1107,13 +1113,18 @@ struct DataStream {
 	 */
 	template <typename Element, typename Iterator>
 	DataStream& readElementsInto(Iterator first, Iterator last) {
-		// Optimization: Bulk-read contiguous, trivially-copyable elements in 1 operation
-		if constexpr (std::is_trivially_copyable_v<Element> && std::contiguous_iterator<Iterator>) {
+		constexpr bool is_native_endian = (io_endianness == Util::Endian::Native);
+		constexpr bool is_single_byte = (sizeof(Element) == 1);
+
+		if constexpr ((is_single_byte || is_native_endian) &&
+					  std::is_trivially_copyable_v<Element> &&
+					  std::contiguous_iterator<Iterator>) {
 			if (first != last) {
 				const auto bytes = static_cast<size_t>(std::distance(first, last)) * sizeof(Element);
 				device.read(std::to_address(first), 1, bytes);
 			}
 		} else {
+			// Must iterate so operator>>(Element&) applies convert_endian
 			std::for_each(first, last, [this](auto&& item) {
 				*this >> item;
 			});
