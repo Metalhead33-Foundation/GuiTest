@@ -6,7 +6,7 @@ CONFIG -= qt
 DEFINES += MH_EUPH_EXPORT
 
 # External Dependencies (moved from your original file)
-LIBS += -lmozjs-115 -lX11 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 \
+LIBS += -lX11 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 \
         -lgif -lturbojpeg -lsndfile -lsamplerate -lopenmpt -lwebp -lwebpdecoder \
         -lwebpdemux -lwebpmux -lzstd -lsnappy -lphysfs -lssl -lcrypto \
         -lglslang -lSPIRV -lspirv-cross-core -lspirv-cross-glsl -lyaml-cpp
