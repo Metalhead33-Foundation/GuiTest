@@ -33,22 +33,29 @@ namespace Io {
 template <typename UInt, DeviceLike IODev = Device>
 UInt readULEB128(IODev& dev) {
 	static_assert(std::is_unsigned_v<UInt>);
+	constexpr unsigned bits = sizeof(UInt) * 8;
+	// Wasm allows at most ceil(N/7) bytes for an N-bit integer.
+	constexpr unsigned maxBytes = (bits + 6) / 7;
 	UInt result = 0;
 	unsigned shift = 0;
-	std::uint8_t byte = 0;
 
-	while (true) {
+	for (unsigned byteIndex = 0;; ++byteIndex) {
+		std::uint8_t byte = 0;
 		if (dev.read(&byte, 1, 1) != 1)
 			throw std::runtime_error("Unexpected EOF reading ULEB128");
-
-		// Safety Guard: Don't shift if we exceed the type's width
-		if (shift < sizeof(UInt) * 8) {
-			result |= UInt(byte & 0x7F) << shift;
-		} else if (byte & 0x7F) {
-			// We have exceeded the type width, but the byte still has data.
-			// This implies the number is too big for UInt.
-			throw std::overflow_error("ULEB128 overflow");
+		if (byteIndex >= maxBytes)
+			throw std::overflow_error("integer representation too long");
+		if (shift >= bits)
+			throw std::overflow_error("integer too large");
+		// In the final byte only the bits that still fit in UInt may be set.
+		const unsigned remaining = bits - shift;
+		if (remaining < 7) {
+			const unsigned mask = (1u << remaining) - 1;
+			if ((byte & 0x7F) > mask)
+				throw std::overflow_error("integer too large");
 		}
+
+		result |= UInt(byte & 0x7F) << shift;
 
 		if ((byte & 0x80) == 0) break;
 
@@ -69,34 +76,45 @@ UInt readULEB128(IODev& dev) {
 template <typename SInt, DeviceLike IODev = Device>
 SInt readSLEB128(IODev& dev) {
 	static_assert(std::is_signed_v<SInt>);
-	SInt result = 0;
+	using UInt = std::make_unsigned_t<SInt>;
+	constexpr unsigned bits = sizeof(SInt) * 8;
+	constexpr unsigned maxBytes = (bits + 6) / 7;
+	UInt result = 0;
 	unsigned shift = 0;
 	std::uint8_t byte = 0;
-	const unsigned size = sizeof(SInt) * 8;
 
-	while (true) {
+	for (unsigned byteIndex = 0;; ++byteIndex) {
 		if (dev.read(&byte, 1, 1) != 1)
 			throw std::runtime_error("Unexpected EOF reading SLEB128");
+		if (byteIndex >= maxBytes)
+			throw std::overflow_error("integer representation too long");
+		if (shift >= bits)
+			throw std::overflow_error("integer too large");
 
-		if (shift < size) {
-			result |= SInt(byte & 0x7F) << shift;
-			shift += 7;
-		} else if (byte & 0x7F) {
-			// Only throw if data bits are lost; standard allows padding 0s (or 1s for negative)
-			// But strictly speaking, if we shift out, we check overflow strictly here:
-			throw std::overflow_error("SLEB128 overflow");
+		const unsigned payload = byte & 0x7F;
+		const unsigned remaining = bits - shift;
+		if (remaining < 7) {
+			// The bits above the value's width must repeat its sign bit.
+			const unsigned mask = (1u << remaining) - 1;
+			const unsigned valueBits = payload & mask;
+			const unsigned highBits = payload >> remaining;
+			const unsigned sign = (valueBits >> (remaining - 1)) & 1;
+			const unsigned expectedHigh = sign ? (0x7Fu >> remaining) : 0u;
+			if (highBits != expectedHigh)
+				throw std::overflow_error("integer too large");
 		}
+
+		result |= UInt(payload) << shift;
+		shift += 7;
 
 		if ((byte & 0x80) == 0) break;
 	}
 
-	// Sign extension
-	if (shift < size && (byte & 0x40)) {
-		// -1 is all 1s. Shifting left creates a mask of 1s in the high bits.
-		result |= SInt(-1) << shift;
-	}
+	// Sign extension into the remaining bits of the type.
+	if (shift < bits && (byte & 0x40))
+		result |= ~UInt(0) << shift;
 
-	return result;
+	return static_cast<SInt>(result);
 }
 
 /**
