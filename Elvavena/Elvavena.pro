@@ -28,6 +28,7 @@ HEADERS += \
     Util/ElvCommandQueue.hpp \
     Util/ElvContainerBasic.hpp \
     Util/ElvContinuousIterator.hpp \
+    Util/ElvDeferStack.hpp \
     Util/ElvDither.hpp \
     Util/ElvDynamicLib.hpp \
     Util/ElvEdgeFunction.hpp \
@@ -45,6 +46,7 @@ HEADERS += \
     Util/ElvMathUtil.hpp \
     Util/ElvNormDenorm.hpp \
     Util/ElvObserv.hpp \
+    Util/ElvScopeGuard.hpp \
     Util/ElvSpanHelpers.hpp \
     Util/ElvStackAllocator.hpp \
     Util/ElvStringhashMap.hpp \
