@@ -61,7 +61,6 @@ HEADERS += \
  Config/EuphConfiguration.hpp \
  Config/EuphConfigurationElement.hpp \
  Config/EuphLib.hpp \
- Config/GlobalConfig.hpp \
  Io/EuphBufferDevice.hpp \
  Io/EuphConstBufferDevice.hpp \
  Io/EuphCryptoProxyDevice.hpp \

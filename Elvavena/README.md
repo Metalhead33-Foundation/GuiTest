@@ -37,7 +37,7 @@ code in headers.
 
 | Area | Headers |
 |---|---|
-| Allocators / memory | `ElvAlexandrescuResource.hpp` (PMR memory resource), `ElvAllocatorBasic.hpp` (allocator concept and smart-pointer adapters), `ElvBitmapAllocator.hpp`, `ElvFreelist.hpp` (`FixedFreeListAllocator`, `FreelistMemoryManager`), `ElvStackAllocator.hpp`, `ElvHeapArray.hpp`, `ElvChunkyArray.hpp`, `ElvIntrusiveArray.hpp`, `ElvIdPool.hpp` (thread-safe ID recycling) |
+| Allocators / memory | `ElvAlexandrescuResource.hpp` (alignment-correct PMR bridge over Alexandrescu allocators), `ElvAllocatorBasic.hpp` (allocator concept and smart-pointer adapters), `ElvBitmapAllocator.hpp`, `ElvFreelist.hpp` (`FixedFreeListAllocator`, `ContiguousFreeListAllocator`, `FreelistMemoryManager`), `ElvStackAllocator.hpp`, `ElvHeapArray.hpp`, `ElvChunkyArray.hpp`, `ElvIntrusiveArray.hpp`, `ElvIdPool.hpp` (thread-safe ID recycling) |
 | Containers | `ElvBinaryTree.hpp`, `ElvContainerBasic.hpp`, `ElvDoubleBufferedVector.hpp`, `ElvStringhashMap.hpp`, `ElvThreadsafeContainer.hpp`, `ElvThreadsafeQueue.hpp`, `ElvObserv.hpp` (observer pattern) |
 | Algorithms / math | `ElvFixedPoint.hpp`, `ElvFixedPointMath.hpp`, `ElvInterpolation.hpp`, `ElvMathUtil.hpp`, `ElvNormDenorm.hpp`, `ElvDither.hpp`, `ElvEdgeFunction.hpp`, `ElvFuzzy.hpp` (fuzzy logic), `ElvSpanHelpers.hpp`, `ElvIntegralIterator.hpp`, `ElvContinuousIterator.hpp`, `ElvEndianness.hpp` |
 | Runtime / platform | `ElvDynamicLib.hpp` (`dlopen`/`LoadLibrary` wrapper), `ElvEventLoop.hpp` (single background command thread with `enqueue`/`enqueueAsync`/`enqueueSync`), `ElvThreadPool.hpp`, `ElvAsyncExecutor.hpp` (executor concept), `ElvException.hpp`, `ElvUtilGlobals.hpp` (API visibility macros, `DEFINE_PTR`/`DEFINE_CLASS`/`DEFINE_STRUCT`) |

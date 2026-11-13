@@ -42,8 +42,10 @@ void testMemoryMappedTempDlopenNoClose(Euph::Io::TemporaryFileCreationMode mode 
 void testMemoryMappedTempDlopenClose(Euph::Io::TemporaryFileCreationMode mode = Euph::Io::TemporaryFileCreationMode::MKSTEMP);
 /** @brief Documents the testConfigFile declaration. */
 void testConfigFile();
-/** @brief Documents the testGlobalConfigFile declaration. */
-void testGlobalConfigFile();
+/** @brief Exercises the in-memory configuration representation. */
+void testConfiguration();
+/** @brief Exercises explicit PMR arena initialization and allocation. */
+void testMemoryArenas();
 /** @brief Documents the testInterpolationFloat declaration. */
 void testInterpolationFloat();
 /** @brief Documents the testInterpolationFixed declaration. */

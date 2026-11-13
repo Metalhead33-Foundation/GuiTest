@@ -19,9 +19,7 @@ LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:Test ./Test/MyGameApp
 ```
 
 The sibling shared libraries are not found through an rpath, so the `LD_LIBRARY_PATH`
-prefix is required. The working directory matters: `main()` opens `hello.ini` from the
-current directory (the open failure is not checked) and several tests use absolute
-`/tmp` paths.
+prefix is required. Several tests use absolute `/tmp` paths.
 
 ## What `main()` currently runs
 
@@ -32,6 +30,7 @@ current directory (the open failure is not checked) and several tests use absolu
 | `testAsyncIo()` | Elvavena `Async<ThreadPool>`: read/write/seek/size/flush, `*Then` callbacks, cancellation, error propagation |
 | `testTGA()` | Euphemy TGA encoder: renders a 256x256 test image to `/tmp/testImg.tga` |
 | `testPNG()` | Euphemy PNG encoder: renders a 256x256 test image to `/tmp/testImg.png` |
+| `testMemoryArenas()` | Euphemy `MemoryManager`: default-resource fallback, explicit initialization, idempotence, over-aligned allocation and a PMR vector round-trip |
 | `testFontParser()` | Lotte `FontDataStream >> FontFace`; reads the hardcoded path `/home/legacy/vinque.bin`, which must be a FontPacker `WODF` file |
 
 `testTGA()` and `testPNG()` only write files; they do not decode and compare them.
@@ -46,7 +45,7 @@ aborts with `Unsupported PreprocessedFontFace magic` if the file is missing or i
 `testEncryptionWithMaps`, `testEncryptionWithLargeData`,
 `testCompressionAndEncryptionWithMaps`, `testCompressionAndEncryptionWithLargeData`,
 `testMemoryMapped`, `testMemoryMappedTemp`, `testMemoryMappedTempDlopenNoClose`,
-`testMemoryMappedTempDlopenClose`, `testConfigFile`, `testGlobalConfigFile`,
+`testMemoryMappedTempDlopenClose`, `testConfigFile`, `testConfiguration`,
 `testInterpolationFloat`, `testInterpolationFixed`.
 
 ## TODOs and known gaps
@@ -62,5 +61,3 @@ aborts with `Unsupported PreprocessedFontFace magic` if the file is missing or i
       Euphemy image decoders.
 - [ ] Turn failures into a clean non-zero exit with a diagnostic. Today the exception
       escapes `main()` and the process terminates via `std::terminate` (SIGABRT).
-- [ ] Remove or update the `GLOBAL_CONFIGURATION` bootstrap in `main()` once a real
-      config fixture exists.

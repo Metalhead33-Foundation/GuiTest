@@ -1,6 +1,7 @@
 #include "test.hpp"
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <Elvavena/Util/ElvHeapArray.hpp>
 #include <Elvavena/Util/ElvChunkyArray.hpp>
 #include <Elvavena/Util/ElvIntegralIterator.hpp>
@@ -23,7 +24,7 @@
 #include <Elvavena/Util/ElvDynamicLib.hpp>
 #include <Euphemy/Config/EuphConfiguration.hpp>
 #include <fstream>
-#include <Euphemy/Config/GlobalConfig.hpp>
+#include <Euphemy/Memory/EuphMemory.hpp>
 #include <Elvavena/Util/ElvInterpolation.hpp>
 #include <Elvavena/Util/ElvFixedPoint.hpp>
 #include <Euphemy/Media/Image/EuphTGA.hpp>
@@ -1110,9 +1111,10 @@ void testConfigFile()
 	Euph::Conf::Configuration config(ifs);
 	std::cout << config;
 }
-void testGlobalConfigFile()
+void testConfiguration()
 {
-	std::cout << GLOBAL_CONFIGURATION;
+	Euph::Conf::Configuration config;
+	std::cout << config;
 }
 
 typedef Elv::Util::AlexandrescuAllocatorAdapter<Elv::Util::StaticBitmapAllocator<32,1024>,int> IntAllocator;
@@ -1200,6 +1202,39 @@ void testPNG()
 		Euph::Io::File dllFile("/tmp/testImg.png", Elv::Io::Mode::WRITE);
 		Euph::Media::Image::PNG::encode(dllFile,decodeTarget,0.5f);
 	}
+}
+
+void testMemoryArenas()
+{
+	using namespace Euph::Memory;
+
+	requireCondition(&MemoryManager::resource(AllocatorSubsystem::AUDIO) == std::pmr::get_default_resource(),
+		"Uninitialized arena access should fall back to the default PMR resource");
+
+	PoolSizes sizes;
+	sizes.scratch = 1u << 20;
+	sizes.audio = 1u << 20;
+	sizes.video = 1u << 20;
+	sizes.script = 1u << 20;
+	requireCondition(MemoryManager::initialize(sizes), "Arena initialization should succeed");
+	requireCondition(MemoryManager::initialized(), "Arena manager should report initialized");
+	requireCondition(!MemoryManager::initialize(sizes), "A second initialization should be rejected");
+
+	auto& arena = MemoryManager::resource(AllocatorSubsystem::AUDIO);
+	requireCondition(&arena != std::pmr::get_default_resource(), "Initialized arena should expose its own resource");
+
+	void* overAligned = arena.allocate(64, 64);
+	requireCondition(reinterpret_cast<std::uintptr_t>(overAligned) % 64u == 0,
+		"Arena should honor over-aligned requests");
+	arena.deallocate(overAligned, 64, 64);
+
+	std::pmr::polymorphic_allocator<int> alloc(&arena);
+	std::pmr::vector<int> values(alloc);
+	for (int i = 0; i < 4096; ++i)
+		values.push_back(i);
+	requireCondition(values.size() == 4096, "PMR vector should grow through the arena");
+	requireCondition(values.front() == 0 && values.back() == 4095, "PMR vector contents should round-trip");
+	std::cout << "Memory arena tests passed" << std::endl;
 }
 
 void testFontParser()

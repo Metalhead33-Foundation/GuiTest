@@ -9,7 +9,11 @@
  * and backend implementations that include this module.
  */
 #include <Elvavena/Util/ElvAllocatorBasic.hpp>
+#include <cstdint>
+#include <limits>
 #include <memory_resource>
+#include <new>
+#include <utility>
 namespace Elv {
 namespace Util {
 
@@ -19,46 +23,89 @@ namespace Util {
  * This class implements the `std::pmr::memory_resource` interface using a custom allocator.
  * The allocator must satisfy the requirements of Alexandrescu's allocator.
  *
+ * The underlying allocator only exposes block-granularity allocation, so this
+ * resource over-allocates and stores an `AllocationHeader` in front of every
+ * returned pointer. That header records the original block pointer and its
+ * actual size, which lets the resource honor arbitrary `std::pmr` alignment
+ * requests and return the correct block to the allocator on deallocation.
+ * The cost is one small header per allocation; use this resource for chunky,
+ * arena-style allocations rather than for many tiny objects.
+ *
  * @tparam Alloc The allocator type that must conform to Alexandrescu's allocator requirements.
  */
 template <class Alloc>
 	requires AlexandrescuAllocator<Alloc>
-class AlexandrescsuResource : public std::pmr::memory_resource {
+class AlexandrescuResource : public std::pmr::memory_resource {
 private:
 	/// The allocator instance used for memory allocation and deallocation.
 	Alloc alloc;
 
 	/**
-	 * @brief Allocates memory of a specified size and alignment.
-	 *
-	 * This method overrides the `do_allocate` method from `std::pmr::memory_resource`.
-	 * The alignment parameter is ignored in this implementation.
-	 *
-	 * @param __bytes The number of bytes to allocate.
-	 * @param __alignment The required alignment of the allocated memory (ignored).
-	 * @return A pointer to the allocated memory.
+	 * @brief Bookkeeping stored immediately before every returned allocation.
 	 */
-	void* do_allocate(std::size_t __bytes, std::size_t __alignment) override
+	struct AllocationHeader {
+		void* base;       ///< Pointer returned by the underlying allocator.
+		std::size_t size; ///< Actual block size returned by the underlying allocator.
+	};
+
+	/**
+	 * @brief Aligns an address up to the requested power-of-two alignment.
+	 * @param value Address to align.
+	 * @param alignment Required alignment; must be a power of two.
+	 * @return The aligned address.
+	 */
+	static std::uintptr_t alignUp(std::uintptr_t value, std::size_t alignment) noexcept
 	{
-		(void)__alignment; // Ignore alignment
-		Blk block = alloc.allocateBlock(__bytes);
-		return block.ptr;
+		return (value + alignment - 1) & ~(static_cast<std::uintptr_t>(alignment) - 1);
 	}
 
 	/**
-	 * @brief Deallocates memory previously allocated by this resource.
+	 * @brief Allocates memory with the requested size and alignment.
 	 *
-	 * This method overrides the `do_deallocate` method from `std::pmr::memory_resource`.
-	 * The alignment parameter is ignored in this implementation.
+	 * @param __bytes Number of bytes requested by the PMR container.
+	 * @param __alignment Required alignment of the returned pointer.
+	 * @return A pointer with the requested alignment.
+	 * @throws std::bad_alloc When the request overflows or the underlying allocator cannot satisfy it.
+	 */
+	void* do_allocate(std::size_t __bytes, std::size_t __alignment) override
+	{
+		const std::size_t alignment = __alignment != 0 ? __alignment : alignof(void*);
+		if (__bytes > std::numeric_limits<std::size_t>::max() - alignment - sizeof(AllocationHeader))
+			throw std::bad_alloc();
+
+		const std::size_t total = __bytes + alignment + sizeof(AllocationHeader);
+		Blk block = alloc.allocateBlock(total);
+		if (block.ptr == nullptr)
+			throw std::bad_alloc();
+
+		const std::uintptr_t start = reinterpret_cast<std::uintptr_t>(block.ptr) + sizeof(AllocationHeader);
+		const std::uintptr_t aligned = alignUp(start, alignment);
+		AllocationHeader* header = reinterpret_cast<AllocationHeader*>(aligned - sizeof(AllocationHeader));
+		header->base = block.ptr;
+		header->size = block.size;
+		return reinterpret_cast<void*>(aligned);
+	}
+
+	/**
+	 * @brief Deallocates memory previously returned by this resource.
 	 *
-	 * @param __p A pointer to the memory to be deallocated.
-	 * @param __bytes The size of the memory block to be deallocated.
-	 * @param __alignment The alignment of the memory block (ignored).
+	 * The original base pointer and block size are read from the allocation
+	 * header, so the caller-supplied size and alignment are not used.
+	 *
+	 * @param __p A pointer previously returned by @ref do_allocate.
+	 * @param __bytes Caller-reported size (unused).
+	 * @param __alignment Caller-reported alignment (unused).
 	 */
 	void do_deallocate(void* __p, std::size_t __bytes, std::size_t __alignment) override
 	{
-		(void)__alignment; // Ignore alignment
-		Blk block { __p, __bytes };
+		(void)__bytes;
+		(void)__alignment;
+		if (__p == nullptr)
+			return;
+
+		const AllocationHeader* header = reinterpret_cast<const AllocationHeader*>(
+			reinterpret_cast<const char*>(__p) - sizeof(AllocationHeader));
+		Blk block { header->base, header->size };
 		alloc.deallocateBlock(block);
 	}
 
@@ -66,7 +113,7 @@ private:
 	 * @brief Checks if this resource is equal to another memory resource.
 	 *
 	 * This method overrides the `do_is_equal` method from `std::pmr::memory_resource`.
-	 * Two `AlexandrescsuResource` instances are considered equal if they are the same object.
+	 * Two `AlexandrescuResource` instances are considered equal if they are the same object.
 	 *
 	 * @param __other The memory resource to compare with.
 	 * @return `true` if the resources are the same object, `false` otherwise.
@@ -78,7 +125,7 @@ private:
 
 public:
 	/**
-	 * @brief Constructs an `AlexandrescsuResource` with the specified allocator arguments.
+	 * @brief Constructs an `AlexandrescuResource` with the specified allocator arguments.
 	 *
 	 * This constructor forwards the provided arguments to the allocator's constructor.
 	 *
@@ -86,11 +133,16 @@ public:
 	 * @param args The arguments to be forwarded to the allocator.
 	 */
 	template<class... Args>
-	AlexandrescsuResource(Args&&... args)
+	AlexandrescuResource(Args&&... args)
 		: alloc(std::forward<Args>(args)...)
 	{
 	}
 };
+
+/** @brief Backwards-compatible alias for the older misspelled type name. */
+template <class Alloc>
+	requires AlexandrescuAllocator<Alloc>
+using AlexandrescsuResource = AlexandrescuResource<Alloc>;
 
 }
 }

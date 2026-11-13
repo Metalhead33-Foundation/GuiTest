@@ -1,8 +1,8 @@
 # Euphemy
 
 Euphemy is the media and platform layer of MhLib. It builds on Elvavena and provides
-concrete I/O devices, image and audio codecs, the INI-style configuration format, the
-process-wide memory manager, and the CPU-side asset streaming runtime.
+concrete I/O devices, image and audio codecs, the INI-style configuration format, an
+optional set of PMR arenas, and the CPU-side asset streaming runtime.
 
 **Status: implemented, with a few known gaps.** All subsystems below have working code
 and compiled translation units. The gaps are listed at the end of this file.
@@ -70,14 +70,19 @@ and compiled translation units. The gaps are listed at the end of this file.
 |---|---|
 | `EuphConfigurationElement.hpp` | `SizedString` (shared string pool), `ConfigurationElementType`, `ConfigurationElement` |
 | `EuphConfiguration.hpp` | `ConfigurationSection` and `Configuration` (sectioned `key=value` text, parse from `std::istream`/`std::string`, typed get/set, stream output) |
-| `GlobalConfig.hpp` | `extern GLOBAL_CONFIGURATION` - process-wide configuration instance |
 | `EuphLib.hpp` | `MH_EUPH_API` export macro |
 
-### `Memory/` - global allocator manager
+### `Memory/` - optional PMR arenas
 
 | Header | Contents |
 |---|---|
-| `EuphMemory.hpp` / `.cpp` | `AllocatorSubsystem` (`SCRATCH`, `AUDIO`, `VIDEO`, `SCRIPT`), `MemoryManager` singleton, `MemoryManagerSubsystem<subsystem>` adapter over Elvavena's `FreelistMemoryManager` |
+| `EuphMemory.hpp` / `.cpp` | `AllocatorSubsystem` (`SCRATCH`, `AUDIO`, `VIDEO`, `SCRIPT`), `PoolSizes` defaults, and `MemoryManager`: explicit `initialize(PoolSizes)` / `initialize(Configuration&)`, `resource(AllocatorSubsystem)` returning a `std::pmr::memory_resource`, and a `std::pmr::get_default_resource()` fallback until initialized |
+
+The arenas are opt-in. Nothing is allocated until `MemoryManager::initialize` is
+called, there is no global configuration symbol, and the default pool sizes total
+roughly 512 MiB, so callers should pass a `PoolSizes` value suited to their workload.
+The resources are backed by `Elv::Util::FreelistMemoryManager` and bridged into PMR
+through `Elv::Util::AlexandrescuResource`.
 
 ### `Asset/` - CPU-side asset streaming runtime
 
@@ -101,5 +106,8 @@ implemented by Lotte's `GpuAssetStreamer`.
       `X11`, `SDL2`, `SDL2_image`, `freetype`, `snappy`, `glslang`, `SPIRV`,
       `spirv-cross-*` and `yaml-cpp`, which no current Euphemy source includes. This is
       stale build metadata and should be pruned.
+- [ ] The `MemoryManager` arenas are optional and currently unused by the rest of the
+      tree. Wire them into a concrete consumer (asset streaming payloads or per-frame
+      scratch) before treating them as production code.
 - [ ] There is no direct test for most codecs or the asset scheduler beyond the
       TGA/PNG and asset-runtime tests in the Test app.

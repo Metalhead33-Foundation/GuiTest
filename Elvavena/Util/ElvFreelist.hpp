@@ -9,14 +9,18 @@
  * and backend implementations that include this module.
  */
 #include <Elvavena/Util/ElvAllocatorBasic.hpp>
+#include <algorithm>
 #include <cassert>
-#include <vector>
-#include <span>
-#include <stdexcept>
+#include <cstdint>
+#include <cstdlib>
 #include <initializer_list>
 #include <iostream>
-#include <mutex>
 #include <memory>
+#include <mutex>
+#include <new>
+#include <span>
+#include <stdexcept>
+#include <vector>
 namespace Elv {
 namespace Util {
 /**
@@ -660,7 +664,7 @@ private:
 	 * @var memoryBlock
 	 * @brief Pointer to the contiguous block of memory managed by this instance.
 	 */
-	void* memoryBlock;
+	void* memoryBlock = nullptr;
 
 	/**
 	 * @var allocators
@@ -674,6 +678,69 @@ private:
 	 */
 	std::mutex allocMutex;
 
+	/** @brief Alignment guaranteed for every subsystem data region. */
+	static constexpr std::size_t dataAlignment = alignof(std::max_align_t);
+
+	/**
+	 * @brief Rounds a size or address up to @ref dataAlignment.
+	 * @param value Size or address to round.
+	 * @return The rounded value.
+	 */
+	static std::size_t alignUpSize(std::size_t value) noexcept {
+		return (value + dataAlignment - 1) & ~(dataAlignment - 1);
+	}
+
+	/**
+	 * @brief Allocates the arena and constructs one allocator per subsystem.
+	 *
+	 * The block is allocated with `std::aligned_alloc`, and every subsystem's
+	 * data region is aligned to `alignof(std::max_align_t)`. That precondition
+	 * matters: `std::aligned_alloc` requires the size to be a multiple of the
+	 * alignment, and `ContiguousFreeListAllocator` only rounds block sizes, not
+	 * addresses.
+	 *
+	 * @param subsystemSizes Sizes of the subsystem pools in bytes.
+	 * @throws std::bad_alloc If the arena cannot be allocated or a region cannot be aligned.
+	 */
+	void build(std::span<const std::size_t> subsystemSizes) {
+		std::size_t totalSize = 0;
+		for (std::size_t size : subsystemSizes)
+			totalSize += alignUpSize(sizeof(ContiguousFreeListAllocator)) + alignUpSize(size) + dataAlignment;
+		totalSize = alignUpSize(totalSize);
+
+		memoryBlock = std::aligned_alloc(dataAlignment, totalSize);
+		if (!memoryBlock)
+			throw std::bad_alloc();
+
+		char* const end = static_cast<char*>(memoryBlock) + totalSize;
+		char* currentPtr = static_cast<char*>(memoryBlock);
+		try {
+			for (std::size_t size : subsystemSizes) {
+				std::size_t space = static_cast<std::size_t>(end - currentPtr);
+				void* allocatorStorage = std::align(alignof(ContiguousFreeListAllocator),
+						sizeof(ContiguousFreeListAllocator), reinterpret_cast<void*&>(currentPtr), space);
+				if (!allocatorStorage)
+					throw std::bad_alloc();
+
+				char* dataPtr = static_cast<char*>(allocatorStorage) + sizeof(ContiguousFreeListAllocator);
+				dataPtr = reinterpret_cast<char*>(alignUpSize(reinterpret_cast<std::uintptr_t>(dataPtr)));
+				if (dataPtr > end || static_cast<std::size_t>(end - dataPtr) < size)
+					throw std::bad_alloc();
+
+				ContiguousFreeListAllocator* allocator = new (allocatorStorage) ContiguousFreeListAllocator(size, dataPtr);
+				allocators.push_back(allocator);
+				currentPtr = dataPtr + size;
+			}
+		} catch (...) {
+			for (ContiguousFreeListAllocator* allocator : allocators)
+				allocator->~ContiguousFreeListAllocator();
+			allocators.clear();
+			std::free(memoryBlock);
+			memoryBlock = nullptr;
+			throw;
+		}
+	}
+
 public:
 	/**
 	 * @brief Constructor initializing the memory manager with a span of subsystem sizes.
@@ -684,30 +751,7 @@ public:
 	 * for each subsystem, ensuring proper alignment.
 	 */
 	FreelistMemoryManager(const std::span<const std::size_t>& subsystemSizes) {
-		// Calculate total size with alignment
-		std::size_t totalSize = 0;
-		for (std::size_t size : subsystemSizes) {
-			totalSize += sizeof(ContiguousFreeListAllocator) + size;
-		}
-
-		memoryBlock = std::aligned_alloc(alignof(ContiguousFreeListAllocator), totalSize);
-		if (!memoryBlock) {
-			throw std::bad_alloc();
-		}
-
-		char* currentPtr = static_cast<char*>(memoryBlock);
-		for (std::size_t size : subsystemSizes) {
-			// Align the allocator's address
-			std::size_t space = totalSize - (currentPtr - static_cast<char*>(memoryBlock));
-			void* alignedAllocatorPtr = std::align(alignof(ContiguousFreeListAllocator), sizeof(ContiguousFreeListAllocator), reinterpret_cast<void*&>(currentPtr), space);
-			if (!alignedAllocatorPtr) {
-				throw std::bad_alloc(); // Alignment failed
-			}
-
-			ContiguousFreeListAllocator* allocator = new (alignedAllocatorPtr) ContiguousFreeListAllocator(size, currentPtr + sizeof(ContiguousFreeListAllocator));
-			allocators.push_back(allocator);
-			currentPtr = static_cast<char*>(alignedAllocatorPtr) + sizeof(ContiguousFreeListAllocator) + size;
-		}
+		build(subsystemSizes);
 	}
 
 	/**
@@ -718,30 +762,7 @@ public:
 	 * Identical to the span constructor, provided for convenience when subsystem sizes are known at compile-time.
 	 */
 	FreelistMemoryManager(const std::initializer_list<std::size_t>& subsystemSizes) {
-		// Calculate total size with alignment
-		std::size_t totalSize = 0;
-		for (std::size_t size : subsystemSizes) {
-			totalSize += sizeof(ContiguousFreeListAllocator) + size;
-		}
-
-		memoryBlock = std::aligned_alloc(alignof(ContiguousFreeListAllocator), totalSize);
-		if (!memoryBlock) {
-			throw std::bad_alloc();
-		}
-
-		char* currentPtr = static_cast<char*>(memoryBlock);
-		for (std::size_t size : subsystemSizes) {
-			// Align the allocator's address
-			std::size_t space = totalSize - (currentPtr - static_cast<char*>(memoryBlock));
-			void* alignedAllocatorPtr = std::align(alignof(ContiguousFreeListAllocator), sizeof(ContiguousFreeListAllocator), reinterpret_cast<void*&>(currentPtr), space);
-			if (!alignedAllocatorPtr) {
-				throw std::bad_alloc(); // Alignment failed
-			}
-
-			ContiguousFreeListAllocator* allocator = new (alignedAllocatorPtr) ContiguousFreeListAllocator(size, currentPtr + sizeof(ContiguousFreeListAllocator));
-			allocators.push_back(allocator);
-			currentPtr = static_cast<char*>(alignedAllocatorPtr) + sizeof(ContiguousFreeListAllocator) + size;
-		}
+		build(std::span<const std::size_t>(subsystemSizes.begin(), subsystemSizes.size()));
 	}
 
 	/**
