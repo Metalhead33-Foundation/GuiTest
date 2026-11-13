@@ -10,6 +10,7 @@ int main(void)
 	testTGA();
 	testPNG();
 	testMemoryArenas();
+	testFontRoundTrip();
 	testFontParser();
 	return 0;
 }

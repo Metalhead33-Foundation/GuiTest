@@ -46,6 +46,8 @@ void testConfigFile();
 void testConfiguration();
 /** @brief Exercises explicit PMR arena initialization and allocation. */
 void testMemoryArenas();
+/** @brief Round-trips the FontPacker WODF and WODI containers through DataStream. */
+void testFontRoundTrip();
 /** @brief Documents the testInterpolationFloat declaration. */
 void testInterpolationFloat();
 /** @brief Documents the testInterpolationFixed declaration. */

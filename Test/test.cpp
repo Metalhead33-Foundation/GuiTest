@@ -41,6 +41,7 @@
 #include <thread>
 #include <chrono>
 #include <Lotte/Text/LteFontFace.hpp>
+#include <Lotte/VectorGraphic/LteStoredVectorImage.hpp>
 
 template<class T>
 struct Mallocator
@@ -1235,6 +1236,117 @@ void testMemoryArenas()
 	requireCondition(values.size() == 4096, "PMR vector should grow through the arena");
 	requireCondition(values.front() == 0 && values.back() == 4095, "PMR vector contents should round-trip");
 	std::cout << "Memory arena tests passed" << std::endl;
+}
+
+void testFontRoundTrip()
+{
+	using namespace Lotte::Text;
+
+	PreprocessedFontFace face;
+	face.familyName = "RoundTrip";
+	face.type = SDFType::MSDF;
+	face.distType = DistanceType::Euclidean;
+	face.bitmapSize = 32;
+	face.bitmapLogicalSize = 24;
+	face.bitmapPadding = 2;
+	face.hasVert = true;
+	face.imageFormat = { 'P', 'N', 'G', '\0', '\0', '\0', '\0', '\0' };
+	face.ascender = 1.5f;
+	face.descender = -0.5f;
+	face.faceHeight = 2.0f;
+	face.maxAdvance = 3.0f;
+	face.unitsPerEm = 1000;
+	face.kerning[65][66] = glm::fvec2(1.0f, 2.0f);
+
+	StoredCharacter glyph;
+	glyph.valid = true;
+	glyph.width = 8;
+	glyph.height = 9;
+	glyph.bearingX = -1;
+	glyph.bearingY = 2;
+	glyph.advanceX = 7;
+	glyph.advanceY = 10;
+	glyph.metricWidth = 8.0f;
+	glyph.metricHeight = 9.0f;
+	glyph.horiBearingX = -1.0f;
+	glyph.horiBearingY = 2.0f;
+	glyph.horiAdvance = 7.0f;
+	glyph.vertBearingX = 0.5f;
+	glyph.vertBearingY = 1.0f;
+	glyph.vertAdvance = 10.0f;
+	glyph.sdf = { std::byte { 0x01 }, std::byte { 0x02 }, std::byte { 0x03 } };
+	face.glyphs[65] = glyph;
+
+	Euph::Io::MemoryDevice fontDevice(Elv::Io::Mode::READ_WRITE);
+	FontDataStream<Euph::Io::MemoryDevice> fontStream(fontDevice);
+	fontStream << face;
+	fontDevice.seek(0, Elv::Io::SeekOrigin::SET);
+
+	PreprocessedFontFace decodedFace;
+	fontStream >> decodedFace;
+	requireCondition(decodedFace.familyName == face.familyName, "Font family name should round-trip");
+	requireCondition(decodedFace.type == face.type && decodedFace.distType == face.distType,
+		"Font SDF and distance types should round-trip");
+	requireCondition(decodedFace.bitmapSize == face.bitmapSize
+			&& decodedFace.bitmapLogicalSize == face.bitmapLogicalSize
+			&& decodedFace.bitmapPadding == face.bitmapPadding,
+		"Font bitmap metadata should round-trip");
+	requireCondition(decodedFace.unitsPerEm == face.unitsPerEm, "Font unitsPerEm should round-trip");
+	requireCondition(decodedFace.glyphs.size() == 1 && decodedFace.glyphs.count(65) == 1,
+		"Font glyph TOC should round-trip");
+	const StoredCharacter& decodedGlyph = decodedFace.glyphs.at(65);
+	requireCondition(decodedGlyph.valid && decodedGlyph.width == glyph.width
+			&& decodedGlyph.height == glyph.height && decodedGlyph.sdf == glyph.sdf,
+		"Font glyph payload should round-trip");
+	requireCondition(decodedFace.kerning.at(65).at(66) == glm::fvec2(1.0f, 2.0f),
+		"Font kerning map should round-trip");
+
+	using VectorImage = Lotte::VectorGraphic::StoredVectorImage;
+	using VectorMipmap = Lotte::VectorGraphic::Mipmap;
+	VectorImage image;
+	image.processingSize = 64;
+	image.actualSize = 48;
+	image.padding = 4;
+	image.logicalX = 1.0f;
+	image.logicalY = 2.0f;
+	image.logicalWidth = 3.0f;
+	image.logicalHeight = 4.0f;
+	image.aspectRatio = 0.75f;
+	image.minX = -1.0f;
+	image.maxX = 1.0f;
+	image.minY = -2.0f;
+	image.maxY = 2.0f;
+	image.distanceRangeX = 4.0f;
+	image.distanceRangeY = 8.0f;
+	image.encodingFlags = static_cast<std::uint32_t>(Lotte::VectorGraphic::EncodingFlag::Inverted);
+	image.midpointAdjustment = 0.5f;
+	image.type = SDFType::SDF;
+	image.distType = DistanceType::Manhattan;
+	VectorMipmap mipmap;
+	mipmap.data = { std::byte { 0xAA }, std::byte { 0xBB } };
+	image.mipmaps.push_back(std::move(mipmap));
+
+	Euph::Io::MemoryDevice imageDevice(Elv::Io::Mode::READ_WRITE);
+	Lotte::VectorGraphic::VectorGraphicDataStream<Euph::Io::MemoryDevice> imageStream(imageDevice);
+	imageStream << image;
+	imageDevice.seek(0, Elv::Io::SeekOrigin::SET);
+
+	VectorImage decodedImage;
+	imageStream >> decodedImage;
+	requireCondition(decodedImage.processingSize == image.processingSize
+			&& decodedImage.actualSize == image.actualSize
+			&& decodedImage.padding == image.padding,
+		"Vector-image sizes should round-trip");
+	requireCondition(decodedImage.logicalX == image.logicalX
+			&& decodedImage.logicalWidth == image.logicalWidth
+			&& decodedImage.aspectRatio == image.aspectRatio,
+		"Vector-image logical bounds should round-trip");
+	requireCondition(decodedImage.type == image.type && decodedImage.distType == image.distType,
+		"Vector-image SDF metadata should round-trip");
+	requireCondition(decodedImage.mipmaps.size() == 1
+			&& decodedImage.mipmaps.front().data == image.mipmaps.front().data,
+		"Vector-image mipmaps should round-trip");
+	std::cout << "Font/vector-image round-trip tests passed" << std::endl;
 }
 
 void testFontParser()

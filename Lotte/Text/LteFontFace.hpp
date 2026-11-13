@@ -3,6 +3,8 @@
 /**
  * @file LteFontFace.hpp
  * @brief Declares FontPacker-compatible preprocessed font data for Lotte.
+ *
+ * @see https://github.com/Metalhead33-Foundation/FontPacker/blob/master/BINARY_FORMAT.md
  */
 
 #include <Lotte/LotteLib.hpp>
@@ -452,11 +454,10 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Pr
 		<< right.unitsPerEm;
 
 	const std::uint32_t charCount = Detail::checkedUint32Size(right.glyphs.size(), "glyph count");
-	left << charCount;
+	std::vector<GlyphTOCEntry> placeholders(charCount);
 
 	const long tocPosition = left.device.tell();
-	for (std::uint32_t i = 0; i < charCount; ++i)
-		left << GlyphTOCEntry {};
+	left << placeholders;
 
 	left << right.kerning;
 
@@ -469,8 +470,7 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Pr
 
 	const long endPosition = left.device.tell();
 	Detail::seekAbsolute(left.device, tocPosition, "glyph table of contents");
-	for (const GlyphTOCEntry& entry : toc)
-		left << entry;
+	left << toc;
 	Detail::seekAbsolute(left.device, endPosition, "end of font face");
 	return left;
 }
@@ -512,12 +512,8 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, Preproce
 		>> decoded.maxAdvance
 		>> decoded.unitsPerEm;
 
-	std::uint32_t charCount = 0;
-	left >> charCount;
-
-	std::vector<GlyphTOCEntry> toc(charCount);
-	for (GlyphTOCEntry& entry : toc)
-		left >> entry;
+	std::vector<GlyphTOCEntry> toc;
+	left >> toc;
 
 	left >> decoded.kerning;
 

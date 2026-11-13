@@ -30,7 +30,7 @@ code in headers.
 | `ElvIoDevice.hpp` | `Mode`, `SeekOrigin`, the `DeviceLike` concept, the abstract `Device` (read/write/seek/tell/size/eof/flush/isValid/getMode), and the `pDevice`/`sDevice`/`uDevice` aliases |
 | `ElvIoDeviceProxy.hpp` | `BufferedDeviceProxy`, `BufferedReadDeviceProxy`, `BufferedWriteDeviceProxy` |
 | `ElvIoSystem.hpp` | Abstract `System` filesystem interface (open, exists, enumerate, mkdir, remove, separator, ...) |
-| `ElvDataStream.hpp` | Endian-templated `DataStream<IoType>` with `operator<<`/`operator>>` for scalars, strings, STL containers, `std::optional`/`std::monostate`, plus bounds-checked ULEB128/SLEB128 readers (Wasm-style byte-length and overflow limits on decode) |
+| `ElvDataStream.hpp` | Endian-templated `DataStream<IoType>` with `operator<<`/`operator>>` for scalars, strings (null-inclusive `uint32` length, matching FontPacker), STL containers/maps (`uint32` counts), `std::optional`/`std::monostate`, plus bounds-checked ULEB128/SLEB128 readers (Wasm-style byte-length and overflow limits on decode) |
 | `ElvIoAsync.hpp` | `AsyncResult<T>`, `AsyncOperationCanceled`, and the `Async<Executor>` adapter (`read`, `write`, `seek`, `size`, `flush`, `readAll`, `*Then` callback variants, cancellation via `std::stop_token`) |
 
 ### `Util/` - containers, allocators, algorithms and runtime helpers

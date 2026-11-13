@@ -3,6 +3,8 @@
 /**
  * @file LteStoredVectorImage.hpp
  * @brief Declares FontPacker-compatible preprocessed vector-image data for Lotte.
+ *
+ * @see https://github.com/Metalhead33-Foundation/FontPacker/blob/master/BINARY_FORMAT.md
  */
 
 #include <Lotte/LotteLib.hpp>

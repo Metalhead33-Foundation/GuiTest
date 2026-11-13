@@ -32,6 +32,18 @@ to Lotte; use the top-level include path.
 | `Text/LteFontFace.hpp` | FontPacker-compatible `WODF` font-face format: SDF/MSDF/MSDFA channel types, distance metrics, glyph metrics, kerning tables, absolute-offset TOC, and both importer (`operator>>`) and exporter (`operator<<`) over `Elv::Io::DataStream` |
 | `VectorGraphic/LteStoredVectorImage.hpp` | FontPacker-compatible `WODI` stored-vector-image format with mip levels, encoding flags and stream import/export |
 
+### FontPacker binary formats
+
+`Text/LteFontFace.hpp` implements the FontPacker `WODF` preprocessed-font container and
+`VectorGraphic/LteStoredVectorImage.hpp` implements the standalone `WODI` vector-image
+container. Both use `Elv::Io::DataStream` with big-endian byte order, including the
+null-inclusive UTF-8 string encoding and `uint32`-sized containers, and follow the
+upstream specification:
+
+<https://github.com/Metalhead33-Foundation/FontPacker/blob/master/BINARY_FORMAT.md>
+
+The CBOR map variants described by that specification are not implemented.
+
 ### Typical asset flow
 
 1. Euphemy's `AssetCatalog`/`ResourceRegistry`/`StreamingScheduler` load and decode an
@@ -52,8 +64,13 @@ to Lotte; use the top-level include path.
 - [ ] No 3D rendering features (scene graph, lighting, shadows, post-processing).
 - [ ] No Kaldi `Swapchain`/`RenderPass` RAII proxies in `LteKld.hpp`; those commands are
       available only through the raw Kaldi opcode vocabulary.
-- [ ] No tests beyond `testFontParser()` in the Test app; the GPU asset streamer is
-      exercised by `testGpuAssetStreamer()` but no renderer exists to consume it.
+- [ ] No renderer or GUI tests. The font and vector-image formats are covered by
+      `testFontParser()` and `testFontRoundTrip()` in the Test app, but no renderer
+      exists to consume them.
+- [ ] The CBOR map variants of the FontPacker specification are not implemented.
+- [ ] `KerningMap` and the glyph map are `std::unordered_map`s, so exported font files
+      are not byte-deterministic. Switch to ordered maps (or sort before writing) if
+      reproducible binaries are required.
 - [ ] Font/vector-image formats are read/written through `Elv::Io::DataStream`; there is
       no standalone file loader/saver wrapper in Lotte.
 

@@ -13,6 +13,8 @@
 #include <Elvavena/Util/ElvEndianness.hpp>
 #include <optional>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <variant>
 namespace Elv {
 namespace Io {
@@ -940,6 +942,25 @@ struct DataStream {
 		return *this;
 	}
 #endif
+
+	/**
+	 * @brief Operator to write a std::basic_string to the stream.
+	 *
+	 * Delegates to the `std::basic_string_view` overload. Without this
+	 * overload, `std::basic_string` satisfies `VectorLike` and would be written
+	 * as a raw byte container (no null terminator), while the matching reader
+	 * expects the string encoding.
+	 *
+	 * @tparam CharT Character type of the string.
+	 * @tparam Traits Traits class of the string.
+	 * @tparam Allocator Allocator type of the string.
+	 * @param data std::basic_string to be written.
+	 * @return Reference to the current DataStream instance.
+	 */
+	template<class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
+	inline DataStream& operator<<(const std::basic_string<CharT, Traits, Allocator>& data) {
+		return *this << std::basic_string_view<CharT, Traits>(data);
+	}
 
 	/**
 	 * @brief Operator to write a std::basic_string_view to the stream.

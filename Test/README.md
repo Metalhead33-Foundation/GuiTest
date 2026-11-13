@@ -31,6 +31,7 @@ prefix is required. Several tests use absolute `/tmp` paths.
 | `testTGA()` | Euphemy TGA encoder: renders a 256x256 test image to `/tmp/testImg.tga` |
 | `testPNG()` | Euphemy PNG encoder: renders a 256x256 test image to `/tmp/testImg.png` |
 | `testMemoryArenas()` | Euphemy `MemoryManager`: default-resource fallback, explicit initialization, idempotence, over-aligned allocation and a PMR vector round-trip |
+| `testFontRoundTrip()` | Lotte FontPacker `WODF` and `WODI` containers: write/read through `Elv::Io::DataStream`, including TOC, kerning, glyph payload and mipmaps |
 | `testFontParser()` | Lotte `FontDataStream >> FontFace`; reads the hardcoded path `/home/legacy/vinque.bin`, which must be a FontPacker `WODF` file |
 
 `testTGA()` and `testPNG()` only write files; they do not decode and compare them.
