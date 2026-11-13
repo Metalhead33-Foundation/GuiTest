@@ -12,7 +12,7 @@ LIBS += -lX11 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 \
         -lglslang -lSPIRV -lspirv-cross-core -lspirv-cross-glsl -lyaml-cpp
 
 INCLUDEPATH += $$PWD/..
-INCLUDEPATH += /usr/include/mozjs-115 /usr/include/nspr /usr/include/freetype2 .
+INCLUDEPATH += /usr/include/nspr /usr/include/freetype2 .
 
 # Link to sibling library
 LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
