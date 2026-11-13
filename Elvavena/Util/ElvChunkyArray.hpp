@@ -103,6 +103,7 @@ public:
 	/*!
 		\param size Initial size of the array (number of chunks).
 		\param countAsInitialized If true, initializes size with allocated elements.
+		\param args Additional arguments forwarded to the allocator constructor.
 	*/
 	template <typename... Args> UniqueChunkyArray(size_t size, bool countAsInitialized = false, Args&&... args) :
 		m_chunkCount(size),
@@ -369,6 +370,7 @@ private:
 			Constructor for the container.
 			\param size Initial number of chunks.
 			\param countAsInitialized Flag indicating if the array is initialized.
+			\param args Additional arguments forwarded to the allocator constructor.
 		*/
 		template <typename... Args> Container(size_t size, bool countAsInitialized = false, Args&&... args) :
 			m_chunkCount(size),
@@ -381,6 +383,7 @@ private:
 		}
 		/*!
 			Constructor for the container.
+			\param movAlloc Allocator instance moved into the container.
 			\param size Initial number of chunks.
 			\param countAsInitialized Flag indicating if the array is initialized.
 		*/
@@ -488,6 +491,7 @@ public:
 		Constructor for SharedChunkyArray.
 		\param size Initial number of chunks.
 		\param countAsInitialized Flag indicating if the array is initialized.
+		\param args Additional arguments forwarded to the allocator constructor.
 	*/
 	template<typename... Args> SharedChunkyArray(size_t size, bool countAsInitialized = false, Args&&... args) {
 		Alloc tmpAlloc(std::forward(args)...);

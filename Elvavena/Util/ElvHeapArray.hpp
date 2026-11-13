@@ -94,6 +94,7 @@ public:
 	 * Allocates memory for the specified number of elements and default-constructs each element.
 	 *
 	 * @param size The number of elements to allocate.
+	 * @param args Additional arguments forwarded to the allocator constructor.
 	 */
 	template <class... Args> UniqueHeapArray(size_t size, Args&&... args) : m_size(size), alloc(std::forward(args)...) {
 		m_data = alloc.allocate(size);
@@ -361,6 +362,7 @@ private:
 		/**
 		 * @brief Constructor for the internal container.
 		 * @param size The size of the array to allocate.
+		 * @param args Additional arguments forwarded to the allocator constructor.
 		 */
 		template <class... Args> Container(size_t size, Args&&... args) : m_size(size), m_refCount(1), alloc(std::forward(args)...) {
 			m_data = alloc.allocate(size);
@@ -372,6 +374,7 @@ private:
 		/**
 		 * @brief Constructor for the internal container.
 		 * @param size The size of the array to allocate.
+		 * @param allocMov Allocator instance moved into the container.
 		 */
 		Container(size_t size, Alloc&& allocMov) : m_size(size), m_refCount(1), alloc(std::move(allocMov)) {
 			m_data = alloc.allocate(size);
@@ -403,6 +406,7 @@ public:
 	/**
 	 * @brief Constructor for SharedHeapArray.
 	 * @param size The size of the array to allocate.
+	 * @param args Additional arguments forwarded to the allocator constructor.
 	 */
 	template<typename... Args> SharedHeapArray(size_t size, Args&&... args) {
 		Alloc tmpAlloc(std::forward(args)...);

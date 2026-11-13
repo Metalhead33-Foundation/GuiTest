@@ -113,7 +113,6 @@ private:
 
 public:
 	/**
-	 * @fn EventLoop
 	 * @brief Constructor, initializes the event loop and starts the dedicated thread.
 	 *
 	 * @param memory_resource Memory resource used for command and task

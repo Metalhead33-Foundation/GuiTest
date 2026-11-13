@@ -94,7 +94,6 @@ public:
 	/**
 	 * \brief Postfix increment operator moving to the next element.
 	 *
-	 * \param int (Unused, for syntax compliance)
 	 * \return Copy of the iterator before increment.
 	 */
 	continuous_iterator operator++(int) { continuous_iterator tmp = *this; ++(*this); return tmp; }
@@ -109,7 +108,6 @@ public:
 	/**
 	 * \brief Postfix decrement operator moving to the previous element.
 	 *
-	 * \param int (Unused, for syntax compliance)
 	 * \return Copy of the iterator before decrement.
 	 */
 	continuous_iterator operator--(int) { continuous_iterator tmp = *this; --(*this); return tmp; }

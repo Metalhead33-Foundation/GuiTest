@@ -5,8 +5,9 @@ pages:
     - doxygen -v
     - dot -V
   script:
+    - mkdir -p build
     - doxygen
-    - mv generated-docs/html public
+    - mv build/doxygen/html public
   artifacts:
     paths:
     - public

@@ -732,11 +732,9 @@ public:
 
 	/**
 	 * @brief Samples this indexed image as a texture using generic filtering.
-	 * @param pos Normalized texture coordinate in [0,1] space.
-	 * @param screenpos Screen-space pixel coordinate used by dithered modes.
-	 * @param colourKernel Output colour in kernel representation.
-	 * @param filteringType Filtering algorithm to apply.
-	 * @param wrap Wrapping mode for out-of-range coordinates.
+	 *
+	 * Forwards to the free-function sampler, which documents the parameter
+	 * meanings and filtering modes.
 	 */
 	void sampleTexture(const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) const {
 		Euph::Media::Image::sampleTexture(*this, pos, screenpos, colourKernel, filteringType, wrap);
@@ -760,16 +758,6 @@ public:
 	}
 };
 
-/**
- * @brief Samples an image using one of the supported texture filtering modes.
- * @tparam ImageType Type satisfying TextureTypeConcept.
- * @param image Source image object.
- * @param pos Normalized texture coordinate in [0,1] space.
- * @param screenpos Screen-space pixel coordinate used by dithered modes.
- * @param colourKernel Output colour in kernel representation.
- * @param filteringType Filtering mode selector.
- * @param wrap Wrapping mode for out-of-range coordinates.
- */
 template <TextureTypeConcept ImageType>
 inline void sampleTexture(const ImageType& image, const glm::fvec2& pos, const glm::uvec2& screenpos, glm::fvec4& colourKernel, TextureFiltering filteringType, Wrap wrap) {
 	const ImageDimensions& dims = image.getDimensions();
