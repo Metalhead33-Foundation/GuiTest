@@ -30,7 +30,7 @@ code in headers.
 | `ElvIoDevice.hpp` | `Mode`, `SeekOrigin`, the `DeviceLike` concept, the abstract `Device` (read/write/seek/tell/size/eof/flush/isValid/getMode), and the `pDevice`/`sDevice`/`uDevice` aliases |
 | `ElvIoDeviceProxy.hpp` | `BufferedDeviceProxy`, `BufferedReadDeviceProxy`, `BufferedWriteDeviceProxy` |
 | `ElvIoSystem.hpp` | Abstract `System` filesystem interface (open, exists, enumerate, mkdir, remove, separator, ...) |
-| `ElvDataStream.hpp` | Endian-templated `DataStream<IoType>` with `operator<<`/`operator>>` for scalars, strings, STL containers, `std::optional`/`std::monostate`, plus ULEB128/SLEB128 helpers |
+| `ElvDataStream.hpp` | Endian-templated `DataStream<IoType>` with `operator<<`/`operator>>` for scalars, strings, STL containers, `std::optional`/`std::monostate`, plus bounds-checked ULEB128/SLEB128 readers (Wasm-style byte-length and overflow limits on decode) |
 | `ElvIoAsync.hpp` | `AsyncResult<T>`, `AsyncOperationCanceled`, and the `Async<Executor>` adapter (`read`, `write`, `seek`, `size`, `flush`, `readAll`, `*Then` callback variants, cancellation via `std::stop_token`) |
 
 ### `Util/` - containers, allocators, algorithms and runtime helpers
@@ -41,6 +41,7 @@ code in headers.
 | Containers | `ElvBinaryTree.hpp`, `ElvContainerBasic.hpp`, `ElvDoubleBufferedVector.hpp`, `ElvStringhashMap.hpp`, `ElvThreadsafeContainer.hpp`, `ElvThreadsafeQueue.hpp`, `ElvObserv.hpp` (observer pattern) |
 | Algorithms / math | `ElvFixedPoint.hpp`, `ElvFixedPointMath.hpp`, `ElvInterpolation.hpp`, `ElvMathUtil.hpp`, `ElvNormDenorm.hpp`, `ElvDither.hpp`, `ElvEdgeFunction.hpp`, `ElvFuzzy.hpp` (fuzzy logic), `ElvSpanHelpers.hpp`, `ElvIntegralIterator.hpp`, `ElvContinuousIterator.hpp`, `ElvEndianness.hpp` |
 | Runtime / platform | `ElvDynamicLib.hpp` (`dlopen`/`LoadLibrary` wrapper), `ElvEventLoop.hpp` (single background command thread with `enqueue`/`enqueueAsync`/`enqueueSync`), `ElvThreadPool.hpp`, `ElvAsyncExecutor.hpp` (executor concept), `ElvException.hpp`, `ElvUtilGlobals.hpp` (API visibility macros, `DEFINE_PTR`/`DEFINE_CLASS`/`DEFINE_STRUCT`) |
+| RAII / scope cleanup | `ElvScopeGuard.hpp` (`ScopeGuard<Fn>`, `ScopeExitMode`, `makeScopeGuard`/`atScopeExit`, and the `ELV_SCOPE_EXIT` / `ELV_SCOPE_FAIL` / `ELV_SCOPE_SUCCESS` macros; failure/success modes use `std::uncaught_exceptions`), `ElvDeferStack.hpp` (`DeferStack`: fixed-capacity, non-allocating LIFO cleanup thunks in caller-owned storage; `defer`, LIFO `dismiss`, `runAll`) |
 | Third-party | `half.hpp` - vendored half-float implementation |
 
 ## TODOs and known gaps
@@ -63,3 +64,8 @@ limits of the current implementation:
       `ElvDither.hpp`, `ElvEdgeFunction.hpp`, `ElvFuzzy.hpp`, `ElvObserv.hpp`,
       `ElvStringhashMap.hpp`, `ElvThreadsafeContainer.hpp` and `ElvThreadsafeQueue.hpp`
       have no direct test in the Test app yet.
+- [ ] `ElvScopeGuard.hpp` and `ElvDeferStack.hpp` are newly merged and have no direct
+      test in the Test app yet. Their contracts to keep in mind: scope-guard callables
+      must not throw, `dismiss()`/`activate()` are the only state changes, and
+      `DeferStack` requires LIFO dismissal and never allocates (a full stack returns an
+      invalid token instead).

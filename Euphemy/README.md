@@ -96,10 +96,10 @@ implemented by Lotte's `GpuAssetStreamer`.
 - [ ] GIF and DDS are decode-only. There is no GIF or DDS encoder.
 - [ ] The asset runtime has no GPU knowledge by design; use Lotte's
       `Lotte/Asset/LteGpuAssetStreamer.hpp` for upload/eviction scheduling.
-- [ ] `Euphemy.pro` and `Euphemy.pri` still add the MozJS/NSPR include paths
-      (`/usr/include/mozjs-115`, `/usr/include/nspr`) even though the JavaScript engine
-      dependency was removed, and they link `X11`, `SDL2`, `SDL2_image`, `freetype`,
-      `snappy`, `glslang`, `SPIRV`, `spirv-cross-*` and `yaml-cpp`, which no current
-      Euphemy source includes. This is stale build metadata and should be pruned.
+- [ ] `Euphemy.pro` and `Euphemy.pri` still add the vestigial NSPR include path
+      (`/usr/include/nspr`) after the MozJS dependency was dropped, and they link
+      `X11`, `SDL2`, `SDL2_image`, `freetype`, `snappy`, `glslang`, `SPIRV`,
+      `spirv-cross-*` and `yaml-cpp`, which no current Euphemy source includes. This is
+      stale build metadata and should be pruned.
 - [ ] There is no direct test for most codecs or the asset scheduler beyond the
       TGA/PNG and asset-runtime tests in the Test app.

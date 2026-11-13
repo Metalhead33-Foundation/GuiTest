@@ -21,7 +21,7 @@ list, and the headers are the API reference.
 
 | Module | Status | What works today | Main remaining work |
 |---|---|---|---|
-| [Elvavena](Elvavena/README.md) | Implemented | Device abstraction, containers/allocators, `DataStream`, async I/O, event loop, thread pool, dynamic libraries | OS event-source integration for `EventLoop`; direct tests |
+| [Elvavena](Elvavena/README.md) | Implemented | Device abstraction, containers/allocators, `DataStream` with checked LEB128, scope guards/defer stack, async I/O, event loop, thread pool, dynamic libraries | OS event-source integration for `EventLoop`; direct tests |
 | [Euphemy](Euphemy/README.md) | Implemented, small gaps | File/memory/socket/temp devices, zstd + crypto proxies, PNG/JPEG/TGA/WebP encode+decode, GIF/DDS decode, sound files, module rendering, resampling, convolution, config, memory manager, CPU asset runtime | `BufferDevice::isValid()` stub; GIF/DDS encoders; prune stale build dependencies |
 | [Haruka](Haruka/README.md) | Partial | Pull-based `Playable` graph, mixer, matrix/ambisonic panners, resampler, sound/module streamers, in-memory sources | No output device, no effect nodes, no listener/3D model, no tests |
 | [Kaldi](Kaldi/README.md) | Contract + facade implemented | HAL 1.0/1.1 contract, 98-opcode command vocabulary, header-only recording facade, merge/deferred-destroy helpers | No working backend yet; swapchain/render-pass proxies; tests |
