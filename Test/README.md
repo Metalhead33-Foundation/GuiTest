@@ -9,12 +9,12 @@ functions. Several tests declared in `test.hpp` are never called from `main()`.
 
 ## Build and run
 
-The app links Elvavena, Euphemy and Lotte:
+The app links Elvavena, Euphemy, Lotte and Haruka:
 
 ```sh
 cd build/Desktop-Debug
 /usr/bin/qmake6 ../../Project.pro
-env MAKE=/usr/bin/make /usr/bin/make -j16
+env MAKE=/usr/bin/make /usr/bin/make -j16 QMAKE=/usr/bin/qmake6
 LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:Test ./Test/MyGameApp
 ```
 
@@ -32,6 +32,10 @@ prefix is required. Several tests use absolute `/tmp` paths.
 | `testPNG()` | Euphemy PNG encoder: renders a 256x256 test image to `/tmp/testImg.png` |
 | `testMemoryArenas()` | Euphemy `MemoryManager`: default-resource fallback, explicit initialization, idempotence, over-aligned allocation and a PMR vector round-trip |
 | `testFontRoundTrip()` | Lotte FontPacker `WODF` and `WODI` containers: write/read through `Elv::Io::DataStream`, including TOC, kerning, glyph payload and mipmaps |
+| `testAudioEffects()` | Haruka effect chain: clamp math, dry/wet blending, mono/stereo planar routing, planar output requests, impulse-generation kernels, FFT convolution and the "no IR" error path |
+| `testTextPipeline()` | Lotte text pipeline: HTML entities, markup colours, MML tags into `TextRun`s, nesting depth, UTF-8 escapes, glyph placement, italic shear, underline emission and glyph quads/vertices |
+| `testSignals()` | Elvavena `Signal`/`Connection`/`ScopedConnection`, including disconnect-during-emission |
+| `testGeometryBatches()` | Lotte `GuiGeometryBatch` and `Gfx::MeshBuilder` recording into a Kaldi `CommandBuffer`, including group ranges and vertex descriptors |
 | `testFontParser()` | Lotte `FontDataStream >> FontFace`; reads the hardcoded path `/home/legacy/vinque.bin`, which must be a FontPacker `WODF` file |
 
 `testTGA()` and `testPNG()` only write files; they do not decode and compare them.

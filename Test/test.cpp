@@ -42,6 +42,22 @@
 #include <chrono>
 #include <Lotte/Text/LteFontFace.hpp>
 #include <Lotte/VectorGraphic/LteStoredVectorImage.hpp>
+#include <Lotte/Text/LteMml.hpp>
+#include <Lotte/Text/LteHtmlEntities.hpp>
+#include <Lotte/Text/LteMarkupColour.hpp>
+#include <Lotte/Text/LteTextLayout.hpp>
+#include <Lotte/Text/LteFontAtlas.hpp>
+#include <Lotte/Gui/LteGuiVertex.hpp>
+#include <Lotte/Gui/LteGuiRenderer.hpp>
+#include <Lotte/Gui/LteGuiRenderCache.hpp>
+#include <Lotte/GFX/LteMesh.hpp>
+#include <Haruka/Core/HrkPlayable.hpp>
+#include <Haruka/FX/HrkEffectSlot.hpp>
+#include <Haruka/FX/HrkClampEffect.hpp>
+#include <Haruka/FX/HrkCrushEffect.hpp>
+#include <Haruka/FX/HrkConvolver.hpp>
+#include <Haruka/FX/HrkImpulseGenerator.hpp>
+#include <Elvavena/Util/ElvSignal.hpp>
 
 template<class T>
 struct Mallocator
@@ -1361,3 +1377,479 @@ void testFontParser()
 			  << "Pixel size: " << fface.bitmapSize << "\n"
 			  << "Logical size: " << fface.bitmapLogicalSize << std::endl;
 }
+
+namespace {
+
+/** @brief Playable that fills every sample with a constant value. */
+class ConstantSource : public Hrk::Playable
+{
+private:
+	float value;
+public:
+	/**
+	 * @brief Creates a constant source.
+	 * @param constant Value written to every sample.
+	 */
+	explicit ConstantSource(float constant) : value(constant) {}
+	/** @brief Fills the packet with the constant value. */
+	Hrk::FrameCount outputTo(Hrk::Output& output) override
+	{
+		if (output.samplerate == Hrk::SAMPLE_RATE_DONT_CARE) output.samplerate = Hrk::SampleRate(48000);
+		if (!output.dst) return Hrk::FrameCount(0);
+		const uintptr_t channels = uintptr_t(output.channels.var);
+		for (uintptr_t f = 0; f < uintptr_t(output.frameCount.var); ++f) {
+			for (uintptr_t c = 0; c < channels; ++c) output.dst[f * channels + c] = value;
+		}
+		return output.frameCount;
+	}
+};
+
+/** @brief Effect that records the interleaving layout it was handed. */
+class LayoutProbeEffect : public Hrk::Effect
+{
+public:
+	/** @brief Set when the effect received channel-planar data. */
+	bool sawPlanar = false;
+	/** @brief Set when the effect received interleaved data. */
+	bool sawInterleaved = false;
+	/** @brief Passes the block through unchanged. */
+	void process(const Hrk::ModificationStream& stream) override
+	{
+		if (stream.interleaving == Hrk::InterleavingType::SEPARATE_CHANNELS) sawPlanar = true;
+		else sawInterleaved = true;
+		const Hrk::SampleCount samples = Hrk::framesToSamples(stream.frameCount, stream.channels);
+		const float* src = stream.src ? stream.src : stream.dst;
+		for (uintptr_t i = 0; i < uintptr_t(samples.var); ++i) stream.dst[i] = src[i];
+	}
+	/** @brief Reports that this effect needs one plane per channel. */
+	Hrk::InterleavingType getRequiredInterleaving() const override { return Hrk::InterleavingType::SEPARATE_CHANNELS; }
+};
+
+/** @brief Builds a two-glyph font face used by the layout tests. */
+Lotte::Text::PreprocessedFontFace makeTestFontFace()
+{
+	using namespace Lotte::Text;
+	PreprocessedFontFace face;
+	face.familyName = "testface";
+	face.faceHeight = 10.0f;
+	face.ascender = 8.0f;
+	face.descender = -2.0f;
+	face.bitmapLogicalSize = 64;
+	face.bitmapSize = 64;
+	for (char32_t codePoint : { U'A', U'B' }) {
+		StoredCharacter character;
+		character.valid = true;
+		character.width = 8;
+		character.height = 10;
+		character.bearingX = 1;
+		character.bearingY = 8;
+		character.advanceX = 9;
+		face.glyphs.emplace(std::uint32_t(codePoint), std::move(character));
+	}
+	return face;
+}
+
+/** @brief Atlas mapping that pretends every glyph covers the whole texture. */
+struct WholeTextureMapping : public Lotte::Text::GlyphAtlasMapping
+{
+	/** @brief Maps every code point to the full unit square. */
+	bool mapGlyph(char32_t, glm::fvec2& uv0, glm::fvec2& uv1) const override
+	{
+		uv0 = glm::fvec2(0.0f);
+		uv1 = glm::fvec2(1.0f);
+		return true;
+	}
+};
+
+} // namespace
+
+void testAudioEffects()
+{
+	using namespace Hrk;
+
+	{
+		ConstantSource source(0.5f);
+		EffectSlot slot(ChannelCount(2), SampleRate(48000), FrameCount(64));
+		slot.setPlayable(&source);
+		FX::ClampEffect clamp{ FX::Clamp{ 0.25f } };
+		slot.addEffect(&clamp, 1.0f);
+		requireCondition(!slot.requiresDeinterlacing(),
+			"Sample-level effects must not request channel-planar input");
+
+		float buffer[64 * 2] = {};
+		Output out;
+		out.dst = buffer;
+		out.frameCount = FrameCount(64);
+		out.samplerate = SampleRate(48000);
+		out.channels = ChannelCount(2);
+		out.interleaving = InterleavingType::INTERLEAVED;
+		const FrameCount produced = slot.outputTo(out);
+		requireCondition(produced.var == 64, "EffectSlot must produce the requested frame count");
+		requireCondition(std::abs(buffer[0] - 1.0f) < 1e-5f,
+			"A fully wet normalizing clamp must map 0.5 to 1.0");
+
+		requireCondition(slot.setWet(0, 0.5f), "setWet must accept an existing index");
+		std::fill(std::begin(buffer), std::end(buffer), 0.0f);
+		slot.outputTo(out);
+		requireCondition(std::abs(buffer[0] - 0.75f) < 1e-5f,
+			"A half-wet stage must blend dry and processed signals");
+	}
+
+	{
+		ConstantSource source(1.0f);
+		EffectSlot monoSlot(ChannelCount(1), SampleRate(48000), FrameCount(16));
+		monoSlot.setPlayable(&source);
+		LayoutProbeEffect probe;
+		monoSlot.addEffect(&probe, 1.0f);
+		requireCondition(monoSlot.requiresDeinterlacing(),
+			"Adding a planar effect must update the cached layout requirement");
+
+		float buffer[16] = {};
+		Output out;
+		out.dst = buffer;
+		out.frameCount = FrameCount(16);
+		out.samplerate = SampleRate(48000);
+		out.channels = ChannelCount(1);
+		out.interleaving = InterleavingType::INTERLEAVED;
+		requireCondition(monoSlot.outputTo(out).var == 16, "Mono slot must produce frames");
+		requireCondition(!probe.sawPlanar && probe.sawInterleaved,
+			"Mono streams must skip the deinterlacing pass");
+
+		requireCondition(monoSlot.removeEffect(&probe), "removeEffect must find the effect");
+		requireCondition(!monoSlot.requiresDeinterlacing(),
+			"Removing the planar effect must clear the cached requirement");
+	}
+
+	{
+		ConstantSource source(1.0f);
+		EffectSlot stereoSlot(ChannelCount(2), SampleRate(48000), FrameCount(16));
+		stereoSlot.setPlayable(&source);
+		LayoutProbeEffect probe;
+		stereoSlot.addEffect(&probe, 1.0f);
+		float buffer[32] = {};
+		Output out;
+		out.dst = buffer;
+		out.frameCount = FrameCount(16);
+		out.samplerate = SampleRate(48000);
+		out.channels = ChannelCount(2);
+		out.interleaving = InterleavingType::INTERLEAVED;
+		stereoSlot.outputTo(out);
+		requireCondition(probe.sawPlanar, "Stereophonic planar effects must receive separate channel planes");
+		requireCondition(std::abs(buffer[0] - 1.0f) < 1e-5f && std::abs(buffer[31] - 1.0f) < 1e-5f,
+			"Planar round-trip must preserve every sample");
+	}
+
+	{
+		ConstantSource source(0.25f);
+		EffectSlot slot(ChannelCount(2), SampleRate(48000), FrameCount(8));
+		slot.setPlayable(&source);
+		float buffer[16] = {};
+		Output out;
+		out.dst = buffer;
+		out.frameCount = FrameCount(8);
+		out.samplerate = SampleRate(48000);
+		out.channels = ChannelCount(2);
+		out.interleaving = InterleavingType::SEPARATE_CHANNELS;
+		slot.outputTo(out);
+		requireCondition(std::abs(buffer[0] - 0.25f) < 1e-5f && std::abs(buffer[8] - 0.25f) < 1e-5f,
+			"A channel-planar output request must be filled plane by plane");
+	}
+
+	{
+		// Filter and delay IR synthesis.
+		auto lowpass = FX::createLowpassFilter(SampleRate(48000), SampleRate(1000), true);
+		requireCondition(lowpass && lowpass->getFrameCount().var >= 3,
+			"A low-pass generator must return a non-empty kernel");
+		requireCondition(std::abs(lowpass->data()[(lowpass->getFrameCount().var - 1) / 2]) <= 1.001f,
+			"A normalized low-pass kernel must peak at 1.0");
+
+		auto highpass = FX::createHighpassFilter(SampleRate(48000), SampleRate(1000), false);
+		requireCondition(highpass && highpass->getFrameCount().var >= 3,
+			"A high-pass generator must return a non-empty kernel");
+
+		requireCondition(!FX::createBandpassFilter(SampleRate(48000), SampleRate(5000), SampleRate(1000)),
+			"An inverted band-pass request must be rejected");
+		requireCondition(!FX::createDelay(SampleRate(48000), FrameCount(0)),
+			"A zero-length delay must be rejected");
+	}
+
+	{
+		// The IR is a single tap two frames in, so the output must contain exactly
+		// one impulse. FFTConvolver pipelines its blocks internally, so the position
+		// of that impulse is implementation-defined; its count is not.
+		auto ir = FX::createDelay(SampleRate(48000), FrameCount(2), 1.0f);
+		requireCondition(ir && ir->getFrameCount().var == 2, "A delay IR must have the requested length");
+		requireCondition(std::abs(ir->data()[1] - 1.0f) < 1e-6f, "A delay IR must place its tap at the end");
+
+		FX::Convolver convolver(ChannelCount(1));
+		requireCondition(convolver.setImpulseResponse(ChannelIndex(0), ir),
+			"A single-channel convolver must accept an impulse response");
+		requireCondition(convolver.isReady(), "A configured convolver must report ready");
+
+		constexpr uintptr_t frames = 8192;
+		std::vector<float> input(frames, 0.0f);
+		std::vector<float> output(frames, 0.0f);
+		input[0] = 1.0f;
+
+		ModificationStream stream;
+		stream.src = input.data();
+		stream.dst = output.data();
+		stream.frameCount = FrameCount(frames);
+		stream.samplerate = SampleRate(48000);
+		stream.channels = ChannelCount(1);
+		stream.interleaving = InterleavingType::SEPARATE_CHANNELS;
+		convolver.process(stream);
+
+		uintptr_t impulses = 0;
+		for (float sample : output) {
+			if (std::abs(sample) > 0.5f) ++impulses;
+		}
+		requireCondition(impulses == 1, "Convolving an impulse with a delay IR must yield one impulse");
+	}
+
+	{
+		FX::Convolver unconfigured(ChannelCount(1));
+		float buffer[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+		ModificationStream stream;
+		stream.dst = buffer;
+		stream.frameCount = FrameCount(4);
+		stream.samplerate = SampleRate(48000);
+		stream.channels = ChannelCount(1);
+		stream.interleaving = InterleavingType::SEPARATE_CHANNELS;
+
+		bool threw = false;
+		try {
+			unconfigured.process(stream);
+		} catch (const std::runtime_error&) {
+			threw = true;
+		}
+		requireCondition(threw, "A convolver without impulse responses must throw");
+	}
+
+	std::cout << "Audio effect tests passed" << std::endl;
+}
+
+
+void testTextPipeline()
+{
+	using namespace Lotte::Text;
+
+	std::string utf8;
+	requireCondition(decodeNamedHtmlEntity("amp", utf8) && utf8 == "&", "&amp; must decode to an ampersand");
+	requireCondition(decodeHtmlEntity("#65", utf8) && utf8 == "A", "&#65; must decode to A");
+	requireCondition(decodeHtmlEntity("#x41", utf8) && utf8 == "A", "&#x41; must decode to A");
+	requireCondition(!decodeNamedHtmlEntity("definitelynotanentity", utf8),
+		"An unknown named reference must be reported");
+	requireCondition(getNamedHtmlEntityCount() > 1000,
+		"The salvaged HTML entity table must stay populated");
+
+	Colour colour;
+	requireCondition(parseMarkupColour("#80FF00", colour) && std::abs(colour.r - 128.0f / 255.0f) < 1e-5f,
+		"Hexadecimal colours must be parsed per component");
+	requireCondition(parseMarkupColour("BLUE", colour) && colour.b == 1.0f && colour.r == 0.0f,
+		"Named colours must be case-insensitive");
+	requireCondition(parseMarkupColour("1.0, 0.5, 0.25", colour) && std::abs(colour.g - 0.5f) < 1e-5f,
+		"Normalized component colours must be parsed");
+	requireCondition(!parseMarkupColour("notacolour", colour), "Unknown colour names must be rejected");
+
+	{
+		RichTextProcessor processor;
+		MmlParser parser(&processor);
+		parser.parse("<b>bold</b> and &lt;plain&gt; [color=red]red[/color][br]line2");
+		processor.flush();
+		const TextRunList& runs = processor.getRuns();
+		requireCondition(runs.size() == 4, "The MML sample must produce four runs");
+		requireCondition(runs[0].text == U"bold" && runs[0].attributes.bold, "Bold text must produce a bold run");
+		requireCondition(runs[1].text == U" and <plain> " && !runs[1].attributes.bold,
+			"Entity escapes must decode inside plain text");
+		requireCondition(runs[2].text == U"red" && std::abs(runs[2].attributes.colour.r - 1.0f) < 1e-5f,
+			"A colour tag must recolour only its own run");
+		requireCondition(runs[3].text == U"\nline2", "A line-break tag must emit a newline");
+	}
+
+	{
+		RichTextProcessor processor;
+		MmlParser parser(&processor);
+		parser.parse("[b]a[i]b[/i]c[/b]d");
+		processor.flush();
+		const TextRunList& runs = processor.getRuns();
+		requireCondition(runs.size() == 4, "Nested tags must close back to the outer attribute set");
+		requireCondition(runs[0].text == U"a" && runs[0].attributes.bold && !runs[0].attributes.italic,
+			"The first nested run must be bold only");
+		requireCondition(runs[1].text == U"b" && runs[1].attributes.bold && runs[1].attributes.italic,
+			"The inner run must be bold and italic");
+		requireCondition(runs[2].text == U"c" && runs[2].attributes.bold && !runs[2].attributes.italic,
+			"Popping italic must restore the bold-only state");
+		requireCondition(runs[3].text == U"d" && !runs[3].attributes.bold,
+			"Popping bold must restore the default state");
+	}
+
+	{
+		// Stray delimiters must survive as text instead of being swallowed.
+		RichTextProcessor processor;
+		MmlParser parser(&processor);
+		parser.parse("a > b ] c");
+		processor.flush();
+		requireCondition(processor.getRuns().size() == 1 && processor.getRuns()[0].text == U"a > b ] c",
+			"Delimiters outside a tag must be emitted as text");
+	}
+
+	const PreprocessedFontFace face = makeTestFontFace();
+	TextLayoutOptions options;
+	options.origin = glm::fvec2(10.0f, 20.0f);
+	// The face metrics are expressed at 10 px, so ask for 10 px to get a scale of 1.
+	TextAttributes baseAttributes;
+	baseAttributes.size = 10.0f;
+	const TextRunList sample = { TextRun{ U"AB\nA", baseAttributes } };
+	const TextLayout layout = layoutRuns(sample, [&face](const std::string&, bool) { return &face; }, options);
+
+	requireCondition(layout.glyphs.size() == 3, "Three printable code points must produce three glyphs");
+	requireCondition(layout.styles.size() == 1, "Identical attributes must share one style");
+	requireCondition(std::abs(layout.glyphs[0].position.x - 11.0f) < 1e-5f
+			&& std::abs(layout.glyphs[0].position.y - 22.0f) < 1e-5f,
+		"Glyph placement must apply the bearing from the pen position");
+	requireCondition(std::abs(layout.glyphs[2].position.x - 11.0f) < 1e-5f
+			&& std::abs(layout.glyphs[2].position.y - 32.0f) < 1e-5f,
+		"A newline must return the pen to the line start and advance by the measured height");
+	requireCondition(std::abs(layout.endOffset.x - 19.0f) < 1e-5f, "The end offset must follow the last advance");
+
+	{
+		TextAttributes italic = baseAttributes;
+		italic.italic = true;
+		const TextRunList italicRuns = { TextRun{ U"A", italic } };
+		const TextLayout italicLayout = layoutRuns(italicRuns, [&face](const std::string&, bool) { return &face; });
+		requireCondition(!italicLayout.glyphs.empty()
+				&& std::abs(italicLayout.glyphs[0].shear - 5.0f) < 1e-5f,
+			"Italic runs must store half the glyph height as shear");
+	}
+
+	{
+		TextAttributes underlined = baseAttributes;
+		underlined.underline = true;
+		const TextRunList underlinedRuns = { TextRun{ U"AB", underlined } };
+		const TextLayout underlinedLayout = layoutRuns(underlinedRuns,
+			[&face](const std::string&, bool) { return &face; }, options);
+		requireCondition(underlinedLayout.lines.size() == 1, "An underlined run must emit one decoration line");
+		requireCondition(std::abs(underlinedLayout.lines[0].to.x - 28.0f) < 1e-5f,
+			"The underline must span the laid-out text");
+	}
+
+	WholeTextureMapping mapping;
+	std::vector<GlyphQuad> quads;
+	std::vector<std::uint32_t> indices;
+	requireCondition(appendGlyphQuads(layout, mapping, quads, &indices) == 3,
+		"Every mapped glyph must produce a quad");
+	requireCondition(quads.size() == 3 && indices.size() == 18, "Each quad must emit two triangles");
+	requireCondition(quads[0].uv[3] == glm::fvec2(1.0f) && quads[0].position[3] == glm::fvec2(19.0f, 32.0f),
+		"Quad corners must follow the layout geometry");
+
+	std::vector<Lotte::Gui::ColouredTexturedGuiVertex> vertices;
+	requireCondition(Lotte::Gui::appendGlyphVertices(layout, quads, vertices) == 3,
+		"Glyph quads must expand into vertices");
+	requireCondition(vertices.size() == 12, "Each glyph must expand into four vertices");
+
+	std::cout << "Text pipeline tests passed" << std::endl;
+}
+
+
+void testSignals()
+{
+	Elv::Util::Signal<int> signal;
+	int total = 0;
+	auto direct = signal.connect([&total](int value) { total += value; });
+	requireCondition(signal.getConnectionCount() == 1, "One connection must be tracked");
+	signal.emit(2);
+	requireCondition(total == 2, "A connected slot must receive the emission");
+
+	{
+		Elv::Util::ScopedConnection<int> scoped(signal.connect([&total](int value) { total += value * 10; }));
+		signal.emit(1);
+		requireCondition(total == 13, "Every live slot must receive the emission");
+		requireCondition(signal.getConnectionCount() == 2, "Two connections must be tracked");
+	}
+	signal.emit(1);
+	requireCondition(total == 14, "A scoped connection must disconnect on destruction");
+
+	{
+		Elv::Util::Signal<int> reentrant;
+		int calls = 0;
+		Elv::Util::Connection<int> victim;
+		victim = reentrant.connect([&calls, &victim](int) {
+			++calls;
+			victim.disconnect();
+		});
+		reentrant.connect([&calls](int) { ++calls; });
+		reentrant.emit(0);
+		reentrant.emit(0);
+		requireCondition(calls == 3, "Disconnecting from inside a slot must not break the emission");
+	}
+
+	direct.disconnect();
+	signal.emit(1);
+	requireCondition(total == 14, "An explicit disconnect must stop delivery");
+	requireCondition(signal.getConnectionCount() == 0, "No live connection may remain");
+
+	std::cout << "Signal tests passed" << std::endl;
+}
+
+void testGeometryBatches()
+{
+	using namespace Lotte;
+
+	{
+		// `commands` must outlive the batch: buffer proxies record destroy commands.
+		CommandBuffer commands;
+		Gui::GuiGeometryBatch<Gui::ColouredGuiVertex> batch;
+		Gui::ColouredGuiVertex quad[4];
+		quad[0].position = glm::fvec2(0.0f, 0.0f);
+		quad[1].position = glm::fvec2(10.0f, 0.0f);
+		quad[2].position = glm::fvec2(0.0f, 10.0f);
+		quad[3].position = glm::fvec2(10.0f, 10.0f);
+		batch.appendQuad(quad[0], quad[1], quad[2], quad[3]);
+		requireCondition(batch.getVertices().size() == 4 && batch.getIndices().size() == 6,
+			"A quad must append four vertices and six indices");
+
+		batch.recordUpload(commands);
+		requireCondition(batch.isUploaded(), "recordUpload must create the vertex and index buffers");
+		requireCondition(batch.getResidentRange().indexCount == 6, "The resident range must cover the quad");
+		batch.recordBind(commands);
+		batch.recordDraw(commands);
+		// Two create commands, two binds and one indexed draw.
+		requireCondition(commands.getCommandBuffer().getWriteBufferAsSpan_unsafe().size() == 5,
+			"Upload, binding and draw must all record commands");
+		batch.clear();
+		requireCondition(batch.empty(), "clear must drop the CPU caches");
+	}
+
+	{
+		CommandBuffer commands;
+		Gfx::MeshBuilder<Gui::ColouredGuiVertex> mesh;
+		Gui::ColouredGuiVertex vertices[4] = {};
+		const std::uint32_t triangleIndices[6] = { 0, 1, 2, 1, 2, 3 };
+		mesh.appendVertices(vertices, 4);
+		mesh.appendIndices(triangleIndices, 6);
+		mesh.endGroup();
+		mesh.appendVertices(vertices, 4);
+		mesh.appendIndices(triangleIndices, 6);
+		mesh.endGroup();
+
+		requireCondition(mesh.getRanges().size() == 2, "Two groups must be recorded");
+		requireCondition(mesh.getRanges()[1].indexOffset == 6 && mesh.getRanges()[1].vertexOffset == 4,
+			"The second group must start after the first one");
+
+		mesh.recordUpload(commands);
+		mesh.recordBind(commands);
+		mesh.recordDrawAll(commands);
+
+		const Gfx::MeshView view = mesh.getMeshView();
+		requireCondition(view.isValid() && view.indexCount == 12 && view.vertexCount == 8,
+			"The mesh view must expose the uploaded element counts");
+		requireCondition(Gui::ColouredGuiVertex::getVertexDescriptor().stride == sizeof(Gui::ColouredGuiVertex),
+			"The vertex descriptor stride must match the vertex size");
+		requireCondition(Gui::ColouredGuiVertex::getVertexDescriptor().descriptors.size() == 2,
+			"A position-colour vertex must advertise two attributes");
+	}
+
+	std::cout << "Geometry batch tests passed" << std::endl;
+}
+

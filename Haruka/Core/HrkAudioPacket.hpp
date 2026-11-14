@@ -13,6 +13,8 @@ namespace Hrk {
 
 /** @brief Audio channel count type re-exported from Euphemy. */
 using Euph::Media::Audio::ChannelCount;
+/** @brief Audio channel index type re-exported from Euphemy. */
+using Euph::Media::Audio::ChannelIndex;
 /** @brief Audio frame count type re-exported from Euphemy. */
 using Euph::Media::Audio::FrameCount;
 /** @brief Audio frame index type re-exported from Euphemy. */

@@ -5,8 +5,8 @@ nodes write frames into an output packet, and mixers, panners, resamplers and st
 compose those nodes. Decoding is delegated to Euphemy (libsndfile, libopenmpt,
 libsamplerate).
 
-**Status: partial.** The graph primitives and the streamers work; there is no audio
-output device and there are no effect nodes yet (see the TODO list).
+**Status: partial.** The graph primitives, the streamers and the effect chain work;
+there is no audio output device yet (see the TODO list).
 
 ## Build and consumption
 
@@ -15,7 +15,7 @@ output device and there are no effect nodes yet (see the TODO list).
 | qmake target | `Haruka` (`TEMPLATE = lib`, `CONFIG += shared c++2a`, no Qt) |
 | Export macro | `MH_HARUKA_EXPORT` while building, `MH_HARUKA_API` for consumers |
 | Consumer hook | `include(Haruka/Haruka.pri)` adds the include path and `-lHaruka` |
-| Dependencies | Elvavena (includes), Euphemy (codec types), libsndfile, libsamplerate, libopenmpt |
+| Dependency | Elvavena (includes), Euphemy (codec types, resampler, FFT convolution), libsndfile, libsamplerate, libopenmpt |
 
 `HarukaLib.hpp` currently only defines the export macro; there is no single umbrella
 header that includes every Haruka component.
@@ -47,17 +47,34 @@ header that includes every Haruka component.
 | `HrkSoundStreamer.hpp` / `.cpp` | `SoundStreamer` - `RingBufferedStreamer` backed by `Euph::Media::Audio::SoundFile` (libsndfile) |
 | `HrkModuleStreamer.hpp` / `.cpp` | `ModuleStreamer` - `RingBufferedStreamer` backed by `Euph::Media::Audio::ModuleRenderer` (libopenmpt) |
 
+### `FX/` - the effect chain
+
+| Header | Contents |
+|---|---|
+| `HrkAudioEffect.hpp` | `Effect` - block-oriented processing contract: one `process(const ModificationStream&)` call per chunk, plus `getRequiredInterleaving()` so the slot knows whether it must deinterlace |
+| `HrkSampleLevelEffect.hpp` | `SampleLevelEffect<Functor>` and `makeSampleLevelEffect()` - adapts a per-sample functor into a block effect without a virtual call per sample |
+| `HrkClampEffect.hpp` | `FX::Clamp` / `FX::ClampEffect` - normalizing hard limiter (`sign(in) * min(|in|, level) / level`) |
+| `HrkCrushEffect.hpp` | `FX::Crush` / `FX::CrushEffect` - quantization ("bit crush") into a fixed step count |
+| `HrkEffectSlot.hpp` / `.cpp` | `EffectSlot` - `ProxyPlayable` that pulls its source through a serial dry/wet effect chain; contiguous `std::pmr` storage, cached planar requirement, fixed scratch buffers, interleaved *and* channel-planar output |
+| `HrkImpulseResponse.hpp` | `ImpulseResponse` - channel-planar float storage with an explicit sample rate (replaces `fftconvolver::IrBuffer`) |
+| `HrkImpulseGenerator.hpp` / `.cpp` | `createLowpassFilter()`, `createHighpassFilter()`, `createBandpassFilter()`, `createBandrejectFilter()`, `createDelay()` - offline Blackman-windowed-sinc kernel synthesis |
+| `HrkConvolver.hpp` / `.cpp` | `Convolver` - one Euphemy `FFTConvolver` per channel, driven by per-channel impulse responses (reverb, cabinet, delay, filters) |
+
 ## TODOs and known gaps
 
 - [ ] No audio output device/backend (ALSA, PulseAudio, PipeWire, SDL, ...). Haruka is a
       pull-based graph only; the application must pull frames itself.
-- [ ] No dedicated effect nodes. Euphemy exposes FFT convolution wrappers, but there is
-      no Haruka `Convolver`/`Reverb`/`Delay`/`Echo` node wiring them into the graph.
+- [ ] No dedicated reverb/echo node. `FX::Convolver` plus `FX::createDelay()` and the
+      filter generators cover the building blocks, but feedback loops and a "reverb"
+      preset are not modelled.
+- [ ] `EffectSlot` has no automatic makeup gain and no ramp on `wet` changes; a mixing
+      console built on it must smooth `wet` itself to avoid zipper noise.
 - [ ] No listener or 3D scene graph. `AmbisonicPanner` and `MatrixPanner` take manual
       gains/angles; there is no source/listener position model.
 - [ ] `Mixer` requires every child to match its own channel count, sample rate and
       interleaving (it throws on mismatch). Automatic per-child resampling is not
       implemented; insert a `Resampler` node manually.
-- [ ] No tests. `Test/test.cpp` does not include Haruka, so none of this module is
-      exercised by the Test app.
+- [ ] Test coverage is limited to `testAudioEffects()` in the Test app (effect chain,
+      dry/wet blending, planar routing, IR generation, convolution). Panners,
+      resampler, streamers and source playback are still untested.
 - [ ] No public umbrella header; consumers include individual `Haruka/...` headers.

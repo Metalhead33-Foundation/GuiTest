@@ -10,5 +10,5 @@ KaldiD3D11.depends = Kaldi
 KaldiD3D12.depends = Kaldi
 Euphemy.depends = Elvavena
 Lotte.depends = Elvavena Euphemy Kaldi
-Haruka.depends = Elvavena
-Test.depends = Euphemy Elvavena Lotte
+Haruka.depends = Elvavena Euphemy
+Test.depends = Euphemy Elvavena Lotte Haruka

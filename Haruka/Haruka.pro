@@ -4,6 +4,10 @@ CONFIG += shared c++2a
 CONFIG -= qt
 
 LIBS += -lsndfile -lsamplerate -lopenmpt
+# Haruka exposes Euphemy's resampler, sound-file and FFT-convolution wrappers, so
+# it links against Euphemy (and Elvavena transitively) as well.
+LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
+LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
 INCLUDEPATH += $$PWD/..
 
 DEFINES += MH_HARUKA_EXPORT
@@ -15,6 +19,9 @@ SOURCES +=  \
     Core/HrkMixer.cpp \
     Core/HrkProxyPlayable.cpp \
     Core/HrkResampler.cpp \
+    FX/HrkConvolver.cpp \
+    FX/HrkEffectSlot.cpp \
+    FX/HrkImpulseGenerator.cpp \
     IO/HrkModuleStreamer.cpp \
     IO/HrkPlaybackState.cpp \
     IO/HrkPlaybackStatePlayable.cpp \
@@ -30,6 +37,14 @@ HEADERS += \
     Core/HrkPlayable.hpp \
     Core/HrkProxyPlayable.hpp \
     Core/HrkResampler.hpp \
+    FX/HrkAudioEffect.hpp \
+    FX/HrkClampEffect.hpp \
+    FX/HrkConvolver.hpp \
+    FX/HrkCrushEffect.hpp \
+    FX/HrkEffectSlot.hpp \
+    FX/HrkImpulseGenerator.hpp \
+    FX/HrkImpulseResponse.hpp \
+    FX/HrkSampleLevelEffect.hpp \
     HarukaLib.hpp \
     IO/HrkModuleStreamer.hpp \
     IO/HrkPlaybackState.hpp \

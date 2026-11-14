@@ -11,15 +11,35 @@ LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
 # or libKaldi here; there is no Kaldi library target to link against.
 
 SOURCES += \
-    Asset/LteGpuAssetStreamer.cpp
+    Asset/LteGpuAssetStreamer.cpp \
+    Text/LteHtmlEntities.cpp \
+    Text/LteMarkupColour.cpp \
+    Text/LteMarkupStack.cpp \
+    Text/LteMml.cpp \
+    Text/LteRichText.cpp \
+    Text/LteTextLayout.cpp
 
 HEADERS += \
     Asset/LteGpuAssetStreamer.hpp \
+    GFX/LteMesh.hpp \
+    Gui/LteGuiRenderCache.hpp \
+    Gui/LteGuiRenderer.hpp \
+    Gui/LteGuiVertex.hpp \
     LteKld.hpp \
+    Text/LteFontAtlas.hpp \
     Text/LteFontFace.hpp \
+    Text/LteHtmlEntities.hpp \
+    Text/LteMarkupColour.hpp \
+    Text/LteMarkupStack.hpp \
+    Text/LteMml.hpp \
+    Text/LteRichText.hpp \
+    Text/LteTextAttributes.hpp \
+    Text/LteTextLayout.hpp \
+    Text/LteUtf.hpp \
     VectorGraphic/LteStoredVectorImage.hpp \
     LotteLib.hpp
 
 DISTFILES += \
     Lotte.pri \
-    README.md
+    README.md \
+    Text/MML.md

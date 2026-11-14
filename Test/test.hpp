@@ -64,5 +64,13 @@ void testAssetRuntime();
 void testGpuAssetStreamer();
 /** @brief Exercises Lotte's Font parser. */
 void testFontParser();
+/** @brief Exercises Haruka's effect chain, impulse generation and convolution. */
+void testAudioEffects();
+/** @brief Exercises the MML parser, rich-text processor and text layout. */
+void testTextPipeline();
+/** @brief Exercises Elvavena's signal/slot replacement. */
+void testSignals();
+/** @brief Exercises Lotte mesh and GUI geometry batching against the Kaldi facade. */
+void testGeometryBatches();
 
 #endif // TEST_HPP

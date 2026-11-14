@@ -11,6 +11,10 @@ int main(void)
 	testPNG();
 	testMemoryArenas();
 	testFontRoundTrip();
+	testAudioEffects();
+	testTextPipeline();
+	testSignals();
+	testGeometryBatches();
 	testFontParser();
 	return 0;
 }
