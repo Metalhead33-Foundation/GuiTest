@@ -51,6 +51,7 @@ was copied verbatim.
 | `Text/RtProcessorStack.*` | `Lotte/Text/LteMarkupStack.hpp` / `.cpp` | The `pop*` depth logic was inverted in the original and is fixed. |
 | `Text/Font.cpp` `Font::renderText` / `renderTextBlocks` | `Lotte/Text/LteTextLayout.hpp` / `.cpp` | The layout algorithm (bearings, measured line height, italic shear, decorations) without atlas or draw calls; `y` grows downwards and coordinates are pixels. |
 | `Text/Font.hpp` `TextRenderState`, `TextBlockUtf*` | `Lotte/Text/LteTextLayout.hpp`, `Lotte/Text/LteTextAttributes.hpp` | Cursor state split from per-run attributes; `reciprocalSize` and the per-block `Font*` dropped. |
+| `std::wstring_convert`/`codecvt` usage in `RichTextProcessor` | `Lotte/Text/LteUtf.hpp` | Replaced by [utfcpp](https://github.com/nemtrif/utfcpp) (header-only system dependency) plus a sanitizing wrapper: undecodable bytes become U+FFFD instead of throwing. |
 | `Renderer/Shared/GuiVertexTypes.hpp`, `GFX/Advanced/*GuiRenderer.hpp` (vertex structs) | `Lotte/Gui/LteGuiVertex.hpp` | Descriptive member names, function-local static Kaldi descriptors (header-only). |
 | `GFX/Advanced/MhHardwareAcceleratedFont.*` (concept) | `Lotte/Text/LteFontAtlas.hpp` | Atlas packing and UV mapping documented; `GlyphAtlasMapping` plus `appendGlyphQuads()` are implemented. |
 

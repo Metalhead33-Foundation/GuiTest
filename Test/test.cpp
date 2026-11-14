@@ -43,6 +43,7 @@
 #include <Lotte/Text/LteFontFace.hpp>
 #include <Lotte/VectorGraphic/LteStoredVectorImage.hpp>
 #include <Lotte/Text/LteMml.hpp>
+#include <Lotte/Text/LteUtf.hpp>
 #include <Lotte/Text/LteHtmlEntities.hpp>
 #include <Lotte/Text/LteMarkupColour.hpp>
 #include <Lotte/Text/LteTextLayout.hpp>
@@ -1642,6 +1643,27 @@ void testTextPipeline()
 		"An unknown named reference must be reported");
 	requireCondition(getNamedHtmlEntityCount() > 1000,
 		"The salvaged HTML entity table must stay populated");
+
+	{
+		// UTF-8 <-> UTF-32 via utfcpp, including malformed and astral input.
+		requireCondition(encodeUtf8(U"a\u00e9\u20ac\U0001F600") == "a\xc3\xa9\xe2\x82\xac\xf0\x9f\x98\x80",
+			"Encoding must produce UTF-8 for BMP and astral code points");
+		const std::u32string decoded = decodeUtf8("a\xc3\xa9\xe2\x82\xac\xf0\x9f\x98\x80");
+		requireCondition(decoded == U"a\u00e9\u20ac\U0001F600", "Decoding must invert encoding");
+
+		const std::u32string malformed = decodeUtf8("ok\xff\xfe" "!");
+		requireCondition(malformed.size() == 5 && malformed[0] == U'o' && malformed[1] == U'k'
+				&& malformed[2] == ReplacementCharacter && malformed[4] == U'!',
+			"Malformed bytes must decode to U+FFFD instead of throwing");
+
+		std::string encodedInvalid;
+		appendCodePointUtf8(encodedInvalid, char32_t(0xD800));
+		requireCondition(encodedInvalid == "\xef\xbf\xbd", "A lone surrogate must encode as U+FFFD");
+
+		std::u32string appended = U"x";
+		requireCondition(appendUtf8(appended, "\xc3\xa9") == 1 && appended == U"x\u00e9",
+			"appendUtf8 must report the number of appended code points");
+	}
 
 	Colour colour;
 	requireCondition(parseMarkupColour("#80FF00", colour) && std::abs(colour.r - 128.0f / 255.0f) < 1e-5f,

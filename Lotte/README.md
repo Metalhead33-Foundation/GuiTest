@@ -16,7 +16,7 @@ There is no renderer and no GUI widget system yet; see the TODO list.
 | qmake target | `Lotte` (`TEMPLATE = lib`, `CONFIG += shared c++2a`, no Qt) |
 | Export macro | `MH_LOTTE_EXPORT` while building, `MH_LOTTE_API` for consumers |
 | Consumer hook | `include(Lotte/Lotte.pri)` adds the include path and links Lotte/Euphemy/Elvavena |
-| Dependencies | Elvavena, Euphemy, Kaldi headers, GLM |
+| Dependencies | Elvavena, Euphemy, Kaldi headers, GLM, utfcpp (header-only, `#include <utf8cpp/utf8.h>`) |
 
 Compiled units: `Asset/LteGpuAssetStreamer.cpp` and the six `Text/*.cpp` files. The
 `Gui/` and `GFX/` headers are header-only (templates plus inline recording helpers).
@@ -39,7 +39,7 @@ to Lotte; use the top-level include path.
 | Header | Contents |
 |---|---|
 | `LteTextAttributes.hpp` | `Colour`, `TextAttributes` (colour, family, size, bold/italic/underline/strikethrough) and `TextRun` (one `std::u32string` plus its attributes) |
-| `LteUtf.hpp` | Portable UTF-8 ↔ UTF-32 conversion (replaces the deprecated `std::codecvt` usage); malformed bytes decode to U+FFFD |
+| `LteUtf.hpp` | UTF-8 ↔ UTF-32 conversion over [utfcpp](https://github.com/nemtrif/utfcpp) (replaces the deprecated `std::codecvt` usage); invalid input decodes to U+FFFD instead of throwing |
 | `LteRichText.hpp` / `.cpp` | `RichTextProcessor` - buffers UTF-8, emits `TextRun`s on attribute changes, merges adjacent runs with equal attributes, and keeps the original `enable*`/`disable*`/`Manipulator`/`operator<<` surface |
 | `LteMarkupStack.hpp` / `.cpp` | `MarkupStack` - per-attribute nesting depths (colour, family, size, bold, italic, underline, strikethrough) driving a processor |
 | `LteMml.hpp` / `.cpp` | `MmlParser` - the MML state machine and tag tables (`b`, `strong`, `i`, `em`, `u`, `s`, `del`, `strike`, `br`, `p`, `font=`, `size=`, `color=`/`colour=`) |
