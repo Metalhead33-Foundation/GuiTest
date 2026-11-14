@@ -13,7 +13,7 @@ functions, so it is abstract and nothing can be submitted to it yet.
 | qmake target | `KaldiD3D12` (`TEMPLATE = lib`, shared, C++20, no Qt) |
 | Export macro | `MH_KALDI_IMPL_EXPORT` while building, `MH_KALDI_IMPL_API` for consumers |
 | Files | `KaldiD3D12Device.hpp` / `KaldiD3D12Device.cpp` / `KldImplLib.h` |
-| Depends on | Kaldi headers via `include(../Kaldi.pri)` |
+| Depends on | Kaldi headers via `include(../Kaldi.pri)`; links `spirv-cross-core` and `spirv-cross-glsl` for SPIR-V to GLSL/HLSL cross-compilation (a backend concern, not a Kaldi or Euphemy dependency) |
 | Platform | Windows (Direct3D 12); the target is still generated on other hosts where the toolchain allows it |
 
 ## What exists today

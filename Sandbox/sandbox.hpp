@@ -1,7 +1,7 @@
-#ifndef TEST_HPP
-#define TEST_HPP
+#ifndef SANDBOX_HPP
+#define SANDBOX_HPP
 /**
- * @file test.hpp
+ * @file sandbox.hpp
  * @brief Declares the test API in the Test module.
  *
  * This header is part of the public declaration surface for Test.
@@ -73,4 +73,4 @@ void testSignals();
 /** @brief Exercises Lotte mesh and GUI geometry batching against the Kaldi facade. */
 void testGeometryBatches();
 
-#endif // TEST_HPP
+#endif // SANDBOX_HPP

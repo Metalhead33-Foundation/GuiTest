@@ -376,7 +376,7 @@ void decode(Elv::Io::Device& iodev, DecodeTarget& destination) {
 		}
 		default: destination.setFormat(Format::INVALID); return;
 	}
-	auto& frame = destination.addFrame(head.imageSpecification.width, head.imageSpecification.width);
+	auto& frame = destination.addFrame(head.imageSpecification.width, head.imageSpecification.height);
 	frame.data = std::move(head.imageData);
 }
 

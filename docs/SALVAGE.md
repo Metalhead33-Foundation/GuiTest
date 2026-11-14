@@ -76,7 +76,7 @@ was copied verbatim.
 - Haruka now links Euphemy and Elvavena (`Haruka.pro`), because it exposes Euphemy's
   resampler, sound-file and convolution wrappers. `Project.pro` mirrors that in
   `Haruka.depends`.
-- The Test app links Haruka and exercises the new code paths: `testAudioEffects`,
+- `Sandbox` links Haruka and exercises the new code paths: `testAudioEffects`,
   `testTextPipeline`, `testSignals` and `testGeometryBatches`.
 - Anything marked `@warning` in a header is a contract without a backend: the Kaldi
   draw paths in `LteMesh.hpp` and `LteGuiRenderCache.hpp` are recorded but cannot be

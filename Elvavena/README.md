@@ -59,13 +59,13 @@ limits of the current implementation:
       versioning or reflection layer; higher layers (for example Lotte's font format)
       define their own stream operators.
 - [ ] There is no dedicated test target in this module. Elvavena is covered indirectly
-      from `Test/test.cpp` (allocators, iterators, `DataStream`, async I/O, thread pool).
+      from `Sandbox/sandbox.cpp` (allocators, iterators, `DataStream`, async I/O, thread pool).
 - [ ] `ElvAllocatorBasic.hpp`, `ElvBinaryTree.hpp`, `ElvContainerBasic.hpp`,
       `ElvDither.hpp`, `ElvEdgeFunction.hpp`, `ElvFuzzy.hpp`, `ElvObserv.hpp`,
       `ElvStringhashMap.hpp`, `ElvThreadsafeContainer.hpp` and `ElvThreadsafeQueue.hpp`
-      have no direct test in the Test app yet.
+      have no direct test in `Sandbox` yet.
 - [ ] `ElvScopeGuard.hpp` and `ElvDeferStack.hpp` are newly merged and have no direct
-      test in the Test app yet. Their contracts to keep in mind: scope-guard callables
+      test in `Sandbox` yet. Their contracts to keep in mind: scope-guard callables
       must not throw, `dismiss()`/`activate()` are the only state changes, and
       `DeferStack` requires LIFO dismissal and never allocates (a full stack returns an
       invalid token instead).

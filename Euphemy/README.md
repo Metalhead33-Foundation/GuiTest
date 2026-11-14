@@ -15,7 +15,7 @@ and compiled translation units. The gaps are listed at the end of this file.
 | Export macro | `MH_EUPH_EXPORT` while building, `MH_EUPH_API` for consumers |
 | Consumer hook | `include(Euphemy/Euphemy.pri)` adds the include path and `-lEuphemy` |
 | Internal dependency | Elvavena (`-lElvavena`) |
-| External libraries | libsndfile, libsamplerate, libopenmpt, libpng16, gif, turbojpeg, libwebp (+decoder/demux/mux), zstd, PhysFS, OpenSSL (`ssl`, `crypto`) |
+| External libraries | libsndfile, libsamplerate, libopenmpt, libpng16, gif, turbojpeg, libwebp (+decoder/demux/mux), zstd, snappy, PhysFS, OpenSSL (`ssl`, `crypto`) |
 
 ## Implemented
 
@@ -33,7 +33,8 @@ and compiled translation units. The gaps are listed at the end of this file.
 | `EuphStdfileWrapper.hpp` | Adapts `FILE*` / standard streams to `Elv::Io::Device` |
 | `EuphTempFile.hpp` | Temporary-file creation (`mkstemp`, `O_TMPFILE`, ...) and RAII cleanup |
 | `EuphSocket.hpp` | POSIX sockets as `Elv::Io::Device` (address family, socket type, connect/listen/accept) |
-| `EuphZstd.hpp` | `ZstdCompressor` (write proxy) and `ZstdDecompressor` (read proxy) |
+| `EuphZstd.hpp` / `.cpp` | `ZstdCompressor` (write proxy) and `ZstdDecompressor` (read proxy) |
+| `EuphSnappy.hpp` / `.cpp` | `SnappyCompressor` (write proxy) and `SnappyDecompressor` (read proxy) over a small chunked container (`"SNPY"` magic, per-chunk compressed/uncompressed sizes) |
 | `EuphCryptoProxyDevice.hpp` | `CryptoWriteDeviceProxy` / `CryptoReadDeviceProxy` plus the `CipherType` enum (OpenSSL-backed) |
 | `PhysFS.hpp` | `PhysFS` namespace wrapper around the PhysFS virtual filesystem |
 
@@ -104,13 +105,9 @@ transitions are documented on `ResidencyState` in `EuphAssetTypes.hpp`.
 - [ ] GIF and DDS are decode-only. There is no GIF or DDS encoder.
 - [ ] The asset runtime has no GPU knowledge by design; use Lotte's
       `Lotte/Asset/LteGpuAssetStreamer.hpp` for upload/eviction scheduling.
-- [ ] `Euphemy.pro` and `Euphemy.pri` still add the vestigial NSPR include path
-      (`/usr/include/nspr`) after the MozJS dependency was dropped, and they link
-      `X11`, `SDL2`, `SDL2_image`, `freetype`, `snappy`, `glslang`, `SPIRV`,
-      `spirv-cross-*` and `yaml-cpp`, which no current Euphemy source includes. This is
-      stale build metadata and should be pruned.
 - [ ] The `MemoryManager` arenas are optional and currently unused by the rest of the
       tree. Wire them into a concrete consumer (asset streaming payloads or per-frame
       scratch) before treating them as production code.
-- [ ] There is no direct test for most codecs or the asset scheduler beyond the
-      TGA/PNG and asset-runtime tests in the Test app.
+- [ ] Codec coverage is uneven: `UnitTests` round-trips PNG, TGA, zstd, Snappy, the font
+      containers and the configuration format, but JPEG/WebP (lossy, buffer-based entry
+      points) and GIF/DDS (decode only) have no automated check.

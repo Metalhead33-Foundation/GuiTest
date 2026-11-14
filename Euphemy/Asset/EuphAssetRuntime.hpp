@@ -122,10 +122,10 @@
  *
  * - The scheduler stores references to the catalog, the registry and the thread pool, plus
  *   copies of the two callbacks. All of them must outlive the scheduler.
- * - Destroying the scheduler does **not** wait for its background jobs: the futures are
- *   abandoned, so their results (and their registry updates) never happen. Destroy the
- *   scheduler before the pool and before the registry; destroying the pool itself does wait
- *   for running tasks to finish.
+ * - Destroying the scheduler requests a stop on every running read and then waits for its
+ *   job futures, so no pool task is still executing once the object is gone. The results of
+ *   those jobs are dropped rather than committed, so destroy the scheduler after the last
+ *   `pollCompletions` you care about, and before the pool, the registry and the catalog.
  * - Records handed to the catalog are copied, but the *pointers* returned by
  *   `AssetCatalog::find` and `ResourceRegistry::inspect` (and the spans returned by
  *   `AssetCatalog::dependenciesOf`) are views into container storage. They are invalidated
@@ -157,32 +157,40 @@
  * }  // lease released here; `held` still owns the bytes until it goes out of scope
  * @endcode
  *
- * @section euph_asset_runtime_limits Known behaviour worth knowing
+ * @section euph_asset_runtime_limits Guarantees and deliberate limits
  *
- * - **The scheduler never enforces budgets.** It records `IoInflightBytes` and
- *   `DecodeInflightBytes` costs while work is in flight and the decoded costs on commit,
- *   but it never asks @ref Euph::Asset::ResidencyManager whether it may proceed. Budgets
- *   only affect eviction, which is a separate call
- *   (`ResidencyManager::evictUntilWithinBudget`).
- * - **Eviction only considers `Evictable` entries.** A `Resident` entry is never evicted,
- *   however far over budget the registry is; the application must mark it with
- *   `ResidencyManager::makeEvictable` first. Eviction is therefore predictable but manual.
- * - **A failed dependency strands its dependents.** A waiting request is only woken when
- *   all of its dependencies reach `Resident` or `Evictable`; a dependency that ends in
- *   `Failed` leaves the dependent in `WaitingDependencies` indefinitely. Check the
- *   dependency's state yourself, or cancel the dependent, when a dependency fails.
- * - **Cancellation is cooperative.** `cancel` removes a queued/waiting request immediately
- *   and requests a stop on a running read, but the job stays in the scheduler until the
- *   next `pollCompletions`. A read that observes the stop throws, so the entry usually ends
- *   up `Failed` with @ref Euph::Asset::FailureReason::IoError and the message
- *   `"Streaming read canceled"` rather than @ref Euph::Asset::FailureReason::Canceled. A
- *   decode that already started is not interruptible; its result is discarded.
- * - **Whole-record reads only.** There is no ranged or progressive loading: one request
- *   reads exactly `storedSize` bytes into one contiguous buffer, then decodes them in one
- *   call. Streaming a large file incrementally is an application concern.
- * - **Priorities are sampled, not updated in flight.** A queued request is started
- *   according to the priority stored in the registry at start time; changing it later only
- *   affects requests that have not started.
+ * - **Budgets are enforced when a manager is supplied.** With
+ *   @ref Euph::Asset::StreamingSchedulerOptions::residency set, the scheduler never starts a read
+ *   while a budget is violated: it first offers the manager an eviction pass
+ *   (@ref Euph::Asset::StreamingSchedulerOptions::evictOnBudgetPressure), and if that does not
+ *   help it stalls the queue - `budgetBlocked()` reports the stall and the requests start
+ *   automatically once memory frees up. Without a manager the scheduler only *records* costs.
+ * - **Admission control is optional.** Set
+ *   @ref Euph::Asset::StreamingSchedulerOptions::maxQueuedRequests to bound the request set; a
+ *   request beyond the limit fails with
+ *   @ref Euph::Asset::FailureReason::BudgetExceeded instead of growing the queue.
+ * - **Eviction only considers `Evictable` entries.** A `Resident` entry is never evicted, however
+ *   far over budget the registry is; the application must mark it with
+ *   `ResidencyManager::makeEvictable` first (whose @ref Euph::Asset::ResidencyFlag::EvictionRequested
+ *   mark is cleared again by the eviction pass or by any transition back to `Resident`).
+ *   Eviction is therefore predictable but manual.
+ * - **A failed dependency fails its dependents.** A waiting request is woken when all of its
+ *   dependencies reach `Resident` or `Evictable`; if one of them instead ends in `Failed` (or
+ *   disappears from the catalog) the dependent is failed too, with
+ *   @ref Euph::Asset::FailureReason::DependencyFailed or `MissingDependency`. Nothing is left
+ *   parked forever.
+ * - **Cancellation is cooperative but reported as cancellation.** `cancel` removes a
+ *   queued/waiting request immediately and requests a stop on a running read; the job is retired
+ *   on the next `pollCompletions`. A read that observes the stop, and a decode that completes
+ *   after the stop was requested, both end with
+ *   @ref Euph::Asset::FailureReason::Canceled and never install a payload. A decode is not
+ *   interruptible, so it still runs to completion on the pool; its result is discarded.
+ * - **Whole-record reads only.** There is no ranged or progressive loading: one request reads
+ *   exactly `storedSize` bytes into one contiguous buffer, then decodes them in one call.
+ *   Streaming a large file incrementally is an application concern.
+ * - **Priorities are sampled at start time.** A queued request is started according to the
+ *   priority stored in the registry when it is picked, so changing a priority only affects
+ *   requests that have not started loading yet.
  *
  * @section euph_asset_runtime_integration Integration with a GPU layer
  *
@@ -1431,12 +1439,6 @@ private:
 	std::array<std::uint64_t, static_cast<std::size_t>(BudgetKind::Count)> budgets;
 
 	/**
-	 * @brief Tests whether every budget is currently satisfied.
-	 * @return `true` when usage is less than or equal to the budget for every kind.
-	 * @note Usage *equal* to the budget is fine; only strictly greater values count as over.
-	 */
-	bool withinBudgets() const;
-	/**
 	 * @brief Sums every cost bucket of one entry.
 	 * @param entry Entry to measure.
 	 * @return Total over all @ref Euph::Asset::BudgetKind values, used as the eviction
@@ -1452,6 +1454,16 @@ private:
 	 */
 	bool hasResidentDependent(AssetId id) const;
 public:
+	/**
+	 * @brief Tests whether every budget is currently satisfied.
+	 * @return `true` when usage is less than or equal to the budget for every kind.
+	 * @note Usage *equal* to the budget is fine; only strictly greater values count as over.
+	 * @note This is the same predicate the eviction pass loops on. It is public so that
+	 *       integration layers can stall new work while a budget is exhausted - for example
+	 *       @ref Euph::Asset::StreamingScheduler when
+	 *       @ref Euph::Asset::StreamingSchedulerOptions::residency is set.
+	 */
+	bool withinBudgets() const;
 	/**
 	 * @brief Creates a manager for a registry and optional dependency catalog.
 	 * @param resourceRegistry Registry to manage; must outlive the manager.
@@ -1488,8 +1500,20 @@ public:
 	 *         was legal and applied.
 	 * @note This is the only way an asset becomes an eviction candidate; nothing else in the
 	 *       runtime calls it.
+	 * @note Marks the entry with @ref Euph::Asset::ResidencyFlag::EvictionRequested as well, so
+	 *       diagnostics can tell "evictable because policy says so" from "evictable because it was
+	 *       just created". The eviction pass clears the flag when it removes the payload, and the
+	 *       registry clears it on any transition back out of `Evictable`.
 	 */
 	bool makeEvictable(AssetId id);
+	/**
+	 * @brief Clears an eviction request without evicting the resource.
+	 * @param id Asset id whose @ref Euph::Asset::ResidencyFlag::EvictionRequested mark should be
+	 *        dropped.
+	 * @note The entry stays `Evictable` (the flag is advisory); use this when the application
+	 *       changed its mind but still wants the payload discardable later.
+	 */
+	void clearEvictionRequest(AssetId id);
 	/**
 	 * @brief Pins a resource so budget eviction will not remove it.
 	 * @param id Asset id to pin.
@@ -1597,6 +1621,36 @@ struct StreamingSchedulerOptions {
 	 * what you want for a genuinely missing asset.
 	 */
 	bool retryFailedRequests = false;
+	/**
+	 * @brief Optional residency manager used for budget enforcement.
+	 *
+	 * When set, `startQueuedRequests` asks the manager whether the configured budgets are still
+	 * satisfied before it starts another read. If they are exceeded, the scheduler first gives the
+	 * manager a chance to evict (see @ref evictOnBudgetPressure) and then stops starting new I/O
+	 * while leaving the queued requests queued - they resume automatically once the budget frees
+	 * up. Without a manager, no budget is enforced and the scheduler only *records* costs.
+	 *
+	 * The manager (and therefore the registry) must outlive the scheduler.
+	 */
+	ResidencyManager* residency = nullptr;
+	/**
+	 * @brief When true, budget pressure triggers an eviction pass before the scheduler stalls.
+	 *
+	 * Only meaningful when @ref residency is set. Enabled (the default), the scheduler calls
+	 * `ResidencyManager::evictUntilWithinBudget` when it cannot start a read because of budgets;
+	 * if that frees enough room the read starts in the same poll. Disabled, the scheduler stalls
+	 * immediately and leaves eviction entirely to the application.
+	 */
+	bool evictOnBudgetPressure = true;
+	/**
+	 * @brief Maximum number of queued (not yet started) requests, `0` meaning unlimited.
+	 *
+	 * Admission control: when the queue already holds this many entries, `request` fails the new
+	 * asset with @ref Euph::Asset::FailureReason::BudgetExceeded instead of queueing it, so a
+	 * caller cannot grow the in-memory request set without bound. Failed requests can be retried
+	 * later (with @ref retryFailedRequests set, or after clearing the failure).
+	 */
+	std::size_t maxQueuedRequests = 0;
 };
 
 /**
@@ -1711,6 +1765,31 @@ private:
 	std::vector<AssetId> waiting;
 	/** @brief Requests with a running read or decode. */
 	std::vector<Job> jobs;
+	/**
+	 * @brief True when the last `pollCompletions` had to stall because of budgets.
+	 *
+	 * Set by @ref budgetAllowsMoreWork when the residency manager reports a violated budget that
+	 * eviction could not fix. Cleared again as soon as I/O can start.
+	 */
+	bool budgetBlocked_ = false;
+
+	/**
+	 * @brief Returns true when no further request may be queued.
+	 * @return `true` when @ref StreamingSchedulerOptions::maxQueuedRequests is non-zero and the
+	 *         queue is already at that size.
+	 */
+	bool queueFull() const;
+	/**
+	 * @brief Checks budgets before another read is started.
+	 * @return `true` when the scheduler may start I/O; `false` when a budget is exhausted.
+	 *
+	 * Without @ref StreamingSchedulerOptions::residency this always returns `true`. With a manager,
+	 * a violated budget first gets an eviction pass (when
+	 * @ref StreamingSchedulerOptions::evictOnBudgetPressure is set); if the budget is still violated
+	 * afterwards the call returns `false` and sets @ref budgetBlocked_, which makes
+	 * `startQueuedRequests` leave the queue alone so the requests resume once memory frees up.
+	 */
+	bool budgetAllowsMoreWork();
 
 	/**
 	 * @brief Shared implementation of a request.
@@ -1718,12 +1797,16 @@ private:
 	 * @param priority Priority recorded on the entry and propagated to dependencies.
 	 * @param dependencyRequest `true` when this call came from resolving another request's
 	 *        dependencies; currently informational only.
-	 * @return `true` when the request was accepted, is already satisfied, or is already in progress;
-	 *         `false` when the record is unknown, the dependency graph is broken, or the entry could
-	 *         not be moved to `Requested`.
+	 * @return `true` when the scheduler took the request (including when it immediately failed the
+	 *         entry with @ref Euph::Asset::FailureReason::AssetNotFound, `MissingDependency` or
+	 *         `DependencyCycle`); `false` when admission control rejected it with
+	 *         @ref Euph::Asset::FailureReason::BudgetExceeded, or `Requested` was unreachable.
 	 * @note Unknown records create a blob entry and fail it with
 	 *       @ref Euph::Asset::FailureReason::AssetNotFound, so the failure is observable through the
 	 *       registry instead of only through the return value.
+	 * @note Admission control lives here: when @ref StreamingSchedulerOptions::maxQueuedRequests is
+	 *       reached the request is failed with @ref Euph::Asset::FailureReason::BudgetExceeded
+	 *       rather than queued.
 	 */
 	bool requestInternal(AssetId id, StreamPriority priority, bool dependencyRequest);
 	/**
@@ -1736,12 +1819,16 @@ private:
 	 */
 	bool queueReadyRequest(AssetId id, StreamPriority priority);
 	/**
-	 * @brief Starts reads for queued requests while I/O slots are free.
+	 * @brief Starts reads for queued requests while I/O slots and budgets allow it.
 	 *
 	 * Called from `pollCompletions` only, so it always runs on the polling thread. Picks the
 	 * highest-priority queued id (ties: lowest id), resolves the record, calls the Loader, marks the
 	 * entry `LoadingIO`, accounts `IoInflightBytes`, and posts the read task. Any problem fails that
 	 * entry and continues with the next candidate instead of aborting the loop.
+	 *
+	 * Before each start it calls @ref budgetAllowsMoreWork, so a violated residency budget either
+	 * triggers an eviction pass or stops the loop for this poll; the remaining requests stay queued
+	 * and are retried on the next call.
 	 */
 	void startQueuedRequests();
 	/**
@@ -1802,23 +1889,28 @@ public:
 	 */
 	StreamingScheduler(const AssetCatalog& assetCatalog, ResourceRegistry& resourceRegistry, Elv::Util::ThreadPool& threadPool, Loader loaderCallback, Decoder decoderCallback, StreamingSchedulerOptions schedulerOptions = {});
 	/**
-	 * @brief Destroys the scheduler without waiting for pending jobs.
+	 * @brief Requests a stop on every running job, waits for their futures, then releases everything.
 	 *
-	 * @warning The destructor is defaulted, so it does **not** wait. Pending futures are destroyed
-	 *          and their results are never delivered to the registry. Destroy the scheduler before
-	 *          the thread pool (whose own destructor does wait for running tasks) and before the
-	 *          registry and catalog.
+	 * Results of jobs that were still running are dropped instead of committed, because the
+	 * registry may already be under destruction by the time this runs. Combine with the ordering
+	 * rule in @ref euph_asset_runtime_lifetime - scheduler first, then pool, registry and catalog.
 	 */
 	~StreamingScheduler();
 	/**
 	 * @brief Requests an asset and optionally its dependencies.
 	 * @param id Asset to request.
 	 * @param priority Priority to record; larger is more important. Propagated to dependencies.
-	 * @return `true` when the request was accepted, already satisfied, or already in progress;
-	 *         `false` when it was rejected (unknown record, broken dependency graph, illegal
-	 *         transition).
+	 * @return `true` when the scheduler took the request: the asset is now resident, queued,
+	 *         waiting, in flight, or permanently failed (unknown record, broken dependency graph).
+	 *         `false` when the request was not taken at all - the entry could not be moved to
+	 *         `Requested`, or admission control rejected it because
+	 *         @ref StreamingSchedulerOptions::maxQueuedRequests is exhausted.
 	 * @note Requesting a resident asset is a cheap no-op that returns `true`; requesting one that is
 	 *       already queued or running is likewise idempotent.
+	 * @note A `true` return does **not** mean the asset loaded: check
+	 *       `ResourceRegistry::state` (and `failureReason`) to see the outcome. Permanent failures
+	 *       are reported through the registry rather than the return value, so that callers can
+	 *       record diagnostics for every asset they asked for.
 	 * @note This only enqueues work. Progress requires repeated @ref pollCompletions calls.
 	 */
 	bool request(AssetId id, StreamPriority priority = {});
@@ -1828,10 +1920,9 @@ public:
 	 * @return `true` when something was actually cancelled: an entry was removed from the queue or
 	 *         the waiting list, or a running job was asked to stop.
 	 * @note A cancelled request is failed with @ref Euph::Asset::FailureReason::Canceled and the
-	 *       message `"Streaming request canceled"`, but the job itself stays in the scheduler until
-	 *       the next @ref pollCompletions - and a read that observes the stop then overwrites the
-	 *       reason with @ref Euph::Asset::FailureReason::IoError. See
-	 *       @ref euph_asset_runtime_limits.
+	 *       message `"Streaming request canceled"`, and the job itself is retired on the next
+	 *       @ref pollCompletions - in both the read stage and the (non-interruptible) decode stage,
+	 *       where a completed decode is discarded instead of committed.
 	 */
 	bool cancel(AssetId id);
 	/**
@@ -1866,6 +1957,15 @@ public:
 	 *         `WaitingDependencies`.
 	 */
 	std::size_t waitingRequests() const noexcept;
+	/**
+	 * @brief Returns true when the scheduler is currently stalled by budgets.
+	 * @return `true` when the last @ref pollCompletions could not start queued reads because
+	 *         @ref StreamingSchedulerOptions::residency reported an exceeded budget that eviction
+	 *         did not fix. Always `false` when no residency manager is configured.
+	 * @note This is a diagnostic: the queued requests stay queued and start automatically in a
+	 *       later poll once the budget frees up.
+	 */
+	bool budgetBlocked() const noexcept;
 };
 
 /**

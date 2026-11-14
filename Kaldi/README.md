@@ -151,6 +151,6 @@ The strongest next move is probably not to add every modern GPU concept. It is t
       `Fence` and `QueryPool` proxies; swapchain/render-pass commands exist only as raw opcodes
       and `oop_detail` static helpers.
 - [ ] Add tests for `KldCommandBuffer` (handle allocation, RAII destruction, merge order,
-      deferred destruction). The Test app currently has no Kaldi coverage.
+      deferred destruction). `Sandbox` currently has no direct Kaldi device coverage; its geometry-batch scenarios only record into a `CommandBuffer`.
 - [ ] Define portable fallback values for `HalCapabilities` so backends that cannot probe a
       limit do not report uninitialized data.

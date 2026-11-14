@@ -112,7 +112,7 @@ The CBOR map variants described by that specification are not implemented.
 - [ ] The GPU command sequences recorded by `MeshBuilder` and `GuiGeometryBatch` are
       unverified: there is no working Kaldi backend yet.
 - [ ] Text and geometry are covered by `testTextPipeline()` and `testGeometryBatches()` in
-      the Test app; the font and vector-image formats by `testFontParser()` and
+      `Sandbox`; the font and vector-image formats by `testFontParser()` and
       `testFontRoundTrip()`. Nothing exercises a renderer, because none exists.
 - [ ] The CBOR map variants of the FontPacker specification are not implemented.
 - [ ] `KerningMap` and the glyph map are `std::unordered_map`s, so exported font files

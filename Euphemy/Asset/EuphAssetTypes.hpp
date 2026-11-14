@@ -195,6 +195,7 @@ enum class FailureReason : std::uint8_t {
 	AssetNotFound,      /**< The requested asset id does not exist in the catalog. */
 	MissingDependency,  /**< A declared dependency is absent from the catalog. */
 	DependencyCycle,    /**< Dependency traversal found a cycle. */
+	DependencyFailed,   /**< A dependency ended in `Failed`, so the dependent cannot be loaded. */
 	InvalidTransition,  /**< A caller attempted an illegal residency state transition. */
 	IoError,            /**< Raw byte loading failed. */
 	DecodeError,        /**< Decode/decompression failed. */

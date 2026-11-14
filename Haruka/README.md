@@ -74,7 +74,7 @@ header that includes every Haruka component.
 - [ ] `Mixer` requires every child to match its own channel count, sample rate and
       interleaving (it throws on mismatch). Automatic per-child resampling is not
       implemented; insert a `Resampler` node manually.
-- [ ] Test coverage is limited to `testAudioEffects()` in the Test app (effect chain,
+- [ ] Test coverage is limited to `testAudioEffects()` in `Sandbox` (effect chain,
       dry/wet blending, planar routing, IR generation, convolution). Panners,
       resampler, streamers and source playback are still untested.
 - [ ] No public umbrella header; consumers include individual `Haruka/...` headers.

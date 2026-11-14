@@ -449,6 +449,11 @@ bool ResourceRegistry::setState(AssetId id, ResidencyState newState)
 		entry->failureReason = FailureReason::None;
 		entry->failureMessage.clear();
 	}
+	// An eviction request only makes sense while the asset is evictable; any other transition
+	// (back to Resident, forward to Known, ...) drops the mark so the flag never lies.
+	if (newState != ResidencyState::Evictable && newState != ResidencyState::Evicting)
+		entry->flags = static_cast<ResidencyFlag>(
+			static_cast<std::uint32_t>(entry->flags) & ~static_cast<std::uint32_t>(ResidencyFlag::EvictionRequested));
 	return true;
 }
 
@@ -664,7 +669,15 @@ std::uint64_t ResidencyManager::currentUsage(BudgetKind kind) const
 
 bool ResidencyManager::makeEvictable(AssetId id)
 {
-	return registry.setState(id, ResidencyState::Evictable);
+	if (!registry.setState(id, ResidencyState::Evictable))
+		return false;
+	registry.setFlag(id, ResidencyFlag::EvictionRequested, true);
+	return true;
+}
+
+void ResidencyManager::clearEvictionRequest(AssetId id)
+{
+	registry.setFlag(id, ResidencyFlag::EvictionRequested, false);
 }
 
 void ResidencyManager::pin(AssetId id)
@@ -767,7 +780,8 @@ std::vector<AssetId> ResidencyManager::evictUntilWithinBudget()
 struct StreamingScheduler::Job {
 	enum class Stage {
 		Io,
-		Decode
+		Decode,
+		Done
 	};
 
 	AssetId id = 0;
@@ -790,7 +804,45 @@ StreamingScheduler::StreamingScheduler(const AssetCatalog& assetCatalog, Resourc
 		options.maxIoJobs = 1;
 }
 
-StreamingScheduler::~StreamingScheduler() = default;
+StreamingScheduler::~StreamingScheduler()
+{
+	// Ask every running read to stop, then wait for the futures so that no pool task keeps running
+	// after this object (and the registry it writes to) is gone. Results are deliberately dropped:
+	// draining them would require the registry to still be alive, which callers cannot be forced
+	// to guarantee.
+	for (Job& job : jobs) {
+		job.stopSource.request_stop();
+	}
+	for (Job& job : jobs) {
+		if (job.ioFuture.valid())
+			job.ioFuture.wait();
+		if (job.decodeFuture.valid())
+			job.decodeFuture.wait();
+	}
+}
+
+bool StreamingScheduler::queueFull() const
+{
+	return options.maxQueuedRequests != 0 && queued.size() >= options.maxQueuedRequests;
+}
+
+bool StreamingScheduler::budgetAllowsMoreWork()
+{
+	if (!options.residency) {
+		budgetBlocked_ = false;
+		return true;
+	}
+	if (!options.residency->withinBudgets() && options.evictOnBudgetPressure) {
+		// Give the manager a chance to free room before deciding to stall.
+		options.residency->evictUntilWithinBudget();
+	}
+	if (!options.residency->withinBudgets()) {
+		budgetBlocked_ = true;
+		return false;
+	}
+	budgetBlocked_ = false;
+	return true;
+}
 
 bool StreamingScheduler::hasQueued(AssetId id) const
 {
@@ -859,6 +911,12 @@ bool StreamingScheduler::requestInternal(AssetId id, StreamPriority requestPrior
 	}
 
 	(void)dependencyRequest;
+	if (queueFull()) {
+		// Admission control: refuse rather than growing the request set without bound. Unlike a
+		// permanent failure this is transient, so the call reports "not accepted".
+		registry.fail(id, FailureReason::BudgetExceeded, "Queued request limit reached");
+		return false;
+	}
 	return queueReadyRequest(id, requestPriority);
 }
 
@@ -892,6 +950,8 @@ bool StreamingScheduler::cancel(AssetId id)
 void StreamingScheduler::startQueuedRequests()
 {
 	while (jobs.size() < options.maxIoJobs && !queued.empty()) {
+		if (!budgetAllowsMoreWork())
+			break;
 		auto best = std::max_element(queued.begin(), queued.end(), [this](AssetId left, AssetId right) {
 			const StreamPriority leftPriority = registry.priority(left);
 			const StreamPriority rightPriority = registry.priority(right);
@@ -951,19 +1011,48 @@ void StreamingScheduler::wakeWaitingRequests()
 		DependencyGraph graph(catalog);
 		AssetId blockingDependency = 0;
 		if (graph.dependenciesResident(id, registry, &blockingDependency)) {
+			// A full queue is not an error: leave the parent parked and retry next poll.
+			if (queueFull()) {
+				stillWaiting.push_back(id);
+				continue;
+			}
 			queueReadyRequest(id, registry.priority(id));
-		} else {
-			stillWaiting.push_back(id);
+			continue;
 		}
+
+		// The dependency cannot become resident any more, so the parent can never be loaded.
+		// Failing it here keeps it from lingering in WaitingDependencies forever.
+		if (blockingDependency != 0) {
+			const AssetRecord* blockingRecord = catalog.find(blockingDependency);
+			if (!blockingRecord) {
+				registry.fail(id, FailureReason::MissingDependency,
+					"Dependency " + std::to_string(blockingDependency) + " is not in the catalog");
+				continue;
+			}
+			if (registry.state(blockingDependency) == ResidencyState::Failed) {
+				const std::string dependencyMessage = registry.failureMessage(blockingDependency);
+				registry.fail(id, FailureReason::DependencyFailed,
+					"Dependency " + std::to_string(blockingDependency) + " failed"
+						+ (dependencyMessage.empty() ? std::string() : ": " + dependencyMessage));
+				continue;
+			}
+		}
+		stillWaiting.push_back(id);
 	}
 	waiting = std::move(stillWaiting);
 }
 
 void StreamingScheduler::completeIo(Job& job)
 {
+	if (job.stopSource.stop_requested()) {
+		failJob(job, FailureReason::Canceled, "Streaming read canceled");
+		return;
+	}
 	try {
 		std::vector<std::byte> bytes = job.ioFuture.get();
 		registry.setCost(job.id, BudgetKind::IoInflightBytes, 0);
+		if (registry.state(job.id) == ResidencyState::Failed)
+			return; // failed by the application while the read was running
 		registry.setCost(job.id, BudgetKind::DecodeInflightBytes, bytes.size());
 		registry.setState(job.id, ResidencyState::Decoding);
 
@@ -975,17 +1064,31 @@ void StreamingScheduler::completeIo(Job& job)
 		});
 		job.stage = Job::Stage::Decode;
 	} catch (const std::exception& err) {
-		failJob(job, FailureReason::IoError, err.what());
+		// A read that observed a stop token reports the cancellation, not an I/O error.
+		if (job.stopSource.stop_requested())
+			failJob(job, FailureReason::Canceled, "Streaming read canceled");
+		else
+			failJob(job, FailureReason::IoError, err.what());
 	} catch (...) {
-		failJob(job, FailureReason::IoError, "I/O failed");
+		if (job.stopSource.stop_requested())
+			failJob(job, FailureReason::Canceled, "Streaming read canceled");
+		else
+			failJob(job, FailureReason::IoError, "I/O failed");
 	}
 }
 
 void StreamingScheduler::completeDecode(Job& job)
 {
+	if (job.stopSource.stop_requested()) {
+		// Do not install a payload for a request that was cancelled while decoding.
+		failJob(job, FailureReason::Canceled, "Streaming request canceled");
+		return;
+	}
 	try {
 		DecodedAsset decoded = job.decodeFuture.get();
 		registry.setCost(job.id, BudgetKind::DecodeInflightBytes, 0);
+		if (registry.state(job.id) == ResidencyState::Failed)
+			return; // failed by the application while decoding; keep its diagnostic
 		registry.setPayload(job.id, std::move(decoded.payload));
 		if (decoded.cpuBytes != 0)
 			registry.setCost(job.id, BudgetKind::CpuBytes, decoded.cpuBytes);
@@ -996,9 +1099,15 @@ void StreamingScheduler::completeDecode(Job& job)
 		}
 		registry.setState(job.id, ResidencyState::Resident);
 	} catch (const std::exception& err) {
-		failJob(job, FailureReason::DecodeError, err.what());
+		if (job.stopSource.stop_requested())
+			failJob(job, FailureReason::Canceled, "Streaming request canceled");
+		else
+			failJob(job, FailureReason::DecodeError, err.what());
 	} catch (...) {
-		failJob(job, FailureReason::DecodeError, "Decode failed");
+		if (job.stopSource.stop_requested())
+			failJob(job, FailureReason::Canceled, "Streaming request canceled");
+		else
+			failJob(job, FailureReason::DecodeError, "Decode failed");
 	}
 }
 
@@ -1012,13 +1121,18 @@ void StreamingScheduler::failJob(Job& job, FailureReason reason, const std::stri
 void StreamingScheduler::pollCompletions()
 {
 	for (Job& job : jobs) {
-		if (job.stage == Job::Stage::Io && futureReady(job.ioFuture.wait_for(std::chrono::seconds(0))))
-			completeIo(job);
-		if (job.stage == Job::Stage::Decode && futureReady(job.decodeFuture.wait_for(std::chrono::seconds(0))))
-			completeDecode(job);
+		if (job.stage == Job::Stage::Io) {
+			if (job.ioFuture.valid() && futureReady(job.ioFuture.wait_for(std::chrono::seconds(0))))
+				completeIo(job);
+		} else if (job.stage == Job::Stage::Decode) {
+			if (job.decodeFuture.valid() && futureReady(job.decodeFuture.wait_for(std::chrono::seconds(0))))
+				completeDecode(job);
+		}
 	}
 
 	jobs.erase(std::remove_if(jobs.begin(), jobs.end(), [this](const Job& job) {
+		if (job.stage == Job::Stage::Done)
+			return true;
 		const ResidencyState current = registry.state(job.id);
 		return current == ResidencyState::Resident || current == ResidencyState::Failed;
 	}), jobs.end());
@@ -1045,6 +1159,11 @@ std::size_t StreamingScheduler::queuedRequests() const noexcept
 std::size_t StreamingScheduler::waitingRequests() const noexcept
 {
 	return waiting.size();
+}
+
+bool StreamingScheduler::budgetBlocked() const noexcept
+{
+	return budgetBlocked_;
 }
 
 } // namespace Asset
