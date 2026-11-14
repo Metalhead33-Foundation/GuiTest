@@ -4,9 +4,29 @@
  * @file EuphConfiguration.hpp
  * @brief Declares the EuphConfiguration API in the Euphemy/Config module.
  *
- * This header is part of the public declaration surface for Euphemy/Config.
- * It exposes types, functions, constants, and helpers used by clients
- * and backend implementations that include this module.
+ * @section euph_config_format The text format
+ *
+ * A configuration is a sequence of sections; each section is a sequence of `key=value` lines:
+ *
+ * @code
+ * [graphics]
+ * iWidth=1920
+ * fScale=1.25
+ * bVSync=1
+ * sMode=windowed
+ * @endcode
+ *
+ * **The first letter of a key encodes the value type** - `s` string, `b` bool, `f` float, `i`
+ * signed integer, `u` unsigned integer - because the parser reads the type from the key instead of
+ * storing it separately. Keys are stored verbatim, so the accessor must be given the same name:
+ * `setInt("iWidth", 1920)` then `getInteger("iWidth")`. A key that starts with any other letter is
+ * rejected with an exception when the text is parsed.
+ *
+ * @section euph_config_defaults Defaults
+ *
+ * `ConfigurationSection::getX(key, default)` stores the default under that key when it is missing,
+ * so a later lookup of the same key returns it even without a default argument. Consequently a key
+ * can only ever hold one type: asking for it as a different type throws.
  */
 #include <Euphemy/Config/EuphConfigurationElement.hpp>
 #include <map>

@@ -9,14 +9,18 @@
  * and backend implementations that include this module.
  */
 #include <Elvavena/Util/ElvAllocatorBasic.hpp>
+#include <algorithm>
 #include <cassert>
-#include <vector>
-#include <span>
-#include <stdexcept>
+#include <cstdint>
+#include <cstdlib>
 #include <initializer_list>
 #include <iostream>
-#include <mutex>
 #include <memory>
+#include <mutex>
+#include <new>
+#include <span>
+#include <stdexcept>
+#include <vector>
 namespace Elv {
 namespace Util {
 /**
@@ -61,12 +65,6 @@ private:
 	 */
 	mutable std::recursive_mutex _mutex;
 
-	/**
-	 * @typedef Lock
-	 * @brief Convenience alias for a lock guard on the recursive mutex.
-	 */
-	typedef std::lock_guard<std::recursive_mutex> Lock;
-
 public:
 	/**
 	 * @brief Default constructor, initializing the freelist.
@@ -86,7 +84,7 @@ public:
 	 * @exception None (noexcept)
 	 */
 	Blk allocateBlock(std::size_t n) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
 		n = alignUp(n);
 
@@ -135,7 +133,7 @@ public:
 	 * @exception None (noexcept)
 	 */
 	void deallocateBlock(const Blk& blk) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		if (!ownsBlock(blk)) {
 			return; // Silently ignore non-owned blocks
 		}
@@ -164,7 +162,7 @@ public:
 	 * @exception None (noexcept)
 	 */
 	bool ownsBlock(const Blk& blk) const noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		return blk.ptr >= buffer_ &&
 			   blk.ptr < (buffer_ + Size);
 	}
@@ -329,12 +327,6 @@ private:
 	 */
 	mutable std::recursive_mutex _mutex;
 
-	/**
-	 * @typedef Lock
-	 * @brief A lock guard for the mutex.
-	 */
-	typedef std::lock_guard<std::recursive_mutex> Lock;
-
 public:
 	/**
 	 * @brief Constructor.
@@ -362,7 +354,7 @@ public:
 	 * @return Blk A block descriptor containing the allocated memory pointer and size. Returns a null pointer and zero size if allocation fails.
 	 */
 	Blk allocateBlock(std::size_t n) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
 		n = alignUp(n);
 
@@ -411,7 +403,7 @@ public:
 	 * @param blk A reference to the memory block being deallocated. Ensure the block is owned by this allocator.
 	 */
 	void deallocateBlock(const Blk& blk) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		if (!ownsBlock(blk)) {
 			return; // Silently ignore blocks that don't belong to us
 		}
@@ -440,7 +432,7 @@ public:
 	 * @return True if the allocator owns the block, false otherwise.
 	 */
 	bool ownsBlock(const Blk& blk) const noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		return blk.ptr >= buffer_ &&
 			   blk.ptr < (buffer_ + totalSize_);
 	}
@@ -519,7 +511,6 @@ private:
 	char* buffer_; ///< Pointer to the beginning of the managed memory buffer.
 	FreeBlock* freeList_; ///< Pointer to the head of the free block list.
 	mutable std::recursive_mutex _mutex; ///< Mutex for thread-safe access.
-	typedef std::lock_guard<std::recursive_mutex> Lock; ///< Convenience type for locking the mutex.
 
 public:
 	/**
@@ -542,7 +533,7 @@ public:
 	 *	   due to alignment and minimum block size requirements.
 	 */
 	Blk allocateBlock(std::size_t n) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		n = std::max(n, MIN_BLOCK_SIZE);
 		n = alignUp(n);
 
@@ -589,7 +580,7 @@ public:
 	 * @note If the block does not belong to this allocator, the operation is silently ignored.
 	 */
 	void deallocateBlock(const Blk& blk) noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		if (!ownsBlock(blk)) {
 			#ifndef NDEBUG
 			std::cerr << "Warning: Attempted to deallocate a block not owned by this allocator." << std::endl;
@@ -618,7 +609,7 @@ public:
 	 * @return True if the block is within the managed memory range, false otherwise.
 	 */
 	bool ownsBlock(const Blk& blk) const noexcept {
-		Lock lock(_mutex);
+		std::scoped_lock lock(_mutex);
 		return blk.ptr >= buffer_ &&
 			   blk.ptr < (buffer_ + totalSize_);
 	}
@@ -673,7 +664,7 @@ private:
 	 * @var memoryBlock
 	 * @brief Pointer to the contiguous block of memory managed by this instance.
 	 */
-	void* memoryBlock;
+	void* memoryBlock = nullptr;
 
 	/**
 	 * @var allocators
@@ -687,6 +678,69 @@ private:
 	 */
 	std::mutex allocMutex;
 
+	/** @brief Alignment guaranteed for every subsystem data region. */
+	static constexpr std::size_t dataAlignment = alignof(std::max_align_t);
+
+	/**
+	 * @brief Rounds a size or address up to @ref dataAlignment.
+	 * @param value Size or address to round.
+	 * @return The rounded value.
+	 */
+	static std::size_t alignUpSize(std::size_t value) noexcept {
+		return (value + dataAlignment - 1) & ~(dataAlignment - 1);
+	}
+
+	/**
+	 * @brief Allocates the arena and constructs one allocator per subsystem.
+	 *
+	 * The block is allocated with `std::aligned_alloc`, and every subsystem's
+	 * data region is aligned to `alignof(std::max_align_t)`. That precondition
+	 * matters: `std::aligned_alloc` requires the size to be a multiple of the
+	 * alignment, and `ContiguousFreeListAllocator` only rounds block sizes, not
+	 * addresses.
+	 *
+	 * @param subsystemSizes Sizes of the subsystem pools in bytes.
+	 * @throws std::bad_alloc If the arena cannot be allocated or a region cannot be aligned.
+	 */
+	void build(std::span<const std::size_t> subsystemSizes) {
+		std::size_t totalSize = 0;
+		for (std::size_t size : subsystemSizes)
+			totalSize += alignUpSize(sizeof(ContiguousFreeListAllocator)) + alignUpSize(size) + dataAlignment;
+		totalSize = alignUpSize(totalSize);
+
+		memoryBlock = std::aligned_alloc(dataAlignment, totalSize);
+		if (!memoryBlock)
+			throw std::bad_alloc();
+
+		char* const end = static_cast<char*>(memoryBlock) + totalSize;
+		char* currentPtr = static_cast<char*>(memoryBlock);
+		try {
+			for (std::size_t size : subsystemSizes) {
+				std::size_t space = static_cast<std::size_t>(end - currentPtr);
+				void* allocatorStorage = std::align(alignof(ContiguousFreeListAllocator),
+						sizeof(ContiguousFreeListAllocator), reinterpret_cast<void*&>(currentPtr), space);
+				if (!allocatorStorage)
+					throw std::bad_alloc();
+
+				char* dataPtr = static_cast<char*>(allocatorStorage) + sizeof(ContiguousFreeListAllocator);
+				dataPtr = reinterpret_cast<char*>(alignUpSize(reinterpret_cast<std::uintptr_t>(dataPtr)));
+				if (dataPtr > end || static_cast<std::size_t>(end - dataPtr) < size)
+					throw std::bad_alloc();
+
+				ContiguousFreeListAllocator* allocator = new (allocatorStorage) ContiguousFreeListAllocator(size, dataPtr);
+				allocators.push_back(allocator);
+				currentPtr = dataPtr + size;
+			}
+		} catch (...) {
+			for (ContiguousFreeListAllocator* allocator : allocators)
+				allocator->~ContiguousFreeListAllocator();
+			allocators.clear();
+			std::free(memoryBlock);
+			memoryBlock = nullptr;
+			throw;
+		}
+	}
+
 public:
 	/**
 	 * @brief Constructor initializing the memory manager with a span of subsystem sizes.
@@ -697,30 +751,7 @@ public:
 	 * for each subsystem, ensuring proper alignment.
 	 */
 	FreelistMemoryManager(const std::span<const std::size_t>& subsystemSizes) {
-		// Calculate total size with alignment
-		std::size_t totalSize = 0;
-		for (std::size_t size : subsystemSizes) {
-			totalSize += sizeof(ContiguousFreeListAllocator) + size;
-		}
-
-		memoryBlock = std::aligned_alloc(alignof(ContiguousFreeListAllocator), totalSize);
-		if (!memoryBlock) {
-			throw std::bad_alloc();
-		}
-
-		char* currentPtr = static_cast<char*>(memoryBlock);
-		for (std::size_t size : subsystemSizes) {
-			// Align the allocator's address
-			std::size_t space = totalSize - (currentPtr - static_cast<char*>(memoryBlock));
-			void* alignedAllocatorPtr = std::align(alignof(ContiguousFreeListAllocator), sizeof(ContiguousFreeListAllocator), reinterpret_cast<void*&>(currentPtr), space);
-			if (!alignedAllocatorPtr) {
-				throw std::bad_alloc(); // Alignment failed
-			}
-
-			ContiguousFreeListAllocator* allocator = new (alignedAllocatorPtr) ContiguousFreeListAllocator(size, currentPtr + sizeof(ContiguousFreeListAllocator));
-			allocators.push_back(allocator);
-			currentPtr = static_cast<char*>(alignedAllocatorPtr) + sizeof(ContiguousFreeListAllocator) + size;
-		}
+		build(subsystemSizes);
 	}
 
 	/**
@@ -731,30 +762,7 @@ public:
 	 * Identical to the span constructor, provided for convenience when subsystem sizes are known at compile-time.
 	 */
 	FreelistMemoryManager(const std::initializer_list<std::size_t>& subsystemSizes) {
-		// Calculate total size with alignment
-		std::size_t totalSize = 0;
-		for (std::size_t size : subsystemSizes) {
-			totalSize += sizeof(ContiguousFreeListAllocator) + size;
-		}
-
-		memoryBlock = std::aligned_alloc(alignof(ContiguousFreeListAllocator), totalSize);
-		if (!memoryBlock) {
-			throw std::bad_alloc();
-		}
-
-		char* currentPtr = static_cast<char*>(memoryBlock);
-		for (std::size_t size : subsystemSizes) {
-			// Align the allocator's address
-			std::size_t space = totalSize - (currentPtr - static_cast<char*>(memoryBlock));
-			void* alignedAllocatorPtr = std::align(alignof(ContiguousFreeListAllocator), sizeof(ContiguousFreeListAllocator), reinterpret_cast<void*&>(currentPtr), space);
-			if (!alignedAllocatorPtr) {
-				throw std::bad_alloc(); // Alignment failed
-			}
-
-			ContiguousFreeListAllocator* allocator = new (alignedAllocatorPtr) ContiguousFreeListAllocator(size, currentPtr + sizeof(ContiguousFreeListAllocator));
-			allocators.push_back(allocator);
-			currentPtr = static_cast<char*>(alignedAllocatorPtr) + sizeof(ContiguousFreeListAllocator) + size;
-		}
+		build(std::span<const std::size_t>(subsystemSizes.begin(), subsystemSizes.size()));
 	}
 
 	/**
@@ -776,7 +784,7 @@ public:
 	 * Thread-safely returns an allocator, allowing for concurrent memory management across subsystems.
 	 */
 	ContiguousFreeListAllocator* getAllocator(std::size_t index) {
-		std::lock_guard<std::mutex> lock(allocMutex);
+		std::scoped_lock lock(allocMutex);
 		if (index >= allocators.size()) {
 			throw std::out_of_range("Allocator index out of range");
 		}

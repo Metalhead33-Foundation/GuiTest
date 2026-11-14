@@ -1,8 +1,30 @@
 # Kaldi
 
-It is intended to become a graphics library abstraction layer that Lotte will be built on top of.
+Kaldi is the graphics abstraction layer (RHI/HAL) that Lotte is built on. It defines a
+backend-agnostic, VM-like command vocabulary and the object-oriented facade that records
+it. The rendering backends are separate shared libraries: [KaldiGL](../KaldiGL/README.md),
+[KaldiGLES](../KaldiGLES/README.md), [KaldiVK](../KaldiVK/README.md),
+[KaldiD3D11](../KaldiD3D11/README.md) and [KaldiD3D12](../KaldiD3D12/README.md).
 
-When development starts, this folder will host the Lotte library implementation and supporting project files.
+**Status: the contract and the recording facade are implemented; no backend is.**
+The command vocabulary (98 opcodes), the HAL 1.0/1.1 contract, and the header-only
+recording facade are usable today. All five backend projects currently build stubs that
+export the C ABI but cannot execute commands yet.
+
+## Key files
+
+| File | Contents |
+|---|---|
+| `KaldiOperation.hpp` | The command vocabulary: 98 `Opcode` values, their POD payload structs, and the `GfxOp` tagged union |
+| `KldHal.hpp` | `HalVersion`/`KaldiHalVersion1_0`, `HalCapabilities`, `HalStatusCode`, `HalStatus` |
+| `KldDevice.hpp` | The abstract backend submission interface `Device` |
+| `KldCommandBuffer.hpp` | Header-only recording facade: `HandleStorage`, `CommandDispatcher`, RAII proxies, `mergeCommandBuffers`, `DeferredDestroyQueue` |
+| `KldVertexFormat.hpp` | `PrimitiveType`, `AttributeDescriptor`, `VertexDescriptor` |
+| `KaldiLib.h` | C ABI shared with dynamically loaded backends (device creation, renderer name, version, last error) |
+
+Kaldi's `.pro` still produces a shared library, but there is no public linkable API;
+consumers add `include(Kaldi/Kaldi.pri)` for include paths and do not link `-lKaldi`.
+
 
 ## Current command model
 
@@ -20,7 +42,7 @@ Compressed texture commands treat payload bytes as opaque backend-facing block-c
 
 Texture creation from `const Euph::Media::Image::DecodeTarget*` treats frames as mip levels: frame 0 is mip 0, frame 1 is mip 1, and so on. If `generateMipmaps` is true, the backend uses frame 0 and generates the rest.
 
-`ResourceFactory::beginFrame()` maps to submitting a short command queue that begins the frame and binds the default framebuffer. `ResourceFactory::endFrame()` maps to submitting a short command queue that ends the frame and presents the default framebuffer. The device remains the submission boundary through `Device::processCommandQueue(std::span<const GfxOp>)`, which returns `HalStatus`. The old misspelled `processCommandQeue` name remains as a compatibility wrapper.
+Frame lifecycle is recorded as ordinary commands: the `oop_detail::beginFrame(dispatcher, framebuffer)` helper pushes `Opcode::BeginFrame` (defaulting to `DefaultFramebuffer`), and `oop_detail::endFrame`/`oop_detail::present` push the matching end/present commands. The device remains the submission boundary through `Device::processCommandQueue(std::span<const GfxOp>)`, which returns `HalStatus`; `CommandDispatcher::submit(Device&)` is the convenience path that hands the current read buffer to a backend. The earlier `ResourceFactory` design and the misspelled `processCommandQeue` wrapper no longer exist in the tree.
 
 ## Kaldi HAL 1.0 contract
 
@@ -118,6 +140,17 @@ The strongest next move is probably not to add every modern GPU concept. It is t
 
 ## Future graphics HAL TODOs
 
+- [ ] Implement the five backends. Today they are stubs: they export the C ABI but their
+      `Device` subclasses do not implement `capabilities()` or `processCommandQueue()`
+      (see each backend's README).
 - [ ] Validate the swapchain contract against real OpenGL, Vulkan, Direct3D 11, and Direct3D 12 backends.
 - [ ] Validate render-pass/load-store metadata against tile-based and explicit APIs, then add subpasses or dependency metadata only if real backend work needs it.
 - [ ] Build a renderer-shaped parallel recording example to pressure-test merge ordering, shared allocation, and deferred destruction ergonomics.
+- [ ] Add RAII facade proxies for swapchains and render passes. `oop_detail` currently provides
+      `Buffer`, `Texture`, `Image`, `Sampler`, `Framebuffer`, `Pipeline`, `ComputePipeline`,
+      `Fence` and `QueryPool` proxies; swapchain/render-pass commands exist only as raw opcodes
+      and `oop_detail` static helpers.
+- [ ] Add tests for `KldCommandBuffer` (handle allocation, RAII destruction, merge order,
+      deferred destruction). `Sandbox` currently has no direct Kaldi device coverage; its geometry-batch scenarios only record into a `CommandBuffer`.
+- [ ] Define portable fallback values for `HalCapabilities` so backends that cannot probe a
+      limit do not report uninitialized data.

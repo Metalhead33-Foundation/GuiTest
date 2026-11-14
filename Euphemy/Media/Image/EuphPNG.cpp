@@ -42,6 +42,12 @@ void decode(Elv::Io::Device& iodev, DecodeTarget& destination) {
 		png_destroy_read_struct(&pngPtr,&infoPtr,nullptr);
 		throw std::runtime_error("Failed to allocate PNG info structure!");
 	}
+	// libpng reports errors with longjmp; convert them into exceptions so that a corrupt file does
+	// not terminate the process. The first block only reads metadata.
+	if(setjmp(png_jmpbuf(pngPtr))) {
+		png_destroy_read_struct(&pngPtr,&infoPtr,&endInfoPtr);
+		throw std::runtime_error("libpng failed while reading the image header");
+	}
 	png_set_read_fn(pngPtr,&iodev,mh33_read_data);
 	if(iodev.tell()) png_set_sig_bytes(pngPtr, iodev.tell());
 	png_read_info(pngPtr, infoPtr);
@@ -81,13 +87,18 @@ void decode(Elv::Io::Device& iodev, DecodeTarget& destination) {
 		throw std::runtime_error("Invalid image format!");
 	}
 	auto& frame = destination.addFrame(png_get_image_width(pngPtr,infoPtr),png_get_image_height(pngPtr,infoPtr));
-	int number_of_passes;
-	number_of_passes = png_set_interlace_handling(pngPtr);
+	png_set_interlace_handling(pngPtr);
 	png_read_update_info(pngPtr, infoPtr);
 
+	// Everything the pixel loop needs is prepared before the second setjmp, so the row-pointer
+	// array is never modified between setjmp and a possible longjmp.
 	std::vector<png_bytep> rowPtrs(frame.height);
-	for (int y=0; y<frame.height; y++) {
+	for (unsigned y=0; y<frame.height; y++) {
 		rowPtrs[y] = reinterpret_cast<png_bytep>(&(frame.data[y*frame.stride]));
+	}
+	if(setjmp(png_jmpbuf(pngPtr))) {
+		png_destroy_read_struct(&pngPtr,&infoPtr,&endInfoPtr);
+		throw std::runtime_error("libpng failed while reading image data");
 	}
 	png_read_image(pngPtr, rowPtrs.data());
 	if(color_type == PNG_COLOR_TYPE_PALETTE) {
@@ -107,43 +118,60 @@ void decode(Elv::Io::Device& iodev, DecodeTarget& destination) {
 
 void encode(Elv::Io::Device& iodev, Format format, const Frame& frame, float compressionLevel)
 {
+	// PNG colour types are NOT the libpng simplified-API format constants: PNG_FORMAT_RGBA happens to
+	// equal PNG_COLOR_TYPE_PALETTE, which is how the previous mapping produced "Valid palette required
+	// for paletted images" for perfectly ordinary RGBA images.
 	uint8_t color_type = 0;
 	uint8_t bit_depth = 0;
 	switch (format) {
 		case Format::R8U:
-			color_type = PNG_FORMAT_GRAY;
+			color_type = PNG_COLOR_TYPE_GRAY;
 			bit_depth = 8;
 			break;
 		case Format::R16U:
-			color_type = PNG_FORMAT_GRAY;
+			color_type = PNG_COLOR_TYPE_GRAY;
 			bit_depth = 16;
 			break;
 		case Format::RGB8U:
-			color_type = PNG_FORMAT_RGB;
+			color_type = PNG_COLOR_TYPE_RGB;
 			bit_depth = 8;
 			break;
-		case Format::RG16U:
-			color_type = PNG_FORMAT_RGB;
+		case Format::RGB16U:
+			color_type = PNG_COLOR_TYPE_RGB;
 			bit_depth = 16;
 			break;
 		case Format::RGBA8U:
-			color_type = PNG_FORMAT_RGBA;
+			color_type = PNG_COLOR_TYPE_RGBA;
 			bit_depth = 8;
 			break;
 		case Format::RGBA16U:
-			color_type = PNG_FORMAT_RGBA;
+			color_type = PNG_COLOR_TYPE_RGBA;
 			bit_depth = 16;
 			break;
-		case Format::ARGB8U:
-			color_type = PNG_FORMAT_ARGB;
-			bit_depth = 8;
-			break;
-		case Format::ARGB16U:
-			color_type = PNG_FORMAT_ARGB;
-			bit_depth = 16;
-			break;
-		default: break;
+		default:
+			// PNG cannot express BGR orders, alpha-first layouts, 16-bit RG pairs or paletted
+			// payloads passed as raw indices with their palette stored elsewhere.
+			throw std::runtime_error("This pixel format has no PNG representation!");
 	}
+	const size_t bytesPerPixel = type2bytes(color_type, bit_depth);
+	if (bytesPerPixel == 0 || frame.width == 0 || frame.height == 0) {
+		throw std::runtime_error("Refusing to encode an empty or unsupported PNG frame!");
+	}
+	const size_t rowBytes = static_cast<size_t>(frame.width) * bytesPerPixel;
+	const size_t sourceStride = frame.stride != 0 ? frame.stride : rowBytes;
+	if (sourceStride < rowBytes
+		|| frame.data.size() < sourceStride * (static_cast<size_t>(frame.height) - 1) + rowBytes) {
+		throw std::runtime_error("PNG frame buffer is smaller than its declared dimensions!");
+	}
+
+	// The row table is prepared before setjmp so that it is never modified between setjmp and a
+	// possible longjmp out of libpng.
+	std::vector<png_bytep> rowPtrs(frame.height);
+	for (unsigned y = 0; y < frame.height; y++) {
+		rowPtrs[y] = const_cast<png_bytep>(
+			reinterpret_cast<const png_byte*>(frame.data.data() + sourceStride * y));
+	}
+
 	auto pngPtr = png_create_write_struct(PNG_LIBPNG_VER_STRING,nullptr,nullptr,nullptr);
 	if(!pngPtr) {
 		throw std::runtime_error("Failed to allocate PNG write structure!");
@@ -153,16 +181,16 @@ void encode(Elv::Io::Device& iodev, Format format, const Frame& frame, float com
 		png_destroy_write_struct(&pngPtr,nullptr);
 		throw std::runtime_error("Failed to allocate PNG info structure!");
 	}
+	if(setjmp(png_jmpbuf(pngPtr))) {
+		png_destroy_write_struct(&pngPtr,&infoPtr);
+		throw std::runtime_error("libpng failed while encoding the image");
+	}
 	png_set_write_fn(pngPtr,&iodev,mh33_write_data,mh33_flush_data);
-	png_set_IHDR(pngPtr,infoPtr,frame.width,frame.width,bit_depth,color_type,PNG_INTERLACE_NONE,
+	png_set_IHDR(pngPtr,infoPtr,frame.width,frame.height,bit_depth,color_type,PNG_INTERLACE_NONE,
 				 PNG_COMPRESSION_TYPE_DEFAULT,PNG_FILTER_TYPE_DEFAULT);
 	png_set_compression_level(pngPtr,int(std::clamp(compressionLevel,0.0f,1.0f)*9.0f));
-	std::vector<png_bytep> rowPtrs(frame.height);
-	for (int y=0; y<frame.height; y++) {
-		rowPtrs[y] = const_cast<unsigned char*>(reinterpret_cast<const unsigned char*>(&frame.data[type2bytes(color_type,bit_depth)*frame.width*y]));
-	}
 	png_write_info(pngPtr,infoPtr);
-	png_write_rows(pngPtr,rowPtrs.data(),rowPtrs.size());
+	png_write_rows(pngPtr,rowPtrs.data(),frame.height);
 	png_write_end(pngPtr,infoPtr);
 	png_destroy_write_struct(&pngPtr,&infoPtr);
 }

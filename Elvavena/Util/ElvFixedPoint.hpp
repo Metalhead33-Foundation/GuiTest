@@ -27,7 +27,6 @@ namespace Util {
 /**
  * @defgroup fixed_point Fixed Point Arithmetic Class
  * @brief Provides a class template for fixed-point arithmetic.
- * @ingroup fp
  * @{
  */
 
@@ -931,12 +930,12 @@ struct fixed_point {
 	 * @{
 	 */
 
+#if __cplusplus >= 202002L
 	/**
 	 * @brief Three-way comparison operator (C++20 and later).
 	 * @param b The other fixed_point object to compare with.
 	 * @return std::strong_ordering The comparison result.
 	 */
-#if __cplusplus >= 202002L
 	inline constexpr std::strong_ordering operator<=>(const fixed_point& b) const {
 		return _container <=> b._container;
 	}

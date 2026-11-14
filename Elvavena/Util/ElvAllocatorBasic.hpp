@@ -407,7 +407,6 @@ template <typename Alloc, typename T> requires AlexandrescuAllocator<Alloc> stru
 	 * @brief Constructs an allocator from another AlexandrescuAllocatorAdapter instance.
 	 * @tparam UAlloc Allocator type of the other instance.
 	 * @tparam UT Type associated with the other instance.
-	 * @param other Other AlexandrescuAllocatorAdapter instance.
 	 */
 	template <typename UAlloc, typename UT> requires AlexandrescuAllocator<UAlloc> constexpr AlexandrescuAllocatorAdapter(const AlexandrescuAllocatorAdapter <UAlloc, UT>&) noexcept {}
 

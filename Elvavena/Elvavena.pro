@@ -30,6 +30,7 @@ HEADERS += \
     Util/ElvContinuousIterator.hpp \
     Util/ElvDeferStack.hpp \
     Util/ElvDither.hpp \
+    Util/ElvDoubleBufferedVector.hpp \
     Util/ElvDynamicLib.hpp \
     Util/ElvEdgeFunction.hpp \
     Util/ElvEndianness.hpp \
@@ -40,6 +41,7 @@ HEADERS += \
     Util/ElvFreelist.hpp \
     Util/ElvFuzzy.hpp \
     Util/ElvHeapArray.hpp \
+    Util/ElvIdPool.hpp \
     Util/ElvIntegralIterator.hpp \
     Util/ElvInterpolation.hpp \
     Util/ElvIntrusiveArray.hpp \

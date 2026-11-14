@@ -5,19 +5,17 @@ CONFIG -= qt
 
 DEFINES += MH_EUPH_EXPORT
 
-# External Dependencies (moved from your original file)
-LIBS += -lX11 -lSDL2 -lSDL2_image -lfreetype -fopenmp -ldl -lpng16 \
-        -lgif -lturbojpeg -lsndfile -lsamplerate -lopenmpt -lwebp -lwebpdecoder \
-        -lwebpdemux -lwebpmux -lzstd -lsnappy -lphysfs -lssl -lcrypto \
-        -lglslang -lSPIRV -lspirv-cross-core -lspirv-cross-glsl -lyaml-cpp
+# External Dependencies
+LIBS += -fopenmp -ldl -lpng16 -lgif -lturbojpeg -lsndfile -lsamplerate -lopenmpt \
+        -lwebp -lwebpdecoder -lwebpdemux -lwebpmux -lzstd -lsnappy -lphysfs -lssl -lcrypto
 
 INCLUDEPATH += $$PWD/..
-INCLUDEPATH += /usr/include/nspr /usr/include/freetype2 .
 
 # Link to sibling library
 LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
 
 SOURCES += \
+ Asset/EuphAssetRuntime.cpp \
  Config/EuphConfiguration.cpp \
  Config/EuphConfigurationElement.cpp \
  Io/EuphBufferDevice.cpp \
@@ -31,6 +29,7 @@ SOURCES += \
  Io/EuphPmrMemoryDevice.cpp \
  Io/EuphRandomDevice.cpp \
  Io/EuphSocket.cpp \
+ Io/EuphSnappy.cpp \
  Io/EuphStdfileWrapper.cpp \
  Io/EuphTempFile.cpp \
  Io/EuphZstd.cpp \
@@ -55,11 +54,11 @@ SOURCES += \
  Memory/EuphMemory.cpp
 
 HEADERS += \
+ Asset/EuphAssetRuntime.hpp \
  Asset/EuphAssetTypes.hpp \
  Config/EuphConfiguration.hpp \
  Config/EuphConfigurationElement.hpp \
  Config/EuphLib.hpp \
- Config/GlobalConfig.hpp \
  Io/EuphBufferDevice.hpp \
  Io/EuphConstBufferDevice.hpp \
  Io/EuphCryptoProxyDevice.hpp \
@@ -71,6 +70,7 @@ HEADERS += \
  Io/EuphPmrMemoryDevice.hpp \
  Io/EuphRandomDevice.hpp \
  Io/EuphSocket.hpp \
+ Io/EuphSnappy.hpp \
  Io/EuphStdfileWrapper.hpp \
  Io/EuphTempFile.hpp \
  Io/EuphZstd.hpp \

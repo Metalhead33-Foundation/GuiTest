@@ -46,8 +46,6 @@ public:
 	using Queue = std::deque<T, Allocator>;
 	/// Internal mutex type.
 	using Mutex = std::mutex;
-	/// Internal lock guard type.
-	using Lock = std::lock_guard<Mutex>;
 	/// Internal unique lock type.
 	using UniqueLock = std::unique_lock<Mutex>;
 
@@ -78,7 +76,7 @@ public:
 	 * @note Locks the source queue mutex during the copy.
 	 */
 	ThreadsafeQueue(const ThreadsafeQueue& cpy) {
-		Lock lock(cpy.mutex);
+		std::scoped_lock lock(cpy.mutex);
 		queue = cpy.queue;
 	}
 
@@ -89,7 +87,7 @@ public:
 	 * @note Locks the source queue mutex during the move.
 	 */
 	ThreadsafeQueue(ThreadsafeQueue&& mov) noexcept {
-		Lock lock(mov.mutex);
+		std::scoped_lock lock(mov.mutex);
 		queue = std::move(mov.queue);
 	}
 
@@ -145,7 +143,7 @@ public:
 	template <typename F>
 	requires std::invocable<F&, Queue&>
 	decltype(auto) operate(F&& function) {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		return std::forward<F>(function)(queue);
 	}
 
@@ -158,7 +156,7 @@ public:
 	template <typename F>
 	requires std::invocable<F&, const Queue&>
 	decltype(auto) operate(F&& function) const {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		return std::forward<F>(function)(queue);
 	}
 
@@ -167,13 +165,13 @@ public:
 	 * @return Queue size.
 	 */
 	[[nodiscard]] size_t size() const {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		return queue.size();
 	}
 
 	/** @brief Removes all elements. */
 	void clear() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		queue.clear();
 	}
 
@@ -182,7 +180,7 @@ public:
 	 * @return `true` if empty, otherwise `false`.
 	 */
 	[[nodiscard]] bool empty() const {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		return queue.empty();
 	}
 
@@ -213,7 +211,7 @@ public:
 	 * @throws std::out_of_range If queue is empty.
 	 */
 	[[nodiscard]] T back() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		throwIfEmpty("ThreadsafeQueue::back - queue is empty");
 		return queue.back();
 	}
@@ -224,7 +222,7 @@ public:
 	 * @throws std::out_of_range If queue is empty.
 	 */
 	[[nodiscard]] T back() const {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		throwIfEmpty("ThreadsafeQueue::back - queue is empty");
 		return queue.back();
 	}
@@ -235,7 +233,7 @@ public:
 	 * @throws std::out_of_range If queue is empty.
 	 */
 	[[nodiscard]] T front() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		throwIfEmpty("ThreadsafeQueue::front - queue is empty");
 		return queue.front();
 	}
@@ -246,7 +244,7 @@ public:
 	 * @throws std::out_of_range If queue is empty.
 	 */
 	[[nodiscard]] T front() const {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		throwIfEmpty("ThreadsafeQueue::front - queue is empty");
 		return queue.front();
 	}
@@ -260,7 +258,7 @@ public:
 	requires std::constructible_from<T, U&&>
 	void push_back(U&& val) {
 		{
-			Lock lock(mutex);
+			std::scoped_lock lock(mutex);
 			queue.emplace_back(std::forward<U>(val));
 		}
 		cvBlock.notify_one();
@@ -275,7 +273,7 @@ public:
 	requires std::constructible_from<T, U&&>
 	void push_front(U&& val) {
 		{
-			Lock lock(mutex);
+			std::scoped_lock lock(mutex);
 			queue.emplace_front(std::forward<U>(val));
 		}
 		cvBlock.notify_one();
@@ -290,7 +288,7 @@ public:
 	requires std::constructible_from<T, Args&&...>
 	void emplace_back(Args&&... args) {
 		{
-			Lock lock(mutex);
+			std::scoped_lock lock(mutex);
 			queue.emplace_back(std::forward<Args>(args)...);
 		}
 		cvBlock.notify_one();
@@ -305,7 +303,7 @@ public:
 	requires std::constructible_from<T, Args&&...>
 	void emplace_front(Args&&... args) {
 		{
-			Lock lock(mutex);
+			std::scoped_lock lock(mutex);
 			queue.emplace_front(std::forward<Args>(args)...);
 		}
 		cvBlock.notify_one();
@@ -316,7 +314,7 @@ public:
 	 * @throws std::out_of_range If queue is empty.
 	 */
 	void delete_back() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		throwIfEmpty("ThreadsafeQueue::delete_back - queue is empty");
 		queue.pop_back();
 	}
@@ -326,7 +324,7 @@ public:
 	 * @throws std::out_of_range If queue is empty.
 	 */
 	void delete_front() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		throwIfEmpty("ThreadsafeQueue::delete_front - queue is empty");
 		queue.pop_front();
 	}
@@ -336,7 +334,7 @@ public:
 	 * @return `true` on success, `false` if empty.
 	 */
 	[[nodiscard]] bool try_delete_back() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		if(queue.empty()) return false;
 		queue.pop_back();
 		return true;
@@ -347,7 +345,7 @@ public:
 	 * @return `true` on success, `false` if empty.
 	 */
 	[[nodiscard]] bool try_delete_front() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		if(queue.empty()) return false;
 		queue.pop_front();
 		return true;
@@ -359,7 +357,7 @@ public:
 	 * @throws std::out_of_range If queue is empty.
 	 */
 	void pop_back(ref target) {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		throwIfEmpty("ThreadsafeQueue::pop_back - queue is empty");
 		target = std::move(queue.back());
 		queue.pop_back();
@@ -371,7 +369,7 @@ public:
 	 * @throws std::out_of_range If queue is empty.
 	 */
 	void pop_front(ref target) {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		throwIfEmpty("ThreadsafeQueue::pop_front - queue is empty");
 		target = std::move(queue.front());
 		queue.pop_front();
@@ -383,7 +381,7 @@ public:
 	 * @return `true` on success, `false` if empty.
 	 */
 	[[nodiscard]] bool try_pop_back(ref target) {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		if(queue.empty()) return false;
 		target = std::move(queue.back());
 		queue.pop_back();
@@ -396,7 +394,7 @@ public:
 	 * @return `true` on success, `false` if empty.
 	 */
 	[[nodiscard]] bool try_pop_front(ref target) {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		if(queue.empty()) return false;
 		target = std::move(queue.front());
 		queue.pop_front();
@@ -408,7 +406,7 @@ public:
 	 * @return Popped value or `std::nullopt` if empty.
 	 */
 	[[nodiscard]] std::optional<T> try_pop_back() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		if(queue.empty()) return std::nullopt;
 		T tmp = std::move(queue.back());
 		queue.pop_back();
@@ -420,7 +418,7 @@ public:
 	 * @return Popped value or `std::nullopt` if empty.
 	 */
 	[[nodiscard]] std::optional<T> try_pop_front() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		if(queue.empty()) return std::nullopt;
 		T tmp = std::move(queue.front());
 		queue.pop_front();
@@ -493,7 +491,7 @@ public:
 	 * @throws std::out_of_range If queue is empty.
 	 */
 	[[nodiscard]] T pop_back() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		throwIfEmpty("ThreadsafeQueue::pop_back - queue is empty");
 		T tmp = std::move(queue.back());
 		queue.pop_back();
@@ -506,7 +504,7 @@ public:
 	 * @throws std::out_of_range If queue is empty.
 	 */
 	[[nodiscard]] T pop_front() {
-		Lock lock(mutex);
+		std::scoped_lock lock(mutex);
 		throwIfEmpty("ThreadsafeQueue::pop_front - queue is empty");
 		T tmp = std::move(queue.front());
 		queue.pop_front();

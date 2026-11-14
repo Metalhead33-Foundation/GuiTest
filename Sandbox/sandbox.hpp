@@ -1,7 +1,7 @@
-#ifndef TEST_HPP
-#define TEST_HPP
+#ifndef SANDBOX_HPP
+#define SANDBOX_HPP
 /**
- * @file test.hpp
+ * @file sandbox.hpp
  * @brief Declares the test API in the Test module.
  *
  * This header is part of the public declaration surface for Test.
@@ -42,8 +42,12 @@ void testMemoryMappedTempDlopenNoClose(Euph::Io::TemporaryFileCreationMode mode 
 void testMemoryMappedTempDlopenClose(Euph::Io::TemporaryFileCreationMode mode = Euph::Io::TemporaryFileCreationMode::MKSTEMP);
 /** @brief Documents the testConfigFile declaration. */
 void testConfigFile();
-/** @brief Documents the testGlobalConfigFile declaration. */
-void testGlobalConfigFile();
+/** @brief Exercises the in-memory configuration representation. */
+void testConfiguration();
+/** @brief Exercises explicit PMR arena initialization and allocation. */
+void testMemoryArenas();
+/** @brief Round-trips the FontPacker WODF and WODI containers through DataStream. */
+void testFontRoundTrip();
 /** @brief Documents the testInterpolationFloat declaration. */
 void testInterpolationFloat();
 /** @brief Documents the testInterpolationFixed declaration. */
@@ -54,5 +58,19 @@ void testTGA();
 void testPNG();
 /** @brief Exercises the Elv::Io::Async adapter API. */
 void testAsyncIo();
+/** @brief Exercises the genre-independent asset streaming runtime. */
+void testAssetRuntime();
+/** @brief Exercises Lotte's GPU asset command scheduling bridge. */
+void testGpuAssetStreamer();
+/** @brief Exercises Lotte's Font parser. */
+void testFontParser();
+/** @brief Exercises Haruka's effect chain, impulse generation and convolution. */
+void testAudioEffects();
+/** @brief Exercises the MML parser, rich-text processor and text layout. */
+void testTextPipeline();
+/** @brief Exercises Elvavena's signal/slot replacement. */
+void testSignals();
+/** @brief Exercises Lotte mesh and GUI geometry batching against the Kaldi facade. */
+void testGeometryBatches();
 
-#endif // TEST_HPP
+#endif // SANDBOX_HPP

@@ -13,6 +13,8 @@
 #include <Elvavena/Util/ElvEndianness.hpp>
 #include <optional>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <variant>
 namespace Elv {
 namespace Io {
@@ -942,6 +944,25 @@ struct DataStream {
 #endif
 
 	/**
+	 * @brief Operator to write a std::basic_string to the stream.
+	 *
+	 * Delegates to the `std::basic_string_view` overload. Without this
+	 * overload, `std::basic_string` satisfies `VectorLike` and would be written
+	 * as a raw byte container (no null terminator), while the matching reader
+	 * expects the string encoding.
+	 *
+	 * @tparam CharT Character type of the string.
+	 * @tparam Traits Traits class of the string.
+	 * @tparam Allocator Allocator type of the string.
+	 * @param data std::basic_string to be written.
+	 * @return Reference to the current DataStream instance.
+	 */
+	template<class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
+	inline DataStream& operator<<(const std::basic_string<CharT, Traits, Allocator>& data) {
+		return *this << std::basic_string_view<CharT, Traits>(data);
+	}
+
+	/**
 	 * @brief Operator to write a std::basic_string_view to the stream.
 	 *
 	 * Writes the size and contents of a std::basic_string_view to the device.
@@ -951,37 +972,20 @@ struct DataStream {
 	 * @param data std::basic_string_view to be written.
 	 * @return Reference to the current DataStream instance.
 	 */
-		template< class CharT, class Traits = std::char_traits<CharT>>
-		inline DataStream& operator<<(const std::basic_string_view<CharT, Traits>& data) {
-		*this << static_cast<uint32_t>(data.size());
-		if constexpr(sizeof(CharT) == sizeof(std::byte)) {
-			device.write(data.data(), 1, data.size());
-			return *this;
-		} else {
-			return writeElements<CharT>(data.begin(), data.end(), false);
-		}
-	}
+	template<class CharT, class Traits = std::char_traits<CharT>>
+	inline DataStream& operator<<(std::basic_string_view<CharT, Traits> data) {
+		const uint32_t total_elements = static_cast<uint32_t>(data.size() + 1); // Content + null
 
-	/**
-	 * @brief Operator to write a std::basic_string to the stream.
-	 *
-	 * Writes the size and contents of a std::basic_string to the device.
-	 *
-	 * @tparam CharT Character type of the string.
-	 * @tparam Traits Traits class of the string.
-	 * @tparam Allocator Allocator type of the string.
-	 * @param data std::basic_string to be written.
-	 * @return Reference to the current DataStream instance.
-	 */
-	template< class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
-	inline DataStream& operator<<(const std::basic_string<CharT, Traits, Allocator>& data) {
-		*this << static_cast<uint32_t>(data.size());
-		if constexpr(sizeof(CharT) == sizeof(std::byte)) {
-			device.write(data.data(), 1, data.size());
-			return *this;
-		} else {
-			return writeElements<CharT>(data.begin(), data.end(), false);
-		}
+		// Write element count (endian-converted via operator<<(uint32_t))
+		*this << total_elements;
+
+		// writeElements handles fast block writes for 1-byte/native chars
+		// and element-by-element endian conversion for multi-byte chars
+		writeElements<CharT>(data.begin(), data.end(), false);
+
+		// Write null terminator (converted via operator<<(CharT))
+		const CharT null_char{};
+		return *this << null_char;
 	}
 
 	/**
@@ -995,17 +999,24 @@ struct DataStream {
 	 * @param data std::basic_string to be read.
 	 * @return Reference to the current DataStream instance.
 	 */
-	template< class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
+	template<class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
 	inline DataStream& operator>>(std::basic_string<CharT, Traits, Allocator>& data) {
-		uint32_t size;
-		*this >> size;
-		data.resize(size);
-		if constexpr(sizeof(CharT) == sizeof(std::byte)) {
-			device.read(data.data(), 1, data.size());
+		uint32_t total_elements = 0;
+		*this >> total_elements;
+
+		if (total_elements == 0) {
+			data.clear();
 			return *this;
-		} else {
-			return readElementsInto<CharT>(data.begin(), data.end());
 		}
+
+		data.resize(total_elements - 1); // Exclude trailing null from string length
+
+		// Reads payload characters
+		readElementsInto<CharT>(data.begin(), data.end());
+
+		// Consume and discard trailing null terminator from stream
+		CharT null_char;
+		return *this >> null_char;
 	}
 
 	/**
@@ -1019,10 +1030,10 @@ struct DataStream {
 	 */
 	template <typename T>
 	inline DataStream& operator<<(const std::optional<T>& opt) {
-		bool hasValue = opt.has_value();
+		const bool hasValue = opt.has_value();
 		*this << hasValue;
-		if(hasValue) {
-			*this << opt.value();
+		if (hasValue) {
+			*this << *opt; // Unchecked access (safe because hasValue was checked)
 		}
 		return *this;
 	}
@@ -1038,14 +1049,19 @@ struct DataStream {
 	 */
 	template <typename T>
 	inline DataStream& operator>>(std::optional<T>& opt) {
-		bool hasValue;
+		bool hasValue = false;
 		*this >> hasValue;
-		if(hasValue) {
-			T value;
-			*this >> value;
-			opt.emplace(std::move(value));
+
+		if (hasValue) {
+			if (opt.has_value()) {
+				// Reuse existing memory buffer directly
+				*this >> *opt;
+			} else {
+				// Emplace default value, then read directly into optional's buffer
+				*this >> opt.emplace();
+			}
 		} else {
-			opt = std::nullopt;
+			opt.reset(); // Clear optional if no value present
 		}
 		return *this;
 	}
@@ -1077,7 +1093,8 @@ struct DataStream {
 	 */
 	template <typename T1, typename T2>
 	inline DataStream& operator>>(std::pair<T1, T2>& pair) {
-		return *this >> pair.first >> pair.second;
+		return *this >> const_cast<std::remove_const_t<T1>&>(pair.first)
+		>> const_cast<std::remove_const_t<T2>&>(pair.second);
 	}
 
 	/**
@@ -1094,11 +1111,28 @@ struct DataStream {
 	 */
 	template <typename Element, typename Iterator>
 	DataStream& writeElements(Iterator first, Iterator last, bool writeSize = true) {
-		if(writeSize) {
-			uint32_t elements = std::distance(first, last);
-			*this << elements;
+		if (writeSize) {
+			*this << static_cast<uint32_t>(std::distance(first, last));
 		}
-		std::for_each(first, last, [this](const Element& iter) { *this << iter; });
+
+		// Check if endianness swap is unnecessary
+		constexpr bool is_native_endian = (io_endianness == Util::Endian::Native);
+		constexpr bool is_single_byte = (sizeof(Element) == 1);
+
+		// Bulk write ONLY if single-byte OR if stream endianness matches host endianness
+		if constexpr ((is_single_byte || is_native_endian) &&
+					  std::is_trivially_copyable_v<Element> &&
+					  std::contiguous_iterator<Iterator>) {
+			if (first != last) {
+				const auto bytes = static_cast<size_t>(std::distance(first, last)) * sizeof(Element);
+				device.write(std::to_address(first), 1, bytes);
+			}
+		} else {
+			// Must iterate so operator<<(Element) applies convert_endian
+			std::for_each(first, last, [this](const auto& item) {
+				*this << item;
+			});
+		}
 		return *this;
 	}
 
@@ -1115,7 +1149,22 @@ struct DataStream {
 	 */
 	template <typename Element, typename Iterator>
 	DataStream& readElementsInto(Iterator first, Iterator last) {
-		std::for_each(first, last, [this](Element& iter) { *this >> iter; });
+		constexpr bool is_native_endian = (io_endianness == Util::Endian::Native);
+		constexpr bool is_single_byte = (sizeof(Element) == 1);
+
+		if constexpr ((is_single_byte || is_native_endian) &&
+					  std::is_trivially_copyable_v<Element> &&
+					  std::contiguous_iterator<Iterator>) {
+			if (first != last) {
+				const auto bytes = static_cast<size_t>(std::distance(first, last)) * sizeof(Element);
+				device.read(std::to_address(first), 1, bytes);
+			}
+		} else {
+			// Must iterate so operator>>(Element&) applies convert_endian
+			std::for_each(first, last, [this](auto&& item) {
+				*this >> item;
+			});
+		}
 		return *this;
 	}
 
@@ -1132,12 +1181,8 @@ struct DataStream {
 		requires Util::VectorLike<Container>
 	inline DataStream& operator<<(const Container& data) {
 		*this << static_cast<uint32_t>(data.size());
-		if constexpr(sizeof(typename Container::value_type) == sizeof(std::byte)) {
-			device.write(data.data(), 1, data.size());
-			return *this;
-		} else {
-			return writeElements<typename Container::value_type>(data.begin(), data.end(), false);
-		}
+		// Delegate iteration & bulk byte optimizations entirely to writeElements
+		return writeElements<typename Container::value_type>(data.begin(), data.end(), false);
 	}
 
 	/**
@@ -1152,15 +1197,11 @@ struct DataStream {
 	template <typename Container>
 		requires Util::VectorLike<Container>
 	inline DataStream& operator>>(Container& data) {
-		uint32_t size;
+		uint32_t size = 0;
 		*this >> size;
 		data.resize(size);
-		if constexpr(sizeof(typename Container::value_type) == sizeof(std::byte)) {
-			device.read(data.data(), 1, data.size());
-			return *this;
-		} else {
-			return readElementsInto<typename Container::value_type>(data.begin(), data.end());
-		}
+		// Delegate iteration & bulk byte optimizations entirely to readElementsInto
+		return readElementsInto<typename Container::value_type>(data.begin(), data.end());
 	}
 
 	/**
@@ -1176,6 +1217,7 @@ struct DataStream {
 		requires Util::MapLike<Container>
 	inline DataStream& operator<<(const Container& data) {
 		*this << static_cast<uint32_t>(data.size());
+		// Maps store std::pair<const Key, Value>, which operator<< handles per pair
 		return writeElements<typename Container::value_type>(data.begin(), data.end(), false);
 	}
 
@@ -1191,9 +1233,16 @@ struct DataStream {
 	template <typename Container>
 		requires Util::MapLike<Container>
 	inline DataStream& operator>>(Container& data) {
-		uint32_t size;
+		uint32_t size = 0;
 		*this >> size;
-		for(uint32_t i = 0; i < size; ++i) {
+		data.clear(); // FIX 1: Clear existing elements before reading new ones
+
+		// Pre-reserve for unordered_map / hash maps if supported
+		if constexpr (requires { data.reserve(size); }) {
+			data.reserve(size);
+		}
+
+		for (uint32_t i = 0; i < size; ++i) {
 			typename Container::key_type tmpKey;
 			typename Container::mapped_type tmpVal;
 			*this >> tmpKey >> tmpVal;
@@ -1215,7 +1264,8 @@ struct DataStream {
 		requires Util::SequentialContainer<Container>
 	inline DataStream& operator<<(const Container& data) {
 		*this << static_cast<uint32_t>(data.size());
-		return writeElements<Container::value_type>(data.begin(), data.end(), false);
+		// FIX 2: Added typename before Container::value_type
+		return writeElements<typename Container::value_type>(data.begin(), data.end(), false);
 	}
 
 	/**
@@ -1230,12 +1280,27 @@ struct DataStream {
 	template <typename Container>
 		requires Util::SequentialContainer<Container>
 	inline DataStream& operator>>(Container& data) {
-		uint32_t size;
+		uint32_t size = 0;
 		*this >> size;
-		for(uint32_t i = 0; i < size; ++i) {
+		data.clear(); // FIX 1: Clear existing elements before reading new ones
+
+		// Pre-reserve if the sequential container supports it (e.g., std::unordered_set)
+		if constexpr (requires { data.reserve(size); }) {
+			data.reserve(size);
+		}
+
+		for (uint32_t i = 0; i < size; ++i) {
 			typename Container::value_type tmpData;
 			*this >> tmpData;
-			data.insert(std::move(tmpData));
+
+			// Use emplace or insert depending on what the container supports
+			if constexpr (requires { data.emplace_back(std::move(tmpData)); }) {
+				data.emplace_back(std::move(tmpData));
+			} else if constexpr (requires { data.emplace(std::move(tmpData)); }) {
+				data.emplace(std::move(tmpData));
+			} else {
+				data.insert(std::move(tmpData));
+			}
 		}
 		return *this;
 	}
