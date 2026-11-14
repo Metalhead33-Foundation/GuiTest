@@ -1440,11 +1440,14 @@ Lotte::Text::PreprocessedFontFace makeTestFontFace()
 	for (char32_t codePoint : { U'A', U'B' }) {
 		StoredCharacter character;
 		character.valid = true;
-		character.width = 8;
-		character.height = 10;
-		character.bearingX = 1;
-		character.bearingY = 8;
-		character.advanceX = 9;
+		// Model FontPacker's outline path: the SDF is generated from the *metric* box,
+		// so the raw FreeType bitmap fields are never filled in.
+		character.metricWidth = 8.0f;
+		character.metricHeight = 10.0f;
+		character.horiBearingX = 1.0f;
+		character.horiBearingY = 8.0f;
+		character.horiAdvance = 9.0f;
+		character.advanceX = 9 * 64;
 		face.glyphs.emplace(std::uint32_t(codePoint), std::move(character));
 	}
 	return face;
@@ -1728,12 +1731,40 @@ void testTextPipeline()
 	requireCondition(layout.glyphs.size() == 3, "Three printable code points must produce three glyphs");
 	requireCondition(layout.styles.size() == 1, "Identical attributes must share one style");
 	requireCondition(std::abs(layout.glyphs[0].position.x - 11.0f) < 1e-5f
-			&& std::abs(layout.glyphs[0].position.y - 22.0f) < 1e-5f,
-		"Glyph placement must apply the bearing from the pen position");
+			&& std::abs(layout.glyphs[0].position.y - 12.0f) < 1e-5f,
+		"Glyph placement must apply the bearing from the baseline");
 	requireCondition(std::abs(layout.glyphs[2].position.x - 11.0f) < 1e-5f
-			&& std::abs(layout.glyphs[2].position.y - 32.0f) < 1e-5f,
-		"A newline must return the pen to the line start and advance by the measured height");
-	requireCondition(std::abs(layout.endOffset.x - 19.0f) < 1e-5f, "The end offset must follow the last advance");
+			&& std::abs(layout.glyphs[2].position.y - 22.0f) < 1e-5f,
+		"A newline must return the pen to the line start and advance by the face line height");
+	requireCondition(std::abs(layout.endOffset.x - 19.0f) < 1e-5f,
+		"The end offset must follow the 26.6 advance converted to pixels");
+	requireCondition(std::abs(layout.height - 32.0f) < 1e-5f,
+		"The layout height must be the last baseline plus the descender");
+
+	{
+		// Kerning offsets are pixels at the face's reference size, so they scale with
+		// the run but are not divided by 64 like the advance is.
+		PreprocessedFontFace kernedFace = makeTestFontFace();
+		kernedFace.kerning[U'A'].emplace(std::uint32_t(U'B'), glm::fvec2(-1.0f, 0.0f));
+		const TextRunList kernedRuns = { TextRun{ U"AB", baseAttributes } };
+		const TextLayout kernedLayout = layoutRuns(kernedRuns,
+			[&kernedFace](const std::string&, bool) { return &kernedFace; }, options);
+		requireCondition(kernedLayout.glyphs.size() == 2, "Kerned text must still produce two glyphs");
+		requireCondition(std::abs(kernedLayout.glyphs[1].position.x - 19.0f) < 1e-5f,
+			"Kerning must pull the second glyph one pixel to the left");
+		requireCondition(std::abs(kernedLayout.endOffset.x - 27.0f) < 1e-5f,
+			"Kerning must shorten the laid-out width");
+		requireCondition(std::abs(layout.glyphs[1].position.x - 20.0f) < 1e-5f,
+			"A face without kerning must keep the unkerned advance");
+
+		// A zero-offset pair must not shift anything, and a missing pair must be a no-op.
+		PreprocessedFontFace zeroKern = makeTestFontFace();
+		zeroKern.kerning[U'A'].emplace(std::uint32_t(U'B'), glm::fvec2(0.0f, 0.0f));
+		const TextLayout zeroLayout = layoutRuns(kernedRuns,
+			[&zeroKern](const std::string&, bool) { return &zeroKern; }, options);
+		requireCondition(std::abs(zeroLayout.glyphs[1].position.x - 20.0f) < 1e-5f,
+			"A zero kerning offset must be a no-op");
+	}
 
 	{
 		TextAttributes italic = baseAttributes;
@@ -1754,6 +1785,31 @@ void testTextPipeline()
 		requireCondition(underlinedLayout.lines.size() == 1, "An underlined run must emit one decoration line");
 		requireCondition(std::abs(underlinedLayout.lines[0].to.x - 28.0f) < 1e-5f,
 			"The underline must span the laid-out text");
+		requireCondition(std::abs(underlinedLayout.lines[0].to.y - 21.0f) < 1e-5f,
+			"The underline must sit just below the baseline");
+	}
+
+	{
+		// Faces assembled from pre-rendered bitmaps have no metric box; the raw bitmap
+		// fields must then be used instead, and the 26.6 advance is the only one present.
+		PreprocessedFontFace bitmapFace = makeTestFontFace();
+		for (auto& entry : bitmapFace.glyphs) {
+			StoredCharacter& character = entry.second;
+			character.metricWidth = 0.0f;
+			character.metricHeight = 0.0f;
+			character.horiAdvance = 0.0f;
+			character.width = 8;
+			character.height = 10;
+			character.bearingX = 1;
+			character.bearingY = 8;
+		}
+		const TextLayout fallback = layoutRuns({ TextRun{ U"AB", baseAttributes } },
+			[&bitmapFace](const std::string&, bool) { return &bitmapFace; }, options);
+		requireCondition(fallback.glyphs.size() == 2
+				&& std::abs(fallback.glyphs[0].position.x - 11.0f) < 1e-5f
+				&& std::abs(fallback.glyphs[0].position.y - 12.0f) < 1e-5f
+				&& std::abs(fallback.endOffset.x - 28.0f) < 1e-5f,
+			"Faces without a metric box must fall back to the raw bitmap fields");
 	}
 
 	WholeTextureMapping mapping;
@@ -1762,7 +1818,7 @@ void testTextPipeline()
 	requireCondition(appendGlyphQuads(layout, mapping, quads, &indices) == 3,
 		"Every mapped glyph must produce a quad");
 	requireCondition(quads.size() == 3 && indices.size() == 18, "Each quad must emit two triangles");
-	requireCondition(quads[0].uv[3] == glm::fvec2(1.0f) && quads[0].position[3] == glm::fvec2(19.0f, 32.0f),
+	requireCondition(quads[0].uv[3] == glm::fvec2(1.0f) && quads[0].position[3] == glm::fvec2(19.0f, 22.0f),
 		"Quad corners must follow the layout geometry");
 
 	std::vector<Lotte::Gui::ColouredTexturedGuiVertex> vertices;

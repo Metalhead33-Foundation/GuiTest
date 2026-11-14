@@ -89,13 +89,17 @@ The CBOR map variants described by that specification are not implemented.
       `Widget`/`RootNode`/`TickboxWidget` classes were not carried over; `ElvSignal.hpp`
       provides the signals they used.
 - [ ] No glyph atlas. `Text/LteFontAtlas.hpp` documents what is missing (decode
-      `StoredCharacter::sdf`, pack into a texture with `bitmapPadding`, expose UV
-      rectangles through `GlyphAtlasMapping`) and implements the quad emission, but no
-      texture, packer or Kaldi upload path exists.
-- [ ] No text shaping beyond glyph placement: kerning is parsed from the font and stored
-      in `PreprocessedFontFace::kerning`, but the unit of its offsets has to be confirmed
-      against FontPacker before `layoutRun()` can apply it. No bidi, no line breaking by
-      width, no ligatures.
+      `StoredCharacter::sdf`, pack it into a texture, expose UV rectangles through
+      `GlyphAtlasMapping`) and implements the quad emission, but no texture, packer or
+      Kaldi upload path exists. Confirmed constraints from FontPacker: every payload is
+      a square `bitmapSize` × `bitmapSize` image because each glyph's metric box is
+      stretched onto a square before downsampling, the padding is already baked into the
+      payload (`bitmapPadding * bitmapSize / bitmapLogicalSize`), and MSDF payloads are
+      stored as RGB888.
+- [ ] No text shaping beyond glyph placement: kerning is applied per pair within a run
+      (offsets are pixels at the face's reference size, as FontPacker stores them), but
+      pairs that straddle a run boundary are not kerned, and there is no bidi, no line
+      breaking by width, and no ligature substitution.
 - [ ] `TextAttribute::bold` is only a request: there is no bold/italic face selection
       policy yet, because the atlas/font registry that would resolve it does not exist.
 - [ ] No 3D rendering features (scene graph, lighting, shadows, post-processing). `GFX/LteMesh.hpp`

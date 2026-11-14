@@ -88,7 +88,14 @@ enum class DistanceType : std::uint8_t {
 	Euclidean = 1  /**< L2 distance. */
 };
 
-/** @brief Kerning offsets keyed by the second Unicode code point. */
+/**
+ * @brief Kerning offsets keyed by the second Unicode code point.
+ *
+ * Values are FreeType kerning offsets in **pixels at the face's reference size**
+ * (FontPacker converts the 26.6 vector returned by `FT_Get_Kerning()` before storing
+ * it), so they are used exactly like `bearingX`/`width` once scaled to the requested
+ * run size. Most fonts carry no kerning at all, in which case the whole map is empty.
+ */
 using PerCharacterKerning = std::unordered_map<std::uint32_t, glm::fvec2>;
 
 /** @brief Sparse kerning table keyed first by the first Unicode code point. */
@@ -102,37 +109,53 @@ struct GlyphTOCEntry {
 	std::uint32_t offset = 0;
 };
 
-/** @brief Stored glyph metrics and SDF bitmap payload. */
+/**
+ * @brief Stored glyph metrics and SDF bitmap payload.
+ *
+ * FontPacker fills this from FreeType and rewrites the geometry: every glyph's
+ * **metric box** (`metricWidth` x `metricHeight`, placed at
+ * `horiBearingX`/`horiBearingY`) is stretched onto a square SDF, so the metric
+ * fields are the ones that describe the glyph, while `width`/`height`/`bearingX`/
+ * `bearingY` are the raw FreeType *bitmap* fields and stay zero when the face was
+ * generated from outlines (the usual case). See `LteTextLayout.hpp` for how the
+ * two sets are combined and `LteFontAtlas.hpp` for what the payload contains.
+ *
+ * Units: the metric, bearing and advance fields are **pixels at the face's
+ * reference size** (FreeType metrics converted with `convert26_6ToDouble`).
+ * `advanceX`/`advanceY` are the exception: they are the raw 26.6 fixed-point
+ * values, except on the vector-image glyph path, where FontPacker stores pixels.
+ * Prefer `horiAdvance` and treat `advanceX` as a fallback.
+ */
 struct StoredCharacter {
 	/** @brief Whether this glyph entry contains usable metric and bitmap data. */
 	bool valid = false;
-	/** @brief Intended bitmap width in pixels. */
+	/** @brief Raw FreeType bitmap width in pixels; zero for outline-generated faces. */
 	std::uint32_t width = 0;
-	/** @brief Intended bitmap height in pixels. */
+	/** @brief Raw FreeType bitmap height in pixels; zero for outline-generated faces. */
 	std::uint32_t height = 0;
-	/** @brief Signed horizontal bearing in pixel units. */
+	/** @brief Raw FreeType `bitmap_left`; zero for outline-generated faces. */
 	std::int32_t bearingX = 0;
-	/** @brief Signed vertical bearing in pixel units. */
+	/** @brief Raw FreeType `bitmap_top`; zero for outline-generated faces. */
 	std::int32_t bearingY = 0;
-	/** @brief Horizontal advance in pixel units. */
+	/** @brief Horizontal advance in 26.6 fixed point (`advance >> 6` is pixels). */
 	std::uint32_t advanceX = 0;
-	/** @brief Vertical advance in pixel units. */
+	/** @brief Vertical advance in 26.6 fixed point. */
 	std::uint32_t advanceY = 0;
-	/** @brief Floating-point glyph metric width. */
+	/** @brief Ink box width in pixels; the box stretched onto the SDF square. */
 	float metricWidth = 0.0f;
-	/** @brief Floating-point glyph metric height. */
+	/** @brief Ink box height in pixels; the box stretched onto the SDF square. */
 	float metricHeight = 0.0f;
-	/** @brief FreeType-style horizontal bearing X. */
+	/** @brief Horizontal offset of the ink box from the pen position, in pixels. */
 	float horiBearingX = 0.0f;
-	/** @brief FreeType-style horizontal bearing Y. */
+	/** @brief Vertical offset of the ink box from the baseline, in pixels (positive = above). */
 	float horiBearingY = 0.0f;
-	/** @brief FreeType-style horizontal advance. */
+	/** @brief Horizontal advance in pixels; preferred over @ref advanceX. */
 	float horiAdvance = 0.0f;
-	/** @brief FreeType-style vertical bearing X. */
+	/** @brief Vertical bearing X in pixels. */
 	float vertBearingX = 0.0f;
-	/** @brief FreeType-style vertical bearing Y. */
+	/** @brief Vertical bearing Y in pixels. */
 	float vertBearingY = 0.0f;
-	/** @brief FreeType-style vertical advance. */
+	/** @brief Vertical advance in pixels. */
 	float vertAdvance = 0.0f;
 	/** @brief Raw encoded SDF bitmap bytes using the parent font's imageFormat. */
 	std::vector<std::byte> sdf;
@@ -148,11 +171,24 @@ struct PreprocessedFontFace {
 	SDFType type = SDFType::SDF;
 	/** @brief Distance metric used to generate the SDF. */
 	DistanceType distType = DistanceType::Manhattan;
-	/** @brief Bitmap size in pixels. */
+	/** @brief Edge length in pixels of the square SDF payload stored for every glyph. */
 	std::uint32_t bitmapSize = 0;
-	/** @brief Logical bitmap size before padding. */
+	/**
+	 * @brief Edge length of the square the SDF was generated at, before downsampling.
+	 *
+	 * FontPacker generates each glyph at `internalProcessSize` and then downsamples to
+	 * @ref bitmapSize (power-of-two halving plus a final resize), so this is the
+	 * resolution the outlined glyph - and its padding - was scaled into.
+	 */
 	std::uint32_t bitmapLogicalSize = 0;
-	/** @brief Bitmap padding in pixels. */
+	/**
+	 * @brief Padding in pixels at @ref bitmapLogicalSize.
+	 *
+	 * The padding is baked into the SDF: it is applied while the glyph is at
+	 * @ref bitmapLogicalSize and shrinks with the downsample. The effective padding of
+	 * the stored payload is `bitmapPadding * bitmapSize / bitmapLogicalSize`, so an
+	 * atlas must not add padding of its own.
+	 */
 	std::uint32_t bitmapPadding = 0;
 	/** @brief Whether vertical layout metrics are available. */
 	bool hasVert = false;

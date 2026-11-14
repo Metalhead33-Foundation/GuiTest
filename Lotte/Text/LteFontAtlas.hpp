@@ -15,20 +15,48 @@
  *
  * @section lte_font_atlas_missing What the atlas still has to provide
  *
- * 1. **A texture per face (or per face/size pair).** `StoredCharacter::sdf`
- *    holds an encoded image payload (`PreprocessedFontFace::imageFormat`, e.g.
- *    PNG). Decoding it reuses Euphemy's image decoders; upload goes through
- *    Kaldi (`Kld::OpCreateTexture2D` / `OpUpdateTexture2D`) or through
+ * 1. **A texture per face (or per face/size pair).** `StoredCharacter::sdf` holds an
+ *    encoded image payload (`PreprocessedFontFace::imageFormat`, e.g. PNG). Decoding it
+ *    reuses Euphemy's image decoders; upload goes through Kaldi
+ *    (`Kld::OpCreateTexture2D` / `OpUpdateTexture2D`) or through
  *    `Lotte::Asset::GpuAssetStreamer`, which already tracks GPU byte budgets.
- * 2. **A packer.** Shelves or skyline packing, with `bitmapPadding` applied on
- *    every side, producing a pixel rectangle per code point. The old code grew
- *    the texture and re-packed when it ran out of room
+ * 2. **A packer.** Shelves or skyline packing producing a pixel rectangle per code
+ *    point. The old code grew the texture and re-packed when it ran out of room
  *    (`MhHardwareAcceleratedFont::flushTexture`).
- * 3. **A mapping from code point to normalized UV rectangle**, which is exactly
- *    the @ref Lotte::Text::GlyphAtlasMapping interface below.
+ * 3. **A mapping from code point to normalized UV rectangle**, which is exactly the
+ *    @ref Lotte::Text::GlyphAtlasMapping interface below.
  * 4. **Mip/derivative handling.** The faces are SDF/MSDF/MSDFA, so the shader
  *    reconstructs coverage from the distance field; the atlas must not apply
  *    smoothing that would destroy the distance values.
+ *
+ * @section lte_font_atlas_payload What the stored payload actually is
+ *
+ * Everything below was confirmed against FontPacker's generator
+ * (`SdfGenerationContext::processOutlineGlyphEnd()` /
+ * `FontOutlineDecompositionContext::translateToNewSize()`), and it constrains the
+ * packer and the shader:
+ *
+ * - **Every payload is a square.** Each glyph's outline is scaled to fill
+ *   `internalProcessSize - 2 * padding` and then downsampled, so the decoded image is
+ *   `PreprocessedFontFace::bitmapSize` x `bitmapSize` for *all* glyphs, whatever their
+ *   shape. Pack cells are therefore uniform squares, and the quads produced by
+ *   `appendGlyphQuads()` (`metricWidth` x `metricHeight`) are what un-stretch the
+ *   image back to the right aspect. Do not size a cell from the glyph's metrics.
+ * - **The padding is already inside the payload.** It is added at
+ *   `bitmapLogicalSize` and shrinks with the downsample, so the effective padding is
+ *   `bitmapPadding * bitmapSize / bitmapLogicalSize`. Pack cells must not add another
+ *   `bitmapPadding` border; the cells themselves need whatever gutter the packer wants.
+ * - **SDF/MSDFA stay single/multi-channel; MSDF is stored as RGB.** FontPacker converts
+ *   MSDF images to `Format_RGB888` before encoding, so an MSDF payload decodes to three
+ *   channels and must not be uploaded as a single-channel distance texture.
+ * - **The distance range shrinks with the downsample.** The generator computes the
+ *   effective range as `padding * (bitmapSize / bitmapLogicalSize)` (or the
+ *   `samples_to_check` half-width scaled the same way). `PreprocessedFontFace` does not
+ *   store it per glyph, so a shader that needs the spread must derive it from those
+ *   three fields.
+ * - **Padding is applied to the high-resolution image.** A packer that re-scales
+ *   payloads must use a filter that does not smear the distance values; the generator
+ *   itself averages power-of-two steps and finishes with a smooth resize.
  *
  * @section lte_font_atlas_ready What is already usable
  *
