@@ -92,7 +92,10 @@ through `Elv::Util::AlexandrescuResource`.
 | `EuphAssetRuntime.hpp` / `.cpp` | `AssetCatalog`, `DependencyGraph` (cycle/missing-dependency detection), `ResourceRegistry` (typed, generation-checked handles and payloads), `ResidencyManager` (budgets, pinning, eviction), `StreamingScheduler` (dependency-aware async load -> decode -> commit) |
 
 This layer is deliberately CPU-only: renderer/GPU residency is an integration concern,
-implemented by Lotte's `GpuAssetStreamer`.
+implemented by Lotte's `GpuAssetStreamer`. The header documents the whole design in its
+`@section`s (overview, pipeline, threading, object lifetime, payload ownership, known
+limitations) and every public and private member; the residency state machine and its legal
+transitions are documented on `ResidencyState` in `EuphAssetTypes.hpp`.
 
 ## TODOs and known gaps
 
