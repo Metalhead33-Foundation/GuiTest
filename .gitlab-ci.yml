@@ -1,0 +1,14 @@
+image: hrektts/doxygen
+pages:
+  stage: deploy
+  before_script:
+    - doxygen -v
+    - dot -V
+  script:
+    - mkdir -p build
+    - doxygen
+    - mv build/doxygen/html public
+  artifacts:
+    paths:
+    - public
+

@@ -1,0 +1,76 @@
+#ifndef SANDBOX_HPP
+#define SANDBOX_HPP
+/**
+ * @file sandbox.hpp
+ * @brief Declares the test API in the Test module.
+ *
+ * This header is part of the public declaration surface for Test.
+ * It exposes types, functions, constants, and helpers used by clients
+ * and backend implementations that include this module.
+ */
+#include <Euphemy/Io/EuphTempFile.hpp>
+
+/** @brief Documents the testCustomAllocator declaration. */
+void testCustomAllocator();
+/** @brief Documents the testMapDatastream declaration. */
+void testMapDatastream();
+/** @brief Documents the randomDeviceTest declaration. */
+void randomDeviceTest();
+/** @brief Documents the testMemoryAllocator declaration. */
+void testMemoryAllocator();
+/** @brief Documents the testIntegralIterable declaration. */
+void testIntegralIterable();
+/** @brief Documents the testZstdWithMaps declaration. */
+void testZstdWithMaps();
+/** @brief Documents the testZstdWithLargeData declaration. */
+void testZstdWithLargeData();
+/** @brief Documents the testEncryptionWithMaps declaration. */
+void testEncryptionWithMaps();
+/** @brief Documents the testEncryptionWithLargeData declaration. */
+void testEncryptionWithLargeData();
+/** @brief Documents the testCompressionAndEncryptionWithMaps declaration. */
+void testCompressionAndEncryptionWithMaps();
+/** @brief Documents the testCompressionAndEncryptionWithLargeData declaration. */
+void testCompressionAndEncryptionWithLargeData();
+/** @brief Documents the testMemoryMapped declaration. */
+void testMemoryMapped();
+/** @brief Documents the testMemoryMappedTemp declaration. */
+void testMemoryMappedTemp();
+/** @brief Documents the testMemoryMappedTempDlopenNoClose declaration. */
+void testMemoryMappedTempDlopenNoClose(Euph::Io::TemporaryFileCreationMode mode = Euph::Io::TemporaryFileCreationMode::MKSTEMP);
+/** @brief Documents the testMemoryMappedTempDlopenClose declaration. */
+void testMemoryMappedTempDlopenClose(Euph::Io::TemporaryFileCreationMode mode = Euph::Io::TemporaryFileCreationMode::MKSTEMP);
+/** @brief Documents the testConfigFile declaration. */
+void testConfigFile();
+/** @brief Exercises the in-memory configuration representation. */
+void testConfiguration();
+/** @brief Exercises explicit PMR arena initialization and allocation. */
+void testMemoryArenas();
+/** @brief Round-trips the FontPacker WODF and WODI containers through DataStream. */
+void testFontRoundTrip();
+/** @brief Documents the testInterpolationFloat declaration. */
+void testInterpolationFloat();
+/** @brief Documents the testInterpolationFixed declaration. */
+void testInterpolationFixed();
+/** @brief Documents the testTGA declaration. */
+void testTGA();
+/** @brief Documents the testPNG declaration. */
+void testPNG();
+/** @brief Exercises the Elv::Io::Async adapter API. */
+void testAsyncIo();
+/** @brief Exercises the genre-independent asset streaming runtime. */
+void testAssetRuntime();
+/** @brief Exercises Lotte's GPU asset command scheduling bridge. */
+void testGpuAssetStreamer();
+/** @brief Exercises Lotte's Font parser. */
+void testFontParser();
+/** @brief Exercises Haruka's effect chain, impulse generation and convolution. */
+void testAudioEffects();
+/** @brief Exercises the MML parser, rich-text processor and text layout. */
+void testTextPipeline();
+/** @brief Exercises Elvavena's signal/slot replacement. */
+void testSignals();
+/** @brief Exercises Lotte mesh and GUI geometry batching against the Kaldi facade. */
+void testGeometryBatches();
+
+#endif // SANDBOX_HPP
