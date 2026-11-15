@@ -6,6 +6,10 @@ OpenGL 4.x backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 implemented. `GL::Device` declares no overrides for `Kld::Device`'s pure virtual
 functions, so it is abstract and nothing can be submitted to it yet.
 
+**General idea:** we'll use both GLX and EGL for Unix-based systems, 
+WGL on Windows. GLX vs EGL usage will depend on configuration settings (via `Euph::Conf::Configuration`), 
+environment variables, etc.
+
 ## Build
 
 | Item | Value |
