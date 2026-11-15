@@ -9,12 +9,14 @@ DEFINES += MH_KALDI_IMPL_EXPORT
 include(../Kaldi/Kaldi.pri)
 
 # Shader cross-compilation support (SPIR-V -> GLSL/HLSL) is a backend concern.
-LIBS += -lspirv-cross-core -lspirv-cross-glsl
+LIBS += -lspirv-cross-core -lspirv-cross-hlsl
 
 # Avoid build errors with no files:
 SOURCES +=  \
+    D3DSPirvShader.cpp \
     KaldiD3D11Device.cpp
 HEADERS += \
+    D3DSPirvShader.hpp \
     KaldiD3D11Device.hpp \
     KldImplLib.h
 

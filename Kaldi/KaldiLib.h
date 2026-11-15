@@ -40,7 +40,7 @@ typedef struct MhRenderingDeviceCreationInfo_t {
 // --- Function Pointer Typedefs for Dynamic Loading ---
 
 /** @brief Function pointer for the `kld_create_rendering_device` backend export. */
-typedef MhRenderingDeviceHandle (*MhCreateRenderingDevice)(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo);
+typedef MhRenderingDeviceHandle (*MhCreateRenderingDevice)(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo* creationInfo);
 /** @brief Function pointer for the `kld_destroy_rendering_device` backend export. */
 typedef void                   (*MhDestroyRenderingDevice)(MhRenderingDeviceHandle device);
 /** @brief Function pointer for the `kld_get_renderer_name` backend export. */

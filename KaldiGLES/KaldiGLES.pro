@@ -6,6 +6,7 @@ CONFIG -= qt
 INCLUDEPATH += $$PWD/..
 INCLUDEPATH += $$PWD/../glad/include
 DEFINES += MH_KALDI_IMPL_EXPORT
+DEFINES += GLES_IMPLEMENTATION
 include(../Kaldi/Kaldi.pri)
 
 # Shader cross-compilation support (SPIR-V -> GLSL/HLSL) is a backend concern.

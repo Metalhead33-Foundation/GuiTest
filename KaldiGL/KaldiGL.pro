@@ -6,10 +6,11 @@ CONFIG -= qt
 INCLUDEPATH += $$PWD/..
 INCLUDEPATH += $$PWD/../glad/include
 DEFINES += MH_KALDI_IMPL_EXPORT
+DEFINES += GL_IMPLEMENTATION
 include(../Kaldi/Kaldi.pri)
 
 # Shader cross-compilation support (SPIR-V -> GLSL/HLSL) is a backend concern.
-LIBS += -lspirv-cross-core -lspirv-cross-glsl
+LIBS += -lspirv-cross-core -lspirv-cross-hlsl
 
 # Avoid build errors with no files:
 SOURCES +=  \
@@ -17,8 +18,10 @@ SOURCES +=  \
     ../glad/src/gl.c \
     ../glad/src/glx.c \
     ../glad/src/wgl.c \
+    GlSpirvShader.cpp \
     KaldiGLDevice.cpp
 HEADERS += \
+    GlSpirvShader.hpp \
     KaldiGLDevice.hpp \
     KldImplLib.h
 

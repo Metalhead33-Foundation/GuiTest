@@ -16,6 +16,7 @@ LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
 
 SOURCES += \
     Asset/LteGpuAssetStreamer.cpp \
+    GFX/LtePipeline.cpp \
     Text/LteHtmlEntities.cpp \
     Text/LteMarkupColour.cpp \
     Text/LteMarkupStack.cpp \
@@ -26,6 +27,7 @@ SOURCES += \
 HEADERS += \
     Asset/LteGpuAssetStreamer.hpp \
     GFX/LteMesh.hpp \
+    GFX/LtePipeline.hpp \
     Gui/LteGuiRenderCache.hpp \
     Gui/LteGuiRenderer.hpp \
     Gui/LteGuiVertex.hpp \

@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 /** @brief Creates a backend rendering device for the supplied SDL window metadata. */
-MH_KALDI_IMPL_API MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo);
+MH_KALDI_IMPL_API MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo* creationInfo);
 /** @brief Destroys a rendering device created by @ref kld_create_rendering_device. */
 MH_KALDI_IMPL_API void                   kld_destroy_rendering_device(MhRenderingDeviceHandle device);
 /** @brief Returns the human-readable renderer/backend name. */
