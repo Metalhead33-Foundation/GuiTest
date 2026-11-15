@@ -12,10 +12,14 @@ namespace GLES {
 namespace GL {
 #endif
 
+// TODO: Delete this and replace it with something else. It's temporary for easy of writing code.
+// Also repeated at Lotte/GFX/LtePipeline.hpp
 struct ShaderModuleCreateInfo {
 	Kld::ShaderStage shaderType;
 	std::vector<std::byte> source;
 };
+// TODO: Delete this and replace it with something else. It's temporary for easy of writing code.
+// Also repeated at Lotte/GFX/LtePipeline.hpp
 struct ShaderModuleCreateInfoRef {
 	Kld::ShaderStage shaderType;
 	std::span<std::byte> source;

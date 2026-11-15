@@ -1,6 +1,8 @@
 #ifndef LTEPIPELINE_H
 #define LTEPIPELINE_H
 #include <Kaldi/KldCommandBuffer.hpp>
+#include <Lotte/LotteLib.hpp>
+#include <Elvavena/Io/ElvIoSystem.hpp>
 namespace Lotte {
 namespace Gfx {
 
@@ -14,13 +16,29 @@ namespace Gfx {
 
 // Until then, this remains an empty stub class, or a thin wrapper to Kaldi's shader system.
 
-class Pipeline
+// TODO: Delete this and replace it with something else. It's temporary for easy of writing code.
+// Also repeated at KaldiGL/GlSpirvShader.hpp
+struct ShaderModuleCreateInfo {
+	Kld::ShaderStage shaderType;
+	std::vector<std::byte> source;
+};
+// TODO: Delete this and replace it with something else. It's temporary for easy of writing code.
+// Also repeated at KaldiGL/GlSpirvShader.hpp
+struct ShaderModuleCreateInfoRef {
+	Kld::ShaderStage shaderType;
+	std::span<std::byte> source;
+};
+
+class MH_LOTTE_API Pipeline
 {
 private:
 	Kld::oop_detail<>::Pipeline kld_pipeline;
 public:
 	Pipeline();
+	// TODO: Need a much better signature. Wtf is even std::span<const std::string>?
+	static void prepareShaderModuleFor(Elv::Io::System& iosys, const std::span<ShaderModuleCreateInfo>& output, const std::span<const std::string>& input);
 };
+
 }
 }
 
