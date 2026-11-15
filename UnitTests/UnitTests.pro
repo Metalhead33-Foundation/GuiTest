@@ -18,6 +18,9 @@ LIBS += -L$$OUT_PWD/../Haruka -lHaruka
 # Vulkan backend, so the test binary can link it without creating a device.
 LIBS += -L$$OUT_PWD/../KaldiVK -lKaldiVK
 INCLUDEPATH += $$PWD/../glad/include
+# GlContext.hpp only needs SDL's window-manager structs, so the context tests can
+# include it without linking a GL library.
+INCLUDEPATH += $$PWD/../KaldiGLCommon
 
 # The DXGI table only needs <dxgiformat.h>, which the apitrace DXSDK mirror ships
 # as a self-contained C header (no windows.h). Compiling it straight into the test
@@ -39,6 +42,7 @@ SOURCES += \
     tests/ConfigTests.cpp \
     tests/FontRoundTripTests.cpp \
     tests/FormatTranslationTests.cpp \
+    tests/GlContextTests.cpp \
     tests/ImageCodecTests.cpp \
     tests/ShaderCompileTests.cpp
 

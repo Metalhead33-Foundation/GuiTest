@@ -1,95 +1,91 @@
-﻿#ifndef EGLCONTEXT_HPP
-#define EGLCONTEXT_HPP
+#ifndef KALDIGLEGLCONTEXT_HPP
+#define KALDIGLEGLCONTEXT_HPP
+/**
+ * @file EglContext.hpp
+ * @brief EGL implementation of the portable @ref Context contract.
+ *
+ * Used by both GL-family backends: it is the only option for OpenGL ES, and it is
+ * the portable option for desktop OpenGL (Wayland, Windows via ANGLE, Android,
+ * embedded targets). Desktop-only X11 users may prefer `GlxContext`.
+ *
+ * The display is shared through @ref EglDisplay, so several windows of the same
+ * process reuse one `EGLDisplay` instead of initializing it twice.
+ */
 #include "EglDisplay.hpp"
+#include "GlContext.hpp"
 #include <memory>
-#include <functional>
-#include <GlContext.hpp>
 
-namespace EGL {
-/*! An object that encapsulates an EGL context. */
-class Context : public KALDIGL_NS::Context
-{
+namespace KALDIGL_NS {
+
+/**
+ * @brief An EGL context plus its window surface.
+ *
+ * @note Not copyable and not movable: the destructor must run on a thread that
+ * may legally release the context, and moving a live GL context between objects
+ * buys nothing. Hold it through `std::unique_ptr<Context>`.
+ */
+class EglContext final : public Context {
 public:
-	/*! Traits of the EGLSurface pointer.*/
-	typedef std::pointer_traits<EGLSurface> SurfaceTraits;
-	/*! EGL surface type.*/
-	typedef SurfaceTraits::element_type surface_t;
-	/*! Unique pointer to an EGL surface.*/
-	typedef std::unique_ptr<surface_t,std::function<void(surface_t*)>> uSurface;
-	/*! Traits of the EGLContext pointer.*/
-	typedef std::pointer_traits<EGLContext> ContextTraits;
-	/*! EGL context type.*/
-	typedef ContextTraits::element_type context_t;
-	/*! Unique pointer to an EGL context.*/
-	typedef std::unique_ptr<context_t,std::function<void(context_t*)>> uContext;
+	/**
+	 * @brief Creates a context and a window surface for @p handles.
+	 * @param handles Native display/window, normally from nativeHandlesFrom().
+	 * @param config Requested version, profile, buffer sizes and MSAA.
+	 * @throws std::invalid_argument When @p handles has no native window.
+	 * @throws std::runtime_error When EGL fails; the message names the failing call.
+	 */
+	EglContext(const NativeWindowHandles& handles, const ContextConfig& config);
+
+	/**
+	 * @brief Creates a context and a window surface on an existing display.
+	 * @param display Initialized display, normally from `EglDisplay::acquire()`.
+	 * @param window Platform window (`EGLNativeWindowType`).
+	 * @param config Requested version, profile, buffer sizes and MSAA.
+	 */
+	EglContext(std::shared_ptr<EglDisplay> display, EGLNativeWindowType window, const ContextConfig& config);
+
+	/** @brief Releases the surface and the context (and unbinds them when current). */
+	~EglContext() override;
+
+	EglContext(const EglContext&) = delete;
+	EglContext& operator=(const EglContext&) = delete;
+	EglContext(EglContext&&) = delete;
+	EglContext& operator=(EglContext&&) = delete;
+
+	/** @brief `eglMakeCurrent(display, surface, surface, context)`; throws on failure. */
+	void makeCurrent() override;
+
+	/** @brief Unbinds the context from the calling thread (best effort, never throws). */
+	void releaseCurrent() noexcept override;
+
+	/** @brief `eglSwapBuffers`; throws on failure. Requires a current context. */
+	void swapBuffers() override;
+
+	/** @brief Always `ContextApi::EGL`. */
+	ContextApi api() const noexcept override { return ContextApi::EGL; }
+	/** @brief Always "EGL". */
+	std::string_view apiName() const noexcept override { return contextApiName(ContextApi::EGL); }
+	/** @brief The configuration this context was created with. */
+	const ContextConfig& config() const noexcept override { return config_; }
+	/** @brief True when both the context and the surface exist. */
+	bool isValid() const noexcept override { return context_ != EGL_NO_CONTEXT && surface_ != EGL_NO_SURFACE; }
+
+	/** @brief The raw `EGLContext`. */
+	EGLContext handle() const noexcept { return context_; }
+	/** @brief The raw `EGLSurface` of the window. */
+	EGLSurface surface() const noexcept { return surface_; }
+	/** @brief The `EGLConfig` chosen for this context. */
+	EGLConfig eglConfig() const noexcept { return eglConfig_; }
+	/** @brief The display this context lives on. */
+	const EglDisplay& display() const noexcept { return *display_; }
+
 private:
-	/*! EGL configuration structure. */
-	EGLConfig config;
-	/*! Number of configurations */
-	EGLint num_config;
-	/*! Pointer to the EGL context itself. */
-	uContext context;
-	/*! Pointer to the EGL surface. */
-	uSurface surface;
-	/*! Pointer to the EGL display. */
-	Display display;
-public:
-	//! Constructor.
-	/*!
-	  \param nativeDisplay A pointer to the native display.
-	  \param nativeWindow A pointer to the native window.
-	*/
-	Context(EGLNativeDisplayType nativeDisplay, EGLNativeWindowType nativeWindow);
-	/*! Makes the context the current context for the thread it is called for, for use with OpenGL(ES) functions. */
-	void makeCurrent();
-	//! Returns a pointer to the EGL surface associated with the context, for use in functions that require the raw pointer.
-	/*!
-	  \return The pointer to the EGL surface associated with the context.
-	*/
-	const surface_t* getSurfacePtr() const;
-	//! Returns a pointer to the EGL context, for use in functions that require the raw pointer.
-	/*!
-	  \return The pointer to the EGL context.
-	*/
-	const context_t* getContextPtr() const;
-	//! Returns a pointer to the EGL surface associated with the context, for use in functions that require the raw pointer.
-	/*!
-	  \return The pointer to the EGL surface associated with the context.
-	*/
-	surface_t* getSurfacePtr();
-	//! Returns a pointer to the EGL context, for use in functions that require the raw pointer.
-	/*!
-	  \return The pointer to the EGL context.
-	*/
-	context_t* getContextPtr();
-	//! Returns a pointer to the EGL configuration associated with the context, for use in functions that require the raw pointer.
-	/*!
-	  \return The pointer to the EGL configuration.
-	*/
-	EGLConfig getConfig() const;
-	//! Returns a reference to the EGL display associated with the context.
-	/*!
-	  \return A reference to the EGL display.
-	*/
-	const Display& getDisplay() const;
-	//! Returns a reference to the EGL display associated with the context.
-	/*!
-	  \return A reference to the EGL display.
-	*/
-	Display& getDisplay();
-	/*! Swaps buffers. To be called every time OpenGL(ES) has finished rendering a frame. */
-	void swapBuffers();
-};
-
-// Intended to be a singleton... but not really, because of GLX also existing for Desktop GL.
-// So, singleton in the loose sense that "only one must be ever allocated/created, ever"
-// But not in the sense of "has a static shared_ptr"
-class RenderingContext : public Context {
-public:
-	RenderingContext(const SDL_SysWMinfo& syswminfo);
-	~RenderingContext();
+	std::shared_ptr<EglDisplay> display_;
+	EGLConfig eglConfig_ = nullptr;
+	EGLContext context_ = EGL_NO_CONTEXT;
+	EGLSurface surface_ = EGL_NO_SURFACE;
+	ContextConfig config_;
 };
 
 }
 
-#endif // EGLCONTEXT_HPP
+#endif // KALDIGLEGLCONTEXT_HPP

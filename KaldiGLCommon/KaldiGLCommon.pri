@@ -7,8 +7,7 @@
 #   * KaldiGL.pro   defines GL_IMPLEMENTATION   -> namespace GL   (OpenGL 4.3 core)
 #   * KaldiGLES.pro defines GLES_IMPLEMENTATION -> namespace GLES (OpenGL ES 3.2)
 #
-# Consumers must include ../Kaldi/Kaldi.pri (for the Kaldi include path and the
-# Euphemy include path provided by the top level project) and add:
+# Consumers must include ../Kaldi/Kaldi.pri (for the Kaldi include path) and add:
 #
 #   include(../KaldiGLCommon/KaldiGLCommon.pri)
 #   SOURCES += $$KALDIGL_COMMON_SOURCES
@@ -16,16 +15,21 @@
 #
 INCLUDEPATH += $$quote($$PWD)
 
+# Context layer: the abstract contract in GlContext.cpp, its EGL implementation,
+# and the display the EGL contexts share. GlxContext lives in KaldiGL because GLX
+# is desktop-only.
 KALDIGL_COMMON_SOURCES += \
+    $$PWD/GlContext.cpp \
     $$PWD/EglDisplay.cpp \
     $$PWD/EglContext.cpp \
     $$PWD/GlSpirvShader.cpp \
     $$PWD/GlUtil.cpp
 
 KALDIGL_COMMON_HEADERS += \
+    $$PWD/GlBackend.hpp \
     $$PWD/GlContext.hpp \
     $$PWD/EglDisplay.hpp \
     $$PWD/EglContext.hpp \
-    $$PWD/GlBackend.hpp \
     $$PWD/GlSpirvShader.hpp \
     $$PWD/GlUtil.hpp
+

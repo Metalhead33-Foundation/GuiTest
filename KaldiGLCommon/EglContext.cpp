@@ -1,135 +1,201 @@
+/**
+ * @file EglContext.cpp
+ * @brief Implements EglContext.hpp.
+ *
+ * The attribute lists are built from @ref ContextConfig, so the only hard-coded
+ * policy left is "a window surface with a renderable type for this dialect". The
+ * legacy implementation had a fixed `EGL_BUFFER_SIZE, 16` plus `EGL_NONE`, which
+ * ignored every caller request and rejected RGBA8 windows on some drivers.
+ */
 #include "EglContext.hpp"
-#include <sstream>
-#ifdef GLES_IMPLEMENTATION
-#include <glad/gles2.h>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+namespace KALDIGL_NS {
+
+namespace {
+
+/** @brief Builds the exception message for a failed EGL call. */
+[[noreturn]] void throwEglFailure(const char* step, EGLint error)
+{
+	std::string message = "EglContext: ";
+	message += step;
+	message += " failed (";
+	message += eglErrorName(error);
+	message += ")";
+	throw std::runtime_error(message);
+}
+
+/** @brief Appends a size attribute unless the caller disabled that buffer. */
+void appendSize(std::vector<EGLint>& attribs, EGLint name, int bits)
+{
+	if (bits > 0) {
+		attribs.push_back(name);
+		attribs.push_back(static_cast<EGLint>(bits));
+	}
+}
+
+/** @brief Builds the `eglChooseConfig` attribute list for @p config. */
+std::vector<EGLint> buildConfigAttributes(const ContextConfig& config)
+{
+	std::vector<EGLint> attribs;
+	attribs.push_back(EGL_SURFACE_TYPE);
+	attribs.push_back(EGL_WINDOW_BIT);
+	attribs.push_back(EGL_RENDERABLE_TYPE);
+#if KALDIGL_IS_GLES
+	attribs.push_back(EGL_OPENGL_ES3_BIT);
 #else
-#include <glad/gl.h>
+	attribs.push_back(EGL_OPENGL_BIT);
 #endif
-
-namespace EGL {
-
-enum EglErrorType {
-	CONFIG,
-	SURFACE,
-	CONTEXT
-};
-class EglError : public std::exception {
-private:
-	std::string str;
-public:
-	EglError(EglErrorType errType) {
-		std::stringstream strm;
-		switch (errType) {
-			case CONFIG: strm << "Failed to choose config (eglError: " << std::hex << eglGetError() << ")."; break;
-			case SURFACE: strm << "Failed to create surface (eglError: " << std::hex << eglGetError() << ")."; break;
-			case CONTEXT: strm << "Failed to create context (eglError: " << std::hex << eglGetError() << ")."; break;
-		}
-		str = strm.str();
+	appendSize(attribs, EGL_RED_SIZE, config.redBits);
+	appendSize(attribs, EGL_GREEN_SIZE, config.greenBits);
+	appendSize(attribs, EGL_BLUE_SIZE, config.blueBits);
+	appendSize(attribs, EGL_ALPHA_SIZE, config.alphaBits);
+	appendSize(attribs, EGL_DEPTH_SIZE, config.depthBits);
+	appendSize(attribs, EGL_STENCIL_SIZE, config.stencilBits);
+	// EGL has no double-buffer config attribute: window surfaces are always
+	// back-buffered, EGL_RENDER_BUFFER is a per-surface attribute instead.
+	if (wantsMultisampling(config)) {
+		attribs.push_back(EGL_SAMPLE_BUFFERS);
+		attribs.push_back(1);
+		attribs.push_back(EGL_SAMPLES);
+		attribs.push_back(static_cast<EGLint>(config.sampleCount));
 	}
-	const char* what() const noexcept override { return str.c_str(); }
-};
-
-static EGLint attr[] = {
-	EGL_BUFFER_SIZE, 16,
-	EGL_RENDERABLE_TYPE,
-	EGL_OPENGL_ES3_BIT,
-	EGL_NONE
-};
-
-static EGLint ctxattr[] = {
-	EGL_CONTEXT_CLIENT_VERSION, 3,
-	EGL_NONE
-};
-
-EGLConfig Context::getConfig() const
-{
-	return config;
+	attribs.push_back(EGL_NONE);
+	return attribs;
 }
 
-const Display& Context::getDisplay() const
+/**
+ * @brief Builds the `eglCreateContext` attribute list for @p config.
+ * @param useProfiles True when the display understands EGL 1.5 /
+ *        `EGL_KHR_create_context` version and profile attributes.
+ */
+std::vector<EGLint> buildContextAttributes(const ContextConfig& config, bool useProfiles)
 {
-	return display;
-}
-
-Display& Context::getDisplay()
-{
-	return display;
-}
-
-void Context::swapBuffers()
-{
-	eglSwapBuffers(display.getDisplayPtr(),surface.get());
-}
-
-Context::Context(EGLNativeDisplayType nativeDisplay, EGLNativeWindowType nativeWindow)
-	: context(nullptr), surface(nullptr), display(nativeDisplay)
-{
-	if (!eglChooseConfig(display.getDisplayPtr(), attr, &config, 1, &num_config)) {
-		throw EglError(CONFIG);
+	std::vector<EGLint> attribs;
+	if (!useProfiles) {
+		// Oldest portable form: only the client (major) version can be requested.
+		attribs.push_back(EGL_CONTEXT_CLIENT_VERSION);
+		attribs.push_back(static_cast<EGLint>(config.versionMajor));
+		attribs.push_back(EGL_NONE);
+		return attribs;
 	}
-	auto my_destroyContext = [this](context_t* t) { eglDestroyContext(display.getDisplayPtr(), t); };
-	auto my_destroySurface = [this](surface_t* t) { eglDestroySurface(display.getDisplayPtr(), t); };
-	this->surface = uSurface(eglCreateWindowSurface(display.getDisplayPtr(), config, nativeWindow, nullptr),my_destroySurface);
-	if(!this->surface)
-	{
-		throw EglError(SURFACE);
+
+	attribs.push_back(EGL_CONTEXT_MAJOR_VERSION);
+	attribs.push_back(static_cast<EGLint>(config.versionMajor));
+	attribs.push_back(EGL_CONTEXT_MINOR_VERSION);
+	attribs.push_back(static_cast<EGLint>(config.versionMinor));
+
+	EGLint flags = 0;
+#if !KALDIGL_IS_GLES
+	if (config.coreProfile) {
+		attribs.push_back(EGL_CONTEXT_OPENGL_PROFILE_MASK);
+		attribs.push_back(EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT);
 	}
-	this->context = uContext(eglCreateContext(display.getDisplayPtr(), config, nullptr, ctxattr),my_destroyContext);
-	if(!this->context)
-	{
-		throw EglError(CONTEXT);
+	if (config.forwardCompatible) {
+		flags |= EGL_CONTEXT_OPENGL_FORWARD_COMPATIBLE_BIT_KHR;
 	}
-}
-
-void Context::makeCurrent()
-{
-	eglMakeCurrent(display.getDisplayPtr(), surface.get(), surface.get(), context.get());
-}
-
-const Context::surface_t* Context::getSurfacePtr() const
-{
-	return surface.get();
-}
-
-const Context::context_t* Context::getContextPtr() const
-{
-	return context.get();
-}
-
-Context::surface_t* Context::getSurfacePtr()
-{
-	return surface.get();
-}
-
-Context::context_t* Context::getContextPtr()
-{
-	return context.get();
-}
-
-RenderingContext::RenderingContext(const SDL_SysWMinfo& syswminfo)
-	: Context(syswminfo.info.x11.display,syswminfo.info.x11.window)
-{
-	makeCurrent();
-#ifdef GLES_IMPLEMENTATION
-	int version = gladLoaderLoadGLES2();
-#else
-	int version = gladLoaderLoadGL();
 #endif
-	if(!version) {
-		throw std::runtime_error("Failed to load OpenGL!");
+	if (config.debugContext) {
+		flags |= EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR;
 	}
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	// And other initializing functions. Maybe TODO moving somewhere else?
+	if (flags != 0) {
+		attribs.push_back(EGL_CONTEXT_FLAGS_KHR);
+		attribs.push_back(flags);
+	}
+	attribs.push_back(EGL_NONE);
+	return attribs;
 }
 
-RenderingContext::~RenderingContext()
+} // namespace
+
+EglContext::EglContext(const NativeWindowHandles& handles, const ContextConfig& config)
+	: EglContext(EglDisplay::acquire(reinterpret_cast<EGLNativeDisplayType>(handles.display)),
+				 reinterpret_cast<EGLNativeWindowType>(handles.window),
+				 config)
 {
-#ifdef GLES_IMPLEMENTATION
-	gladLoaderUnloadGLES2();
-#else
-	gladLoaderUnloadGL();
-#endif
+}
+
+EglContext::EglContext(std::shared_ptr<EglDisplay> display, EGLNativeWindowType window, const ContextConfig& config)
+	: display_(std::move(display))
+	, config_(config)
+{
+	if (display_ == nullptr || !display_->isValid()) {
+		throw std::invalid_argument("EglContext: the EGL display is not initialized");
+	}
+	if (!window) {
+		throw std::invalid_argument("EglContext: no native window was supplied");
+	}
+
+	const EGLDisplay dpy = display_->handle();
+
+	const std::vector<EGLint> configAttribs = buildConfigAttributes(config_);
+	EGLint configCount = 0;
+	if (!eglChooseConfig(dpy, configAttribs.data(), &eglConfig_, 1, &configCount) || configCount < 1) {
+		throwEglFailure("eglChooseConfig", eglGetError());
+	}
+
+	surface_ = eglCreateWindowSurface(dpy, eglConfig_, window, nullptr);
+	if (surface_ == EGL_NO_SURFACE) {
+		throwEglFailure("eglCreateWindowSurface", eglGetError());
+	}
+
+	const std::vector<EGLint> contextAttribs = buildContextAttributes(config_, display_->supportsContextProfiles());
+	context_ = eglCreateContext(dpy, eglConfig_, EGL_NO_CONTEXT, contextAttribs.data());
+	if (context_ == EGL_NO_CONTEXT) {
+		const EGLint error = eglGetError();
+		eglDestroySurface(dpy, surface_);
+		surface_ = EGL_NO_SURFACE;
+		throwEglFailure("eglCreateContext", error);
+	}
+}
+
+EglContext::~EglContext()
+{
+	if (display_ == nullptr || !display_->isValid()) {
+		return;
+	}
+	const EGLDisplay dpy = display_->handle();
+	if (eglGetCurrentContext() == context_) {
+		eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	}
+	if (surface_ != EGL_NO_SURFACE) {
+		eglDestroySurface(dpy, surface_);
+		surface_ = EGL_NO_SURFACE;
+	}
+	if (context_ != EGL_NO_CONTEXT) {
+		eglDestroyContext(dpy, context_);
+		context_ = EGL_NO_CONTEXT;
+	}
+}
+
+void EglContext::makeCurrent()
+{
+	if (eglMakeCurrent(display_->handle(), surface_, surface_, context_) != EGL_TRUE) {
+		throwEglFailure("eglMakeCurrent", eglGetError());
+	}
+}
+
+void EglContext::releaseCurrent() noexcept
+{
+	if (display_ == nullptr || !display_->isValid()) {
+		return;
+	}
+	// Unbinding cannot be recovered from usefully, and this is called from destructors.
+	(void)eglMakeCurrent(display_->handle(), EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+}
+
+void EglContext::swapBuffers()
+{
+	if (eglSwapBuffers(display_->handle(), surface_) != EGL_TRUE) {
+		throwEglFailure("eglSwapBuffers", eglGetError());
+	}
+}
+
+std::unique_ptr<Context> createEglContext(const NativeWindowHandles& handles, const ContextConfig& config)
+{
+	return std::make_unique<EglContext>(handles, config);
 }
 
 }

@@ -1,76 +1,92 @@
-#ifndef EGLDISPLAY_HPP
-#define EGLDISPLAY_HPP
+#ifndef KALDIGLEGLDISPLAY_HPP
+#define KALDIGLEGLDISPLAY_HPP
+/**
+ * @file EglDisplay.hpp
+ * @brief Reference-counted `EGLDisplay` owner shared by every EGL context.
+ *
+ * EGL ties a context and a surface to an initialized display, and initializing
+ * the same native display twice is only safe as long as it is terminated twice.
+ * `EglDisplay` therefore owns exactly one `eglInitialize`/`eglTerminate` pair,
+ * and EGL contexts share it through `std::shared_ptr`. `EglDisplay::acquire()`
+ * hands out the process-wide instance for a native display, so a second window
+ * (or a share context) reuses the display instead of re-initializing it.
+ */
+#include "GlBackend.hpp"
 #include <glad/egl.h>
-#include <EGL/eglplatform.h>
-#include <SDL2/SDL_syswm.h>
 #include <memory>
-namespace EGL {
+#include <string>
 
-/*! An object that encapsulates an EGL display. */
-class Display
-{
+namespace KALDIGL_NS {
+
+/** @brief Symbolic name of an `eglGetError()` code ("EGL_SUCCESS", "EGL_BAD_CONFIG", ...). */
+const char* eglErrorName(EGLint error) noexcept;
+
+/**
+ * @brief Owns an initialized EGL display and terminates it on destruction.
+ *
+ * @note Move-only. Copies would double-terminate the display.
+ */
+class EglDisplay {
 public:
-	/*! Traits of the EGLDisplay pointer.*/
-	typedef std::pointer_traits<EGLDisplay> DisplayTraits;
-	/*! EGL display type.*/
-	typedef DisplayTraits::element_type display_t;
-	/*! Unique pointer to an EGL display.*/
-	typedef std::unique_ptr<display_t,decltype(eglTerminate)> uDisplay;
+	/**
+	 * @brief Gets the display for @p nativeDisplay and initializes it.
+	 * @param nativeDisplay Platform display handle; `EGL_DEFAULT_DISPLAY` for the default.
+	 * @throws std::runtime_error When libEGL cannot be loaded, or `eglGetDisplay`
+	 *         or `eglInitialize` fails; the message carries `eglErrorName()`.
+	 */
+	explicit EglDisplay(EGLNativeDisplayType nativeDisplay = EGL_DEFAULT_DISPLAY);
+
+	/** @brief Takes over another display; the source is left uninitialized. */
+	EglDisplay(EglDisplay&& other) noexcept;
+	/** @brief Terminates the current display and takes over @p other. */
+	EglDisplay& operator=(EglDisplay&& other) noexcept;
+
+	EglDisplay(const EglDisplay&) = delete;
+	EglDisplay& operator=(const EglDisplay&) = delete;
+
+	/** @brief Terminates the display when it is still initialized. */
+	~EglDisplay();
+
+	/**
+	 * @brief Returns the shared process-wide display for @p nativeDisplay.
+	 *
+	 * The instance is created on first use and destroyed with the last owner, so
+	 * contexts may be created and destroyed in any order. Thread-safe.
+	 *
+	 * @throws std::runtime_error When libEGL cannot be loaded or initialization fails.
+	 */
+	static std::shared_ptr<EglDisplay> acquire(EGLNativeDisplayType nativeDisplay = EGL_DEFAULT_DISPLAY);
+
+	/** @brief The raw `EGLDisplay` (`EGL_NO_DISPLAY` when uninitialized). */
+	EGLDisplay handle() const noexcept { return display_; }
+	/** @brief Major EGL version reported by `eglInitialize`. */
+	EGLint majorVersion() const noexcept { return majorVersion_; }
+	/** @brief Minor EGL version reported by `eglInitialize`. */
+	EGLint minorVersion() const noexcept { return minorVersion_; }
+	/** @brief True when the display is initialized. */
+	bool isValid() const noexcept { return display_ != EGL_NO_DISPLAY; }
+
+	/**
+	 * @brief True when the context version/profile attributes are understood.
+	 *
+	 * That is the case for EGL 1.5 and for `EGL_KHR_create_context`; without it a
+	 * context can only be requested through `EGL_CONTEXT_CLIENT_VERSION`.
+	 */
+	bool supportsContextProfiles() const noexcept { return supportsContextProfiles_; }
+
+	/** @brief "EGL 1.5 (vendor)" style description for logs and error messages. */
+	std::string description() const;
+
 private:
-	/*! A pointer to the underlying raw EGL display. */
-	uDisplay display;
-	/*! EGL major version. (e.g. 1 for 1.3) */
-	EGLint majorVersion;
-	/*! EGL minor version. (e.g. 3 for 1.3) */
-	EGLint minorVersion;
-	Display(const Display& cpy) = delete;
-	Display& operator=(const Display& cpy) = delete;
-public:
-	//! Constructor.
-	/*!
-	  \param nativeDisplay A pointer to the native display.
-	*/
-	explicit Display(EGLNativeDisplayType nativeDisplay);
-	//! Constructor.
-	/*!
-	  \param mov A unique pointer to the native display.
-	*/
-	explicit Display(uDisplay&& mov);
-	//! Move-constructor.
-	/*!
-	  \param mov An RValue reference to an instance of Dispaly to be moved.
-	*/
-	Display(Display&& mov);
-	//! Move-assignment operator.
-	/*!
-	  \param mov An RValue reference to an instance of Dispaly to be moved.
-	  \return The Display that was assigned to.
-	*/
-	Display& operator=(Display&& mov);
-	//! Returns a pointer to the EGL display, for use in functions that require the raw pointer.
-	/*!
-	  \return The pointer to the EGL display.
-	*/
-	const display_t* getDisplayPtr() const;
-	//! Returns a pointer to the EGL display, for use in functions that require the raw pointer.
-	/*!
-	  \return The pointer to the EGL display.
-	*/
-	display_t* getDisplayPtr();
-	//! Returns the EGL major version. (e.g. 1 for 1.3)
-	/*!
-	  \return EGL major version (e.g. 1 for 1.3)
-	*/
-	EGLint getMajorVersion() const;
-	//! Returns the EGL minor version. (e.g. 3 for 1.3)
-	/*!
-	  \return EGL minor version (e.g. 3 for 1.3)
-	*/
-	EGLint getMinorVersion() const;
+	/** @brief Terminates the display if it is initialized. */
+	void terminate() noexcept;
+
+	EGLDisplay display_ = EGL_NO_DISPLAY;
+	EGLint majorVersion_ = 0;
+	EGLint minorVersion_ = 0;
+	bool supportsContextProfiles_ = false;
 };
-/*! A shared pointer to an object that encapsulates an EGL display. */
-typedef std::shared_ptr<Display> sDisplay;
 
 }
 
-#endif // EGLDISPLAY_HPP
+#endif // KALDIGLEGLDISPLAY_HPP
