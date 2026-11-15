@@ -9,8 +9,12 @@ DEFINES += MH_KALDI_IMPL_EXPORT
 DEFINES += GL_IMPLEMENTATION
 include(../Kaldi/Kaldi.pri)
 
-# Shader cross-compilation support (SPIR-V -> GLSL/HLSL) is a backend concern.
-LIBS += -lspirv-cross-core -lspirv-cross-hlsl
+# GlUtil and GlSpirvShader are shared with KaldiGLES. They are compiled into
+# each backend separately so the GLES_IMPLEMENTATION dialect switch works.
+include(../KaldiGLCommon/KaldiGLCommon.pri)
+
+# Shader cross-compilation support (SPIR-V -> GLSL) is a backend concern.
+LIBS += -lspirv-cross-core -lspirv-cross-glsl
 
 # Avoid build errors with no files:
 SOURCES +=  \
@@ -18,14 +22,12 @@ SOURCES +=  \
     ../glad/src/gl.c \
     ../glad/src/glx.c \
     ../glad/src/wgl.c \
-    GlSpirvShader.cpp \
-    GlUtil.cpp \
-    KaldiGLDevice.cpp
+    KaldiGLDevice.cpp \
+    $$KALDIGL_COMMON_SOURCES
 HEADERS += \
-    GlSpirvShader.hpp \
-    GlUtil.hpp \
     KaldiGLDevice.hpp \
-    KldImplLib.h
+    KldImplLib.h \
+    $$KALDIGL_COMMON_HEADERS
 
 DISTFILES += \
     README.md

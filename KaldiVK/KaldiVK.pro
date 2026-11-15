@@ -11,8 +11,10 @@ include(../Kaldi/Kaldi.pri)
 # Avoid build errors with no files:
 SOURCES +=  \
     ../glad/src/vulkan.c \
+    VkUtil.cpp \
     KaldiVulkanDevice.cpp
 HEADERS += \
+    VkUtil.hpp \
     KaldiVulkanDevice.hpp \
     KldImplLib.h
 

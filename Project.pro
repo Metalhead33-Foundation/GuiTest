@@ -13,5 +13,6 @@ Lotte.depends = Elvavena Euphemy Kaldi
 Haruka.depends = Elvavena Euphemy
 
 # UnitTests is the automated (Catch2) suite; Sandbox is the manual playground.
-UnitTests.depends = Euphemy Elvavena Lotte Haruka
+# UnitTests also links the KaldiVK stub to exercise VkUtil's format tables.
+UnitTests.depends = Euphemy Elvavena Lotte Haruka KaldiVK
 Sandbox.depends = Euphemy Elvavena Lotte Haruka
