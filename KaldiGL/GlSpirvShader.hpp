@@ -5,7 +5,12 @@
 #include <vector>
 #include <span>
 #include <spirv_cross/spirv_glsl.hpp>
+
+#ifdef GLES_IMPLEMENTATION
+namespace GLES {
+#else
 namespace GL {
+#endif
 
 struct ShaderModuleCreateInfo {
 	Kld::ShaderStage shaderType;

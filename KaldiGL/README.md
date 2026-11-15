@@ -10,6 +10,12 @@ functions, so it is abstract and nothing can be submitted to it yet.
 WGL on Windows. GLX vs EGL usage will depend on configuration settings (via `Euph::Conf::Configuration`), 
 environment variables, etc.
 
+Requires [SPIRV-Cross](https://github.com/khronosgroup/spirv-cross) to be build with `cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSPIRV_CROSS_SHARED=ON`. 
+Otherwise, the compiler will complain about linking static SPIRV-Cross 
+libraries (`libspirv-cross-core.a`) into a shared library (`.so`) or a 
+Position-Independent Executable (PIE), when the static libraries were 
+compiled without Position-Independent Code (`-fPIC`)
+
 ## Build
 
 | Item | Value |

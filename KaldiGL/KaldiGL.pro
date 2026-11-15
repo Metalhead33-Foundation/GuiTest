@@ -19,9 +19,11 @@ SOURCES +=  \
     ../glad/src/glx.c \
     ../glad/src/wgl.c \
     GlSpirvShader.cpp \
+    GlUtil.cpp \
     KaldiGLDevice.cpp
 HEADERS += \
     GlSpirvShader.hpp \
+    GlUtil.hpp \
     KaldiGLDevice.hpp \
     KldImplLib.h
 

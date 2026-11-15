@@ -4,7 +4,11 @@
 // TODO: We'll need to put this somewhere else, so this can be shared by OpenGL and OpenGL ES
 // and set GLES_IMPLEMENTATION somewhere
 
+#ifdef GLES_IMPLEMENTATION
+namespace GLES {
+#else
 namespace GL {
+#endif
 
 void unsetDecorations(spirv_cross::CompilerGLSL& glsl, spirv_cross::SmallVector<spirv_cross::Resource>& resource_collection, const char* fmt) {
 	for (auto &resource : resource_collection) {
