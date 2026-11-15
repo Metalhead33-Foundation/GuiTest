@@ -17,10 +17,15 @@
 INCLUDEPATH += $$quote($$PWD)
 
 KALDIGL_COMMON_SOURCES += \
+    $$PWD/EglDisplay.cpp \
+    $$PWD/EglContext.cpp \
     $$PWD/GlSpirvShader.cpp \
     $$PWD/GlUtil.cpp
 
 KALDIGL_COMMON_HEADERS += \
+    $$PWD/GlContext.hpp \
+    $$PWD/EglDisplay.hpp \
+    $$PWD/EglContext.hpp \
     $$PWD/GlBackend.hpp \
     $$PWD/GlSpirvShader.hpp \
     $$PWD/GlUtil.hpp

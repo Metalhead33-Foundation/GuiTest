@@ -22,9 +22,11 @@ SOURCES +=  \
     ../glad/src/gl.c \
     ../glad/src/glx.c \
     ../glad/src/wgl.c \
+    GlxContext.cpp \
     KaldiGLDevice.cpp \
     $$KALDIGL_COMMON_SOURCES
 HEADERS += \
+    GlxContext.hpp \
     KaldiGLDevice.hpp \
     KldImplLib.h \
     $$KALDIGL_COMMON_HEADERS
