@@ -31,6 +31,12 @@ INCLUDEPATH += $$PWD/../KaldiGLCommon
 # configuration chain can be tested without linking a GL library.
 SOURCES += ../KaldiGLCommon/GlContextConfig.cpp
 
+# SPIR-V -> GLSL is exactly what the GL backends do with Lotte's output. Compiling it
+# into the test binary proves the "one Vulkan blob for every backend" pipeline end to
+# end without creating a GL context.
+SOURCES += ../KaldiGLCommon/GlSpirvShader.cpp
+LIBS += -lspirv-cross-core -lspirv-cross-glsl
+
 !win32 {
     DEFINES += KALDID3D_FORMAT_TESTS
     INCLUDEPATH += $$PWD/../extern/DXSDK/Include

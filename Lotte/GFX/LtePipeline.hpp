@@ -61,16 +61,6 @@ enum class ShaderSourceLanguage : uint8_t {
 	Glsl
 };
 
-/** @brief Shading environment the produced SPIR-V is meant for. */
-enum class SpirvTarget : uint8_t {
-	/** @brief Vulkan 1.0 semantics (descriptor sets, Vulkan rules). */
-	Vulkan,
-	/** @brief OpenGL 4.3 core with `GL_ARB_gl_spirv` style semantics. */
-	OpenGL,
-	/** @brief OpenGL ES 3.2 semantics. */
-	OpenGLES
-};
-
 /**
  * @brief Resolution hook for `#include` directives.
  *
@@ -125,12 +115,27 @@ struct ShaderStageSource {
 	std::string_view debugName;
 };
 
-/** @brief Options for compileShaderProgram(). */
+/**
+ * @brief Options for compileShaderProgram().
+ *
+ * @note There is deliberately no "target environment" option. Lotte always emits
+ * **Vulkan** SPIR-V, because that single blob has to serve every backend:
+ *
+ *  - the Vulkan backend consumes it as-is, so it must be Vulkan-legal
+ *    (a `-G`/OpenGL module carries `OriginLowerLeft` and extra built-in inputs that
+ *    Vulkan rejects);
+ *  - the GL/GLES and D3D11/D3D12 backends cross-compile it with SPIRV-Cross, whose
+ *    tested and documented input is Vulkan SPIR-V;
+ *  - glslang itself refuses HLSL input under OpenGL semantics
+ *    ("Using HLSL input under OpenGL semantics is not currently supported"), so an
+ *    OpenGL target could never compile HLSL at all.
+ *
+ * Consequently the SPIR-V -> GLSL/GLSL ES/HLSL translation belongs to the backends
+ * (`KaldiGLCommon/GlSpirvShader`, `KaldiD3DCommon/D3DSpirvShader`), not to Lotte.
+ */
 struct ShaderCompileOptions {
 	/** @brief Language of the supplied sources. */
 	ShaderSourceLanguage language = ShaderSourceLanguage::Hlsl;
-	/** @brief Environment the emitted SPIR-V targets. */
-	SpirvTarget target = SpirvTarget::Vulkan;
 	/** @brief Entry point name inside every stage. */
 	std::string_view entryPoint = "main";
 	/** @brief Automatically assign binding/location decorations when the target needs it. */
@@ -141,8 +146,13 @@ struct ShaderCompileOptions {
 	bool optimizeSize = false;
 	/** @brief Run the SPIR-V validator after translation. */
 	bool validate = true;
-	/** @brief Default GLSL/HLSL version glslang assumes when the source has no version. */
-	int defaultVersion = 100;
+	/**
+	 * @brief GLSL version glslang assumes when a source has no `#version` directive.
+	 *
+	 * Ignored for HLSL input. Vulkan SPIR-V requires a modern GLSL version, so the
+	 * default is 450 rather than glslang's own ancient default.
+	 */
+	int defaultVersion = 450;
 };
 
 /**

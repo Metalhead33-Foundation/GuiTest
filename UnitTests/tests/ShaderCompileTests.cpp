@@ -9,6 +9,7 @@
  * consistent with the stored words.
  */
 #include <catch2/catch_test_macros.hpp>
+#include <KaldiGLCommon/GlSpirvShader.hpp>
 #include <Lotte/GFX/LtePipeline.hpp>
 #include <cstdint>
 #include <span>
@@ -93,7 +94,6 @@ TEST_CASE("Lotte compiles an HLSL program into one SPIR-V blob per stage", "[sha
 
 	ShaderCompileOptions options;
 	options.language = ShaderSourceLanguage::Hlsl;
-	options.target = SpirvTarget::Vulkan;
 
 	const std::vector<ShaderBinary> binaries = compileShaderProgram(nullptr, stages, options);
 	REQUIRE(binaries.size() == 2);
@@ -113,7 +113,12 @@ TEST_CASE("Lotte compiles an HLSL program into one SPIR-V blob per stage", "[sha
 	}
 }
 
-TEST_CASE("Lotte compiles GLSL for the OpenGL target", "[shader][lotte]")
+// The source stays Vulkan GLSL: Lotte always emits Vulkan SPIR-V, because that single
+// blob is consumed unchanged by the Vulkan backend and cross-compiled by the GL/GLES and
+// D3D backends through SPIRV-Cross. An OpenGL-flavoured module (`-G`: OriginLowerLeft,
+// extra gl_VertexID/gl_InstanceID inputs) is not legal Vulkan SPIR-V, and glslang cannot
+// even compile HLSL under OpenGL semantics.
+TEST_CASE("Lotte compiles GLSL sources into Vulkan SPIR-V", "[shader][lotte]")
 {
 	using namespace Lotte::Gfx;
 
@@ -124,7 +129,6 @@ TEST_CASE("Lotte compiles GLSL for the OpenGL target", "[shader][lotte]")
 
 	ShaderCompileOptions options;
 	options.language = ShaderSourceLanguage::Glsl;
-	options.target = SpirvTarget::OpenGL;
 
 	const std::vector<ShaderBinary> binaries = compileShaderProgram(nullptr, stages, options);
 	REQUIRE(binaries.size() == 2);
@@ -132,6 +136,37 @@ TEST_CASE("Lotte compiles GLSL for the OpenGL target", "[shader][lotte]")
 		REQUIRE_FALSE(binary.empty());
 		CHECK(binary.words()[0] == spirvMagic);
 	}
+}
+
+// End-to-end proof of the intended pipeline: Lotte compiles the HLSL once into Vulkan
+// SPIR-V, and the GL backend turns that same blob into GLSL text with SPIRV-Cross. If the
+// blob were OpenGL-flavoured (`-G`), SPIRV-Cross would be consuming input it does not
+// target, and the Vulkan backend would not be able to use it at all.
+TEST_CASE("Lotte's Vulkan SPIR-V cross-compiles to GLSL through SPIRV-Cross", "[shader][lotte][spirv-cross]")
+{
+	using namespace Lotte::Gfx;
+
+	const std::vector<ShaderStageSource> stages = {
+		{ Kld::ShaderStage::Vertex, hlslVertexSource, "test.vs.hlsl" },
+		{ Kld::ShaderStage::Fragment, hlslFragmentSource, "test.ps.hlsl" },
+	};
+	ShaderCompileOptions options;
+	options.language = ShaderSourceLanguage::Hlsl;
+
+	const std::vector<ShaderBinary> binaries = compileShaderProgram(nullptr, stages, options);
+	REQUIRE(binaries.size() == 2);
+
+	const std::string vertexGlsl = GL::spirvToGlsl(binaries[0].descriptor());
+	const std::string fragmentGlsl = GL::spirvToGlsl(binaries[1].descriptor());
+
+	REQUIRE_FALSE(vertexGlsl.empty());
+	REQUIRE_FALSE(fragmentGlsl.empty());
+	// Desktop defaults from GL::defaultGlslOptions().
+	CHECK(vertexGlsl.find("#version 430") != std::string::npos);
+	CHECK(fragmentGlsl.find("#version 430") != std::string::npos);
+	// The stage I/O of the HLSL sources has to survive the round trip.
+	CHECK(vertexGlsl.find("gl_Position") != std::string::npos);
+	CHECK(fragmentGlsl.find("main") != std::string::npos);
 }
 
 TEST_CASE("Lotte rejects empty stage lists, empty sources and duplicate stages", "[shader][lotte]")

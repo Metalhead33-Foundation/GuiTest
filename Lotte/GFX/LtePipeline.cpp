@@ -272,24 +272,18 @@ std::vector<ShaderBinary> compileShaderProgram(ShaderIncludeResolver* includes,
 	}
 	ensureGlslangInitialised();
 
-	EShMessages messages = EShMsgSpvRules;
-	glslang::EShClient client = glslang::EShClientOpenGL;
-	glslang::EShTargetClientVersion clientVersion = glslang::EShTargetOpenGL_450;
-	switch (options.target) {
-		case SpirvTarget::Vulkan:
-			client = glslang::EShClientVulkan;
-			clientVersion = glslang::EShTargetVulkan_1_0;
-			messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
-			break;
-		case SpirvTarget::OpenGL:
-		case SpirvTarget::OpenGLES:
-			// GLSL ES is host-side identical to OpenGL from glslang's point of view;
-			// the ES specific output is produced later by the SPIR-V -> GLSL step.
-			client = glslang::EShClientOpenGL;
-			clientVersion = glslang::EShTargetOpenGL_450;
-			messages = EShMsgSpvRules;
-			break;
-	}
+	// Always the Vulkan environment, for three independent reasons:
+	//  1. glslang refuses HLSL under OpenGL semantics outright, so an "OpenGL"
+	//     target could not compile our authoring language at all;
+	//  2. the produced blob is handed to the Vulkan backend unchanged, and an
+	//     OpenGL-flavoured module (`OriginLowerLeft`, extra `gl_VertexID`/
+	//     `gl_InstanceID` inputs) is not legal Vulkan SPIR-V;
+	//  3. the GL/GLES and D3D backends cross-compile this same blob with
+	//     SPIRV-Cross, whose supported input is Vulkan SPIR-V.
+	// The SPIR-V -> GLSL/GLSL ES/HLSL step therefore lives in the backends.
+	constexpr EShMessages messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
+	constexpr glslang::EShClient client = glslang::EShClientVulkan;
+	constexpr glslang::EShTargetClientVersion clientVersion = glslang::EShTargetVulkan_1_0;
 	const glslang::EShSource source = (options.language == ShaderSourceLanguage::Hlsl) ? glslang::EShSourceHlsl : glslang::EShSourceGlsl;
 	// TShader keeps the pointer it is given, so the string has to outlive the parse.
 	const std::string entryPoint(options.entryPoint);
