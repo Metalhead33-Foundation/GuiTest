@@ -21,7 +21,7 @@
 #include <Kaldi/KaldiOperation.hpp>
 #include <Kaldi/KldVertexFormat.hpp>
 #include <Euphemy/Media/Image/EuphImageDecodeTarget.hpp>
-#include <glad/vulkan.h>
+#include "VkPlatform.hpp"
 #include <cstdint>
 #include <vector>
 

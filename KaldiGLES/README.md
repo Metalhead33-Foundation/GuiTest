@@ -34,7 +34,8 @@ compiled without Position-Independent Code (`-fPIC`)
 | `KldImplLib.h` | Declares the backend C ABI: `kld_create_rendering_device`, `kld_destroy_rendering_device`, `kld_get_renderer_name`, `kld_get_version`, `kld_get_last_error_message` |
 | `KaldiGLESDevice.hpp` | `GLES::Device : Kld::Device`; owns the EGL `Context`, exposes `context()`, `apiName()`, `swapBuffers()`; still abstract because the command-queue half is unimplemented |
 | `KaldiGLESDevice.cpp` | EGL context creation/make-current/GL loading in the `Device` constructor, teardown in the destructor; C exports still return `nullptr` until `capabilities()`/`processCommandQueue()` exist |
-| `../KaldiGLCommon/GlContext.*`, `EglDisplay.*`, `EglContext.*` | Shared context contract (`Context`, `ContextConfig`, `nativeHandlesFrom()`, `createContext()`), EGL display refcounting and the EGL implementation |
+| `../KaldiGLCommon/GlContext.*`, `EglDisplay.*`, `EglContext.*` | Shared context contract (`Context`, `ContextConfig`, `createContext()`), EGL display refcounting and the EGL implementation |
+| `../KaldiGLCommon/GlContextConfig.*` | `Kld::ConfigProvider` for `ContextConfig` (GLES defaults: 3.2, no profile bits) |
 
 ## ES-specific limitations
 

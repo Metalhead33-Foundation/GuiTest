@@ -1437,7 +1437,13 @@ struct OpSetBlendState {
 	uint8_t colorWriteMask;
 };
 
-/** @brief Comparison operation used by depth/stencil tests. */
+/**
+ * @brief Comparison operation used by depth/stencil tests.
+ *
+ * @note `Always` is spelled `AlwaysPass` because `<X11/X.h>` defines a macro
+ * called `Always`; Kaldi's headers are included by the GLX and Vulkan backends,
+ * which pull Xlib in. See the macro-collision note in `Kaldi/README.md`.
+ */
 enum class CompareOp : uint8_t {
 	Never,
 	Less,
@@ -1446,7 +1452,7 @@ enum class CompareOp : uint8_t {
 	Greater,
 	NotEqual,
 	GreaterOrEqual,
-	Always
+	AlwaysPass
 };
 
 /** @brief Stencil buffer operation. */
@@ -1495,9 +1501,15 @@ struct OpSetDepthStencilState {
 	StencilFaceState back;
 };
 
-/** @brief Primitive culling mode. */
+/**
+ * @brief Primitive culling mode.
+ *
+ * @note "no culling" is spelled `NoCulling` because `<X11/X.h>` defines `None` as
+ * a macro, and the cross-platform backends include Xlib in the same translation
+ * unit.
+ */
 enum class CullMode : uint8_t {
-	None,
+	NoCulling,
 	Front,
 	Back,
 	FrontAndBack

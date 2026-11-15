@@ -27,7 +27,7 @@ compiled without Position-Independent Code (`-fPIC`)
 | qmake target | `KaldiGL` (`TEMPLATE = lib`, shared, C++20, no Qt) |
 | Export macro | `MH_KALDI_IMPL_EXPORT` while building, `MH_KALDI_IMPL_API` for consumers |
 | Dialect macro | `GL_IMPLEMENTATION` (selects namespace `GL`, `<glad/gl.h>`) |
-| Files | `KaldiGLDevice.hpp` / `KaldiGLDevice.cpp` / `GlxContext.hpp` / `GlxContext.cpp` / `KldImplLib.h`, plus the shared sources from `KaldiGLCommon` |
+| Files | `KaldiGLDevice.hpp` / `KaldiGLDevice.cpp` / `GlxContext.hpp` / `GlxContext.cpp` / `KldImplLib.h` (+ `WglContext.*` on Win32), plus the shared sources from `KaldiGLCommon` |
 | Depends on | Kaldi headers via `include(../Kaldi.pri)`; links `spirv-cross-core` and `spirv-cross-glsl` for SPIR-V to GLSL cross-compilation (a backend concern, not a Kaldi or Euphemy dependency) |
 
 ## What exists today
@@ -37,8 +37,10 @@ compiled without Position-Independent Code (`-fPIC`)
 | `KldImplLib.h` | Declares the backend C ABI: `kld_create_rendering_device`, `kld_destroy_rendering_device`, `kld_get_renderer_name`, `kld_get_version`, `kld_get_last_error_message` |
 | `KaldiGLDevice.hpp` | `GL::Device : Kld::Device`; owns the `Context` (EGL or GLX), exposes `context()`, `apiName()`, `swapBuffers()`; still abstract because the command-queue half is unimplemented |
 | `KaldiGLDevice.cpp` | Context creation/make-current/GL loading in the `Device` constructor, teardown in the destructor; C exports still return `nullptr` until `capabilities()`/`processCommandQueue()` exist |
+| `WglContext.hpp` / `WglContext.cpp` | `GL::WglContext` - WGL implementation of `GL::Context` (Win32, desktop only) and `createWglContext()`; built only on Windows (`win32` scope), so unverified here |
 | `GlxContext.hpp` / `GlxContext.cpp` | `GL::GlxContext` - GLX implementation of `GL::Context` (X11, desktop only), plus `createGlxContext()` which the shared `createContext()` dispatcher calls |
 | `../KaldiGLCommon/GlContext.*`, `EglDisplay.*`, `EglContext.*` | Shared context contract, EGL display refcounting and the EGL implementation |
+| `../KaldiGLCommon/GlContextConfig.*` | `Kld::ConfigProvider` for `ContextConfig`: describes every field (key, range, default), recommends per-purpose defaults and clamps what a `.ini` file says |
 | `../KaldiGLCommon/GlUtil.*` | Euphemy `Format` -> GL format translation, `DecodeTarget`/`ImageView` texture uploads, `Kld::VertexDescriptor` -> vertex attribute state, `Kld::BufferMapAccess` -> `GL_MAP_*` |
 | `../KaldiGLCommon/GlSpirvShader.*` | SPIR-V (`Kld::ShaderBinaryDescriptor`) -> GLSL 4.30 text, with optional external shader-cache hooks |
 

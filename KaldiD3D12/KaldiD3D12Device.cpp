@@ -4,7 +4,9 @@ Device::Device() {}
 }
 MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo)
 {
-	// TODO: Actually implement
+	// TODO: Actually implement (once the device implements capabilities/processCommandQueue)
+	(void)window_info;
+	(void)creationInfo;
 	return nullptr;
 }
 void kld_destroy_rendering_device(MhRenderingDeviceHandle device)

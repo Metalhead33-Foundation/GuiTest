@@ -31,5 +31,11 @@ HEADERS += \
     KldImplLib.h \
     $$KALDIGL_COMMON_HEADERS
 
+# WGL is the desktop-GL binding on Win32 and pulls in <glad/wgl.h> (windows.h).
+win32 {
+    SOURCES += WglContext.cpp
+    HEADERS += WglContext.hpp
+}
+
 DISTFILES += \
     README.md

@@ -110,9 +110,9 @@ std::vector<EGLint> buildContextAttributes(const ContextConfig& config, bool use
 
 } // namespace
 
-EglContext::EglContext(const NativeWindowHandles& handles, const ContextConfig& config)
+EglContext::EglContext(const Kld::NativeWindowHandles& handles, const ContextConfig& config)
 	: EglContext(EglDisplay::acquire(reinterpret_cast<EGLNativeDisplayType>(handles.display)),
-				 reinterpret_cast<EGLNativeWindowType>(handles.window),
+				 reinterpret_cast<EGLNativeWindowType>(handles.eglDrawable()),
 				 config)
 {
 }
@@ -193,7 +193,7 @@ void EglContext::swapBuffers()
 	}
 }
 
-std::unique_ptr<Context> createEglContext(const NativeWindowHandles& handles, const ContextConfig& config)
+std::unique_ptr<Context> createEglContext(const Kld::NativeWindowHandles& handles, const ContextConfig& config)
 {
 	return std::make_unique<EglContext>(handles, config);
 }

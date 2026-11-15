@@ -11,9 +11,8 @@
  *  - @ref Context - the abstract context a backend owns and makes current;
  *  - @ref ContextConfig - what the caller may tune (version, profile, buffer
  *    sizes, MSAA, ...);
- *  - @ref NativeWindowHandles + nativeHandlesFrom() - the one place that knows
- *    how to pull `EGLNativeDisplayType`/`EGLNativeWindowType` out of
- *    `SDL_SysWMinfo`;
+ *  - `Kld::NativeWindowHandles` (see `Kaldi/KldNativeWindow.hpp`) - the
+ *    backend-neutral window handles this layer consumes;
  *  - createContext() - the factory a backend calls, which picks EGL or GLX for
  *    desktop OpenGL and always uses EGL for OpenGL ES.
  *
@@ -42,7 +41,7 @@
  * unloadGlFunctions() must only be called after the last context is gone.
  */
 #include "GlBackend.hpp"
-#include <SDL2/SDL_syswm.h>
+#include <Kaldi/KldNativeWindow.hpp>
 #include <cstdint>
 #include <memory>
 #include <string_view>
@@ -55,12 +54,14 @@ namespace KALDIGL_NS {
 
 /** @brief Window-system binding used to create the GL context. */
 enum class ContextApi : uint8_t {
-	/** @brief Pick the best binding for the window (see @ref NativeWindowHandles::suggestedApi). */
+	/** @brief Pick the best binding for the window (see createContext()). */
 	Auto,
 	/** @brief EGL; the only option for OpenGL ES, and also usable for desktop OpenGL. */
 	EGL,
 	/** @brief GLX; desktop OpenGL on X11 only. */
-	GLX
+	GLX,
+	/** @brief WGL; desktop OpenGL on Win32 only. */
+	WGL
 };
 
 /** @brief Stable, human-readable name of a context API ("auto", "EGL", "GLX"). */
@@ -70,6 +71,7 @@ constexpr std::string_view contextApiName(ContextApi api) noexcept
 		case ContextApi::Auto: return "auto";
 		case ContextApi::EGL: return "EGL";
 		case ContextApi::GLX: return "GLX";
+		case ContextApi::WGL: return "WGL";
 	}
 	return "auto";
 }
@@ -140,89 +142,6 @@ constexpr ContextConfig defaultContextConfig() noexcept
 	config.forwardCompatible = false;
 #endif
 	return config;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Native window handles
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * @brief Platform handles a context implementation needs.
- *
- * `display` is an `EGLNativeDisplayType`/`Display*`, `window` an
- * `EGLNativeWindowType`/`Window`; both are kept as `void*` so this header stays
- * free of EGL/GLX/X11 types and can be included by any backend translation unit.
- */
-struct NativeWindowHandles {
-	/** @brief Native display, or @c nullptr for the default display. */
-	void* display = nullptr;
-	/** @brief Native window/drawable; @c nullptr when extraction failed. */
-	void* window = nullptr;
-	/** @brief Binding that is known to work for this window. */
-	ContextApi suggestedApi = ContextApi::Auto;
-	/** @brief Non-empty when the window cannot be used (carries the reason). */
-	std::string_view unsupportedReason;
-
-	/** @brief True when a drawable was extracted and no platform gap was hit. */
-	bool usable() const noexcept { return window != nullptr && unsupportedReason.empty(); }
-};
-
-/**
- * @brief Extracts the native display/window handles from SDL window-manager info.
- *
- * Handles every subsystem SDL can be built with, using the `SDL_VIDEO_DRIVER_*`
- * guards so the code also compiles on hosts that lack a given backend:
- *
- * | SDL subsystem | display | window | suggested API |
- * |---|---|---|---|
- * | `SDL_SYSWM_X11` | `Display*` | `Window` | `GLX` (EGL also works) |
- * | `SDL_SYSWM_WAYLAND` | `wl_display*` | `wl_egl_window*` | `EGL` |
- * | `SDL_SYSWM_WINDOWS` | `nullptr` (default) | `HWND` | `EGL` |
- * | `SDL_SYSWM_ANDROID` | `nullptr` (default) | `ANativeWindow*` | `EGL` |
- * | anything else | - | - | @ref NativeWindowHandles::unsupportedReason is set |
- *
- * The result is only as good as the `SDL_SysWMinfo` it is given: the caller must
- * have filled it through `SDL_GetWindowWMInfo()`.
- */
-inline NativeWindowHandles nativeHandlesFrom(const SDL_SysWMinfo& info) noexcept
-{
-	NativeWindowHandles handles;
-	switch (info.subsystem) {
-#if defined(SDL_VIDEO_DRIVER_X11)
-		case SDL_SYSWM_X11:
-			handles.display = info.info.x11.display;
-			handles.window = reinterpret_cast<void*>(static_cast<uintptr_t>(info.info.x11.window));
-			handles.suggestedApi = ContextApi::GLX;
-			break;
-#endif
-#if defined(SDL_VIDEO_DRIVER_WAYLAND)
-		case SDL_SYSWM_WAYLAND:
-			handles.display = info.info.wl.display;
-			// EGL wants a wl_egl_window, not the raw wl_surface; SDL exposes both.
-			handles.window = info.info.wl.egl_window;
-			handles.suggestedApi = ContextApi::EGL;
-			if (handles.window == nullptr) {
-				handles.unsupportedReason = "SDL did not expose a wl_egl_window for this Wayland surface";
-			}
-			break;
-#endif
-#if defined(SDL_VIDEO_DRIVER_WINDOWS)
-		case SDL_SYSWM_WINDOWS:
-			handles.window = info.info.win.window;
-			handles.suggestedApi = ContextApi::EGL;
-			break;
-#endif
-#if defined(SDL_VIDEO_DRIVER_ANDROID)
-		case SDL_SYSWM_ANDROID:
-			handles.window = info.info.android.window;
-			handles.suggestedApi = ContextApi::EGL;
-			break;
-#endif
-		default:
-			handles.unsupportedReason = "unsupported SDL window subsystem for a GL context";
-			break;
-	}
-	return handles;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -306,7 +225,7 @@ void applyDefaultState();
  * @throws std::runtime_error When EGL fails; the message names the failing step and
  *         the `eglGetError()` code.
  */
-std::unique_ptr<Context> createEglContext(const NativeWindowHandles& handles, const ContextConfig& config);
+std::unique_ptr<Context> createEglContext(const Kld::NativeWindowHandles& handles, const ContextConfig& config);
 
 #if !KALDIGL_IS_GLES
 /**
@@ -314,16 +233,28 @@ std::unique_ptr<Context> createEglContext(const NativeWindowHandles& handles, co
  * @throws std::invalid_argument When @p handles does not contain an X11 display/window.
  * @throws std::runtime_error When GLX fails; the message names the failing step.
  */
-std::unique_ptr<Context> createGlxContext(const NativeWindowHandles& handles, const ContextConfig& config);
+std::unique_ptr<Context> createGlxContext(const Kld::NativeWindowHandles& handles, const ContextConfig& config);
+
+#if defined(_WIN32)
+/**
+ * @brief Creates a WGL context for @p handles (desktop OpenGL on Win32 only).
+ * @throws std::invalid_argument When @p handles does not contain an `HWND`.
+ * @throws std::runtime_error When WGL fails; the message names the failing step.
+ *
+ * @note Only compiled on Windows hosts (`win32` scope of `KaldiGL.pro`).
+ */
+std::unique_ptr<Context> createWglContext(const Kld::NativeWindowHandles& handles, const ContextConfig& config);
+#endif
 #endif
 
 /**
  * @brief Creates a context for @p handles using the binding selected by @p config.
  *
- * `ContextApi::Auto` resolves to @ref NativeWindowHandles::suggestedApi, which is
- * GLX on X11 and EGL everywhere else; the OpenGL ES build always ends up on EGL.
+ * `ContextApi::Auto` resolves from `Kld::NativeWindowHandles::system`: GLX on
+ * X11, WGL on Win32, EGL on Wayland/Android - and the OpenGL ES build always ends
+ * up on EGL, because it has no GLX/WGL path.
  */
-std::unique_ptr<Context> createContext(const NativeWindowHandles& handles,
+std::unique_ptr<Context> createContext(const Kld::NativeWindowHandles& handles,
 									   const ContextConfig& config = defaultContextConfig());
 
 /** @brief Convenience overload extracting the handles from SDL window-manager info. */

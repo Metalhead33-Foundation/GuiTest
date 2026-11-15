@@ -14,6 +14,7 @@ HEADERS += \
     KldCommandBuffer.hpp \
     KldDevice.hpp \
     KldHal.hpp \
+    KldNativeWindow.hpp \
     KldVertexFormat.hpp
 
 DISTFILES += \

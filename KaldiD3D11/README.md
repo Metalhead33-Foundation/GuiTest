@@ -32,6 +32,7 @@ compiled without Position-Independent Code (`-fPIC`)
 | `KldImplLib.h` | Declares the backend C ABI: `kld_create_rendering_device`, `kld_destroy_rendering_device`, `kld_get_renderer_name`, `kld_get_version`, `kld_get_last_error_message` |
 | `KaldiD3D11Device.hpp` | `D3D11::Device : Kld::Device` placeholder class (constructor only) |
 | `KaldiD3D11Device.cpp` | Stub exports: create returns `nullptr`, destroy is a no-op, renderer name is `"Direct3D11 Renderer"`, version is `"0.0.1"`, last error is `nullptr` |
+| `D3D11Context.hpp` / `.cpp` | `D3D11::Context`: `D3D11CreateDeviceAndSwapChain`, the RTV/DSV pair, `present()` and `resize()`; **Windows only, unverifiable here** |
 | `D3D11Util.hpp` / `D3D11Util.cpp` | `Kld::VertexDescriptor` -> owning `D3D11_INPUT_ELEMENT_DESC` layout, `Kld::BufferMapAccess` -> `D3D11_MAP`, `DecodeTarget` -> `D3D11_SUBRESOURCE_DATA`; **Windows only** |
 | `../KaldiD3DCommon/D3DUtil.*` | Euphemy `Format` and `Kld::PrimitiveType` -> `DXGI_FORMAT`, depth/compression queries, alignment helpers; Windows only |
 | `../KaldiD3DCommon/D3DSPirvShader.*` | SPIR-V (`Kld::ShaderBinaryDescriptor`) -> HLSL source (Shader Model 5.0 default); portable, no D3D headers needed |

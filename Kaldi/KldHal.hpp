@@ -98,8 +98,13 @@ struct HalCapabilities {
 
 /** @brief Portable status code returned by backend initialization/submission. */
 enum class HalStatusCode : uint8_t {
-	/** @brief Operation completed successfully. */
-	Success,
+	/**
+	 * @brief Operation completed successfully.
+	 *
+	 * @note Spelled `Succeeded` rather than `Success` because `<X11/X.h>` defines a
+	 * `Success` macro and the backend translation units include Xlib.
+	 */
+	Succeeded,
 	/** @brief Backend initialization failed before a full capability snapshot existed. */
 	InitializationFailed,
 	/** @brief Backend cannot provide the required baseline HAL contract. */
@@ -136,11 +141,11 @@ struct HalStatus {
 	const char* message;
 
 	/** @brief Returns true when @ref code is `HalStatus`Code::Success. */
-	constexpr bool ok() const { return code == HalStatusCode::Success; }
+	constexpr bool ok() const { return code == HalStatusCode::Succeeded; }
 };
 
 /** @brief Canonical successful status value. */
-inline constexpr HalStatus HalOk { HalStatusCode::Success, nullptr };
+inline constexpr HalStatus HalOk { HalStatusCode::Succeeded, nullptr };
 
 }
 #endif // KLDHAL_HPP

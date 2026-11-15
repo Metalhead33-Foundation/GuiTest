@@ -20,10 +20,39 @@ export the C ABI but cannot execute commands yet.
 | `KldDevice.hpp` | The abstract backend submission interface `Device` |
 | `KldCommandBuffer.hpp` | Header-only recording facade: `HandleStorage`, `CommandDispatcher`, RAII proxies, `mergeCommandBuffers`, `DeferredDestroyQueue` |
 | `KldVertexFormat.hpp` | `PrimitiveType`, `AttributeDescriptor`, `VertexDescriptor` |
+| `KldNativeWindow.hpp` | `WindowSystem`, `NativeWindowHandles`, `nativeWindowHandlesFrom(SDL_SysWMinfo)` - the backend-neutral window-handle extraction shared by EGL/GLX/WGL/D3D/Vulkan |
+| `KldConfig.hpp` | Configuration contract: `ContextPurpose`, `DeviceConfig`, `ConfigField`, `ConfigReader`, `ConfigProvider`, and the field-reading helpers that clamp values |
 | `KaldiLib.h` | C ABI shared with dynamically loaded backends (device creation, renderer name, version, last error) |
 
 Kaldi's `.pro` still produces a shared library, but there is no public linkable API;
 consumers add `include(Kaldi/Kaldi.pri)` for include paths and do not link `-lKaldi`.
+
+## Macro collisions with platform headers
+
+Kaldi headers are included in the same translation unit as `<X11/Xlib.h>` by the GLX and
+Vulkan backends, and Xlib is generous with short, attractive macro names. These
+identifiers were therefore renamed, and the reason is recorded on each declaration:
+
+| Was | Is | Because `<X11/X.h>`/`Xdefs.h` defines |
+|---|---|---|
+| `CompareOp::Always` | `CompareOp::AlwaysPass` | `#define Always 2` |
+| `CullMode::None` | `CullMode::NoCulling` | `#define None 0L` |
+| `HalStatusCode::Success` | `HalStatusCode::Succeeded` | `#define Success 0` |
+| `ConfigValueType::Bool/Integer/Float/String` | `...::BoolValue/IntegerValue/FloatValue/StringValue` | `typedef int Bool;` (and similar typedefs elsewhere) |
+
+When adding enumerators or field names to Kaldi, keep them long enough not to collide with
+`None`, `Always`, `Success`, `Bool`, `True`, `False`, `Status`, `Window` or `Display`.
+
+## Window handles and configuration
+
+`KldNativeWindow.hpp` is the one place that knows how to turn `SDL_SysWMinfo` into native
+handles; every backend consumes the result instead of repeating the SDL switch.
+`KldConfig.hpp` is the configuration contract: a backend describes the settings it exposes
+(`ConfigField` with key, type, range, default, choices, help) and applies them from a
+`ConfigReader`. The GL provider lives in `KaldiGLCommon/GlContextConfig.hpp`, and the
+`.ini` persistence (`Euph::Conf::Configuration`) lives in
+`Lotte/Conf/LteBackendConfig.hpp`.
+
 
 
 ## Current command model

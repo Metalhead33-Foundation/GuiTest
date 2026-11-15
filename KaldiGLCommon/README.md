@@ -8,7 +8,8 @@ only target one GLSL dialect at a time.
 | File | Purpose |
 |---|---|
 | `GlBackend.hpp` | Dialect selector: maps `GL_IMPLEMENTATION` / `GLES_IMPLEMENTATION` onto `KALDIGL_NS` (`GL` / `GLES`) and `KALDIGL_IS_GLES` |
-| `GlContext.hpp` / `GlContext.cpp` | Abstract `Context`, `ContextConfig`, `NativeWindowHandles` + `nativeHandlesFrom()`, the `createContext()` factory, and glad entry-point loading (`loadGlFunctions` / `unloadGlFunctions` / `applyDefaultState`) |
+| `GlContext.hpp` / `GlContext.cpp` | Abstract `Context`, `ContextConfig`, the `createContext()` factory, and glad entry-point loading (`loadGlFunctions` / `unloadGlFunctions` / `applyDefaultState`) |
+| `GlContextConfig.hpp` / `GlContextConfig.cpp` | `Kld::ConfigProvider` implementation for `ContextConfig`: field descriptors with ranges/defaults, per-purpose common defaults, and the clamping `apply()` |
 | `EglDisplay.hpp` / `EglDisplay.cpp` | Reference-counted `EGLDisplay` owner shared by every EGL context, plus `eglErrorName()` |
 | `EglContext.hpp` / `EglContext.cpp` | EGL implementation of `Context`: window surface, `ContextConfig`-driven config/context attributes, error reporting |
 | `GlUtil.hpp` / `GlUtil.cpp` | Euphemy `Format` -> GL format translation, `DecodeTarget`/`ImageView` uploads, `Kld::VertexDescriptor` -> vertex attribute state, `Kld::BufferMapAccess` -> `GL_MAP_*` bits |
@@ -27,12 +28,13 @@ them hard-codes a window system:
 SDL_GetWindowWMInfo(&info)
         │
         ▼
-nativeHandlesFrom(info)          GlContext.hpp, inline
-        │  display/window + suggestedApi (or unsupportedReason)
+Kld::nativeWindowHandlesFrom(info)   Kaldi/KldNativeWindow.hpp
+        │  system + display/window (+ unsupportedReason)
         ▼
 createContext(handles, config)   GlContext.cpp
         ├── ContextApi::EGL  -> createEglContext()   EglContext.cpp   (both backends)
-        └── ContextApi::GLX  -> createGlxContext()   GlxContext.cpp   (KaldiGL only)
+        ├── ContextApi::GLX  -> createGlxContext()   GlxContext.cpp   (KaldiGL, X11)
+        └── ContextApi::WGL  -> createWglContext()   WglContext.cpp   (KaldiGL, Win32)
         │
         ▼
 makeCurrent() -> loadGlFunctions() -> applyDefaultState()
@@ -42,6 +44,7 @@ makeCurrent() -> loadGlFunctions() -> applyDefaultState()
 |---|---|---|---|
 | `EglContext` | `EglContext.hpp` | OpenGL 4.3 and OpenGL ES 3.2 | X11, Wayland, Windows (ANGLE), Android, embedded |
 | `GlxContext` | `../KaldiGL/GlxContext.hpp` | desktop OpenGL only | X11 |
+| `WglContext` | `../KaldiGL/WglContext.hpp` | desktop OpenGL only | Win32 |
 
 Behaviour that the legacy code got wrong and that is now defined:
 
@@ -75,7 +78,8 @@ Behaviour that the legacy code got wrong and that is now defined:
 
 ### Window systems
 
-`nativeHandlesFrom()` is the only place that knows about SDL's subsystems:
+`Kld::nativeWindowHandlesFrom()` (in `Kaldi/KldNativeWindow.hpp`) is the only place that
+knows about SDL's subsystems; this layer just maps the result onto a context API:
 
 | SDL subsystem | display | window | Suggested API |
 |---|---|---|---|
@@ -126,6 +130,56 @@ public:
 Until that exists, callers construct `ContextConfig` directly - the struct is
 already the exact shape a `.ini` round-trip needs.
 
+
+## Configuration
+
+The configuration contract lives in `Kaldi/KldConfig.hpp`; this directory provides the GL
+implementation of it. The conversation has two directions:
+
+1. the **engine** asks the backend what it recommends for a purpose
+   (`Kld::ContextPurpose`: main window, offscreen, debug view);
+2. the **backend** answers with backend-neutral defaults (`Kld::DeviceConfig`: resolution,
+   frames in flight, present mode, vsync, sRGB, anisotropy, mipmaps) plus the backend
+   specific fields it exposes (`Kld::ConfigField`: key, type, range, default, choices,
+   help);
+3. the host persists the result as an `.ini` file through `Euph::Conf::Configuration` -
+   `Lotte/Conf/LteBackendConfig.hpp` writes the defaults, serializes the file, parses it
+   back and hands a `Kld::ConfigReader` to `apply()`;
+4. `apply()` clamps every value to the advertised range and stores it in the
+   `ContextConfig` that `createContext()` will use.
+
+```cpp
+GL::ContextConfig config = GL::defaultContextConfig();
+GL::ContextConfigProvider provider(config);      // implements Kld::ConfigProvider
+
+Euph::Conf::Configuration ini;                   // Lotte::Conf owns the .ini bridge
+Lotte::Conf::writeBackendDefaults(ini, provider, Kld::ContextPurpose::MainWindow);
+Lotte::Conf::saveConfiguration(iosys, "/config/kaldi.ini", ini);
+
+Euph::Conf::Configuration loaded = Lotte::Conf::loadConfiguration(iosys, "/config/kaldi.ini");
+Lotte::Conf::applyBackendConfig(loaded, provider);   // clamps, then writes into config
+auto context = GL::createContext(handles, config);
+```
+
+Keys written by the GL provider (all Euphemy-typed, so the file is self-describing):
+
+| Key | Range | Default (desktop) | Meaning |
+|---|---|---|---|
+| `sGlApi` | `auto`, `egl`, `glx`, `wgl` | `auto` | Window-system binding |
+| `iGlVersionMajor` | 1-5 | 4 (3 on GLES) | Requested major version |
+| `iGlVersionMinor` | 0-9 | 3 (2 on GLES) | Requested minor version |
+| `bGlCoreProfile` | bool | true (false on GLES) | Core profile |
+| `bGlForwardCompatible` | bool | true (false on GLES) | Forward-compatible context |
+| `bGlDebugContext` | bool | false | Debug context when available |
+| `iGlSamples` | 0-16 | 0 | MSAA samples |
+| `iGlDepthBits` | 0-32 | 24 | Depth buffer size |
+| `iGlStencilBits` | 0-8 | 8 | Stencil buffer size |
+| `iGlScreen` | -1-15 | -1 | X11 screen for GLX |
+
+`iWidth`, `iHeight`, `iFramesInFlight`, `sPresentMode`, `bVSync`, `bSrgbFramebuffer`,
+`fMaxAnisotropy` and `bGenerateMipmaps` are shared with the other backends through
+`Kld::commonConfigFields()`, and `UnitTests` covers the round-trip (defaults written,
+values clamped, text re-parsed).
 
 ## Why a shared directory instead of `glad/`?
 

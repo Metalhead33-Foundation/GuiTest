@@ -28,12 +28,12 @@ class EglContext final : public Context {
 public:
 	/**
 	 * @brief Creates a context and a window surface for @p handles.
-	 * @param handles Native display/window, normally from nativeHandlesFrom().
+	 * @param handles Native display/window, normally from `Kld::nativeWindowHandlesFrom()`.
 	 * @param config Requested version, profile, buffer sizes and MSAA.
 	 * @throws std::invalid_argument When @p handles has no native window.
 	 * @throws std::runtime_error When EGL fails; the message names the failing call.
 	 */
-	EglContext(const NativeWindowHandles& handles, const ContextConfig& config);
+	EglContext(const Kld::NativeWindowHandles& handles, const ContextConfig& config);
 
 	/**
 	 * @brief Creates a context and a window surface on an existing display.

@@ -20,6 +20,7 @@ LIBS += -lglslang -lSPIRV -lglslang-default-resource-limits
 
 SOURCES += \
     Asset/LteGpuAssetStreamer.cpp \
+    Conf/LteBackendConfig.cpp \
     GFX/LtePipeline.cpp \
     Text/LteHtmlEntities.cpp \
     Text/LteMarkupColour.cpp \
@@ -30,6 +31,7 @@ SOURCES += \
 
 HEADERS += \
     Asset/LteGpuAssetStreamer.hpp \
+    Conf/LteBackendConfig.hpp \
     GFX/LteMesh.hpp \
     GFX/LtePipeline.hpp \
     Gui/LteGuiRenderCache.hpp \

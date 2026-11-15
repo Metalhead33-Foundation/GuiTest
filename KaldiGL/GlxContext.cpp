@@ -168,10 +168,11 @@ void GlxContext::swapBuffers()
 	glXSwapBuffers(display_, window_);
 }
 
-std::unique_ptr<Context> createGlxContext(const NativeWindowHandles& handles, const ContextConfig& config)
+std::unique_ptr<Context> createGlxContext(const Kld::NativeWindowHandles& handles, const ContextConfig& config)
 {
-	if (handles.display == nullptr || handles.window == nullptr) {
-		throw std::invalid_argument("GlxContext: GLX requires an X11 display and window");
+	if (handles.system != Kld::WindowSystem::X11 || handles.display == nullptr || handles.window == nullptr) {
+		throw std::invalid_argument(std::string("GlxContext: GLX requires an X11 display and window, got ") +
+									std::string(Kld::windowSystemName(handles.system)));
 	}
 	return std::make_unique<GlxContext>(reinterpret_cast<::Display*>(handles.display),
 										static_cast<::Window>(reinterpret_cast<uintptr_t>(handles.window)),

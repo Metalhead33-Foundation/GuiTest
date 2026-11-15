@@ -49,6 +49,10 @@ build Catch2 as a single amalgamated header and replace the includes.
 | `tests/ImageCodecTests.cpp` | PNG and TGA encode -> decode reproduce the exact pixels of a 23x17 image; re-encoding a decoded PNG is byte-identical |
 | `tests/FontRoundTripTests.cpp` | Lotte `PreprocessedFontFace` and `StoredVectorImage` through `Elv::Io::DataStream`, comparing every persisted field (metadata, metrics, kerning, SDF payload, mipmaps) |
 | `tests/ConfigTests.cpp` | Configuration text round-trip for every typed value; default caching for missing keys; parsing a hand-written document; rejection of keys without a type prefix |
+| `tests/BackendConfigTests.cpp` | The Kaldi config contract end to end: GL provider defaults written with typed keys, key prefixes matching value types, clamping (`iGlSamples=999` -> 16), unknown enumerations falling back, missing sections keeping defaults, `.ini` serialize -> parse -> apply round-trip, per-purpose common defaults |
+| `tests/ShaderCompileTests.cpp` | Lotte's HLSL/GLSL -> SPIR-V compiler: one blob per stage, `Kld::ShaderBinaryDescriptor` views consistent with the stored words, empty/duplicate/diagnostic/include failure paths, `Pipeline` ownership |
+| `tests/FormatTranslationTests.cpp` | Vulkan (`VkUtil`) and DXGI (`D3DUtil`) tables: formats that exist, formats the APIs cannot express, vertex formats, sampler/layout/stage masks, alignment helpers |
+| `tests/NativeWindowTests.cpp` | `Kld::nativeWindowHandlesFrom()` for unsupported subsystems, X11 and Wayland (including the `wl_surface` vs `wl_egl_window` split), plus the GL `ContextConfig`/`ContextApi` defaults |
 
 `support/TestSupport.hpp` holds the shared helpers: deterministic payload generators and
 `readToEnd()`, which drains a decompressing proxy device (its `size()` reports the *compressed* size,

@@ -20,6 +20,7 @@ INCLUDEPATH += $$quote($$PWD)
 # is desktop-only.
 KALDIGL_COMMON_SOURCES += \
     $$PWD/GlContext.cpp \
+    $$PWD/GlContextConfig.cpp \
     $$PWD/EglDisplay.cpp \
     $$PWD/EglContext.cpp \
     $$PWD/GlSpirvShader.cpp \
@@ -28,6 +29,7 @@ KALDIGL_COMMON_SOURCES += \
 KALDIGL_COMMON_HEADERS += \
     $$PWD/GlBackend.hpp \
     $$PWD/GlContext.hpp \
+    $$PWD/GlContextConfig.hpp \
     $$PWD/EglDisplay.hpp \
     $$PWD/EglContext.hpp \
     $$PWD/GlSpirvShader.hpp \

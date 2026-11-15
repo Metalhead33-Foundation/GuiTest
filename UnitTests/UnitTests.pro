@@ -27,6 +27,10 @@ INCLUDEPATH += $$PWD/../KaldiGLCommon
 # binary on non-Windows hosts verifies the values instead of merely asserting them
 # in a README. On Windows the table already lives inside libKaldiD3D11/12, so it is
 # skipped here to avoid duplicate symbols.
+# The GL config provider is plain translation code (no glad, no context), so the
+# configuration chain can be tested without linking a GL library.
+SOURCES += ../KaldiGLCommon/GlContextConfig.cpp
+
 !win32 {
     DEFINES += KALDID3D_FORMAT_TESTS
     INCLUDEPATH += $$PWD/../extern/DXSDK/Include
@@ -41,8 +45,9 @@ SOURCES += \
     tests/CompressionTests.cpp \
     tests/ConfigTests.cpp \
     tests/FontRoundTripTests.cpp \
+    tests/BackendConfigTests.cpp \
     tests/FormatTranslationTests.cpp \
-    tests/GlContextTests.cpp \
+    tests/NativeWindowTests.cpp \
     tests/ImageCodecTests.cpp \
     tests/ShaderCompileTests.cpp
 

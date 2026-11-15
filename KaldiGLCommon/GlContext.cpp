@@ -41,7 +41,7 @@ void applyDefaultState()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-std::unique_ptr<Context> createContext(const NativeWindowHandles& handles, const ContextConfig& config)
+std::unique_ptr<Context> createContext(const Kld::NativeWindowHandles& handles, const ContextConfig& config)
 {
 	if (!handles.usable()) {
 		std::string message = "GlContext: cannot create a context: ";
@@ -53,24 +53,42 @@ std::unique_ptr<Context> createContext(const NativeWindowHandles& handles, const
 		throw std::invalid_argument(message);
 	}
 
-	const ContextApi api = (config.api == ContextApi::Auto) ? handles.suggestedApi : config.api;
-	switch (api) {
-		case ContextApi::GLX:
 #if KALDIGL_IS_GLES
-			throw std::runtime_error("GlContext: GLX is not available in the OpenGL ES backend");
-#else
-			return createGlxContext(handles, config);
-#endif
-		case ContextApi::EGL:
-		case ContextApi::Auto:
-			break;
+	// The ES backend has exactly one path; an explicit GLX/WGL request is a caller
+	// error, not something to silently reinterpret.
+	if (config.api != ContextApi::Auto && config.api != ContextApi::EGL) {
+		throw std::runtime_error("GlContext: the OpenGL ES backend only supports EGL");
 	}
 	return createEglContext(handles, config);
+#else
+	ContextApi api = config.api;
+	if (api == ContextApi::Auto) {
+		switch (handles.system) {
+			case Kld::WindowSystem::X11: api = ContextApi::GLX; break;
+			case Kld::WindowSystem::Windows: api = ContextApi::WGL; break;
+			default: api = ContextApi::EGL; break;
+		}
+	}
+	switch (api) {
+		case ContextApi::EGL:
+		case ContextApi::Auto:
+			return createEglContext(handles, config);
+		case ContextApi::GLX:
+			return createGlxContext(handles, config);
+		case ContextApi::WGL:
+#if defined(_WIN32)
+			return createWglContext(handles, config);
+#else
+			throw std::runtime_error("GlContext: WGL is only available on Windows hosts");
+#endif
+	}
+	throw std::runtime_error("GlContext: no context implementation is available for the selected API");
+#endif
 }
 
 std::unique_ptr<Context> createContext(const SDL_SysWMinfo& info, const ContextConfig& config)
 {
-	return createContext(nativeHandlesFrom(info), config);
+	return createContext(Kld::nativeWindowHandlesFrom(info), config);
 }
 
 }
