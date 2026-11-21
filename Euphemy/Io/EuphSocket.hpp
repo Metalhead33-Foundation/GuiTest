@@ -9,6 +9,7 @@
  * and backend implementations that include this module.
  */
 #include <Euphemy/Config/EuphLib.hpp>
+#include <Elvavena/Io/ElvEventPoller.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
 #include <Elvavena/Net/ElvNetTypes.hpp>
 #include <cstdint>
@@ -404,6 +405,12 @@ public:
 	 * @return		 True if the socket is valid, false otherwise.
 	 */
 	bool isValid() const override;
+
+	/**
+	 * @brief Returns the native handle for OS event pollers.
+	 * @return File descriptor or SOCKET, or @ref Elv::Io::InvalidNativeHandle.
+	 */
+	[[nodiscard]] Elv::Io::NativeHandle nativeHandle() const noexcept;
 
 	// Socket-specific methods
 

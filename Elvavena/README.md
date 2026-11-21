@@ -5,9 +5,9 @@ it: it owns the shared I/O device abstraction, the generic containers and alloca
 the dynamic-library and event-loop helpers, and the serialization primitives that the
 higher layers reuse instead of reimplementing.
 
-**Status: implemented, with the network foundation at M2 plus the replication core.** The
-library is usable today. It is a shared library with seven compiled translation units;
-the rest of its surface is header-only.
+**Status: implemented, with the networking foundation at M2 + replication core and the
+platform I/O seam.** The library is usable today. It is a shared library with seven
+compiled translation units; the rest of its surface is header-only.
 
 ## Build and consumption
 
@@ -35,6 +35,8 @@ code in headers.
 | `ElvDataStream.hpp` | Endian-templated `DataStream<IoType>` with `operator<<`/`operator>>` for scalars, strings (null-inclusive `uint32` length, matching FontPacker), STL containers/maps (`uint32` counts), `std::optional`/`std::monostate`, plus bounds-checked ULEB128/SLEB128 readers (Wasm-style byte-length and overflow limits on decode) |
 | `ElvIoAsync.hpp` | `AsyncResult<T>`, `AsyncOperationCanceled`, and the `Async<Executor>` adapter (`read`, `write`, `seek`, `size`, `flush`, `readAll`, `*Then` callback variants, cancellation via `std::stop_token`) |
 | `ElvBitStream.hpp` | MSB-first `BitWriter`/`BitReader`: bit-packed integers, zig-zag signed values, LEB128 varints, IEEE-754 float/half fields, quantized floats, byte alignment, bounds/error state. Non-throwing and allocation-free; complements the byte-oriented `DataStream` |
+| `ElvEventPoller.hpp` | Portable readiness seam: `NativeHandle`, `EventMask`, `PollFlags`, `PollEvent`, and the abstract `EventPoller` (`add`/`modify`/`remove`/`wait`). epoll/kqueue/WSAPoll implementations live in Euphemy |
+| `ElvAsyncCompletion.hpp` | Backend-neutral `AsyncCompletion` record shared by io_uring and IOCP wrappers |
 
 ### `Net/` - transport-agnostic networking foundation
 
@@ -59,14 +61,15 @@ protocol and the interfaces; the OS socket implementation lives in Euphemy.
 | `ElvNetInterest.hpp` | Batch `InterestManager` hook plus `ReplicateAllInterest` and `OwnerInterest` defaults |
 
 `docs/NETCODE.md` records the layer boundaries, the wire contract and the remaining
-milestones (RPC, clock sync, replication registry/delta, prediction/lockstep helpers).
+milestones. `docs/PLATFORM.md` records the event-poller/completion-wrapper split and
+the two ring-buffer contracts.
 
 ### `Util/` - containers, allocators, algorithms and runtime helpers
 
 | Area | Headers |
 |---|---|
 | Allocators / memory | `ElvAlexandrescuResource.hpp` (alignment-correct PMR bridge over Alexandrescu allocators), `ElvAllocatorBasic.hpp` (allocator concept and smart-pointer adapters), `ElvBitmapAllocator.hpp`, `ElvFreelist.hpp` (`FixedFreeListAllocator`, `ContiguousFreeListAllocator`, `FreelistMemoryManager`), `ElvStackAllocator.hpp`, `ElvHeapArray.hpp`, `ElvChunkyArray.hpp`, `ElvIntrusiveArray.hpp`, `ElvIdPool.hpp` (thread-safe ID recycling) |
-| Containers | `ElvBinaryTree.hpp`, `ElvContainerBasic.hpp`, `ElvDoubleBufferedVector.hpp`, `ElvRingBuffer.hpp` (fixed-capacity, preallocated history buffer), `ElvStringhashMap.hpp`, `ElvThreadsafeContainer.hpp`, `ElvThreadsafeQueue.hpp`, `ElvObserv.hpp` (observer pattern) |
+| Containers | `ElvBinaryTree.hpp`, `ElvContainerBasic.hpp`, `ElvDoubleBufferedVector.hpp`, `ElvRingBuffer.hpp` (fixed-capacity optional-slot history buffer), `ElvContiguousRingBuffer.hpp` (streaming contiguous read/write spans; the extracted Haruka streamer buffer), `ElvStringhashMap.hpp`, `ElvThreadsafeContainer.hpp`, `ElvThreadsafeQueue.hpp`, `ElvObserv.hpp` (observer pattern) |
 | Algorithms / math | `ElvFixedPoint.hpp`, `ElvFixedPointMath.hpp`, `ElvInterpolation.hpp`, `ElvMathUtil.hpp`, `ElvNormDenorm.hpp`, `ElvDither.hpp`, `ElvEdgeFunction.hpp`, `ElvFuzzy.hpp` (fuzzy logic), `ElvSpanHelpers.hpp`, `ElvIntegralIterator.hpp`, `ElvContinuousIterator.hpp`, `ElvEndianness.hpp`, `ElvChecksum.hpp` (CRC-32C and FNV-1a for stable wire checksums) |
 | Runtime / platform | `ElvDynamicLib.hpp` (`dlopen`/`LoadLibrary` wrapper), `ElvEventLoop.hpp` (single background command thread with `enqueue`/`enqueueAsync`/`enqueueSync`), `ElvThreadPool.hpp`, `ElvAsyncExecutor.hpp` (executor concept), `ElvSignal.hpp` (`Signal`/`Connection`/`ScopedConnection` — the in-tree replacement for the third-party `sigslot.h`), `ElvException.hpp`, `ElvUtilGlobals.hpp` (API visibility macros, `DEFINE_PTR`/`DEFINE_CLASS`/`DEFINE_STRUCT`) |
 | RAII / scope cleanup | `ElvScopeGuard.hpp` (`ScopeGuard<Fn>`, `ScopeExitMode`, `makeScopeGuard`/`atScopeExit`, and the `ELV_SCOPE_EXIT` / `ELV_SCOPE_FAIL` / `ELV_SCOPE_SUCCESS` macros; failure/success modes use `std::uncaught_exceptions`), `ElvDeferStack.hpp` (`DeferStack`: fixed-capacity, non-allocating LIFO cleanup thunks in caller-owned storage; `defer`, LIFO `dismiss`, `runAll`) |
@@ -77,9 +80,20 @@ milestones (RPC, clock sync, replication registry/delta, prediction/lockstep hel
 The sources contain no explicit `TODO`/`FIXME` markers; the following are the known
 limits of the current implementation:
 
-- [ ] `EventLoop` is only a sequential command pump. It has no integration with OS
-      event sources (timers, signals, sockets, file descriptors) and no shutdown
-      handshake beyond enqueueing the stop flag in its destructor.
+- [ ] `EventLoop` is still a sequential command pump. The new `Elv::Io::EventPoller`
+      seam and Euphemy's epoll/WSAPoll/io_uring/IOCP wrappers are standalone
+      building blocks; wiring `EventLoop` to a poller plus an eventfd/pipe wakeup is
+      the next integration step.
+- [ ] The readiness seam has epoll and WSAPoll backends. A kqueue backend for
+      macOS/BSD and a `select(2)` fallback are still missing.
+- [ ] `IoUring` is optional at compile time and runtime: liburing is linked only when
+      present, and Docker/Android/ChromeOS may disable `io_uring_setup` even when it
+      is linked. The epoll/WSAPoll path is the fallback for readiness; blocking
+      `Elv::Io::Async<ThreadPool>` remains the fallback for file I/O.
+- [ ] `ContiguousRingBuffer` and `RingBuffer` are intentionally separate: the first
+      exposes contiguous read/write spans for streaming, the second stores optional
+      slots for histories and supports move-only/non-default-constructible types.
+      Keep both unless a future design can preserve both contracts in one type.
 - [ ] There is no concrete `Elv::Io::Device` or `Elv::Io::System` implementation in this
       module; the concrete files, sockets, compression and encryption devices live in
       Euphemy. Elvavena only defines the interfaces and the generic proxies.

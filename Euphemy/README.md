@@ -15,7 +15,7 @@ and compiled translation units. The gaps are listed at the end of this file.
 | Export macro | `MH_EUPH_EXPORT` while building, `MH_EUPH_API` for consumers |
 | Consumer hook | `include(Euphemy/Euphemy.pri)` adds the include path and `-lEuphemy` |
 | Internal dependency | Elvavena (`-lElvavena`) |
-| External libraries | libsndfile, libsamplerate, libopenmpt, libpng16, gif, turbojpeg, libwebp (+decoder/demux/mux), zstd, snappy, PhysFS, OpenSSL (`ssl`, `crypto`) |
+| External libraries | libsndfile, libsamplerate, libopenmpt, libpng16, gif, turbojpeg, libwebp (+decoder/demux/mux), zstd, snappy, PhysFS, OpenSSL (`ssl`, `crypto`); optional `liburing` |
 
 ## Implemented
 
@@ -47,6 +47,23 @@ and compiled translation units. The gaps are listed at the end of this file.
 The transport is intentionally thin. Protocol state (reliability, fragmentation,
 heartbeats) lives in `Elvavena/Net/ElvNetSession.*`; encryption/authentication and NAT
 traversal are not part of this adapter.
+
+### `Platform/` - event pollers and completion wrappers
+
+| Header | Contents |
+|---|---|
+| `EuphEventPollerFactory.hpp` | `createEventPoller()` selects epoll on Linux and WSAPoll on Windows; returns null when the requested backend is unavailable. `createIoUringIfAvailable()` returns a valid io_uring queue or null for runtime fallback |
+| `EuphEpollPoller.hpp` / `.cpp` | `EpollPoller` implements `Elv::Io::EventPoller`: add/modify/remove, level/edge/one-shot flags, poll timeout and event-token mapping |
+| `EuphWSAPollPoller.hpp` / `.cpp` | `WSAPollPoller` implements the same seam for Windows sockets; non-Windows builds provide an unavailable stub |
+| `EuphIoUring.hpp` / `.cpp` | `IoUring` RAII wrapper over liburing: NOP/read/write/poll/timeout submission, batched completion wait and runtime availability probe. Compiled only against liburing when it is detected; otherwise stubbed with `-ENOSYS` |
+| `EuphIocp.hpp` / `.cpp` | `Iocp` RAII wrapper over Windows I/O completion ports: associate handles, post packets, batched wait. Non-Windows builds provide an unavailable stub |
+
+`EventPoller` is readiness (which handle is ready); `IoUring`/`Iocp` are completion
+(one record per submitted operation). They are separate because forcing a completion
+API into a readiness interface loses the operation result and buffer ownership model.
+`liburing` is optional in the qmake project; Docker, Android and ChromeOS can also
+disable `io_uring_setup` at runtime, so callers must fall back to epoll/WSAPoll for
+readiness or `Elv::Io::Async<ThreadPool>` for blocking file work.
 
 ### `Media/Image/` - image containers and codecs
 
@@ -121,6 +138,13 @@ transitions are documented on `ResidencyState` in `EuphAssetTypes.hpp`.
 - [ ] Codec coverage is uneven: `UnitTests` round-trips PNG, TGA, zstd, Snappy, the font
       containers and the configuration format, but JPEG/WebP (lossy, buffer-based entry
       points) and GIF/DDS (decode only) have no automated check.
+- [ ] The platform wrappers are only exercised on Linux: epoll and the io_uring
+      availability path have tests; WSAPoll, IOCP and kqueue need Windows/BSD CI.
+      A kqueue backend and a `select(2)` fallback are still missing.
+- [ ] `liburing` is optional at compile time, but a build without it still compiles
+      `EuphIoUring.cpp` as a stub. Runtime `io_uring_setup` failures (Docker seccomp,
+      Android, ChromeOS) are detected by `IoUring::isValid()`/`runtimeAvailable()` and
+      must be handled by falling back to epoll/WSAPoll or a thread-pool I/O path.
 - [ ] The UDP transport's automated coverage is a Linux localhost smoke test
       (`UnitTests` tag `[net][socket]`). The WinSock branch, IPv6-specific paths and
       platform socket-option behaviour are not exercised by CI yet.

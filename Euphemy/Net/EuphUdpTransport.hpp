@@ -114,6 +114,11 @@ public:
 	/** @brief Returns the underlying socket for platform-specific options. */
 	[[nodiscard]] Io::Socket& nativeSocket() { return socket; }
 
+	/** @brief Returns the native handle for an `Elv::Io::EventPoller`. */
+	[[nodiscard]] Elv::Io::NativeHandle nativeHandle() const noexcept {
+		return socket.nativeHandle();
+	}
+
 private:
 	Io::AddressFamily family; ///< Address family used for name resolution.
 	Io::Socket socket;        ///< Platform socket handle and options.

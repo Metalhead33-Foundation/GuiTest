@@ -24,11 +24,13 @@ SOURCES += \
     tests/CompressionTests.cpp \
     tests/ConfigTests.cpp \
     tests/FontRoundTripTests.cpp \
+    tests/HarukaStreamerRingTests.cpp \
     tests/ImageCodecTests.cpp \
     tests/NetClockRpcTests.cpp \
     tests/NetReplicationTests.cpp \
     tests/NetSessionTests.cpp \
     tests/NetTransportTests.cpp \
+    tests/PlatformWrappersTests.cpp \
     tests/UdpTransportTests.cpp
 
 HEADERS += \

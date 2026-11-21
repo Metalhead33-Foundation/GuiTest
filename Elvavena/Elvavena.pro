@@ -17,9 +17,11 @@ SOURCES += \
     Util/ElvThreadPool.cpp
 
 HEADERS += \
+    Io/ElvAsyncCompletion.hpp \
     Io/ElvBitStream.hpp \
     Io/ElvDataSerializationSchema.hpp \
     Io/ElvDataStream.hpp \
+    Io/ElvEventPoller.hpp \
     Io/ElvIoAsync.hpp \
     Io/ElvIoDevice.hpp \
     Io/ElvIoDeviceProxy.hpp \
@@ -47,6 +49,7 @@ HEADERS += \
     Util/ElvChunkyArray.hpp \
     Util/ElvCommandQueue.hpp \
     Util/ElvContainerBasic.hpp \
+    Util/ElvContiguousRingBuffer.hpp \
     Util/ElvContinuousIterator.hpp \
     Util/ElvDeferStack.hpp \
     Util/ElvDither.hpp \

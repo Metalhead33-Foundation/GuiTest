@@ -49,6 +49,7 @@ TEST_CASE("UDP transport exchanges datagrams on localhost", "[net][socket]")
 {
 	UdpTransport server;
 	REQUIRE(server.bind("127.0.0.1", "0") == Elv::Net::NetError::None);
+	CHECK(server.nativeHandle() != Elv::Io::InvalidNativeHandle);
 	const auto local = server.localEndpoint();
 	REQUIRE(local.has_value());
 	REQUIRE(local->family == AF_INET);

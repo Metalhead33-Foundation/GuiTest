@@ -452,6 +452,13 @@ bool Socket::isValid() const
 	return sockfd_ != InvalidSocketHandle;
 }
 
+Elv::Io::NativeHandle Socket::nativeHandle() const noexcept
+{
+	return sockfd_ == InvalidSocketHandle
+		? Elv::Io::InvalidNativeHandle
+		: static_cast<Elv::Io::NativeHandle>(sockfd_);
+}
+
 void Socket::setBlocking(bool isBlocking)
 {
 #ifdef _WIN32
