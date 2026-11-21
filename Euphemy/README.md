@@ -32,11 +32,21 @@ and compiled translation units. The gaps are listed at the end of this file.
 | `EuphRandomDevice.hpp` | Random-byte source device |
 | `EuphStdfileWrapper.hpp` | Adapts `FILE*` / standard streams to `Elv::Io::Device` |
 | `EuphTempFile.hpp` | Temporary-file creation (`mkstemp`, `O_TMPFILE`, ...) and RAII cleanup |
-| `EuphSocket.hpp` | POSIX sockets as `Elv::Io::Device` (address family, socket type, connect/listen/accept) |
+| `EuphSocket.hpp` | Sockets as `Elv::Io::Device`: address families, TCP/UDP, connect/bind/listen/accept, opaque `Elv::Net::Endpoint` conversion, non-blocking datagram send/receive. Owns WinSock lifetime and frees `addrinfo` |
 | `EuphZstd.hpp` / `.cpp` | `ZstdCompressor` (write proxy) and `ZstdDecompressor` (read proxy) |
 | `EuphSnappy.hpp` / `.cpp` | `SnappyCompressor` (write proxy) and `SnappyDecompressor` (read proxy) over a small chunked container (`"SNPY"` magic, per-chunk compressed/uncompressed sizes) |
 | `EuphCryptoProxyDevice.hpp` | `CryptoWriteDeviceProxy` / `CryptoReadDeviceProxy` plus the `CipherType` enum (OpenSSL-backed) |
 | `PhysFS.hpp` | `PhysFS` namespace wrapper around the PhysFS virtual filesystem |
+
+### `Net/` - concrete transports over the platform sockets
+
+| Header | Contents |
+|---|---|
+| `EuphUdpTransport.hpp` | `UdpTransport` implements `Elv::Net::DatagramTransport` over `Euph::Io::Socket`: unbound client sockets, server bind with ephemeral ports, non-blocking receive and `resolve`/`localEndpoint`. This is the bridge between Elvavena's session layer and the OS |
+
+The transport is intentionally thin. Protocol state (reliability, fragmentation,
+heartbeats) lives in `Elvavena/Net/ElvNetSession.*`; encryption/authentication and NAT
+traversal are not part of this adapter.
 
 ### `Media/Image/` - image containers and codecs
 
@@ -111,3 +121,9 @@ transitions are documented on `ResidencyState` in `EuphAssetTypes.hpp`.
 - [ ] Codec coverage is uneven: `UnitTests` round-trips PNG, TGA, zstd, Snappy, the font
       containers and the configuration format, but JPEG/WebP (lossy, buffer-based entry
       points) and GIF/DDS (decode only) have no automated check.
+- [ ] The UDP transport's automated coverage is a Linux localhost smoke test
+      (`UnitTests` tag `[net][socket]`). The WinSock branch, IPv6-specific paths and
+      platform socket-option behaviour are not exercised by CI yet.
+- [ ] `UdpTransport` is plaintext. Add authentication/encryption (DTLS or a
+      game-level handshake) above the transport before exposing it to untrusted
+      networks; the Elvavena session token is not a security mechanism.

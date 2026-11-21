@@ -10,22 +10,40 @@ INCLUDEPATH += $$PWD/..
 SOURCES += \
     Io/ElvDataSerializationSchema.cpp \
     Io/ElvIoDeviceProxy.cpp \
+    Net/ElvNetReplicationSchema.cpp \
+    Net/ElvNetSession.cpp \
     Util/ElvDynamicLib.cpp \
     Util/ElvEventLoop.cpp \
     Util/ElvThreadPool.cpp
 
 HEADERS += \
+    Io/ElvBitStream.hpp \
     Io/ElvDataSerializationSchema.hpp \
     Io/ElvDataStream.hpp \
     Io/ElvIoAsync.hpp \
     Io/ElvIoDevice.hpp \
     Io/ElvIoDeviceProxy.hpp \
     Io/ElvIoSystem.hpp \
+    Net/ElvDatagramTransport.hpp \
+    Net/ElvLoopbackTransport.hpp \
+    Net/ElvNetClockSync.hpp \
+    Net/ElvNetCongestion.hpp \
+    Net/ElvNetFragment.hpp \
+    Net/ElvNetId.hpp \
+    Net/ElvNetInterest.hpp \
+    Net/ElvNetProtocol.hpp \
+    Net/ElvNetReplicationRegistry.hpp \
+    Net/ElvNetReplicationSchema.hpp \
+    Net/ElvNetRpc.hpp \
+    Net/ElvNetSequence.hpp \
+    Net/ElvNetSession.hpp \
+    Net/ElvNetTypes.hpp \
     Util/ElvAlexandrescuResource.hpp \
     Util/ElvAllocatorBasic.hpp \
     Util/ElvAsyncExecutor.hpp \
     Util/ElvBinaryTree.hpp \
     Util/ElvBitmapAllocator.hpp \
+    Util/ElvChecksum.hpp \
     Util/ElvChunkyArray.hpp \
     Util/ElvCommandQueue.hpp \
     Util/ElvContainerBasic.hpp \
@@ -50,6 +68,7 @@ HEADERS += \
     Util/ElvMathUtil.hpp \
     Util/ElvNormDenorm.hpp \
     Util/ElvObserv.hpp \
+    Util/ElvRingBuffer.hpp \
     Util/ElvScopeGuard.hpp \
     Util/ElvSpanHelpers.hpp \
     Util/ElvStackAllocator.hpp \

@@ -95,7 +95,8 @@ HEADERS += \
  Media/Image/EuphStandardColour.hpp \
  Media/Image/EuphTGA.hpp \
  Media/Image/EuphWEBP.hpp \
- Memory/EuphMemory.hpp
+ Memory/EuphMemory.hpp \
+ Net/EuphUdpTransport.hpp
 
 DISTFILES += \
     Euphemy.pri \
