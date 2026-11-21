@@ -8,12 +8,14 @@ DEFINES += MH_UTIL_EXPORT
 INCLUDEPATH += $$PWD/..
 
 SOURCES += \
+    Io/ElvDataSerializationSchema.cpp \
     Io/ElvIoDeviceProxy.cpp \
     Util/ElvDynamicLib.cpp \
     Util/ElvEventLoop.cpp \
     Util/ElvThreadPool.cpp
 
 HEADERS += \
+    Io/ElvDataSerializationSchema.hpp \
     Io/ElvDataStream.hpp \
     Io/ElvIoAsync.hpp \
     Io/ElvIoDevice.hpp \
