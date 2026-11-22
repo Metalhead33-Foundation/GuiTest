@@ -57,6 +57,8 @@ SOURCES += \
     tests/HarukaStreamerRingTests.cpp \
     tests/HttpTests.cpp \
     tests/ImageCodecTests.cpp \
+    tests/KaldiDispatchSwitchTests.cpp \
+    tests/KaldiDispatchTests.cpp \
     tests/NativeWindowTests.cpp \
     tests/NetClockRpcTests.cpp \
     tests/NetPredictionInterpolationTests.cpp \
@@ -70,6 +72,7 @@ SOURCES += \
     tests/UdpTransportTests.cpp
 
 HEADERS += \
+    support/DispatchProbe.hpp \
     support/TestSupport.hpp
 
 DISTFILES += README.md

@@ -43,6 +43,7 @@ compiled without Position-Independent Code (`-fPIC`)
 | `../KaldiGLCommon/GlContextConfig.*` | `Kld::ConfigProvider` for `ContextConfig`: describes every field (key, range, default), recommends per-purpose defaults and clamps what a `.ini` file says |
 | `../KaldiGLCommon/GlUtil.*` | Euphemy `Format` -> GL format translation, `DecodeTarget`/`ImageView` texture uploads, `Kld::VertexDescriptor` -> vertex attribute state, `Kld::BufferMapAccess` -> `GL_MAP_*` |
 | `../KaldiGLCommon/GlSpirvShader.*` | SPIR-V (`Kld::ShaderBinaryDescriptor`) -> GLSL 4.30 text, with optional external shader-cache hooks |
+| `../Kaldi/KldDispatch.hpp` | Backend-side dispatch layer the command queue will use: `KLD_OPCODE_LIST`, `opcodeName()` diagnostics, and the structure-shifting macros (computed goto on GCC/Clang, `switch` fallback) that keep one handler body per opcode |
 
 ## TODO
 

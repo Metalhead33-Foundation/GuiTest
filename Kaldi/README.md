@@ -61,6 +61,8 @@ handles; every backend consumes the result instead of repeating the SDL switch.
 
 `KldHal.hpp` defines the public HAL contract: `HalVersion`, `HalCapabilities`, `HalStatusCode`, and `HalStatus`. Backend-specific probing stays inside backend initialization. Higher layers consume the resulting portable capabilities and status codes instead of depending on backend-specific extension or feature details.
 
+`KldDispatch.hpp` is the backend-side half of the submission boundary. It provides the `KLD_OPCODE_LIST` X-macro (the single source of truth for opcode names and `Kld::kOpcodeCount`), `Kld::opcodeName()` / `Kld::isKnownOpcode()` diagnostics, and the structure-shifting `KLD_DISPATCH_*` macros that turn one flat command span into a tag dispatch. On GCC and Clang the macros expand to direct threading (computed goto with one dispatch jump per handler); on MSVC and other compilers they expand to an equivalent `switch`, so a backend writes its handlers once. The layer is header-only, contains no backend API calls, and therefore serves every backend - the dispatch table lives entirely inside each backend's own `processCommandQueue` implementation. See @ref KldDispatch.hpp for the usage contract and the handler-termination rules.
+
 Command payloads may reference externally owned data by pointer. As with the existing texture upload commands, callers must keep pointed-to data alive until the backend has processed the command queue. That rule covers upload/readback memory, shader words, vertex descriptors, framebuffer attachment arrays, pipeline binding layouts, swapchain descriptors/image bindings/native surface pointers, render-pass descriptors/attachment arrays, debug strings, optional pipeline names, callbacks, and callback `userData`.
 
 Readback commands use POD callbacks plus `void* userData`, matching the buffer mapping command style. Backend-provided callback data is valid only for the duration of the callback; callers must copy anything they need after the callback returns. The callback pointer and `userData` must remain valid until the backend has processed the command queue.
@@ -166,6 +168,7 @@ The strongest next move is probably not to add every modern GPU concept. It is t
 - [x] Add explicit swapchain objects, present modes, image/framebuffer bindings, acquire callbacks, and present commands.
 - [x] Add render-pass/load-store metadata while keeping the older bind/clear/draw model valid.
 - [x] Add conservative parallel recording helpers: shared handle allocation, ordered merge/append, and coordinator-owned deferred destruction.
+- [x] Add the backend-side dispatch layer (`KldDispatch.hpp`): `KLD_OPCODE_LIST`, opcode name/validity helpers, and the structure-shifting computed-goto / `switch` macros shared by every backend.
 
 ## Future graphics HAL TODOs
 

@@ -36,6 +36,7 @@ compiled without Position-Independent Code (`-fPIC`)
 | `KaldiGLESDevice.cpp` | EGL context creation/make-current/GL loading in the `Device` constructor, teardown in the destructor; C exports still return `nullptr` until `capabilities()`/`processCommandQueue()` exist |
 | `../KaldiGLCommon/GlContext.*`, `EglDisplay.*`, `EglContext.*` | Shared context contract (`Context`, `ContextConfig`, `createContext()`), EGL display refcounting and the EGL implementation |
 | `../KaldiGLCommon/GlContextConfig.*` | `Kld::ConfigProvider` for `ContextConfig` (GLES defaults: 3.2, no profile bits) |
+| `../Kaldi/KldDispatch.hpp` | Backend-side dispatch layer the command queue will use: `KLD_OPCODE_LIST`, `opcodeName()` diagnostics, and the structure-shifting macros (computed goto on GCC/Clang, `switch` fallback) that keep one handler body per opcode |
 
 ## ES-specific limitations
 

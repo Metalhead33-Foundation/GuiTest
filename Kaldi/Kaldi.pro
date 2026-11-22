@@ -13,6 +13,7 @@ HEADERS += \
     KaldiOperation.hpp \
     KldCommandBuffer.hpp \
     KldDevice.hpp \
+    KldDispatch.hpp \
     KldHal.hpp \
     KldNativeWindow.hpp \
     KldVertexFormat.hpp

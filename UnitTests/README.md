@@ -8,14 +8,15 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 132 test cases / 1393 assertions covering the
+**Status: implemented and passing.** 140 test cases / 1845 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
 snapshots, field deltas, interpolation, prediction, lockstep and the reference
 pipeline), the minimal HTTP parser/client/server, the platform wrappers and a
 localhost UDP smoke test, plus the graphics side: HLSL/GLSL -> SPIR-V shader
 compilation and SPIR-V -> GLSL cross-compilation, the Vulkan/DXGI format tables,
-backend configuration clamping and the SDL window-handle extraction.
+backend configuration clamping, the SDL window-handle extraction and the Kaldi
+command-dispatch layer (both the computed-goto and the `switch` structure).
 
 ## Build and run
 
@@ -54,6 +55,7 @@ The suite exits non-zero when a check fails, so it can be used as a gate. Useful
 ./UnitTests/UnitTests "[format]"           # Vulkan/DXGI format tables
 ./UnitTests/UnitTests "[backend]"          # Kaldi backend configuration contract
 ./UnitTests/UnitTests "[nativewindow]"     # SDL -> native window handles
+./UnitTests/UnitTests "[dispatch]"         # Kaldi dispatch (computed goto + switch)
 ./UnitTests/UnitTests "Snappy*" -s         # one group, showing passing assertions
 ```
 
