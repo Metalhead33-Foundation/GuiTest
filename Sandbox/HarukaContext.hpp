@@ -7,6 +7,9 @@
  * This is the intended way to wire Haruka to an actual audio output.
  * Couldbe also done with portaudio, or any other callback-based audio library.
  * In theory, supports any `Hrk::Playable` - in practice, you're pretty much always gonna use it with `Hrk::Mixer`.
+ *
+ * NOTE: SDL audio devices are created paused. Call pause(false) once the playable
+ * graph is wired up, otherwise the callback is never invoked and nothing is heard.
 */
 class Haruka_SDL_Driver
 {

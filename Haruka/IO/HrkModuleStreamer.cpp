@@ -57,14 +57,4 @@ bool ModuleStreamer::rewindDecoder(ChannelCount, SampleRate)
 	return true;
 }
 
-const PlaybackState& ModuleStreamer::getState() const
-{
-	return playbackState;
-}
-
-PlaybackState& ModuleStreamer::getState()
-{
-	return playbackState;
-}
-
 }

@@ -22,7 +22,6 @@ private:
 	FrameCount decodeFrames(float* dstInterleaved, FrameCount frameCount, ChannelCount streamChannels, SampleRate streamSampleRate) override;
 	bool seekDecoder(FrameIndex cursor, ChannelCount streamChannels, SampleRate streamSampleRate) override;
 	bool rewindDecoder(ChannelCount streamChannels, SampleRate streamSampleRate) override;
-	PlaybackState playbackState;
 public:
 	/** @brief Opens a module stream from an I/O device. */
 	ModuleStreamer(Elv::Io::uDevice&& fileDev, FrameCount ringCapacityFrames = FrameCount(8192), std::pmr::memory_resource* memRes = get_default_memory_resource());
@@ -31,9 +30,10 @@ public:
 	/** @brief Returns mutable access to the module renderer. */
 	Euph::Media::Audio::ModuleRenderer& getModuleRenderer();
 
-	// IHasPlaybackState interface
-	const PlaybackState& getState() const override;
-	PlaybackState& getState() override;
+	// getState() is inherited from PlaybackStatePlayable: do NOT add a second
+	// PlaybackState here. RingBufferedStreamer::outputTo() consults the inherited
+	// `state`, so shadowing it would make every setPlayStatus()/setCursor() call
+	// from the outside a no-op and playback would never start.
 };
 }
 #endif // HRKMODULESTREAMER_HPP

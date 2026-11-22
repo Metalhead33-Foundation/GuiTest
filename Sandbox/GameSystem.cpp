@@ -43,7 +43,12 @@ void GameSystem::initialize()
 		mixer->getChildren().emplace(modplayer.get(), 0.5f);
 		modplayer->getState().setCursor(Hrk::FrameIndex(0));
 		modplayer->getState().setPlayStatus(Hrk::PlayStatus::PLAYING);
+	} else {
+		SDL_Log("Could not open module file: %s", modpath.c_str());
 	}
+	// SDL audio devices start paused: without this the callback never runs,
+	// so nothing ever reaches ModuleStreamer::decodeFrames().
+	sdlDriver->pause(false);
 }
 
 void GameSystem::updateLogic()
