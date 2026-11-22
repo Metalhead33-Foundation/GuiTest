@@ -19,11 +19,18 @@ void requireTextureExtents(std::uint16_t width, std::uint16_t height)
 } // namespace
 
 ResourceFactory::ResourceFactory(CommandBuffer& commands, Kld::Device* device)
-	: commands_(&commands), device_(device)
+	: commands_(&commands), device_(device), conventions_(ClipSpaceConventions::fromDevice(device))
 {
 }
 
 ResourceFactory::~ResourceFactory() = default;
+
+void ResourceFactory::setDevice(Kld::Device* device) noexcept
+{
+	device_ = device;
+	// The conventions are a property of the backend, so they follow the device.
+	conventions_ = ClipSpaceConventions::fromDevice(device);
+}
 
 Texture ResourceFactory::createTexture2D(Kld::TextureFormat format, std::uint16_t width,
 					 std::uint16_t height, const void* pixels,

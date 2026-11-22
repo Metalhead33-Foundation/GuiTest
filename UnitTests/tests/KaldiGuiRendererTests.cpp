@@ -1,67 +1,22 @@
 /**
  * @file KaldiGuiRendererTests.cpp
- * @brief CPU-visible parts of `Lotte::Gui::KaldiGuiRenderer`.
+ * @brief End-to-end check of `Lotte::Gui::KaldiGuiRenderer`'s clip-space transform.
  *
- * Without a GPU the only testable piece is the pixel-to-clip-space transform, and
- * it happens to be the piece that goes wrong: Vulkan's clip space is y-down while
- * OpenGL's and Direct3D's is y-up. `Kld::HalCapabilities::clipSpaceYAxis` reports
- * which one a backend uses, and the renderer must follow it. The recorded frame
- * itself is smoke-tested by the Sandbox against the Vulkan backend.
+ * The renderer never touches `Kld::HalCapabilities` itself: it asks the resource
+ * factory for its @ref Lotte::Gfx::ClipSpaceConventions and applies them while
+ * building the vertex cache. These tests drive a device that reports a chosen axis,
+ * record one quad, and read the uploaded vertices back - so they cover the whole
+ * chain from "which backend is this" to "which clip-space numbers reach the GPU"
+ * without needing one. The helper's own matrix/winding/rectangle behaviour is
+ * covered by `ClipSpaceConventionsTests.cpp`; the live frame is smoke-tested by the
+ * Sandbox against the Vulkan and OpenGL backends.
  */
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <Lotte/Gui/LteKaldiGuiRenderer.hpp>
+#include <optional>
 #include <span>
 #include <vector>
-
-TEST_CASE("Pixel positions map to the clip space of the backend", "[gui][clip-space]")
-{
-	using Lotte::Gui::pixelToClipSpace;
-	const glm::fvec2 viewport(640.0f, 480.0f);
-
-	// Vulkan (y-down): NDC -1 is the top of the framebuffer, +1 the bottom.
-	const glm::fvec2 vulkanTopLeft =
-		pixelToClipSpace(glm::fvec2(0.0f, 0.0f), viewport, Kld::ClipSpaceYAxis::Down);
-	CHECK(vulkanTopLeft.x == Catch::Approx(-1.0f));
-	CHECK(vulkanTopLeft.y == Catch::Approx(-1.0f));
-	const glm::fvec2 vulkanBottomRight = pixelToClipSpace(glm::fvec2(640.0f, 480.0f),
-							      viewport,
-							      Kld::ClipSpaceYAxis::Down);
-	CHECK(vulkanBottomRight.x == Catch::Approx(1.0f));
-	CHECK(vulkanBottomRight.y == Catch::Approx(1.0f));
-	// The center stays the center under either convention.
-	CHECK(pixelToClipSpace(glm::fvec2(320.0f, 240.0f), viewport, Kld::ClipSpaceYAxis::Down).y
-	      == Catch::Approx(0.0f));
-
-	// OpenGL/Direct3D (y-up): the same pixels mirror vertically.
-	const glm::fvec2 glTopLeft =
-		pixelToClipSpace(glm::fvec2(0.0f, 0.0f), viewport, Kld::ClipSpaceYAxis::Up);
-	CHECK(glTopLeft.x == Catch::Approx(-1.0f));
-	CHECK(glTopLeft.y == Catch::Approx(1.0f));
-	const glm::fvec2 glBottomRight =
-		pixelToClipSpace(glm::fvec2(640.0f, 480.0f), viewport, Kld::ClipSpaceYAxis::Up);
-	CHECK(glBottomRight.x == Catch::Approx(1.0f));
-	CHECK(glBottomRight.y == Catch::Approx(-1.0f));
-
-	// x is backend-independent; only the y sign flips.
-	CHECK(pixelToClipSpace(glm::fvec2(160.0f, 60.0f), viewport, Kld::ClipSpaceYAxis::Down).x
-	      == Catch::Approx(pixelToClipSpace(glm::fvec2(160.0f, 60.0f), viewport,
-						Kld::ClipSpaceYAxis::Up).x));
-	CHECK(pixelToClipSpace(glm::fvec2(160.0f, 60.0f), viewport, Kld::ClipSpaceYAxis::Down).y
-	      == Catch::Approx(-pixelToClipSpace(glm::fvec2(160.0f, 60.0f), viewport,
-						 Kld::ClipSpaceYAxis::Up).y));
-}
-
-TEST_CASE("A zero-sized viewport yields a neutral clip-space position",
-	  "[gui][clip-space]")
-{
-	using Lotte::Gui::pixelToClipSpace;
-	const glm::fvec2 origin =
-		pixelToClipSpace(glm::fvec2(10.0f, 10.0f), glm::fvec2(0.0f, 0.0f),
-				 Kld::ClipSpaceYAxis::Down);
-	CHECK(origin.x == Catch::Approx(0.0f));
-	CHECK(origin.y == Catch::Approx(0.0f));
-}
 
 namespace {
 
@@ -96,14 +51,19 @@ std::vector<Kld::GfxOp> writeOps(Lotte::CommandBuffer& dispatcher)
  *
  * The renderer uploads its CPU vertex cache through `CreateBufferObject`, so the
  * recorded payload is exactly the clip-space geometry that would reach the GPU.
+ * @param axis Axis the fake device reports.
+ * @param overrideAxis Optional explicit settings override, which must win.
  */
-Lotte::Gui::ColouredGuiVertex firstUploadedVertex(Kld::ClipSpaceYAxis axis)
+Lotte::Gui::ColouredGuiVertex firstUploadedVertex(
+	Kld::ClipSpaceYAxis axis,
+	std::optional<Kld::ClipSpaceYAxis> overrideAxis = std::nullopt)
 {
 	Lotte::CommandBuffer dispatcher;
 	AxisRecordingDevice device(axis);
 	Lotte::Gfx::ResourceFactory factory(dispatcher, &device);
-	Lotte::Gui::KaldiGuiRenderer renderer(
-		factory, Lotte::Gui::KaldiGuiRendererSettings{ 640, 480 });
+	Lotte::Gui::KaldiGuiRendererSettings settings{ 640, 480 };
+	settings.clipSpaceYAxis = overrideAxis;
+	Lotte::Gui::KaldiGuiRenderer renderer(factory, settings);
 
 	Lotte::Gui::ColouredQuad quad;
 	quad.topLeft = glm::fvec2(10.0f, 20.0f);
@@ -142,5 +102,19 @@ TEST_CASE("The renderer takes its clip-space y axis from the device", "[gui][cli
 	CHECK(glVertex.position.x == Catch::Approx(vulkanVertex.position.x));
 	CHECK(glVertex.position.y == Catch::Approx(-vulkanVertex.position.y));
 	CHECK(glVertex.position.y > 0.0f);
+}
+
+TEST_CASE("The settings switch wins over the device axis", "[gui][clip-space]")
+{
+	// A Vulkan device rendering with an explicit y-up override is the offline
+	// recording / test hook: it must produce the mirrored geometry, not the device's.
+	const Lotte::Gui::ColouredGuiVertex deviceAxis =
+		firstUploadedVertex(Kld::ClipSpaceYAxis::Down);
+	const Lotte::Gui::ColouredGuiVertex overridden =
+		firstUploadedVertex(Kld::ClipSpaceYAxis::Down, Kld::ClipSpaceYAxis::Up);
+
+	CHECK(overridden.position.y == Catch::Approx(-deviceAxis.position.y));
+	CHECK(overridden.position.y > 0.0f);
+	CHECK(overridden.position.x == Catch::Approx(deviceAxis.position.x));
 }
 

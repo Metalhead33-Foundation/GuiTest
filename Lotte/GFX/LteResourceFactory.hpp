@@ -31,6 +31,7 @@
  */
 #include <Lotte/LotteLib.hpp>
 #include <Lotte/LteKld.hpp>
+#include <Lotte/GFX/LteClipSpaceConventions.hpp>
 #include <Euphemy/Media/Image/EuphImageDecodeTarget.hpp>
 #include <Kaldi/KldCommandBuffer.hpp>
 #include <Kaldi/KldDevice.hpp>
@@ -77,10 +78,20 @@ public:
 	CommandBuffer& commands() const noexcept { return *commands_; }
 	/** @brief The device @ref submit() hands commands to, or @c nullptr. */
 	Kld::Device* device() const noexcept { return device_; }
-	/** @brief Selects (or clears) the submission device. */
-	void setDevice(Kld::Device* device) noexcept { device_ = device; }
+	/** @brief Selects (or clears) the submission device, refreshing @ref conventions(). */
+	void setDevice(Kld::Device* device) noexcept;
 	/** @brief True when @ref submit() has somewhere to submit to. */
 	bool hasDevice() const noexcept { return device_ != nullptr; }
+
+	/**
+	 * @brief The backend's fixed-function conventions, derived from @ref device().
+	 *
+	 * Renderers take this from the factory instead of reading capabilities, so the
+	 * pixel/depth/winding/rectangle adaptation happens below whoever issues draw
+	 * commands and stays correct when the backend changes. With no device attached
+	 * the OpenGL/Direct3D defaults apply.
+	 */
+	const ClipSpaceConventions& conventions() const noexcept { return conventions_; }
 
 	/// @name Texture creation
 	///@{
@@ -202,6 +213,8 @@ private:
 	Kld::Device* device_;
 	/** @brief Payloads that must outlive the pending submission. */
 	std::vector<std::shared_ptr<void> > retained_;
+	/** @brief Conventions derived from @ref device_ whenever it changes. */
+	ClipSpaceConventions conventions_;
 };
 
 } // namespace Gfx

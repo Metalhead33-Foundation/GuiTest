@@ -109,16 +109,13 @@ KaldiGuiRenderer::KaldiGuiRenderer(Gfx::ResourceFactory& factory,
 	viewportWidth_ = std::max<std::uint16_t>(1, settings.viewportWidth);
 	viewportHeight_ = std::max<std::uint16_t>(1, settings.viewportHeight);
 
-	// Vulkan's clip space is y-down and OpenGL/Direct3D's is y-up, so the pixel
-	// transform has to follow the backend instead of assuming one convention. The
-	// factory's device knows; an explicit setting overrides it for device-less
-	// recording.
-	clipSpaceYAxis_ = settings.clipSpaceYAxis.value_or(Kld::ClipSpaceYAxis::Up);
-	if (!settings.clipSpaceYAxis) {
-		if (const Kld::Device* device = factory_.device()) {
-			clipSpaceYAxis_ = device->capabilities().clipSpaceYAxis;
-		}
-	}
+	// Vulkan's clip space is y-down and OpenGL/Direct3D's is y-up. The factory has
+	// already resolved that (and the winding/depth/rectangle consequences of it)
+	// from the device, so the renderer just follows along; the setting is only an
+	// override for device-less recording.
+	conventions_ = settings.clipSpaceYAxis ? Gfx::ClipSpaceConventions::fromYAxis(
+							 *settings.clipSpaceYAxis)
+					       : factory_.conventions();
 
 	// Straight-alpha blending: the GUI authors PNGs with straight alpha, and the
 	// shader deliberately does not premultiply.
@@ -209,7 +206,7 @@ void KaldiGuiRenderer::beginFrame()
 
 glm::fvec2 KaldiGuiRenderer::toNdc(glm::fvec2 pixel) const noexcept
 {
-	return pixelToClipSpace(pixel, viewportSize(), clipSpaceYAxis_);
+	return conventions_.pixelToClip(pixel, viewportSize());
 }
 
 void KaldiGuiRenderer::appendColouredQuad(glm::fvec2 topLeft, glm::fvec2 bottomRight,
@@ -321,9 +318,19 @@ void KaldiGuiRenderer::render(const GradientTexturedQuad& target)
 void KaldiGuiRenderer::recordDrawState()
 {
 	CommandBuffer& commands = factory_.commands();
-	KldOopDetail::setViewport(commands, 0.0f, 0.0f, float(viewportWidth_),
-				  float(viewportHeight_), 0.0f, 1.0f);
-	KldOopDetail::setScissor(commands, 0, 0, viewportWidth_, viewportHeight_);
+	// The GUI fills its target, so this is a trivial conversion - but routing it
+	// through the conventions keeps sub-viewports (a 3D scene inside a 2D frame)
+	// correct without the caller knowing that the HAL measures rectangles from the
+	// bottom edge.
+	const Gfx::PixelRect viewport = conventions_.halRect(
+		Gfx::PixelRect{ 0.0f, 0.0f, float(viewportWidth_), float(viewportHeight_) },
+		float(viewportHeight_));
+	KldOopDetail::setViewport(commands, viewport.x, viewport.y, viewport.width,
+				  viewport.height, 0.0f, 1.0f);
+	KldOopDetail::setScissor(commands, static_cast<std::uint32_t>(viewport.x),
+				 static_cast<std::uint32_t>(viewport.y),
+				 static_cast<std::uint32_t>(viewport.width),
+				 static_cast<std::uint32_t>(viewport.height));
 	KldOopDetail::setBlendState(commands, blend_);
 }
 

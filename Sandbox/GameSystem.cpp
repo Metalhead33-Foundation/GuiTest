@@ -93,7 +93,7 @@ void GameSystem::startGraphics()
 		SDL_Log("Kaldi HAL %s via %s (%s), clip-space y %s, clearing to 0x%08X every frame",
 			kaldi->halVersionName().c_str(), kaldi->rendererName().data(),
 			kaldi->backendVersion().data(),
-			clipSpaceAxisName(kaldi->capabilities().clipSpaceYAxis),
+			clipSpaceAxisName(kaldi->resources().conventions().yAxis()),
 			static_cast<unsigned>(packedColor));
 		guiRenderer = std::make_unique<Lotte::Gui::KaldiGuiRenderer>(kaldi->resources(),
 			Lotte::Gui::KaldiGuiRendererSettings{ std::uint16_t(width),

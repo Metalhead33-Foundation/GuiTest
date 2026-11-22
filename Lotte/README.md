@@ -64,11 +64,25 @@ what each flag does, and the acceptance gate for the switch.
 | Header | Contents |
 |---|---|
 | `GFX/LteKaldiContext.hpp` / `.cpp` | `KaldiContext` - the promoted `Sandbox/KaldiContext`: `dlopen`s a Kaldi backend, creates its device, owns one `CommandBuffer` plus a `ResourceFactory`, and provides the `beginFrame()` (BeginFrame + clear) / `endFrame()` (EndFrame + Present + swap + submit) protocol |
-| `GFX/LteResourceFactory.hpp` / `.cpp` | `ResourceFactory` - the one place Lotte allocates Kaldi handles through `Kld::oop_detail`: `createTexture2D` (raw pixels, `DecodeTarget`, or a shared `DecodeTarget` the factory retains), `createBuffer`, `createSampler`, `createPipeline`, `createImage2D`, `createFramebuffer`, plus `retain()`/`submit()` for the payload lifetime Kaldi requires |
+| `GFX/LteResourceFactory.hpp` / `.cpp` | `ResourceFactory` - the one place Lotte allocates Kaldi handles through `Kld::oop_detail`: `createTexture2D` (raw pixels, `DecodeTarget`, or a shared `DecodeTarget` the factory retains), `createBuffer`, `createSampler`, `createPipeline`, `createImage2D`, `createFramebuffer`, plus `retain()`/`submit()` for the payload lifetime Kaldi requires. It also hands out `conventions()`, the backend's resolved clip-space/winding/depth conventions, so renderers never read capabilities themselves |
 | `GFX/LteWriteableTexture2D.hpp` / `.cpp` | `WriteableTexture2D` - CPU RGBA8 surface mirrored by a Kaldi texture with a dirty rectangle: `setPixel`, `fill`, `blitRgba8` (atlas stamping), `resize`, and `recordUpdate()` which records one `UpdateTexture2D` per dirty row (one for a full-width rectangle) |
 | `GFX/LteImageConvert.hpp` | Header-only Euphemy → GUI conversion: `Rgba8Image`, `toRgba8()` for the 8-bit `RGBA/BGRA/RGB/BGR/RG/R` layouts, and `isRgba8Convertible()` |
-| `Gui/LteKaldiGuiRenderer.hpp` / `.cpp` | The first concrete `GuiRenderer`: two runtime-compiled HLSL pipelines (coloured `ColouredGuiVertex`, textured `ColouredTexturedGuiVertex`), CPU pixel→clip-space transform (following `Kld::HalCapabilities::clipSpaceYAxis`, so Vulkan's y-down clip space and OpenGL/Direct3D's y-up both render upright), `GuiGeometryBatch` per pipeline, texture-state runs and straight-alpha blending. `beginFrame()` resets the caches, `flush()` records uploads + draws |
+| `GFX/LteClipSpaceConventions.hpp` / `.cpp` | `ClipSpaceConventions` - the single place that knows how a backend interprets clip space, and the fix for the whole family of "everything is upside down on Vulkan" bugs: `pixelToClip()` (2D, top-left pixels), `projection()`/`perspective()`/`orthographic()` (3D, y-up `[0,1]` depth adapted per backend), `frontFace()` (winding follows a mirrored projection) and `halRect()` (top-left pixels → the HAL's bottom-left viewport/scissor rectangles). Renderers get it from `ResourceFactory::conventions()` |
+| `Gui/LteKaldiGuiRenderer.hpp` / `.cpp` | The first concrete `GuiRenderer`: two runtime-compiled HLSL pipelines (coloured `ColouredGuiVertex`, textured `ColouredTexturedGuiVertex`), CPU pixel→clip-space transform via `ClipSpaceConventions` (so Vulkan's y-down clip space and OpenGL/Direct3D's y-up both render upright), `GuiGeometryBatch` per pipeline, texture-state runs and straight-alpha blending. `beginFrame()` resets the caches, `flush()` records uploads + draws |
 | `Gui/LteCursor.hpp` / `.cpp` | `AlphaCoverage` (alpha mask) + `CursorMetadata` (anchor, crawl mode, threshold, explicit hotspot, scale, visibility) + `Cursor`. Nine anchors (four corners, four edge midpoints, center) and five crawl modes (`NoCrawl`, `Diagonal`, `Vertical`, `Horizontal`, `Radial`); a 2D image visual (with atlas UVs) or a 3D model visual with a model-space origin and `modelPlacement()` |
+
+#### Backend conventions are not a caller concern
+
+Kaldi reports `HalCapabilities::clipSpaceYAxis` (HAL 1.2) because Vulkan's clip space is y-down while OpenGL's and Direct3D's is y-up. Everything that follows from that difference - the 2D pixel transform, a 3D projection matrix, the front-face winding a mirrored projection reverses, and the top-left versus bottom-left origin of viewport/scissor rectangles - is resolved once, in `Gfx::ClipSpaceConventions`, and handed to renderers by `ResourceFactory::conventions()`:
+
+| What you have | What you call | What you never think about |
+|---|---|---|
+| A GUI position in pixels | `space.pixelToClip(position, targetSize)` | Vulkan drawing it upside down |
+| Camera parameters, or an existing y-up `[0, 1]` projection | `space.perspective(fovY, aspect, near, far)`, `space.orthographic(...)`, `space.projection(matrix)` | projection handedness |
+| A front-face declaration for culled 3D geometry | `space.frontFace(Kld::FrontFace::CounterClockwise)` | winding after a mirror |
+| A sub-rectangle coming from a layout (a 3D view inside a 2D frame) | `space.halRect({x, y, width, height}, targetHeight)` | the HAL measuring rectangles from the bottom |
+
+The canonical space is fixed and documented in the header: **2D** is top-left pixels with `+y` down and `z = 0`; **3D** is right-handed with `+y` up and depth in `[0, 1]` (the `_ZO` convention, which Vulkan wants directly and the GL backend rewrites in the shader). A game therefore never mentions a backend, a renderer never reads capabilities, and a `[-1, 1]`-depth projection is the only way to break it - which is why the builders exist instead of a bare matrix multiply. `ResourceFactory::setDevice()` refreshes the conventions when the backend is selected late.
 
 The cursor origin rules, in one place:
 
@@ -157,7 +171,11 @@ The CBOR map variants described by that specification are not implemented.
       pipeline and flushed on texture change.
 - [ ] No render graph, material/shader management, camera, 3D scene or post-processing.
       The renderer converts pixels to clip space itself and owns no camera; a 3D
-      pipeline still has to be added on top of `KaldiContext`.
+      pipeline still has to be added on top of `KaldiContext`. The portability work it
+      needs is already done, though: `GFX/LteClipSpaceConventions` supplies the
+      projection builders (y-up `[0,1]` depth, adapted per backend), the winding
+      compensation and the top-left pixel rectangle conversion, so a 3D renderer can
+      be written without a single backend check.
 - [ ] No GUI widget system. No widgets, layout, input routing or focus handling. The old
       `Widget`/`RootNode`/`TickboxWidget` classes were not carried over; `ElvSignal.hpp`
       provides the signals they used.

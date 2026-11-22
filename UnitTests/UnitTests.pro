@@ -116,6 +116,7 @@ SOURCES += \
     tests/BackendConfigTests.cpp \
     tests/BitStreamTests.cpp \
     tests/CompressionTests.cpp \
+    tests/ClipSpaceConventionsTests.cpp \
     tests/ConfigTests.cpp \
     tests/CursorTests.cpp \
     tests/FontRoundTripTests.cpp \

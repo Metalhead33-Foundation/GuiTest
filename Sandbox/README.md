@@ -70,8 +70,10 @@ INFO: Kaldi HAL 1.2.0 via Vulkan Renderer (0.1.0), clip-space y down (Vulkan-sty
 INFO: Kaldi HAL 1.2.0 via OpenGL Renderer (0.1.0), clip-space y up (GL/D3D-style), clearing to 0xFF102030 every frame
 ```
 
-Vulkan's clip space is y-down while OpenGL's and Direct3D's is y-up; `KaldiGuiRenderer` reads
-`Kld::HalCapabilities::clipSpaceYAxis` and flips accordingly. Assuming either convention
+Vulkan's clip space is y-down while OpenGL's and Direct3D's is y-up, so the sign is not
+assumed anywhere in the demo: `KaldiGuiRenderer` asks the resource factory for
+`conventions()` (which resolves `Kld::HalCapabilities::clipSpaceYAxis` once, when the device
+is attached) and applies the matching pixel transform. Assuming either convention
 hard-codes a vertically mirrored UI on the other backend.
 
 ```ini

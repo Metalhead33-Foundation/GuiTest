@@ -21,6 +21,7 @@ LIBS += -lglslang -lSPIRV -lglslang-default-resource-limits
 SOURCES += \
     Asset/LteGpuAssetStreamer.cpp \
     Conf/LteBackendConfig.cpp \
+    GFX/LteClipSpaceConventions.cpp \
     GFX/LteKaldiContext.cpp \
     GFX/LtePipeline.cpp \
     GFX/LteResourceFactory.cpp \
@@ -37,6 +38,7 @@ SOURCES += \
 HEADERS += \
     Asset/LteGpuAssetStreamer.hpp \
     Conf/LteBackendConfig.hpp \
+    GFX/LteClipSpaceConventions.hpp \
     GFX/LteImageConvert.hpp \
     GFX/LteKaldiContext.hpp \
     GFX/LteMesh.hpp \
