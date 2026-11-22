@@ -52,11 +52,13 @@ traversal are not part of this adapter.
 
 | Header | Contents |
 |---|---|
-| `EuphEventPollerFactory.hpp` | `createEventPoller()` selects epoll on Linux and WSAPoll on Windows; returns null when the requested backend is unavailable. `createIoUringIfAvailable()` returns a valid io_uring queue or null for runtime fallback |
+| `EuphEventPollerFactory.hpp` | `createEventPoller()` selects epoll on Linux, kqueue on Apple/BSD and WSAPoll on Windows; returns null when unavailable. `createIoUringIfAvailable()` gives a runtime fallback, and `createPollingEventLoop()` wires a native poller + wakeup |
 | `EuphEpollPoller.hpp` / `.cpp` | `EpollPoller` implements `Elv::Io::EventPoller`: add/modify/remove, level/edge/one-shot flags, poll timeout and event-token mapping |
+| `EuphKqueuePoller.hpp` / `.cpp` | `KqueuePoller` maps read/write filters, `EV_CLEAR`/`EV_ONESHOT` and EOF/error flags to the same seam; unavailable stub elsewhere |
 | `EuphWSAPollPoller.hpp` / `.cpp` | `WSAPollPoller` implements the same seam for Windows sockets; non-Windows builds provide an unavailable stub |
-| `EuphIoUring.hpp` / `.cpp` | `IoUring` RAII wrapper over liburing: NOP/read/write/poll/timeout submission, batched completion wait and runtime availability probe. Compiled only against liburing when it is detected; otherwise stubbed with `-ENOSYS` |
-| `EuphIocp.hpp` / `.cpp` | `Iocp` RAII wrapper over Windows I/O completion ports: associate handles, post packets, batched wait. Non-Windows builds provide an unavailable stub |
+| `EuphEventLoopWakeup.hpp` / `.cpp` | `WakeupEvent` uses eventfd/pipe on POSIX and a loopback UDP pair on Windows; `createWakeupEvent()` returns null when unsupported |
+| `EuphIoUring.hpp` / `.cpp` | `IoUring` RAII wrapper over liburing: NOP/read/write/accept/connect/poll/timeout, registered fixed buffers, batched completion wait and runtime availability probe. Compiled only against liburing when detected; otherwise stubbed with `-ENOSYS` |
+| `EuphIocp.hpp` / `.cpp` | `Iocp` RAII wrapper over Windows I/O completion ports: associate handles, post packets, batched wait. Overlapped accept/connect/send/receive are caller-submitted operations delivered through the port |
 
 `EventPoller` is readiness (which handle is ready); `IoUring`/`Iocp` are completion
 (one record per submitted operation). They are separate because forcing a completion
@@ -138,13 +140,15 @@ transitions are documented on `ResidencyState` in `EuphAssetTypes.hpp`.
 - [ ] Codec coverage is uneven: `UnitTests` round-trips PNG, TGA, zstd, Snappy, the font
       containers and the configuration format, but JPEG/WebP (lossy, buffer-based entry
       points) and GIF/DDS (decode only) have no automated check.
-- [ ] The platform wrappers are only exercised on Linux: epoll and the io_uring
-      availability path have tests; WSAPoll, IOCP and kqueue need Windows/BSD CI.
-      A kqueue backend and a `select(2)` fallback are still missing.
+- [ ] The platform wrappers are only exercised on Linux: epoll, the polling loop and
+      the io_uring availability path have tests; WSAPoll, IOCP and kqueue need
+      Windows/BSD CI. A `select(2)` fallback is still missing.
 - [ ] `liburing` is optional at compile time, but a build without it still compiles
       `EuphIoUring.cpp` as a stub. Runtime `io_uring_setup` failures (Docker seccomp,
       Android, ChromeOS) are detected by `IoUring::isValid()`/`runtimeAvailable()` and
-      must be handled by falling back to epoll/WSAPoll or a thread-pool I/O path.
+      must be handled by falling back to epoll/kqueue/WSAPoll or a thread-pool I/O path.
+- [ ] io_uring supports accept/connect and registered fixed buffers; `sendmsg`/
+      `recvmsg` receive-buffer rings and buffer-update tags remain future work.
 - [ ] The UDP transport's automated coverage is a Linux localhost smoke test
       (`UnitTests` tag `[net][socket]`). The WinSock branch, IPv6-specific paths and
       platform socket-option behaviour are not exercised by CI yet.

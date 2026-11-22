@@ -40,6 +40,7 @@
 #include <stop_token>
 #include <thread>
 #include <chrono>
+#include <Elvavena/Net/ElvNetReplicationPipeline.hpp>
 #include <Lotte/Text/LteFontFace.hpp>
 #include <Lotte/VectorGraphic/LteStoredVectorImage.hpp>
 #include <Lotte/Text/LteMml.hpp>
@@ -1929,5 +1930,58 @@ void testGeometryBatches()
 	}
 
 	std::cout << "Geometry batch tests passed" << std::endl;
+}
+
+void testNetLoopback()
+{
+	using namespace Elv::Net;
+	struct Position {
+		float x = 0.0f;
+		float y = 0.0f;
+	};
+	constexpr ComponentId PositionId = 1;
+	constexpr EntityKindId ActorKind = 7;
+	static const ComponentId ActorComponents[] { PositionId };
+	ComponentDefinition position;
+	position.id = PositionId;
+	position.name = "Position";
+	position.size = sizeof(Position);
+	position.ops = makeTrivialComponentOps<Position>();
+	ComponentRegistry registry;
+	requireCondition(registry.registerComponent(position), "Position registration must succeed");
+	EntityKindDefinition kind;
+	kind.id = ActorKind;
+	kind.name = "Actor";
+	kind.components = ActorComponents;
+	kind.componentCount = 1;
+	requireCondition(registry.registerEntityKind(kind), "Actor kind registration must succeed");
+
+	ReplicationRegistry entities;
+	const NetId id = entities.spawn(ActorKind, 5);
+	Position transform { 1.0f, 2.0f };
+	requireCondition(id.isValid(), "Loopback entity must be valid");
+	requireCondition(entities.attach(id, PositionId, &transform), "Position attach must succeed");
+	ReplicateAllInterest interest;
+	ReplicationServer server(registry, entities, interest);
+
+	const SnapshotWriteResult spawn = server.buildSnapshot(5, 1);
+	requireCondition(spawn.ok, "Initial loopback snapshot must encode");
+	requireCondition(server.acknowledge(5, spawn.tag), "Initial loopback snapshot must ack");
+	ReplicationClient client;
+	requireCondition(client.receive(1, spawn.payload, registry), "Client must parse the spawn snapshot");
+	requireCondition(client.reader().records().size() == 1, "Spawn snapshot must contain one entity");
+	requireCondition(client.reader().records()[0].type == SnapshotRecordType::Spawn,
+		"Spawn snapshot must be a spawn record");
+
+	transform.x = 9.0f;
+	const SnapshotWriteResult delta = server.buildSnapshot(5, 2);
+	requireCondition(delta.ok, "Delta loopback snapshot must encode");
+	requireCondition(client.receive(2, delta.payload, registry), "Client must parse the delta snapshot");
+	requireCondition(client.reader().records().size() == 1, "Delta snapshot must contain one record");
+	requireCondition(client.reader().records()[0].type == SnapshotRecordType::Update,
+		"Delta snapshot must be an update record");
+	requireCondition(client.reader().records()[0].componentMask == (1ull << PositionId),
+		"Delta snapshot must contain only the changed position");
+	std::cout << "Netcode loopback replication tests passed" << std::endl;
 }
 

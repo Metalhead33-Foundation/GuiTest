@@ -11,6 +11,13 @@
 #include <Euphemy/Config/EuphLib.hpp>
 #include <Elvavena/Io/ElvEventPoller.hpp>
 #include <memory>
+#include <memory_resource>
+
+namespace Elv {
+namespace Util {
+class PollingEventLoop;
+}
+}
 
 namespace Euph {
 namespace Platform {
@@ -24,6 +31,7 @@ class IoUring;
 enum class PollerBackend : unsigned char {
 	Auto,    ///< Best native backend.
 	Epoll,   ///< Linux epoll.
+	Kqueue,  ///< BSD/macOS kqueue.
 	WSAPoll, ///< Windows socket poll.
 };
 
@@ -49,6 +57,15 @@ enum class PollerBackend : unsigned char {
  */
 [[nodiscard]] MH_EUPH_API std::unique_ptr<IoUring> createIoUringIfAvailable(
 	unsigned entries = 256);
+
+/**
+ * @brief Creates a `PollingEventLoop` with the native poller and wakeup.
+ * @param memoryResource PMR resource for command/task allocations.
+ * @return Valid loop, or null when no readiness backend/wakeup is available.
+ */
+[[nodiscard]] MH_EUPH_API std::unique_ptr<Elv::Util::PollingEventLoop>
+createPollingEventLoop(std::pmr::memory_resource* memoryResource =
+	std::pmr::get_default_resource());
 
 } // namespace Platform
 } // namespace Euph

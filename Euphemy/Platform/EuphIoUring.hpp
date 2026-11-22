@@ -91,6 +91,62 @@ public:
 		std::uint64_t userData);
 
 	/**
+	 * @brief Queues an accept operation.
+	 * @param fd Listening socket.
+	 * @param address Platform `sockaddr*`, or null.
+	 * @param addressLength Platform `socklen_t*`, or null.
+	 * @param userData Token returned in the completion.
+	 * @return True when an SQE was available.
+	 */
+	bool submitAccept(int fd, void* address, unsigned* addressLength,
+		std::uint64_t userData);
+
+	/**
+	 * @brief Queues a connect operation.
+	 * @param fd Socket.
+	 * @param address Platform `sockaddr*`.
+	 * @param addressLength Platform sockaddr length.
+	 * @param userData Token returned in the completion.
+	 * @return True when an SQE was available.
+	 */
+	bool submitConnect(int fd, const void* address, unsigned addressLength,
+		std::uint64_t userData);
+
+	/**
+	 * @brief Registers fixed buffers for zero-copy read/write operations.
+	 * @param buffers Caller-owned buffers that stay alive until unregistered.
+	 * @return True on success.
+	 */
+	bool registerBuffers(std::span<const std::span<std::byte>> buffers);
+
+	/** @brief Unregisters fixed buffers. */
+	bool unregisterBuffers();
+
+	/**
+	 * @brief Queues a read from a registered buffer.
+	 * @param fd File descriptor.
+	 * @param buffer Registered buffer.
+	 * @param offset File offset.
+	 * @param bufferIndex Index passed to `registerBuffers`.
+	 * @param userData Token returned in the completion.
+	 * @return True when an SQE was available.
+	 */
+	bool submitReadFixed(int fd, std::span<std::byte> buffer, std::uint64_t offset,
+		unsigned bufferIndex, std::uint64_t userData);
+
+	/**
+	 * @brief Queues a write from a registered buffer.
+	 * @param fd File descriptor.
+	 * @param buffer Registered buffer.
+	 * @param offset File offset.
+	 * @param bufferIndex Index passed to `registerBuffers`.
+	 * @param userData Token returned in the completion.
+	 * @return True when an SQE was available.
+	 */
+	bool submitWriteFixed(int fd, std::span<const std::byte> buffer, std::uint64_t offset,
+		unsigned bufferIndex, std::uint64_t userData);
+
+	/**
 	 * @brief Queues a poll-add operation.
 	 * @param fd File descriptor to poll.
 	 * @param interest Read/write/error/hangup interest.

@@ -7,10 +7,13 @@
 #endif
 #include <deque>
 #include <limits>
+#include <vector>
 
 #if defined(MH_HAS_IO_URING)
 #include <liburing.h>
 #include <poll.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
 #endif
 
 namespace Euph {
@@ -132,6 +135,88 @@ bool IoUring::submitWrite(int fd, std::span<const std::byte> buffer, std::uint64
 	return true;
 }
 
+bool IoUring::submitAccept(int fd, void* address, unsigned* addressLength,
+	std::uint64_t userData) {
+	if (!isValid()) return false;
+	io_uring_sqe* sqe = io_uring_get_sqe(&impl->ring);
+	if (sqe == nullptr) {
+		impl->error = -EBUSY;
+		return false;
+	}
+	io_uring_prep_accept(sqe, fd, static_cast<sockaddr*>(address),
+		reinterpret_cast<socklen_t*>(addressLength), 0);
+	sqe->user_data = userData;
+	return true;
+}
+
+bool IoUring::submitConnect(int fd, const void* address, unsigned addressLength,
+	std::uint64_t userData) {
+	if (!isValid()) return false;
+	io_uring_sqe* sqe = io_uring_get_sqe(&impl->ring);
+	if (sqe == nullptr) {
+		impl->error = -EBUSY;
+		return false;
+	}
+	io_uring_prep_connect(sqe, fd, static_cast<const sockaddr*>(address),
+		static_cast<socklen_t>(addressLength));
+	sqe->user_data = userData;
+	return true;
+}
+
+bool IoUring::registerBuffers(std::span<const std::span<std::byte>> buffers) {
+	if (!isValid() || buffers.size() > std::numeric_limits<unsigned>::max()) return false;
+	std::vector<iovec> vectors;
+	vectors.reserve(buffers.size());
+	for (const auto& buffer : buffers) {
+		vectors.push_back(iovec { buffer.data(), buffer.size() });
+	}
+	const int result = io_uring_register_buffers(&impl->ring, vectors.data(),
+		static_cast<unsigned>(vectors.size()));
+	if (result < 0) {
+		impl->error = result;
+		return false;
+	}
+	return true;
+}
+
+bool IoUring::unregisterBuffers() {
+	if (!isValid()) return false;
+	const int result = io_uring_unregister_buffers(&impl->ring);
+	if (result < 0) {
+		impl->error = result;
+		return false;
+	}
+	return true;
+}
+
+bool IoUring::submitReadFixed(int fd, std::span<std::byte> buffer, std::uint64_t offset,
+	unsigned bufferIndex, std::uint64_t userData) {
+	if (!isValid() || buffer.size() > std::numeric_limits<unsigned>::max()) return false;
+	io_uring_sqe* sqe = io_uring_get_sqe(&impl->ring);
+	if (sqe == nullptr) {
+		impl->error = -EBUSY;
+		return false;
+	}
+	io_uring_prep_read_fixed(sqe, fd, buffer.data(), static_cast<unsigned>(buffer.size()),
+		offset, static_cast<int>(bufferIndex));
+	sqe->user_data = userData;
+	return true;
+}
+
+bool IoUring::submitWriteFixed(int fd, std::span<const std::byte> buffer, std::uint64_t offset,
+	unsigned bufferIndex, std::uint64_t userData) {
+	if (!isValid() || buffer.size() > std::numeric_limits<unsigned>::max()) return false;
+	io_uring_sqe* sqe = io_uring_get_sqe(&impl->ring);
+	if (sqe == nullptr) {
+		impl->error = -EBUSY;
+		return false;
+	}
+	io_uring_prep_write_fixed(sqe, fd, buffer.data(), static_cast<unsigned>(buffer.size()),
+		offset, static_cast<int>(bufferIndex));
+	sqe->user_data = userData;
+	return true;
+}
+
 bool IoUring::submitPollAdd(int fd, Elv::Io::EventMask interest, std::uint64_t userData) {
 	if (!isValid()) return false;
 	io_uring_sqe* sqe = io_uring_get_sqe(&impl->ring);
@@ -236,6 +321,14 @@ bool IoUring::submitNop(std::uint64_t) { return false; }
 bool IoUring::submitRead(int, std::span<std::byte>, std::uint64_t, std::uint64_t) { return false; }
 bool IoUring::submitWrite(int, std::span<const std::byte>, std::uint64_t, std::uint64_t) { return false; }
 bool IoUring::submitPollAdd(int, Elv::Io::EventMask, std::uint64_t) { return false; }
+bool IoUring::submitAccept(int, void*, unsigned*, std::uint64_t) { return false; }
+bool IoUring::submitConnect(int, const void*, unsigned, std::uint64_t) { return false; }
+bool IoUring::registerBuffers(std::span<const std::span<std::byte>>) { return false; }
+bool IoUring::unregisterBuffers() { return false; }
+bool IoUring::submitReadFixed(int, std::span<std::byte>, std::uint64_t, unsigned,
+	std::uint64_t) { return false; }
+bool IoUring::submitWriteFixed(int, std::span<const std::byte>, std::uint64_t, unsigned,
+	std::uint64_t) { return false; }
 bool IoUring::submitTimeout(Elv::Io::EventDuration, std::uint64_t) { return false; }
 int IoUring::submit() { return -ENOSYS; }
 int IoUring::wait(std::span<Elv::Io::AsyncCompletion>,

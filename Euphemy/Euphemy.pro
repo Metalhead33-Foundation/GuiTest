@@ -61,9 +61,11 @@ SOURCES += \
  Media/Image/EuphWEBP.cpp \
  Memory/EuphMemory.cpp \
  Platform/EuphEpollPoller.cpp \
+ Platform/EuphEventLoopWakeup.cpp \
  Platform/EuphEventPollerFactory.cpp \
  Platform/EuphIocp.cpp \
  Platform/EuphIoUring.cpp \
+ Platform/EuphKqueuePoller.cpp \
  Platform/EuphWSAPollPoller.cpp
 
 HEADERS += \
@@ -111,9 +113,11 @@ HEADERS += \
  Memory/EuphMemory.hpp \
  Net/EuphUdpTransport.hpp \
  Platform/EuphEpollPoller.hpp \
+ Platform/EuphEventLoopWakeup.hpp \
  Platform/EuphEventPollerFactory.hpp \
  Platform/EuphIocp.hpp \
  Platform/EuphIoUring.hpp \
+ Platform/EuphKqueuePoller.hpp \
  Platform/EuphWSAPollPoller.hpp
 
 DISTFILES += \

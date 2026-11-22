@@ -4,9 +4,9 @@ This note records the layer boundaries and the current state of the networking
 foundation. The headers are the API reference; this page explains where the
 pieces live and what is deliberately not implemented.
 
-**Status: M0 (wire primitives), M1 (reliable session + UDP transport), M2 (clock sync +
-RPC) and the replication core (NetId, component schema, entity registry, interest hook)
-implemented and tested.** Later milestones are listed at the end.
+**Status: M0 through M4 and the M5 reference pipeline implemented and tested.** The
+remaining M5 gap is broader WinSock/IPv6 socket-path coverage; the protocol,
+snapshot/delta, interpolation/jitter, prediction and lockstep helpers are in place.
 
 ## Layer split
 
@@ -23,6 +23,11 @@ sockets live in Euphemy.
 | Clock sync | `Elvavena/Net/ElvNetClockSync.hpp` | Lowest-RTT offset estimate, EWMA smoothing, tick/time conversion |
 | RPC | `Elvavena/Net/ElvNetRpc.hpp` | Typed argument codecs, registry, encoder, dispatcher, policy, target enum |
 | Replication core | `Elvavena/Net/ElvNetId.hpp`, `ElvNetReplicationSchema.*`, `ElvNetReplicationRegistry.hpp`, `ElvNetInterest.hpp` | Generation-checked ids, validated component/entity-kind descriptors, non-owning entity/component slots, batch interest hook |
+| Snapshot/delta | `Elvavena/Net/ElvNetSnapshot.hpp` | Spawn/update/despawn framing, byte-framed component payloads, acknowledged-baseline delta, ack-tag promotion/rejection, filtered per-interest writes |
+| Interpolation/jitter | `Elvavena/Net/ElvNetInterpolation.hpp` | `InterpolationOps`, arithmetic and schema-field interpolation, generic tick `JitterBuffer`, snapshot payload jitter buffer |
+| Prediction | `Elvavena/Net/ElvNetPrediction.hpp` | Ordered input queues, delay buffer, checksum history, `PredictionSession` mismatch detection, `replayInputs` |
+| Lockstep | `Elvavena/Net/ElvNetLockstep.hpp` | All-peers-ready input collector, per-peer checksum exchange, first-divergence lookup |
+| Replication pipeline | `Elvavena/Net/ElvNetReplicationPipeline.hpp` | Per-peer snapshot writers driven by `InterestManager`, ack/loss routing, client receive/jitter buffer |
 | Test wire | `Elvavena/Net/ElvLoopbackTransport.hpp` | Deterministic latency/jitter/loss/duplication; seeded RNG |
 | OS transport | `Euphemy/Net/EuphUdpTransport.hpp` | UDP socket adapter over `Euph::Io::Socket` |
 | Socket hardening | `Euphemy/Io/EuphSocket.hpp/.cpp` | Endpoint conversion, datagram methods, non-blocking mode, `addrinfo` ownership, state fixes |
@@ -71,10 +76,11 @@ There are two deliberate mechanisms:
 - **Abstract interfaces** for services selected at runtime:
   `DatagramTransport`, `CongestionController`, `InterestManager` and `RpcPolicy`.
 - **Function-pointer ops tables** for per-type/per-schema hot paths, following
-  the existing `Elv::Io::CompositeOps` precedent. `ComponentOps` is implemented;
-  `FieldDeltaOps` and `InterpolationOps<T>` are the planned tables for snapshot
-  deltas and interpolation. They avoid virtual dispatch per entity or field and
-  keep the replication registry data-oriented.
+  the existing `Elv::Io::CompositeOps` precedent. `ComponentOps` drives snapshot
+  payloads; `InterpolationOps` drives jitter-buffer sampling and schema field
+  interpolation. Snapshot deltas compare encoded component payloads, so no
+  per-type delta table is required; a future `FieldDeltaOps` table would be an
+  optimization, not a correctness dependency.
 
 Notification callbacks (`SessionEvents`) have no-op defaults, so a game only
 overrides what it needs. Setup-time callbacks may use `std::function`; per-packet
@@ -97,19 +103,25 @@ and per-entity paths should not.
   and delivered as a complete payload; ordering relative to other fragmented
   messages is a later refinement.
 
-## Remaining milestones
+## Milestones
 
-| Milestone | Surface |
-|---|---|
-| M3b | `ElvNetSnapshot.hpp`: snapshot writer/reader, spawn/despawn framing, per-component delta against an acknowledged baseline, ack-tag integration |
-| M4 | `ElvNetInterpolation.hpp` (`InterpolationOps<T>`, schema field interpolation, snapshot/jitter buffers), `ElvNetPrediction.hpp` (input queues, delay buffer, rollback replay, mismatch/checksum history), `ElvNetLockstep.hpp` (input collector, checksum exchange) |
-| M5 | Reference replication pipeline, Sandbox loopback demo, broader WinSock/IPv6 socket coverage |
+| Milestone | Surface | State |
+|---|---|---|
+| M3b | `ElvNetSnapshot.hpp`: snapshot writer/reader, spawn/despawn framing, per-component delta against an acknowledged baseline, ack-tag integration | Implemented |
+| M4 | `ElvNetInterpolation.hpp`, `ElvNetPrediction.hpp`, `ElvNetLockstep.hpp`: interpolation/jitter, input queues/delay, rollback mismatch detection, lockstep input/checksum exchange | Implemented |
+| M5 | Reference replication pipeline (`ElvNetReplicationPipeline.hpp`), Sandbox loopback demo, broader WinSock/IPv6 socket coverage | Pipeline/demo implemented; WinSock/IPv6 CI remains |
 
-The replication core deliberately stops at the metadata layer. It gives the
-snapshot writer a stable id, a validated component descriptor, a component mask
-and a non-owning pointer; it does not yet define a snapshot wire format or a
-delta baseline store. That is M3b, and it is the next dependency for the
-interpolation/prediction helpers.
+The snapshot writer owns the acknowledged baseline and keeps candidate baselines
+pending by the `SendOptions::userTag` of the in-flight snapshot. `acknowledge(tag)`
+promotes the candidate; `reject(tag)` drops it. `ReplicationServer` keeps one
+writer per peer and feeds it the ids returned by `InterestManager`, so visibility
+changes naturally become spawn/despawn records. `ReplicationClient` parses
+payloads and keeps recent encoded frames in a jitter buffer; applying records to
+the game ECS remains game-owned.
+
+Interpolation is opt-in: use `makeInterpolationOps<T>()` for arithmetic types or
+`schemaInterpolationOps()` with explicit per-field rules. Prediction and lockstep
+provide the bookkeeping only; the game supplies the simulation/replay callback.
 
 ## Tests
 
@@ -131,5 +143,8 @@ loopback delivery/loss/duplication, handshake retry, reliable delivery over a
 35% loss link, fragmentation, heartbeat timeout, disconnect, channel
 validation, clock estimation/tick conversion, typed RPC dispatch, NetId reuse,
 component schema validation, the object-schema codec, entity registry/component
-masks and interest filtering.
+masks, interest filtering, snapshot spawn/delta/removal/despawn/ack baselines,
+interpolation/jitter buffers, prediction input/checksum rollback, lockstep
+input/checksum exchange and the per-peer replication pipeline. The current suite
+has 97 cases and 1083 assertions; `[net][socket]` adds the localhost UDP path.
 

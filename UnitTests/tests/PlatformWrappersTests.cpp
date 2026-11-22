@@ -8,13 +8,16 @@
  */
 #include <catch2/catch_test_macros.hpp>
 #include <Elvavena/Util/ElvContiguousRingBuffer.hpp>
+#include <Elvavena/Util/ElvPollingEventLoop.hpp>
 #include <Euphemy/Platform/EuphEventPollerFactory.hpp>
 #include <Euphemy/Platform/EuphIocp.hpp>
 #include <Euphemy/Platform/EuphIoUring.hpp>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <future>
 #include <string>
 #include <vector>
 
@@ -28,6 +31,24 @@ using namespace std::chrono_literals;
 using Elv::Io::EventMask;
 using Elv::Io::PollEvent;
 using Elv::Util::ContiguousRingBuffer;
+
+#if defined(__linux__)
+struct EventLatch {
+	std::promise<std::uint64_t> token;
+	int descriptor = -1;
+};
+
+void onReadable(void* userData, const PollEvent& event) {
+	auto* latch = static_cast<EventLatch*>(userData);
+	char byte = 0;
+	read(latch->descriptor, &byte, 1);
+	try {
+		latch->token.set_value(event.token);
+	} catch (...) {
+		// A later level-triggered notification may race the first delivery.
+	}
+}
+#endif
 
 } // namespace
 
@@ -130,6 +151,48 @@ TEST_CASE("Epoll poller reports pipe readiness and honours modify/remove", "[pla
 	close(descriptors[1]);
 }
 #endif
+
+TEST_CASE("Polling event loop executes commands and dispatches readiness", "[platform][eventloop]")
+{
+	auto loop = Euph::Platform::createPollingEventLoop();
+	REQUIRE(loop != nullptr);
+	CHECK(loop->isValid());
+	CHECK(loop->running());
+	CHECK(loop->enqueueSync([] { return 42; }) == 42);
+	auto asyncResult = loop->enqueueAsync([] { return 7; });
+	CHECK(asyncResult.get() == 7);
+
+#if defined(__linux__)
+	int descriptors[2] { -1, -1 };
+	REQUIRE(pipe(descriptors) == 0);
+	EventLatch latch;
+	latch.descriptor = descriptors[0];
+	const auto readHandle = static_cast<Elv::Io::NativeHandle>(descriptors[0]);
+	REQUIRE(loop->add(readHandle, EventMask::Read, 77, { onReadable, &latch }));
+	const std::byte byte { 0x33 };
+	REQUIRE(write(descriptors[1], &byte, 1) == 1);
+	auto tokenFuture = latch.token.get_future();
+	REQUIRE(tokenFuture.wait_for(2s) == std::future_status::ready);
+	CHECK(tokenFuture.get() == 77);
+	CHECK(loop->remove(readHandle));
+	close(descriptors[0]);
+	close(descriptors[1]);
+#endif
+	loop->stop();
+	CHECK_FALSE(loop->running());
+}
+
+TEST_CASE("kqueue backend is available only on BSD-like platforms", "[platform][kqueue]")
+{
+	auto poller = Euph::Platform::createEventPoller(Euph::Platform::PollerBackend::Kqueue);
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) \
+	|| defined(__OpenBSD__) || defined(__DragonFly__)
+	REQUIRE(poller != nullptr);
+	CHECK(poller->isValid());
+#else
+	CHECK(poller == nullptr);
+#endif
+}
 
 TEST_CASE("io_uring wrapper submits a NOP when available", "[platform][uring]")
 {

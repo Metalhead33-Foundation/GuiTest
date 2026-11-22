@@ -14,6 +14,7 @@ SOURCES += \
     Net/ElvNetSession.cpp \
     Util/ElvDynamicLib.cpp \
     Util/ElvEventLoop.cpp \
+    Util/ElvPollingEventLoop.cpp \
     Util/ElvThreadPool.cpp
 
 HEADERS += \
@@ -21,6 +22,7 @@ HEADERS += \
     Io/ElvBitStream.hpp \
     Io/ElvDataSerializationSchema.hpp \
     Io/ElvDataStream.hpp \
+    Io/ElvEventLoopWakeup.hpp \
     Io/ElvEventPoller.hpp \
     Io/ElvIoAsync.hpp \
     Io/ElvIoDevice.hpp \
@@ -32,12 +34,17 @@ HEADERS += \
     Net/ElvNetCongestion.hpp \
     Net/ElvNetFragment.hpp \
     Net/ElvNetId.hpp \
+    Net/ElvNetInterpolation.hpp \
     Net/ElvNetInterest.hpp \
+    Net/ElvNetLockstep.hpp \
+    Net/ElvNetPrediction.hpp \
     Net/ElvNetProtocol.hpp \
+    Net/ElvNetReplicationPipeline.hpp \
     Net/ElvNetReplicationRegistry.hpp \
     Net/ElvNetReplicationSchema.hpp \
     Net/ElvNetRpc.hpp \
     Net/ElvNetSequence.hpp \
+    Net/ElvNetSnapshot.hpp \
     Net/ElvNetSession.hpp \
     Net/ElvNetTypes.hpp \
     Util/ElvAlexandrescuResource.hpp \
@@ -58,6 +65,7 @@ HEADERS += \
     Util/ElvEdgeFunction.hpp \
     Util/ElvEndianness.hpp \
     Util/ElvEventLoop.hpp \
+    Util/ElvPollingEventLoop.hpp \
     Util/ElvException.hpp \
     Util/ElvFixedPoint.hpp \
     Util/ElvFixedPointMath.hpp \

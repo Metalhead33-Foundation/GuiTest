@@ -5,9 +5,9 @@ it: it owns the shared I/O device abstraction, the generic containers and alloca
 the dynamic-library and event-loop helpers, and the serialization primitives that the
 higher layers reuse instead of reimplementing.
 
-**Status: implemented, with the networking foundation at M2 + replication core and the
-platform I/O seam.** The library is usable today. It is a shared library with seven
-compiled translation units; the rest of its surface is header-only.
+**Status: implemented, with the networking foundation through M4 + the M5 reference
+pipeline, and the platform I/O seam.** The library is usable today. It is a shared
+library with eight compiled translation units; the rest of its surface is header-only.
 
 ## Build and consumption
 
@@ -20,8 +20,8 @@ compiled translation units; the rest of its surface is header-only.
 
 Compiled units: `Io/ElvDataSerializationSchema.cpp`, `Io/ElvIoDeviceProxy.cpp`,
 `Net/ElvNetReplicationSchema.cpp`, `Net/ElvNetSession.cpp`, `Util/ElvDynamicLib.cpp`,
-`Util/ElvEventLoop.cpp`, `Util/ElvThreadPool.cpp`. Everything else is inline/template
-code in headers.
+`Util/ElvEventLoop.cpp`, `Util/ElvPollingEventLoop.cpp`, `Util/ElvThreadPool.cpp`.
+Everything else is inline/template code in headers.
 
 ## Implemented
 
@@ -36,6 +36,7 @@ code in headers.
 | `ElvIoAsync.hpp` | `AsyncResult<T>`, `AsyncOperationCanceled`, and the `Async<Executor>` adapter (`read`, `write`, `seek`, `size`, `flush`, `readAll`, `*Then` callback variants, cancellation via `std::stop_token`) |
 | `ElvBitStream.hpp` | MSB-first `BitWriter`/`BitReader`: bit-packed integers, zig-zag signed values, LEB128 varints, IEEE-754 float/half fields, quantized floats, byte alignment, bounds/error state. Non-throwing and allocation-free; complements the byte-oriented `DataStream` |
 | `ElvEventPoller.hpp` | Portable readiness seam: `NativeHandle`, `EventMask`, `PollFlags`, `PollEvent`, and the abstract `EventPoller` (`add`/`modify`/`remove`/`wait`). epoll/kqueue/WSAPoll implementations live in Euphemy |
+| `ElvEventLoopWakeup.hpp` | Portable wakeup seam used by `PollingEventLoop`; concrete eventfd/pipe/socket-pair implementations live in Euphemy |
 | `ElvAsyncCompletion.hpp` | Backend-neutral `AsyncCompletion` record shared by io_uring and IOCP wrappers |
 
 ### `Net/` - transport-agnostic networking foundation
@@ -59,6 +60,11 @@ protocol and the interfaces; the OS socket implementation lives in Euphemy.
 | `ElvNetReplicationSchema.hpp` / `.cpp` | `ComponentDefinition`, `ComponentOps`, `EntityKindDefinition`, validated `ComponentRegistry`, schema hash; object-schema and trivial-POD codecs |
 | `ElvNetReplicationRegistry.hpp` | Non-owning `EntityRecord` slots, component pointers/mask, spawn/destroy, generation-checked lookup, iteration |
 | `ElvNetInterest.hpp` | Batch `InterestManager` hook plus `ReplicateAllInterest` and `OwnerInterest` defaults |
+| `ElvNetSnapshot.hpp` | Spawn/update/despawn snapshot framing, byte-framed component payloads, ack-tag baseline promotion/rejection, interest-filtered writes, zero-copy reader payload views |
+| `ElvNetInterpolation.hpp` | `InterpolationOps`, arithmetic and explicit schema-field interpolation, generic tick `JitterBuffer`, snapshot payload jitter buffer |
+| `ElvNetPrediction.hpp` | Ordered input queues, delayed input buffer, checksum history, `PredictionSession` mismatch detection, `replayInputs` |
+| `ElvNetLockstep.hpp` | All-peers-ready input collector, per-peer checksum exchange, first divergent tick |
+| `ElvNetReplicationPipeline.hpp` | Reference per-peer server writers with interest filtering/ack routing, client receive/jitter buffer |
 
 `docs/NETCODE.md` records the layer boundaries, the wire contract and the remaining
 milestones. `docs/PLATFORM.md` records the event-poller/completion-wrapper split and
@@ -71,7 +77,7 @@ the two ring-buffer contracts.
 | Allocators / memory | `ElvAlexandrescuResource.hpp` (alignment-correct PMR bridge over Alexandrescu allocators), `ElvAllocatorBasic.hpp` (allocator concept and smart-pointer adapters), `ElvBitmapAllocator.hpp`, `ElvFreelist.hpp` (`FixedFreeListAllocator`, `ContiguousFreeListAllocator`, `FreelistMemoryManager`), `ElvStackAllocator.hpp`, `ElvHeapArray.hpp`, `ElvChunkyArray.hpp`, `ElvIntrusiveArray.hpp`, `ElvIdPool.hpp` (thread-safe ID recycling) |
 | Containers | `ElvBinaryTree.hpp`, `ElvContainerBasic.hpp`, `ElvDoubleBufferedVector.hpp`, `ElvRingBuffer.hpp` (fixed-capacity optional-slot history buffer), `ElvContiguousRingBuffer.hpp` (streaming contiguous read/write spans; the extracted Haruka streamer buffer), `ElvStringhashMap.hpp`, `ElvThreadsafeContainer.hpp`, `ElvThreadsafeQueue.hpp`, `ElvObserv.hpp` (observer pattern) |
 | Algorithms / math | `ElvFixedPoint.hpp`, `ElvFixedPointMath.hpp`, `ElvInterpolation.hpp`, `ElvMathUtil.hpp`, `ElvNormDenorm.hpp`, `ElvDither.hpp`, `ElvEdgeFunction.hpp`, `ElvFuzzy.hpp` (fuzzy logic), `ElvSpanHelpers.hpp`, `ElvIntegralIterator.hpp`, `ElvContinuousIterator.hpp`, `ElvEndianness.hpp`, `ElvChecksum.hpp` (CRC-32C and FNV-1a for stable wire checksums) |
-| Runtime / platform | `ElvDynamicLib.hpp` (`dlopen`/`LoadLibrary` wrapper), `ElvEventLoop.hpp` (single background command thread with `enqueue`/`enqueueAsync`/`enqueueSync`), `ElvThreadPool.hpp`, `ElvAsyncExecutor.hpp` (executor concept), `ElvSignal.hpp` (`Signal`/`Connection`/`ScopedConnection` — the in-tree replacement for the third-party `sigslot.h`), `ElvException.hpp`, `ElvUtilGlobals.hpp` (API visibility macros, `DEFINE_PTR`/`DEFINE_CLASS`/`DEFINE_STRUCT`) |
+| Runtime / platform | `ElvDynamicLib.hpp` (`dlopen`/`LoadLibrary` wrapper), `ElvEventLoop.hpp` (single background command thread with `enqueue`/`enqueueAsync`/`enqueueSync`), `ElvPollingEventLoop.hpp` (command pump + `EventPoller`/wakeup reactor and function-pointer readiness handlers), `ElvThreadPool.hpp`, `ElvAsyncExecutor.hpp` (executor concept), `ElvSignal.hpp` (`Signal`/`Connection`/`ScopedConnection` — the in-tree replacement for the third-party `sigslot.h`), `ElvException.hpp`, `ElvUtilGlobals.hpp` (API visibility macros, `DEFINE_PTR`/`DEFINE_CLASS`/`DEFINE_STRUCT`) |
 | RAII / scope cleanup | `ElvScopeGuard.hpp` (`ScopeGuard<Fn>`, `ScopeExitMode`, `makeScopeGuard`/`atScopeExit`, and the `ELV_SCOPE_EXIT` / `ELV_SCOPE_FAIL` / `ELV_SCOPE_SUCCESS` macros; failure/success modes use `std::uncaught_exceptions`), `ElvDeferStack.hpp` (`DeferStack`: fixed-capacity, non-allocating LIFO cleanup thunks in caller-owned storage; `defer`, LIFO `dismiss`, `runAll`) |
 | Third-party | `half.hpp` - vendored half-float implementation |
 
@@ -80,15 +86,15 @@ the two ring-buffer contracts.
 The sources contain no explicit `TODO`/`FIXME` markers; the following are the known
 limits of the current implementation:
 
-- [ ] `EventLoop` is still a sequential command pump. The new `Elv::Io::EventPoller`
-      seam and Euphemy's epoll/WSAPoll/io_uring/IOCP wrappers are standalone
-      building blocks; wiring `EventLoop` to a poller plus an eventfd/pipe wakeup is
-      the next integration step.
-- [ ] The readiness seam has epoll and WSAPoll backends. A kqueue backend for
-      macOS/BSD and a `select(2)` fallback are still missing.
+- [ ] `EventLoop` remains the pure command pump; `PollingEventLoop` is the second
+      variant wired to an `EventPoller` and an `EventLoopWakeup` (eventfd/pipe on
+      POSIX, loopback socket pair on Windows). Remaining polish: per-handle timers
+      and a cancellation token for an in-flight poll wait.
+- [ ] The readiness seam has epoll, kqueue and WSAPoll backends. A `select(2)`
+      fallback is still missing; kqueue/WSAPoll need platform CI.
 - [ ] `IoUring` is optional at compile time and runtime: liburing is linked only when
       present, and Docker/Android/ChromeOS may disable `io_uring_setup` even when it
-      is linked. The epoll/WSAPoll path is the fallback for readiness; blocking
+      is linked. The epoll/kqueue/WSAPoll path is the fallback for readiness; blocking
       `Elv::Io::Async<ThreadPool>` remains the fallback for file I/O.
 - [ ] `ContiguousRingBuffer` and `RingBuffer` are intentionally separate: the first
       exposes contiguous read/write spans for streaming, the second stores optional
@@ -100,12 +106,12 @@ limits of the current implementation:
 - [ ] `DataStream` and `ElvDataSerializationSchema` are binary serialization
       primitives only. The schema has no version negotiation or reflection; higher
       layers still define their own stream operators where a bespoke format is needed.
-- [ ] The networking foundation has transport/reliability, clock sync, RPC and the
-      replication registry/schema/interest core. Still missing: concrete snapshot
-      writer/reader with delta baselines, the generic interpolation/jitter helpers,
-      input command queues, prediction/rollback helpers, lockstep input collection and
-      checksum exchange. `Session` has no encryption or authentication and no NAT
-      traversal; the connection token is anti-spoofing, not security.
+- [ ] The networking foundation now includes snapshots/deltas, interpolation/jitter,
+      prediction/rollback bookkeeping, lockstep input/checksum exchange and the
+      reference pipeline. Remaining: broader WinSock/IPv6 coverage and an optional
+      `FieldDeltaOps` optimization (the current delta compares encoded component
+      payloads). `Session` has no encryption or authentication and no NAT traversal;
+      the connection token is anti-spoofing, not security.
 - [ ] Fragmented messages are delivered when reassembly completes, not in
       message-ordered position relative to other fragmented messages. Strict
       ordering across fragmented messages remains a refinement.
