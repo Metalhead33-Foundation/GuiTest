@@ -6,6 +6,13 @@
  * to `TShader::parse()`, so the source is tokenised exactly once. The legacy
  * implementation preprocessed the source into a string first, parsed that string
  * again, and leaked the include cache; all of that is gone.
+ *
+ * The HLSL front-end of glslang is deprecated upstream (April 2026, removal at the
+ * next major version). The migration to DXC is deferred indefinitely; see
+ * `docs/SHADERS.md`. Whatever compiler is wired in later, two properties must
+ * survive: the target stays SPIR-V 1.0 for Vulkan 1.0, and the shader assets keep
+ * their explicit `[[vk::binding(slot, set)]]` decorations, because that is what
+ * the Vulkan executor and the SPIRV-Cross cross-compilers depend on.
  */
 #include "LtePipeline.hpp"
 #include <glslang/Public/ResourceLimits.h>

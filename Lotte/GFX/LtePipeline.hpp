@@ -22,6 +22,15 @@
  *    concern (`KaldiGLCommon/GlSpirvShader.hpp`, `KaldiD3DCommon/D3DSPirvShader.hpp`),
  *    exactly like the Vulkan backend consuming SPIR-V directly.
  *
+ * **Which compiler?** Today it is the HLSL front-end of glslang. That front-end is
+ * deprecated upstream (as of April 2026, removed at the next major version; see
+ * KhronosGroup/glslang issue #4210) and the intended replacement is DXC, whose
+ * only notable flaw for this engine is that it targets Shader Model 6.x while
+ * shaders here are authored at Shader Model 4/5 level. The migration is deferred
+ * indefinitely; `docs/SHADERS.md` records the rationale, the reference `dxc`
+ * invocation and the acceptance gate. Nothing in this header changes either way:
+ * the contract is SPIR-V 1.0 words plus a stage, not a compiler.
+ *
  * **Is "Pipeline" too low level for Lotte?** A `Pipeline` here is a thin owning
  * container of compiled stages plus the vertex input Kaldi needs. Materials,
  * effect graphs and node-based shader authoring are a higher layer that does not

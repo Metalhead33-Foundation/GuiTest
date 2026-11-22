@@ -58,6 +58,14 @@ LIBS += -lspirv-cross-core -lspirv-cross-glsl
 # into .wasm modules with `QMAKE_EXTRA_COMPILERS` and loads them at run time.
 # Override the compiler from the command line:
 #     qmake UnitTests.pro GLSLANG=/opt/glslang/bin/glslang
+#
+# NOTE: glslang's HLSL front-end is deprecated upstream (April 2026; removed at the
+# next major version of glslang, see KhronosGroup/glslang#4210). This rule is kept
+# because it is the only build-time proof that the shader assets compile at all.
+# The intended replacement is DXC with `-HV 2016` plus its legacy flags, which keeps
+# the accepted language at Shader Model 4/5 level even though DXC only emits Shader
+# Model 6 profiles. The migration is deferred indefinitely; `docs/SHADERS.md` has the
+# reference `dxc` invocation, the flag-by-flag rationale and the acceptance gate.
 # ─────────────────────────────────────────────────────────────────────────────
 isEmpty(GLSLANG) {
     GLSLANG = /usr/bin/glslang

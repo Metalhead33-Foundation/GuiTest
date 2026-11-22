@@ -26,8 +26,12 @@ the portable slot number as the binding:
 | 3 | storage buffers (`BindStorageBuffer`) | `[[vk::binding(slot, 3)]] RWStructuredBuffer` |
 | 4 | storage images (`BindStorageImage`) | `[[vk::binding(slot, 4)]] RWTexture2D` |
 
-That is exactly what glslang emits for explicitly bound HLSL resources, so the
-shader author's slot numbers need no renumbering. A pipeline that declares a
+That is exactly what glslang's HLSL front-end emits for explicitly bound resources,
+so the shader author's slot numbers need no renumbering. DXC honours the same
+explicit decorations (`-fvk-auto-shift-bindings` only renumbers *register-derived*
+bindings), so the mapping survives a compiler switch; see
+[`docs/SHADERS.md`](../docs/SHADERS.md) for the current compiler, its deprecation
+and the deferred DXC migration. A pipeline that declares a
 binding slot requires a matching bound resource before it draws; otherwise the
 draw fails with `InvalidResourceState` (a Vulkan draw with an unwritten
 descriptor is undefined behaviour, not an ignored binding).

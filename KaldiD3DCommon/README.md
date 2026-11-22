@@ -16,6 +16,12 @@ on every host. `D3DUtil.cpp` needs `<dxgiformat.h>` and is therefore only built 
 `win32` scope. `D3D11Util`/`D3D12Util` live in their own backends because
 `D3D11_INPUT_ELEMENT_DESC` and `D3D12_INPUT_ELEMENT_DESC` are different types.
 
+The input is HLSL authored at Shader Model 4/5 level and compiled to SPIR-V 1.0 by
+Lotte; this cross-compiler's Shader Model 5.0/5.1 output is what bounds which
+shader constructs the engine may use (no Shader Model 6 features). The compiler
+choice and its `glslang` deprecation are documented in
+[`docs/SHADERS.md`](../docs/SHADERS.md).
+
 ## Header provenance
 
 The two Direct3D backends do **not** get their headers from the same place, and the

@@ -37,6 +37,15 @@ and can be pointed elsewhere with `qmake UnitTests.pro GLSLANG=/path/to/glslang`
 if the compiler is missing the rule is disabled with a configure-time warning and
 the asset tests are compiled out.
 
+Note that **glslang's HLSL front-end is deprecated upstream** (as of April 2026,
+removed at the next major version; KhronosGroup/glslang issue #4210). The rule is
+kept because it is the only build-time proof that the shader assets compile at
+all; the intended replacement is DXC with `-HV 2016` plus its legacy flags, which
+keeps the accepted language at Shader Model 4/5 level even though DXC only emits
+Shader Model 6 profiles. The migration is **deferred indefinitely**, and
+[`docs/SHADERS.md`](../docs/SHADERS.md) records the reference `dxc` invocation,
+what every flag does, and the acceptance gate for the switch.
+
 ## Build and run
 
 ```sh

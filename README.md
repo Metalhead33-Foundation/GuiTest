@@ -30,7 +30,7 @@ list, and the headers are the API reference.
 | [Kaldi](Kaldi/README.md) | Contract + facade implemented | HAL 1.0/1.1 contract, 98-opcode command vocabulary, header-only recording facade, merge/deferred-destroy helpers, `KldNativeWindow.hpp` (SDL → native handles) and `KldConfig.hpp` (backend configuration contract) | No working backend yet; swapchain/render-pass proxies; tests |
 | [KaldiGL](KaldiGL/README.md), [KaldiGLES](KaldiGLES/README.md), [KaldiVK](KaldiVK/README.md), [KaldiD3D11](KaldiD3D11/README.md), [KaldiD3D12](KaldiD3D12/README.md) | Stubs | Shared library target and C ABI exports; real context/device creation (GL/GLES: EGL or GLX, WGL on Windows; Vulkan: instance/surface/device/queues; D3D11/D3D12: device + swap chain, unverified); format/vertex-input/sampler translation tables (`KaldiGLCommon/GlUtil`, `KaldiVK/VkUtil`, `KaldiD3DCommon/D3DUtil`); SPIR-V → GLSL/HLSL cross-compilation | All rendering and command translation (`capabilities`/`processCommandQueue`); Vulkan swapchain; verification of the Windows-only halves |
 | [KaldiGLCommon](KaldiGLCommon/README.md), [KaldiD3DCommon](KaldiD3DCommon/README.md) | Shared sources (no library) | GL/GLES and D3D11/D3D12 common helpers: context layer (`Context`, `ContextConfig`, EGL/GLX), format tables, texture uploads, vertex layouts, SPIR-V cross-compilers, chained through a `.pri` | Nothing pending; grows with each backend |
-| [Lotte](Lotte/README.md) | Partial | Kaldi facade aliases, HLSL/GLSL → SPIR-V shader compilation (glslang, owning `ShaderBinary` + `Kld::ShaderBinaryDescriptor` views), CPU→GPU asset streamer, FontPacker font (`WODF`) and vector-image (`WODI`) formats, MML parser, rich-text runs, text layout, glyph quads, mesh and GUI geometry batches | Renderer, GUI widgets, glyph atlas, 3D |
+| [Lotte](Lotte/README.md) | Partial | Kaldi facade aliases, HLSL/GLSL → SPIR-V shader compilation (glslang's HLSL front-end — deprecated upstream, see `docs/SHADERS.md` — owning `ShaderBinary` + `Kld::ShaderBinaryDescriptor` views), CPU→GPU asset streamer, FontPacker font (`WODF`) and vector-image (`WODI`) formats, MML parser, rich-text runs, text layout, glyph quads, mesh and GUI geometry batches | Renderer, GUI widgets, glyph atlas, 3D |
 | [UnitTests](UnitTests/README.md) | Working | Catch2 suite: asset runtime behaviour, zstd/Snappy round-trips, PNG/TGA round-trips, font `WODF`/`WODI` round-trips, configuration round-trip, shader compilation, Vulkan/DXGI format tables, SDL window-handle extraction, backend config clamping, bit-stream/loopback/session netcode, clock/RPC/replication core, snapshot delta baselines and field deltas, interpolation/jitter, prediction/rollback, lockstep, reference pipeline, HTTP parser/TCP/UDP client-server, ring-buffer/event-loop/event-poller/io_uring paths, localhost UDP | More codec and Kaldi backend coverage; WinSock/IPv6/kqueue paths |
 | [Sandbox](Sandbox/README.md) | Manual playground | Ad-hoc scenarios: GPU asset streamer, async I/O, image dumps, audio effects, text pipeline, signals, geometry batches, netcode loopback replication | Grows as needed by hand; not part of the gate |
 
@@ -49,6 +49,10 @@ list, and the headers are the API reference.
   io_uring fallback and the two ring-buffer contracts.
 - `docs/HTTP.md` records the intentionally minimal HTTP parser/client/server split
   and the extension points left to applications.
+- `docs/SHADERS.md` records the shading-language policy: HLSL authored at Shader
+  Model 4/5 level, compiled to SPIR-V 1.0 for Vulkan 1.0 and cross-compiled by
+  SPIRV-Cross for the other backends, plus the `glslang` HLSL front-end
+  deprecation and the deferred `DXC` migration.
 - Render the reference with:
   ```sh
   doxygen Doxyfile
