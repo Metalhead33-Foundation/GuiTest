@@ -10,13 +10,34 @@
  * implementation; `KALDIGL_IS_GLES` selects the few places where the dialects
  * differ (no 1D textures, no polygon mode, no base-instance draws, ...).
  *
- * @section kaldigl_executor_lifetime Resource lifetime
+ * @section kaldigl_executor_lifetime Resource lifetime and retirement
  *
- * Destroy commands delete the GL name immediately. That *is* the deferred
- * retirement the HAL contract asks for: OpenGL keeps the underlying object alive
- * until the last command that can reference it has executed, so a client may
- * reuse the handle as soon as the destroy command was processed. No CPU-side
- * destruction queue is needed; only explicit APIs (Vulkan, D3D12) require one.
+ * Destroy commands delete the GL name immediately, and that *is* the deferred
+ * retirement the HAL contract asks for. OpenGL's deletion rule is reference
+ * counted inside the driver: deleting a name only *flags* the object, and the
+ * implementation frees it once no queued command, binding, attachment or vertex
+ * array can still reference it. A client may therefore reuse a handle as soon as
+ * the destroy command was processed; it must not assume the GPU memory is
+ * available again at that point.
+ *
+ * A CPU-side destruction queue would *weaken* this contract rather than
+ * strengthen it: a name kept alive past its destroy command can be re-bound by a
+ * later command in the same span, which the HAL forbids, and the executor would
+ * have to re-check every reference anyway. Only APIs where the application owns
+ * the object lifetime (Vulkan through fences, D3D12 through deferred release)
+ * need an explicit queue; those backends implement one.
+ *
+ * What the executor does guarantee, because the driver cannot:
+ *
+ * - Destroying a *bound* buffer clears `vertexBindings_`/`indexBinding_`, so
+ *   `reapplyVertexState()` never re-binds a name GL already unbound.
+ * - Destroying the bound framebuffer binds `DefaultFramebuffer`, and destroying
+ *   the bound pipeline unbinds the program and returns to the default VAO.
+ * - Nothing else is cached: textures and samplers are bound by the commands that
+ *   use them, so deleting one leaves no stale name behind in the executor.
+ *
+ * Readback is the only place the executor synchronises with the GPU
+ * (`flushForHostAccess()` before reading pixels); everything else is asynchronous.
  *
  * Handles are kind-checked: one numeric namespace is shared by every resource
  * (`Kld::HandleId`), so looking up a texture handle as a buffer reports

@@ -53,6 +53,10 @@ list, and the headers are the API reference.
   Model 4/5 level, compiled to SPIR-V 1.0 for Vulkan 1.0 and cross-compiled by
   SPIRV-Cross for the other backends, plus the `glslang` HLSL front-end
   deprecation and the deferred `DXC` migration.
+- `docs/KALDI_TUTORIAL.md` is the hands-on guide to Kaldi: the raw `GfxOp`
+  command stream and the object-oriented facade in `Kaldi/KldCommandBuffer.hpp`,
+  with a complete textured triangle, the retirement/lifetime/threading contracts
+  and the per-backend differences.
 - Render the reference with:
   ```sh
   doxygen Doxyfile

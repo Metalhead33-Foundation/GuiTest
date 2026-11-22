@@ -8,7 +8,7 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 150 test cases / 1978 assertions covering the
+**Status: implemented and passing.** 157 test cases / 2020 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
 snapshots, field deltas, interpolation, prediction, lockstep and the reference
@@ -16,8 +16,9 @@ pipeline), the minimal HTTP parser/client/server, the platform wrappers and a
 localhost UDP smoke test, plus the graphics side: HLSL/GLSL -> SPIR-V shader
 compilation and SPIR-V -> GLSL cross-compilation, the Vulkan/DXGI format tables,
 backend configuration clamping (including the GL executor policy keys), the SDL
-window-handle extraction, the Kaldi HAL capability fallbacks and the Kaldi
-command-dispatch layer (both the computed-goto and the `switch` structure).
+window-handle extraction, the Kaldi HAL capability fallbacks, the Kaldi
+command-dispatch layer (both the computed-goto and the `switch` structure) and the
+object-oriented recording facade (`Kaldi/KldCommandBuffer.hpp`).
 
 ## Shader assets
 
@@ -110,6 +111,7 @@ build Catch2 as a single amalgamated header and replace the includes.
 | `tests/BackendConfigTests.cpp` | The Kaldi config contract end to end: GL provider defaults written with typed keys, key prefixes matching value types, clamping (`iGlSamples=999` -> 16), unknown enumerations falling back, missing sections keeping defaults, `.ini` serialize -> parse -> apply round-trip, per-purpose common defaults |
 | `tests/BitStreamTests.cpp` | MSB-first bit packing; mixed-width fields; full-range zig-zag signed values; varints; exact float/half bit patterns; quantized float clamping and degenerate ranges; buffer-full/exhausted errors; overlong varint rejection |
 | `tests/FormatTranslationTests.cpp` | Vulkan (`VkUtil`) and DXGI (`D3DUtil`) tables: formats that exist, formats the APIs cannot express, vertex formats, sampler/layout/stage masks, alignment helpers |
+| `tests/KaldiCommandBufferTests.cpp` | The object-oriented facade without a device: one handle namespace across kinds with id recycling, write-buffer-only recording, proxy create/destroy commands, move semantics, `mergeCommandBuffers` ordering, `DeferredDestroyQueue` mapping to the right destroy opcode, `submit()` handing the read buffer to a recording device |
 | `tests/HarukaStreamerRingTests.cpp` | Deterministic `RingBufferedStreamer` through a four-frame ring; interleaved and separate-channel output across repeated wraps |
 | `tests/HttpTests.cpp` | Request/response serialization, incomplete/malformed/oversize parsing, HEAD suppression, TCP POST, TCP HEAD, `EventLoop` async request, UDP request/response, failure-signal emission |
 | `tests/NativeWindowTests.cpp` | `Kld::nativeWindowHandlesFrom()` for unsupported subsystems, X11 and Wayland (including the `wl_surface` vs `wl_egl_window` split), plus the GL `ContextConfig`/`ContextApi` defaults |

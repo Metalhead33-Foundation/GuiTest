@@ -29,7 +29,13 @@ MH_KALDI_IMPL_API void                   kld_destroy_rendering_device(MhRenderin
 MH_KALDI_IMPL_API const char* kld_get_renderer_name(void);
 /** @brief Returns the backend implementation version string. */
 MH_KALDI_IMPL_API const char* kld_get_version(void);
-/** @brief Returns the last backend error message, or an implementation-defined empty value. */
+/**
+ * @brief Returns the last failure message recorded on this thread.
+ *
+ * Creation failures and command-queue failures both report through here. The
+ * pointer stays valid until the next failure on the same thread, and is null
+ * only before the first one.
+ */
 MH_KALDI_IMPL_API const char* kld_get_last_error_message(void);
 
 #ifdef __cplusplus

@@ -167,5 +167,5 @@ it is unit-testable and reusable by any tooling that needs the same mappings.
 - [x] Enable and use a debug-marker extension (`VK_EXT_debug_utils`) so `supportsDebugLabels` becomes true.
 - [x] Support multisampled framebuffer attachments and `vkCmdResolveImage`-backed resolves.
 - [x] Move static resources to device-local memory through a staging ring, with allocation routed through VulkanMemoryAllocator.
-- [ ] Support depth/stencil readback (the image formats are already created; the copy paths reject them).
+- [x] Support depth/stencil readback. Vulkan copies one aspect at a time, so the depth and stencil planes are gathered separately and interleaved on the host into the portable texel (`DEPTH_COMPONENT16/24/32/32F`, `DEPTH24_STENCIL8`, `DEPTH32F_STENCIL8`, `STENCIL_INDEX8`); the format features are checked first, and the image-usage filtering that makes depth/stencil attachment creation valid (`X8_D24` cannot be a storage image) landed with it.
 - [ ] Validate the explicit-swapchain resize/destroy flow on lavapipe: on this host its X11 WSI aborts the process with `BadDrawable` on the first present (a pixmap it owns is freed before `XPutImage` completes), so that flow is validated on NVIDIA only.

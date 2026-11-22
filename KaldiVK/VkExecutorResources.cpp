@@ -542,8 +542,24 @@ Kld::HalStatus CommandExecutor::createImageStorage(VkTextureObject& object, VkIm
 	info.arrayLayers = object.layers;
 	info.samples = object.samples;
 	info.tiling = VK_IMAGE_TILING_OPTIMAL;
-	info.usage = usage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT
-		| VK_IMAGE_USAGE_SAMPLED_BIT;
+	// The backend always needs transfer and sample access, and callers may declare
+	// storage use, but not every format supports all of them: a depth/stencil format
+	// cannot be a storage image, and asking for the bit makes the whole create fail.
+	// Filtering against the format features keeps one image-creation path usable for
+	// colour, depth/stencil and multisampled formats alike.
+	VkImageUsageFlags resolvedUsage = usage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+		| VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	VkFormatProperties formatProperties {};
+	vkGetPhysicalDeviceFormatProperties(context_.physicalDevice(), object.format,
+					    &formatProperties);
+	const VkFormatFeatureFlags formatFeatures = formatProperties.optimalTilingFeatures;
+	if ((formatFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) == 0) {
+		resolvedUsage &= ~VK_IMAGE_USAGE_STORAGE_BIT;
+	}
+	if ((formatFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) == 0) {
+		resolvedUsage &= ~VK_IMAGE_USAGE_SAMPLED_BIT;
+	}
+	info.usage = resolvedUsage;
 	if ((object.aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0) {
 		info.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	} else {

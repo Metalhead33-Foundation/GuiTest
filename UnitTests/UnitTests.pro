@@ -122,6 +122,7 @@ SOURCES += \
     tests/HarukaStreamerRingTests.cpp \
     tests/HttpTests.cpp \
     tests/ImageCodecTests.cpp \
+    tests/KaldiCommandBufferTests.cpp \
     tests/KaldiDispatchSwitchTests.cpp \
     tests/KaldiDispatchTests.cpp \
     tests/KaldiHalTests.cpp \

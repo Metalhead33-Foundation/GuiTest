@@ -4,8 +4,22 @@
 #include <string>
 
 namespace {
-/** @brief Last `kld_create_rendering_device` failure on this thread. */
+/**
+ * @brief Last failure recorded on this thread.
+ *
+ * Creation failures and command failures both land here, so `kld_get_last_error_message()`
+ * reports a real message for either; a successful call leaves it untouched.
+ */
 thread_local std::string glLastError;
+
+/** @brief Records @p status in the thread-local error slot when it is a failure. */
+void recordFailure(const Kld::HalStatus& status)
+{
+	if (status.ok()) {
+		return;
+	}
+	glLastError = status.message != nullptr ? status.message : "command queue failed";
+}
 }
 
 namespace GL {
@@ -57,10 +71,13 @@ Device::~Device()
 Kld::HalStatus Device::processCommandQueue(std::span<const Kld::GfxOp> commands)
 {
 	if (executor_ == nullptr) {
+		glLastError = "the device has no GL context to execute commands on";
 		return Kld::HalStatus { Kld::HalStatusCode::InitializationFailed,
-					"the device has no GL context to execute commands on" };
+					glLastError.c_str() };
 	}
-	return executor_->process(commands);
+	const Kld::HalStatus status = executor_->process(commands);
+	recordFailure(status);
+	return status;
 }
 
 const char* Device::apiName() const noexcept
@@ -78,7 +95,7 @@ void Device::swapBuffers()
 
 }
 
-MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo)
+MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo* creationInfo)
 {
 	(void)creationInfo; // The drawable is already sized by the windowing layer.
 	if (window_info == nullptr) {

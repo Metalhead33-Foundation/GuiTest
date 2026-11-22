@@ -27,6 +27,45 @@ std::uint32_t mipExtent(std::uint32_t size, unsigned level) noexcept
 	return shifted == 0 ? 1u : shifted;
 }
 
+/** @brief Rounds @p value up to a multiple of 4, the copy alignment Vulkan wants. */
+std::uint32_t alignUp4(std::uint32_t value) noexcept
+{
+	return (value + 3u) & ~3u;
+}
+
+/** @brief Bytes per texel of one aspect of @p format, or @c 0 when it has none. */
+std::uint32_t aspectTexelSize(VkFormat format, bool stencil) noexcept
+{
+	if (stencil) {
+		// `S8_UINT` and the stencil aspect of every combined format are one byte.
+		return 1;
+	}
+	switch (format) {
+		case VK_FORMAT_D16_UNORM: return 2;
+		case VK_FORMAT_X8_D24_UNORM_PACK32:
+		case VK_FORMAT_D32_SFLOAT:
+		case VK_FORMAT_D24_UNORM_S8_UINT:
+		case VK_FORMAT_D32_SFLOAT_S8_UINT: return 4;
+		default: return 0;
+	}
+}
+
+/**
+ * @brief Meaningful bytes of the depth component in one source texel.
+ *
+ * `X8_D24` and the depth half of `D24S8` keep 24 bits in a 32-bit texel, so the
+ * padding byte must not leak into the portable value.
+ */
+std::uint32_t depthComponentBytes(VkFormat format) noexcept
+{
+	switch (format) {
+		case VK_FORMAT_D16_UNORM: return 2;
+		case VK_FORMAT_X8_D24_UNORM_PACK32:
+		case VK_FORMAT_D24_UNORM_S8_UINT: return 3;
+		default: return 4;
+	}
+}
+
 } // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -437,7 +476,8 @@ Kld::HalStatus CommandExecutor::readImage2D(const Kld::OpReadImage2D& op)
 		return failUnsupported("readback of block-compressed images is not implemented");
 	}
 	if ((object->aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0) {
-		return failUnsupported("readback of depth/stencil images is not implemented");
+		// Depth and stencil live in separate aspects; Vulkan copies one at a time.
+		return readDepthStencilImage2D(op, *object);
 	}
 	if (op.mipLevel >= object->levels) {
 		return fail(Kld::HalStatusCode::InvalidCommand, "the mip level is outside the image");
@@ -488,6 +528,120 @@ Kld::HalStatus CommandExecutor::readImage2D(const Kld::OpReadImage2D& op)
 	}
 	invalidateStaging(slice);
 	op.callback(slice.mapped, rowPitch * op.height, op.width, op.height, rowPitch, op.userData);
+	return Kld::HalOk;
+}
+
+Kld::HalStatus CommandExecutor::readDepthStencilImage2D(const Kld::OpReadImage2D& op,
+							VkTextureObject& object)
+{
+	const bool hasDepth = (object.aspect & VK_IMAGE_ASPECT_DEPTH_BIT) != 0;
+	const bool hasStencil = (object.aspect & VK_IMAGE_ASPECT_STENCIL_BIT) != 0;
+	const std::uint32_t depthTexel = hasDepth ? aspectTexelSize(object.format, false) : 0;
+	if (hasDepth && depthTexel == 0) {
+		return failUnsupported("the depth format has no known texel size");
+	}
+	const std::uint32_t portableTexel =
+		static_cast<std::uint32_t>(pixelByteSize(object.euphemyFormat));
+	if (portableTexel == 0) {
+		return failUnsupported("the image format has no known texel size");
+	}
+	// Not every depth format is a legal copy source, and the ones that are not report
+	// it through the format properties instead of producing garbage.
+	VkFormatProperties properties {};
+	vkGetPhysicalDeviceFormatProperties(context_.physicalDevice(), object.format, &properties);
+	if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) == 0) {
+		return failUnsupported("the depth/stencil format cannot be copied on this device");
+	}
+	// Vulkan requires every row pitch of a buffer image copy to be a multiple of 4.
+	const std::uint32_t portablePitch = alignUp4(op.width * portableTexel);
+	const std::uint32_t depthPitch = hasDepth ? alignUp4(op.width * depthTexel) : 0;
+	const std::uint32_t stencilPitch = hasStencil ? alignUp4(op.width) : 0;
+	endActiveRenderPass();
+	Kld::HalStatus status = ensureImageLayout(object);
+	if (status.ok()) {
+		status = ensureRecording();
+	}
+	if (!status.ok()) {
+		return status;
+	}
+	// One slice per plane, so each copy starts at an aligned offset.
+	StagingSlice depthSlice;
+	StagingSlice stencilSlice;
+	if (hasDepth) {
+		status = requestStaging(depthPitch * op.height, depthSlice);
+		if (!status.ok()) {
+			return status;
+		}
+	}
+	if (hasStencil) {
+		status = requestStaging(stencilPitch * op.height, stencilSlice);
+		if (!status.ok()) {
+			return status;
+		}
+	}
+	VkBufferImageCopy base {};
+	base.bufferImageHeight = op.height;
+	base.imageSubresource.mipLevel = op.mipLevel;
+	base.imageSubresource.baseArrayLayer = object.imageType == VK_IMAGE_TYPE_3D ? 0 : op.layer;
+	base.imageSubresource.layerCount = 1;
+	base.imageOffset = { op.x, op.y, object.imageType == VK_IMAGE_TYPE_3D ? op.layer : 0 };
+	base.imageExtent = { op.width, op.height, 1 };
+	if (hasDepth) {
+		VkBufferImageCopy region = base;
+		region.bufferOffset = depthSlice.offset;
+		region.bufferRowLength = depthPitch / depthTexel;
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		vkCmdCopyImageToBuffer(commandBuffer_, object.image, VK_IMAGE_LAYOUT_GENERAL,
+				       depthSlice.buffer, 1, &region);
+	}
+	if (hasStencil) {
+		VkBufferImageCopy region = base;
+		region.bufferOffset = stencilSlice.offset;
+		region.bufferRowLength = stencilPitch;
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
+		vkCmdCopyImageToBuffer(commandBuffer_, object.image, VK_IMAGE_LAYOUT_GENERAL,
+				       stencilSlice.buffer, 1, &region);
+	}
+	status = flushForHostAccess();
+	if (!status.ok()) {
+		return status;
+	}
+	if (hasDepth) {
+		invalidateStaging(depthSlice);
+	}
+	if (hasStencil) {
+		invalidateStaging(stencilSlice);
+	}
+	// Interleave the planes into the portable texel: depth bytes first, then the
+	// stencil byte (when the format has one). Padding bytes stay zero, so an `X8_D24`
+	// source never leaks its undefined byte into a 32-bit depth value.
+	const auto* depthPlane = hasDepth ? static_cast<const std::uint8_t*>(depthSlice.mapped)
+					  : nullptr;
+	const auto* stencilPlane = hasStencil ? static_cast<const std::uint8_t*>(stencilSlice.mapped)
+					      : nullptr;
+	const std::uint32_t sourceDepthBytes = hasDepth ? depthComponentBytes(object.format) : 0;
+	const std::uint32_t packedDepthBytes =
+		hasStencil ? portableTexel - 1 : std::min(portableTexel, sourceDepthBytes);
+	const std::uint32_t copyDepthBytes = std::min(packedDepthBytes, sourceDepthBytes);
+	std::vector<std::uint8_t> packed(static_cast<std::size_t>(portablePitch) * op.height, 0);
+	for (std::uint32_t row = 0; row < op.height; ++row) {
+		std::uint8_t* destination = packed.data() + static_cast<std::size_t>(row) * portablePitch;
+		for (std::uint32_t column = 0; column < op.width; ++column) {
+			std::uint8_t* pixel = destination + static_cast<std::size_t>(column) * portableTexel;
+			if (hasDepth) {
+				std::memcpy(pixel,
+					    depthPlane + static_cast<std::size_t>(row) * depthPitch
+						    + static_cast<std::size_t>(column) * depthTexel,
+					    copyDepthBytes);
+			}
+			if (hasStencil) {
+				pixel[portableTexel - 1] =
+					stencilPlane[static_cast<std::size_t>(row) * stencilPitch + column];
+			}
+		}
+	}
+	op.callback(packed.data(), static_cast<std::uint32_t>(packed.size()), op.width, op.height,
+		    portablePitch, op.userData);
 	return Kld::HalOk;
 }
 

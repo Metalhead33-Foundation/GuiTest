@@ -549,6 +549,15 @@ private:
 				  std::uint16_t sourceY, VkTextureObject& destination,
 				  std::uint16_t destinationX, std::uint16_t destinationY,
 				  std::uint16_t width, std::uint16_t height);
+	/**
+	 * @brief Reads a depth and/or stencil image back in the portable texel layout.
+	 *
+	 * Vulkan can only copy one aspect at a time, so the depth and stencil planes are
+	 * gathered separately and interleaved on the host: the depth bytes come first and
+	 * the stencil byte is the last byte of the portable texel (see
+	 * `pixelByteSize(Kld::TextureFormat)`), which is also what OpenGL returns.
+	 */
+	Kld::HalStatus readDepthStencilImage2D(const Kld::OpReadImage2D& op, VkTextureObject& object);
 	Kld::HalStatus createMappedBuffer(std::uint32_t size, VkBuffer& buffer,
 					  VmaAllocation& allocation, void*& mapped);
 	void destroyMappedBuffer(VkBuffer& buffer, VmaAllocation& allocation,

@@ -20,6 +20,20 @@
  * @ref ContextConfig::redBits, `depthBits`, `stencilBits`, `doubleBuffered` and
  * friends only act as preferences. Use EGL, or create the window with the
  * desired visual, if those must be exact.
+ *
+ * @section kaldigl_glx_share Share group
+ *
+ * The context is deliberately created *without* a share context. Kaldi funnels
+ * every command into one command queue: commands may be *recorded* from several
+ * threads, but they are executed by a single `process()` call on a single thread
+ * with the calling thread's context current. A second context would therefore
+ * only alias the GL object namespace - names are shared per share group - without
+ * adding any parallelism. Multi-threaded *execution* is a property of APIs that
+ * support it explicitly (Vulkan queues and command buffers, D3D12 command lists),
+ * which is why only the Vulkan backend records into per-slot command buffers.
+ * Introducing a share group is a queue-splitting decision, not a
+ * context-creation one, so it belongs with a future multi-queue executor rather
+ * than with a per-window `GlxContext`.
  */
 #include "GlContext.hpp"
 #include <glad/glx.h>

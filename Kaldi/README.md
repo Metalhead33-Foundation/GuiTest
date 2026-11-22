@@ -6,6 +6,10 @@ it. The rendering backends are separate shared libraries: [KaldiGL](../KaldiGL/R
 [KaldiGLES](../KaldiGLES/README.md), [KaldiVK](../KaldiVK/README.md),
 [KaldiD3D11](../KaldiD3D11/README.md) and [KaldiD3D12](../KaldiD3D12/README.md).
 
+**New here? Read [docs/KALDI_TUTORIAL.md](../docs/KALDI_TUTORIAL.md).** It walks through
+the raw tagged-union API and the object-oriented facade side by side, with a complete
+textured triangle, and explains the retirement, lifetime and threading contracts.
+
 **Status: the contract and the recording facade are implemented; OpenGL, OpenGL ES and
 Vulkan execute it.** The command vocabulary (98 opcodes), the HAL 1.0/1.1 contract, and
 the header-only recording facade are usable today. `KaldiGL`, `KaldiGLES` and `KaldiVK`
@@ -19,7 +23,7 @@ implement `processCommandQueue()` (the Vulkan backend reports HAL 1.1); `KaldiD3
 | `KaldiOperation.hpp` | The command vocabulary: 98 `Opcode` values, their POD payload structs, and the `GfxOp` tagged union |
 | `KldHal.hpp` | `HalVersion`/`KaldiHalVersion1_0`, `HalCapabilities`, `HalStatusCode`, `HalStatus` |
 | `KldDevice.hpp` | The abstract backend submission interface `Device` |
-| `KldCommandBuffer.hpp` | Header-only recording facade: `HandleStorage`, `CommandDispatcher`, RAII proxies, `mergeCommandBuffers`, `DeferredDestroyQueue` |
+| `KldCommandBuffer.hpp` | Header-only recording facade: `HandleStorage` (one id pool for every kind), `CommandDispatcher`, `OopFacade` proxies, `mergeCommandBuffers`, `DeferredDestroyQueue`; documented in [docs/KALDI_TUTORIAL.md](../docs/KALDI_TUTORIAL.md) |
 | `KldVertexFormat.hpp` | `PrimitiveType`, `AttributeDescriptor`, `VertexDescriptor` |
 | `KldNativeWindow.hpp` | `WindowSystem`, `NativeWindowHandles`, `nativeWindowHandlesFrom(SDL_SysWMinfo)` - the backend-neutral window-handle extraction shared by EGL/GLX/WGL/D3D/Vulkan |
 | `KldConfig.hpp` | Configuration contract: `ContextPurpose`, `DeviceConfig`, `ConfigField`, `ConfigReader`, `ConfigProvider`, and the field-reading helpers that clamp values |

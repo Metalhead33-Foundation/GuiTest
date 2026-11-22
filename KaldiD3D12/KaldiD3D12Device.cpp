@@ -90,7 +90,7 @@ const char* Device::apiName() const noexcept
 }
 
 MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info,
-						    const MhRenderingDeviceCreationInfo& creationInfo)
+						    const MhRenderingDeviceCreationInfo* creationInfo)
 {
 	(void)creationInfo; // The drawable is already sized by the windowing layer.
 	if (window_info == nullptr) {

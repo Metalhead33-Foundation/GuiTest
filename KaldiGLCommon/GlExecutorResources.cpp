@@ -53,6 +53,17 @@ Kld::HalStatus CommandExecutor::destroyBuffer(const Kld::OpDestroy& op)
 	if (found == buffers_.end()) {
 		return failInvalidHandle("buffer", op.id);
 	}
+	// GL unbinds a deleted buffer from every binding point, so the tracker has to
+	// forget it as well: `reapplyVertexState()` would otherwise re-bind a name that
+	// no longer exists on the next pipeline bind.
+	for (VertexBindingState& binding : vertexBindings_) {
+		if (binding.buffer == op.id) {
+			binding = VertexBindingState {};
+		}
+	}
+	if (indexBinding_.buffer == op.id) {
+		indexBinding_ = IndexBindingState {};
+	}
 	glDeleteBuffers(1, &found->second.name);
 	buffers_.erase(found);
 	return Kld::HalOk;
