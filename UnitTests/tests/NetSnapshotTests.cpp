@@ -3,6 +3,7 @@
  * @brief M3b snapshot framing, delta and ack-baseline tests.
  */
 #include <catch2/catch_test_macros.hpp>
+#include <Elvavena/Net/ElvNetFieldDelta.hpp>
 #include <Elvavena/Net/ElvNetSnapshot.hpp>
 #include <array>
 #include <cstddef>
@@ -248,5 +249,69 @@ TEST_CASE("Snapshot reader rejects malformed payloads", "[net][snapshot]")
 	truncated.pop_back();
 	CHECK_FALSE(reader.parse(truncated, registry));
 	CHECK(reader.error() == SnapshotError::Truncated);
+}
+
+
+TEST_CASE("Snapshot schema field deltas reconstruct changed fields", "[net][snapshot][fielddelta]")
+{
+	struct Stats {
+		float health = 0.0f;
+		float shield = 0.0f;
+	};
+	Io::TypeDefinition floatType { Io::DataType::INT32, 4, 0, nullptr, nullptr };
+	const Io::ObjectField fields[] {
+		{ static_cast<std::uint16_t>(offsetof(Stats, health)), &floatType },
+		{ static_cast<std::uint16_t>(offsetof(Stats, shield)), &floatType }
+	};
+	const Io::ObjectDefinition schema { fields, 2, sizeof(Stats) };
+	const ComponentId StatsId = 4;
+	const EntityKindId StatsKind = 8;
+	static const ComponentId StatsComponents[] { StatsId };
+	ComponentRegistry registry;
+	ComponentDefinition definition;
+	definition.id = StatsId;
+	definition.name = "Stats";
+	definition.size = sizeof(Stats);
+	definition.ops = makeTrivialComponentOps<Stats>();
+	definition.fieldDelta = schemaFieldDeltaOps();
+	definition.fieldDeltaContext = &schema;
+	REQUIRE(registry.registerComponent(definition));
+	EntityKindDefinition kind;
+	kind.id = StatsKind;
+	kind.name = "StatsActor";
+	kind.components = StatsComponents;
+	kind.componentCount = 1;
+	REQUIRE(registry.registerEntityKind(kind));
+
+	Stats stats { 100.0f, 50.0f };
+	ReplicationRegistry entities;
+	const NetId id = entities.spawn(StatsKind);
+	REQUIRE(entities.attach(id, StatsId, &stats));
+	SnapshotWriter writer(registry);
+	const SnapshotWriteResult spawn = writer.write(1, entities);
+	REQUIRE(spawn.ok);
+	SnapshotReader reader;
+	REQUIRE(reader.parse(spawn.payload, registry));
+	REQUIRE(reader.records().size() == 1);
+	REQUIRE(reader.records()[0].components.size() == 1);
+	CHECK(reader.records()[0].components[0].mode == SnapshotComponentMode::Full);
+	REQUIRE(writer.acknowledge(spawn.tag));
+
+	const Stats baseline = stats;
+	stats.health = 75.0f;
+	const SnapshotWriteResult update = writer.write(2, entities);
+	REQUIRE(update.ok);
+	REQUIRE(reader.parse(update.payload, registry));
+	REQUIRE(reader.records().size() == 1);
+	REQUIRE(reader.records()[0].components.size() == 1);
+	const SnapshotComponentView& delta = reader.records()[0].components[0];
+	CHECK(delta.mode == SnapshotComponentMode::FieldDelta);
+	CHECK(delta.payload.size() < sizeof(Stats));
+	const FieldDeltaOps* ops = schemaFieldDeltaOps();
+	Stats decoded {};
+	Io::BitReader deltaReader(delta.payload);
+	REQUIRE(ops->decode(deltaReader, &decoded, &baseline, &schema));
+	CHECK(decoded.health == 75.0f);
+	CHECK(decoded.shield == 50.0f);
 }
 

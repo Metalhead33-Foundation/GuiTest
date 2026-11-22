@@ -6,8 +6,9 @@ the dynamic-library and event-loop helpers, and the serialization primitives tha
 higher layers reuse instead of reimplementing.
 
 **Status: implemented, with the networking foundation through M4 + the M5 reference
-pipeline, and the platform I/O seam.** The library is usable today. It is a shared
-library with eight compiled translation units; the rest of its surface is header-only.
+pipeline, the minimal HTTP core, and the platform I/O seam.** The library is usable
+today. It is a shared library with nine compiled translation units; the rest of its
+surface is header-only.
 
 ## Build and consumption
 
@@ -19,9 +20,9 @@ library with eight compiled translation units; the rest of its surface is header
 | Consumer hook | `include(Elvavena/Elvavena.pri)` adds the include path and `-lElvavena` |
 
 Compiled units: `Io/ElvDataSerializationSchema.cpp`, `Io/ElvIoDeviceProxy.cpp`,
-`Net/ElvNetReplicationSchema.cpp`, `Net/ElvNetSession.cpp`, `Util/ElvDynamicLib.cpp`,
-`Util/ElvEventLoop.cpp`, `Util/ElvPollingEventLoop.cpp`, `Util/ElvThreadPool.cpp`.
-Everything else is inline/template code in headers.
+`Net/ElvHttp.cpp`, `Net/ElvNetReplicationSchema.cpp`, `Net/ElvNetSession.cpp`,
+`Util/ElvDynamicLib.cpp`, `Util/ElvEventLoop.cpp`, `Util/ElvPollingEventLoop.cpp`,
+`Util/ElvThreadPool.cpp`. Everything else is inline/template code in headers.
 
 ## Implemented
 
@@ -57,7 +58,7 @@ protocol and the interfaces; the OS socket implementation lives in Euphemy.
 | `ElvNetClockSync.hpp` | `ClockSample`, EWMA `ClockEstimator` (lowest-RTT sample wins) and `TickClock` time/tick conversion |
 | `ElvNetRpc.hpp` | Typed RPC argument codecs, `RpcRegistry` (typed binding, type-erased dispatch), `RpcEncoder`, `RpcDispatcher`, `RpcPolicy`, routing-target enum |
 | `ElvNetId.hpp` | 20-bit index + 12-bit generation `NetId` and recycling `NetIdAllocator`; stale handles fail |
-| `ElvNetReplicationSchema.hpp` / `.cpp` | `ComponentDefinition`, `ComponentOps`, `EntityKindDefinition`, validated `ComponentRegistry`, schema hash; object-schema and trivial-POD codecs |
+| `ElvNetReplicationSchema.hpp` / `.cpp` | `ComponentDefinition`, `ComponentOps`, `FieldDeltaOps`, `EntityKindDefinition`, validated `ComponentRegistry`, schema hash; object-schema and trivial-POD codecs |
 | `ElvNetReplicationRegistry.hpp` | Non-owning `EntityRecord` slots, component pointers/mask, spawn/destroy, generation-checked lookup, iteration |
 | `ElvNetInterest.hpp` | Batch `InterestManager` hook plus `ReplicateAllInterest` and `OwnerInterest` defaults |
 | `ElvNetSnapshot.hpp` | Spawn/update/despawn snapshot framing, byte-framed component payloads, ack-tag baseline promotion/rejection, interest-filtered writes, zero-copy reader payload views |
@@ -65,6 +66,8 @@ protocol and the interfaces; the OS socket implementation lives in Euphemy.
 | `ElvNetPrediction.hpp` | Ordered input queues, delayed input buffer, checksum history, `PredictionSession` mismatch detection, `replayInputs` |
 | `ElvNetLockstep.hpp` | All-peers-ready input collector, per-peer checksum exchange, first divergent tick |
 | `ElvNetReplicationPipeline.hpp` | Reference per-peer server writers with interest filtering/ack routing, client receive/jitter buffer |
+| `ElvNetFieldDelta.hpp` | Schema-driven fixed-field delta codec for `FieldDeltaOps`; changed-field mask plus raw changed bytes |
+| `ElvHttp.hpp` / `.cpp` | Minimal HTTP/1.1 method/header/request/response types, parser and serializer; `Content-Length` framing, limits, HEAD body suppression and explicit incomplete/error status |
 
 `docs/NETCODE.md` records the layer boundaries, the wire contract and the remaining
 milestones. `docs/PLATFORM.md` records the event-poller/completion-wrapper split and
@@ -106,12 +109,15 @@ limits of the current implementation:
 - [ ] `DataStream` and `ElvDataSerializationSchema` are binary serialization
       primitives only. The schema has no version negotiation or reflection; higher
       layers still define their own stream operators where a bespoke format is needed.
-- [ ] The networking foundation now includes snapshots/deltas, interpolation/jitter,
-      prediction/rollback bookkeeping, lockstep input/checksum exchange and the
-      reference pipeline. Remaining: broader WinSock/IPv6 coverage and an optional
-      `FieldDeltaOps` optimization (the current delta compares encoded component
-      payloads). `Session` has no encryption or authentication and no NAT traversal;
-      the connection token is anti-spoofing, not security.
+- [ ] The networking foundation now includes snapshots/deltas, optional field-level
+      `FieldDeltaOps`, interpolation/jitter, prediction/rollback bookkeeping, lockstep
+      input/checksum exchange and the reference pipeline. Remaining: broader
+      WinSock/IPv6 coverage. `Session` has no encryption or authentication and no NAT
+      traversal; the connection token is anti-spoofing, not security.
+- [ ] The HTTP layer is intentionally minimal: no TLS, chunked transfer, keep-alive,
+      routing, URL decoding or automatic JSON/body serialization. `ElvHttp` covers
+      the wire format; `EuphHttpClient`/`EuphHttpServer` cover TCP/UDP connection
+      handling. Extend via `HttpRequestHandler` and application code.
 - [ ] Fragmented messages are delivered when reassembly completes, not in
       message-ordered position relative to other fragmented messages. Strict
       ordering across fragmented messages remains a refinement.

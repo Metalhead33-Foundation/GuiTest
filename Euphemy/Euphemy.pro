@@ -60,6 +60,9 @@ SOURCES += \
  Media/Image/EuphTGA.cpp \
  Media/Image/EuphWEBP.cpp \
  Memory/EuphMemory.cpp \
+ Net/EuphHttpClient.cpp \
+ Net/EuphHttpConnection.cpp \
+ Net/EuphHttpServer.cpp \
  Platform/EuphEpollPoller.cpp \
  Platform/EuphEventLoopWakeup.cpp \
  Platform/EuphEventPollerFactory.cpp \
@@ -111,6 +114,9 @@ HEADERS += \
  Media/Image/EuphTGA.hpp \
  Media/Image/EuphWEBP.hpp \
  Memory/EuphMemory.hpp \
+ Net/EuphHttpClient.hpp \
+ Net/EuphHttpConnection.hpp \
+ Net/EuphHttpServer.hpp \
  Net/EuphUdpTransport.hpp \
  Platform/EuphEpollPoller.hpp \
  Platform/EuphEventLoopWakeup.hpp \

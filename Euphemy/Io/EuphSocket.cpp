@@ -364,6 +364,23 @@ std::optional<Elv::Net::Endpoint> Socket::localEndpoint() const
 	return endpointFromSockaddr(reinterpret_cast<const sockaddr*>(&storage), length);
 }
 
+std::optional<std::uint16_t> Socket::localPort() const
+{
+	if (!isValid()) return std::nullopt;
+	sockaddr_storage storage {};
+	SocketLength length = sizeof(storage);
+	if (getsockname(sockfd_, reinterpret_cast<sockaddr*>(&storage), &length) != 0) {
+		return std::nullopt;
+	}
+	if (storage.ss_family == AF_INET) {
+		return ntohs(reinterpret_cast<const sockaddr_in*>(&storage)->sin_port);
+	}
+	if (storage.ss_family == AF_INET6) {
+		return ntohs(reinterpret_cast<const sockaddr_in6*>(&storage)->sin6_port);
+	}
+	return std::nullopt;
+}
+
 std::optional<size_t> Socket::receiveDatagram(std::span<std::byte> buffer,
 	Elv::Net::Endpoint& from, Elv::Net::NetError* status)
 {

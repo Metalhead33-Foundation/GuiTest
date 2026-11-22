@@ -43,10 +43,15 @@ and compiled translation units. The gaps are listed at the end of this file.
 | Header | Contents |
 |---|---|
 | `EuphUdpTransport.hpp` | `UdpTransport` implements `Elv::Net::DatagramTransport` over `Euph::Io::Socket`: unbound client sockets, server bind with ephemeral ports, non-blocking receive and `resolve`/`localEndpoint`. This is the bridge between Elvavena's session layer and the OS |
+| `EuphHttpClient.hpp` / `.cpp` | Minimal blocking HTTP client over TCP or connected UDP; one socket per request, `Content-Length` framing, sync result and executor-friendly `requestAsync`, `Signal<HttpFailure>` |
+| `EuphHttpServer.hpp` / `.cpp` | Minimal TCP/UDP server scaffold; bind/listen, read one request, delegate to a pure-virtual `HttpRequestHandler`, serialize the response and close |
+| `EuphHttpConnection.hpp` / `.cpp` | Shared blocking socket read/write helpers with timeout configuration and HTTP parser progress |
 
 The transport is intentionally thin. Protocol state (reliability, fragmentation,
 heartbeats) lives in `Elvavena/Net/ElvNetSession.*`; encryption/authentication and NAT
-traversal are not part of this adapter.
+traversal are not part of this adapter. The HTTP layer is likewise deliberately
+minimal: no routing, TLS, chunked encoding, keep-alive, JSON serialization or
+automatic body interpretation. Subclass `HttpRequestHandler` for application policy.
 
 ### `Platform/` - event pollers and completion wrappers
 
@@ -149,6 +154,10 @@ transitions are documented on `ResidencyState` in `EuphAssetTypes.hpp`.
       must be handled by falling back to epoll/kqueue/WSAPoll or a thread-pool I/O path.
 - [ ] io_uring supports accept/connect and registered fixed buffers; `sendmsg`/
       `recvmsg` receive-buffer rings and buffer-update tags remain future work.
+- [ ] The HTTP client/server are deliberately one-request-per-connection blocking
+      helpers. No TLS, chunked transfer, keep-alive, routing, URL decoding or
+      automatic JSON serialization is provided; extend `HttpRequestHandler` and use
+      a reverse proxy/TLS terminator for production-facing services.
 - [ ] The UDP transport's automated coverage is a Linux localhost smoke test
       (`UnitTests` tag `[net][socket]`). The WinSock branch, IPv6-specific paths and
       platform socket-option behaviour are not exercised by CI yet.

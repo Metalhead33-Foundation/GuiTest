@@ -8,11 +8,12 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 97 test cases / 1083 assertions covering the
+**Status: implemented and passing.** 106 test cases / 1151 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
-snapshots, interpolation, prediction, lockstep and the reference pipeline), the
-platform wrappers and a localhost UDP smoke test.
+snapshots, field deltas, interpolation, prediction, lockstep and the reference
+pipeline), the minimal HTTP parser/client/server, the platform wrappers and a
+localhost UDP smoke test.
 
 ## Build and run
 
@@ -43,6 +44,8 @@ The suite exits non-zero when a check fails, so it can be used as a gate. Useful
 ./UnitTests/UnitTests "[prediction]"       # input queues/checksum rollback
 ./UnitTests/UnitTests "[lockstep]"         # input collection/checksum exchange
 ./UnitTests/UnitTests "[pipeline]"         # per-peer replication server/client
+./UnitTests/UnitTests "[http]"             # parser; "[http][socket]" also TCP/UDP
+./UnitTests/UnitTests "[fielddelta]"       # snapshot field-level delta
 ./UnitTests/UnitTests "Snappy*" -s         # one group, showing passing assertions
 ```
 
@@ -70,9 +73,10 @@ build Catch2 as a single amalgamated header and replace the includes.
 | `tests/NetSessionTests.cpp` | Two-session handshake and retry; reliable ordered delivery and ack tags; delivery over a 35% lossy link; fragmentation/reassembly; heartbeat timeout; graceful disconnect; unreliable channel delivery; input validation |
 | `tests/NetClockRpcTests.cpp` | RTT/offset estimation and smoothing, bounded sample history, tick/time conversion; typed RPC encode/dispatch, enums/blobs, unknown/malformed/denied calls and handler exceptions |
 | `tests/NetReplicationTests.cpp` | Generation-checked ID reuse, component/entity-kind validation, object-schema bit-stream round-trip, component masks, stale-handle rejection, interest filtering |
-| `tests/NetSnapshotTests.cpp` | Full spawn baseline, ack-gated deltas, changed/removed component masks, despawns, rejected tags, malformed magic/version/truncation |
+| `tests/NetSnapshotTests.cpp` | Full spawn baseline, ack-gated deltas, changed/removed component masks, despawns, rejected tags, malformed magic/version/truncation; schema field-delta full/delta modes |
 | `tests/NetPredictionInterpolationTests.cpp` | Jitter ordering/interpolation, schema field rules, snapshot jitter buffer, input/delay queues, checksum rollback, lockstep readiness and divergence |
 | `tests/NetReplicationPipelineTests.cpp` | Per-peer `OwnerInterest` snapshots, ack routing, peer removal, client parse/jitter buffer |
+| `tests/HttpTests.cpp` | Request/response serialization, incomplete/malformed/oversize parsing, HEAD suppression, TCP POST, TCP HEAD, `EventLoop` async request, UDP request/response, failure-signal emission |
 | `tests/PlatformWrappersTests.cpp` | Contiguous ring-buffer spans/wrap/bulk copy/resize; event-poller factory; epoll pipe readiness with modify/remove; polling loop commands/readiness/wakeup; kqueue stub; io_uring NOP when available; IOCP unavailable stub |
 | `tests/HarukaStreamerRingTests.cpp` | Deterministic `RingBufferedStreamer` through a four-frame ring; interleaved and separate-channel output across repeated wraps |
 | `tests/UdpTransportTests.cpp` | Localhost non-blocking UDP request/reply through `Euph::Net::UdpTransport` and `Euph::Io::Socket`, including ephemeral-port binding and source-endpoint capture |

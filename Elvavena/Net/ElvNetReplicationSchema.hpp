@@ -109,6 +109,46 @@ struct ComponentOps {
 };
 
 /**
+ * @struct FieldDeltaOps
+ * @brief Optional type-erased field-delta codec for one component.
+ *
+ * A component opts in by installing this table on its `ComponentDefinition`.
+ * The snapshot writer stores the previous raw component bytes and calls
+ * `changed`/`encode` against that baseline. The reader receives a
+ * `SnapshotComponentMode::FieldDelta` payload and the caller applies it with
+ * `decode` against the same baseline.
+ */
+struct FieldDeltaOps {
+	/**
+	 * @brief Returns whether current differs from baseline.
+	 * @param current Current component instance.
+	 * @param baseline Previous acknowledged component bytes.
+	 * @param context Ops-specific context.
+	 */
+	bool (*changed)(const void* current, const void* baseline, const void* context);
+
+	/**
+	 * @brief Encodes the difference from baseline into current.
+	 * @param writer Destination writer.
+	 * @param current Current component instance.
+	 * @param baseline Previous acknowledged component bytes.
+	 * @param context Ops-specific context.
+	 */
+	bool (*encode)(Io::BitWriter& writer, const void* current, const void* baseline,
+		const void* context);
+
+	/**
+	 * @brief Reconstructs current from baseline plus an encoded delta.
+	 * @param reader Source reader.
+	 * @param target Destination component instance.
+	 * @param baseline Previous acknowledged component bytes.
+	 * @param context Ops-specific context.
+	 */
+	bool (*decode)(Io::BitReader& reader, void* target, const void* baseline,
+		const void* context);
+};
+
+/**
  * @struct ComponentDefinition
  * @brief Static description of one replicated component type.
  */
@@ -122,6 +162,8 @@ struct ComponentDefinition {
 	ReplicationFlags flags = ReplicationFlags::None; ///< Replication policy.
 	const FieldQuantization* quantizations = nullptr; ///< Optional per-field packing.
 	std::size_t quantizationCount = 0;          ///< Number of quantization entries.
+	const FieldDeltaOps* fieldDelta = nullptr;  ///< Optional field-level delta table.
+	const void* fieldDeltaContext = nullptr;    ///< Context forwarded to field delta ops.
 };
 
 /**
@@ -184,6 +226,12 @@ public:
 		if (definition.id >= MaxTrackedComponents || definition.size == 0) return false;
 		if (definition.ops == nullptr || definition.ops->encode == nullptr
 			|| definition.ops->decode == nullptr) {
+			return false;
+		}
+		if (definition.fieldDelta != nullptr
+			&& (definition.fieldDelta->changed == nullptr
+				|| definition.fieldDelta->encode == nullptr
+				|| definition.fieldDelta->decode == nullptr)) {
 			return false;
 		}
 		if (definition.schema != nullptr && definition.schema->stride != definition.size) {
@@ -279,6 +327,7 @@ public:
 			mix(definition.id);
 			mix(definition.size);
 			mix(static_cast<std::uint8_t>(definition.flags));
+			mix(definition.fieldDelta != nullptr ? 1 : 0);
 			mix(definition.schema != nullptr ? definition.schema->stride : 0);
 			mix(definition.schema != nullptr ? definition.schema->fieldCount : 0);
 			if (definition.schema != nullptr) {

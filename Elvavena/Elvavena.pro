@@ -12,6 +12,7 @@ SOURCES += \
     Io/ElvIoDeviceProxy.cpp \
     Net/ElvNetReplicationSchema.cpp \
     Net/ElvNetSession.cpp \
+    Net/ElvHttp.cpp \
     Util/ElvDynamicLib.cpp \
     Util/ElvEventLoop.cpp \
     Util/ElvPollingEventLoop.cpp \
@@ -30,8 +31,10 @@ HEADERS += \
     Io/ElvIoSystem.hpp \
     Net/ElvDatagramTransport.hpp \
     Net/ElvLoopbackTransport.hpp \
+    Net/ElvHttp.hpp \
     Net/ElvNetClockSync.hpp \
     Net/ElvNetCongestion.hpp \
+    Net/ElvNetFieldDelta.hpp \
     Net/ElvNetFragment.hpp \
     Net/ElvNetId.hpp \
     Net/ElvNetInterpolation.hpp \

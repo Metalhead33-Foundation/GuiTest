@@ -25,6 +25,7 @@ SOURCES += \
     tests/ConfigTests.cpp \
     tests/FontRoundTripTests.cpp \
     tests/HarukaStreamerRingTests.cpp \
+    tests/HttpTests.cpp \
     tests/ImageCodecTests.cpp \
     tests/NetClockRpcTests.cpp \
     tests/NetPredictionInterpolationTests.cpp \

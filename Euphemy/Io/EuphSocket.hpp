@@ -276,6 +276,12 @@ public:
 	std::optional<Elv::Net::Endpoint> localEndpoint() const;
 
 	/**
+	 * @brief Returns the numeric local port.
+	 * @return Port in host byte order, or empty when unavailable.
+	 */
+	std::optional<std::uint16_t> localPort() const;
+
+	/**
 	 * @brief Receives one datagram without blocking (the socket must be
 	 *        non-blocking for the WouldBlock path).
 	 * @param buffer Destination buffer.

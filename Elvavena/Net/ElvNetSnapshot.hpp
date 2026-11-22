@@ -20,6 +20,8 @@
  * - spawn: type u8, NetId u32, kind u16, owner u32, present mask u64, payloads;
  * - update: type u8, NetId u32, changed mask u64, removed mask u64, payloads;
  * - despawn: type u8, NetId u32.
+ *
+ * Each payload is mode u8 (full or field delta), length u32, then bytes.
  */
 #include <Elvavena/Io/ElvBitStream.hpp>
 #include <Elvavena/Net/ElvNetId.hpp>
@@ -30,6 +32,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <deque>
 #include <limits>
 #include <span>
@@ -41,8 +44,8 @@
 namespace Elv {
 namespace Net {
 
-/** @brief Stable snapshot wire version. */
-inline constexpr std::uint8_t SnapshotWireVersion = 1;
+/** @brief Stable snapshot wire version. Version 2 added the component payload mode. */
+inline constexpr std::uint8_t SnapshotWireVersion = 2;
 
 /** @brief Snapshot magic (`ELVS`). */
 inline constexpr std::uint32_t SnapshotMagic = 0x454C5653u;
@@ -79,12 +82,22 @@ enum class SnapshotRecordType : std::uint8_t {
 };
 
 /**
+ * @enum SnapshotComponentMode
+ * @brief Whether a component payload is full state or a baseline delta.
+ */
+enum class SnapshotComponentMode : std::uint8_t {
+	Full = 0,       ///< Regular `ComponentOps` payload.
+	FieldDelta = 1  ///< `FieldDeltaOps` payload relative to the reader's baseline.
+};
+
+/**
  * @struct SnapshotComponentView
  * @brief One component payload view into the reader's owned storage.
  */
 struct SnapshotComponentView {
 	ComponentId id = 0;                    ///< Component id.
-	std::span<const std::byte> payload;    ///< Encoded component bytes.
+	SnapshotComponentMode mode = SnapshotComponentMode::Full; ///< Payload kind.
+	std::span<const std::byte> payload;    ///< Encoded component bytes or field delta.
 };
 
 /**
@@ -160,7 +173,12 @@ private:
 		for (ComponentId id = 0; id < MaxTrackedComponents; ++id) {
 			if ((record.componentMask & (1ull << id)) == 0) continue;
 			if (registry.findComponent(id) == nullptr) return fail(SnapshotError::UnknownComponent);
+			std::uint64_t modeValue = 0;
 			std::uint64_t length = 0;
+			if (!reader.readBits(modeValue, 8)) return fail(SnapshotError::Truncated);
+			if (modeValue > static_cast<std::uint64_t>(SnapshotComponentMode::FieldDelta)) {
+				return fail(SnapshotError::InvalidRecord);
+			}
 			if (!reader.readBits(length, 32)) return fail(SnapshotError::Truncated);
 			if (!reader.alignToByte()) return fail(SnapshotError::Truncated);
 			if (length > reader.remainingBits() / 8) return fail(SnapshotError::Truncated);
@@ -168,7 +186,8 @@ private:
 			if (length != 0 && !reader.readBytes(payloads_.back())) {
 				return fail(SnapshotError::Truncated);
 			}
-			record.components.push_back(SnapshotComponentView { id, payloads_.back() });
+			record.components.push_back(SnapshotComponentView {
+				id, static_cast<SnapshotComponentMode>(modeValue), payloads_.back() });
 		}
 		return true;
 	}
@@ -358,9 +377,17 @@ private:
 		PeerId owner = InvalidPeer;
 		std::uint64_t mask = 0;
 		std::array<std::vector<std::byte>, MaxTrackedComponents> payloads;
+		std::array<std::vector<std::byte>, MaxTrackedComponents> values;
 	};
 
 	using BaselineMap = std::unordered_map<NetId, BaselineEntity, NetIdHash>;
+
+	/** @brief One encoded component in a pending record. */
+	struct PendingComponent {
+		ComponentId id = 0;
+		SnapshotComponentMode mode = SnapshotComponentMode::Full;
+		std::vector<std::byte> payload;
+	};
 
 	/** @brief One record being encoded. */
 	struct PendingRecord {
@@ -370,7 +397,7 @@ private:
 		PeerId owner = InvalidPeer;
 		std::uint64_t mask = 0;
 		std::uint64_t removedMask = 0;
-		std::vector<std::pair<ComponentId, std::vector<std::byte>>> components;
+		std::vector<PendingComponent> components;
 	};
 
 	/** @brief Candidate baseline held until an ack arrives. */
@@ -396,6 +423,17 @@ private:
 	 */
 	static bool encodeComponent(const ComponentDefinition& definition, const void* data,
 		std::vector<std::byte>& payload);
+
+	/**
+	 * @brief Encodes a field-delta payload against a baseline.
+	 * @param definition Component definition.
+	 * @param current Current component instance.
+	 * @param baseline Previous component bytes.
+	 * @param payload Receives encoded delta bytes.
+	 * @return True on success.
+	 */
+	static bool encodeFieldDelta(const ComponentDefinition& definition, const void* current,
+		const void* baseline, std::vector<std::byte>& payload);
 
 	/**
 	 * @brief Shared snapshot implementation with an optional visible-id filter.
@@ -426,6 +464,29 @@ inline bool SnapshotWriter::encodeComponent(const ComponentDefinition& definitio
 		payload.resize(capacity);
 		Io::BitWriter writer(payload);
 		if (definition.ops->encode(writer, data, definition.opsContext)) {
+			if (!writer.alignToByte()) return false;
+			payload.resize(writer.byteSize());
+			return true;
+		}
+		if (writer.status() != Io::BitStreamStatus::BufferFull) return false;
+		if (capacity > std::numeric_limits<std::size_t>::max() / 2) return false;
+		capacity *= 2;
+	}
+	return false;
+}
+
+inline bool SnapshotWriter::encodeFieldDelta(const ComponentDefinition& definition,
+	const void* current, const void* baseline, std::vector<std::byte>& payload) {
+	if (definition.fieldDelta == nullptr || definition.fieldDelta->encode == nullptr
+		|| current == nullptr || baseline == nullptr) {
+		return false;
+	}
+	std::size_t capacity = std::max<std::size_t>(64, definition.size + 64);
+	for (int attempt = 0; attempt < 6; ++attempt) {
+		payload.resize(capacity);
+		Io::BitWriter writer(payload);
+		if (definition.fieldDelta->encode(writer, current, baseline,
+			definition.fieldDeltaContext)) {
 			if (!writer.alignToByte()) return false;
 			payload.resize(writer.byteSize());
 			return true;
@@ -482,18 +543,40 @@ inline SnapshotWriteResult SnapshotWriter::writeImpl(std::uint32_t tick,
 				failure = SnapshotError::MissingComponent;
 				return;
 			}
-			std::vector<std::byte> payload;
-			if (!encodeComponent(*definition, entity.components[id], payload)) {
-				failed = true;
-				failure = SnapshotError::EncodeFailed;
-				return;
-			}
-			candidateEntity.payloads[id] = payload;
 			const bool hadComponent = !spawn && (old->second.mask & bit) != 0;
-			const bool changed = spawn || !hadComponent || old->second.payloads[id] != payload;
+			const bool hasFieldBaseline = definition->fieldDelta != nullptr
+				&& definition->fieldDelta->changed != nullptr && hadComponent
+				&& old->second.values[id].size() == definition->size;
+			std::vector<std::byte> payload;
+			SnapshotComponentMode mode = SnapshotComponentMode::Full;
+			bool changed = false;
+			if (hasFieldBaseline) {
+				changed = definition->fieldDelta->changed(entity.components[id],
+					old->second.values[id].data(), definition->fieldDeltaContext);
+				if (changed && !encodeFieldDelta(*definition, entity.components[id],
+					old->second.values[id].data(), payload)) {
+					failed = true;
+					failure = SnapshotError::EncodeFailed;
+					return;
+				}
+				if (changed) mode = SnapshotComponentMode::FieldDelta;
+			} else {
+				if (!encodeComponent(*definition, entity.components[id], payload)) {
+					failed = true;
+					failure = SnapshotError::EncodeFailed;
+					return;
+				}
+				candidateEntity.payloads[id] = payload;
+				changed = spawn || !hadComponent || old->second.payloads[id] != payload;
+			}
+			if (definition->fieldDelta != nullptr) {
+				candidateEntity.values[id].resize(definition->size);
+				std::memcpy(candidateEntity.values[id].data(), entity.components[id],
+					definition->size);
+			}
 			if (changed) {
 				record.mask |= bit;
-				record.components.emplace_back(id, std::move(payload));
+				record.components.push_back(PendingComponent { id, mode, std::move(payload) });
 			}
 		}
 		if (spawn) {
@@ -535,7 +618,7 @@ inline SnapshotWriteResult SnapshotWriter::writeImpl(std::uint32_t tick,
 
 	std::size_t estimate = 16 + records.size() * 32;
 	for (const PendingRecord& record : records) {
-		for (const auto& component : record.components) estimate += component.second.size() + 4;
+		for (const auto& component : record.components) estimate += component.payload.size() + 5;
 	}
 	bool encoded = false;
 	for (int attempt = 0; attempt < 6 && !encoded; ++attempt) {
@@ -557,10 +640,12 @@ inline SnapshotWriteResult SnapshotWriter::writeImpl(std::uint32_t tick,
 			} else if (record.type == SnapshotRecordType::Update) {
 				ok = put(record.mask, 64) && put(record.removedMask, 64);
 			}
-			for (const auto& component : record.components) {
+			for (const PendingComponent& component : record.components) {
 				if (!ok) break;
-				ok = writer.alignToByte() && put(component.second.size(), 32)
-					&& writer.writeBytes(component.second);
+				ok = writer.alignToByte()
+					&& put(static_cast<std::uint64_t>(component.mode), 8)
+					&& put(component.payload.size(), 32)
+					&& writer.writeBytes(component.payload);
 			}
 		}
 		if (ok) ok = writer.alignToByte();

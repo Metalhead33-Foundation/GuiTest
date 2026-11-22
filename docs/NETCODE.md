@@ -23,7 +23,7 @@ sockets live in Euphemy.
 | Clock sync | `Elvavena/Net/ElvNetClockSync.hpp` | Lowest-RTT offset estimate, EWMA smoothing, tick/time conversion |
 | RPC | `Elvavena/Net/ElvNetRpc.hpp` | Typed argument codecs, registry, encoder, dispatcher, policy, target enum |
 | Replication core | `Elvavena/Net/ElvNetId.hpp`, `ElvNetReplicationSchema.*`, `ElvNetReplicationRegistry.hpp`, `ElvNetInterest.hpp` | Generation-checked ids, validated component/entity-kind descriptors, non-owning entity/component slots, batch interest hook |
-| Snapshot/delta | `Elvavena/Net/ElvNetSnapshot.hpp` | Spawn/update/despawn framing, byte-framed component payloads, acknowledged-baseline delta, ack-tag promotion/rejection, filtered per-interest writes |
+| Snapshot/delta | `Elvavena/Net/ElvNetSnapshot.hpp`, `ElvNetFieldDelta.hpp` | Spawn/update/despawn framing, full or field-delta component payloads, acknowledged-baseline delta, ack-tag promotion/rejection, filtered per-interest writes, schema fixed-field delta codec |
 | Interpolation/jitter | `Elvavena/Net/ElvNetInterpolation.hpp` | `InterpolationOps`, arithmetic and schema-field interpolation, generic tick `JitterBuffer`, snapshot payload jitter buffer |
 | Prediction | `Elvavena/Net/ElvNetPrediction.hpp` | Ordered input queues, delay buffer, checksum history, `PredictionSession` mismatch detection, `replayInputs` |
 | Lockstep | `Elvavena/Net/ElvNetLockstep.hpp` | All-peers-ready input collector, per-peer checksum exchange, first-divergence lookup |
@@ -78,9 +78,10 @@ There are two deliberate mechanisms:
 - **Function-pointer ops tables** for per-type/per-schema hot paths, following
   the existing `Elv::Io::CompositeOps` precedent. `ComponentOps` drives snapshot
   payloads; `InterpolationOps` drives jitter-buffer sampling and schema field
-  interpolation. Snapshot deltas compare encoded component payloads, so no
-  per-type delta table is required; a future `FieldDeltaOps` table would be an
-  optimization, not a correctness dependency.
+  interpolation. Snapshot deltas compare encoded component payloads by default;
+  components may install an optional `FieldDeltaOps` table (`ElvNetFieldDelta.hpp`
+  provides a schema fixed-field implementation) to send a changed-field mask plus
+  raw changed bytes instead.
 
 Notification callbacks (`SessionEvents`) have no-op defaults, so a game only
 overrides what it needs. Setup-time callbacks may use `std::function`; per-packet
@@ -146,5 +147,6 @@ component schema validation, the object-schema codec, entity registry/component
 masks, interest filtering, snapshot spawn/delta/removal/despawn/ack baselines,
 interpolation/jitter buffers, prediction input/checksum rollback, lockstep
 input/checksum exchange and the per-peer replication pipeline. The current suite
-has 97 cases and 1083 assertions; `[net][socket]` adds the localhost UDP path.
+has 106 cases and 1151 assertions; `[net][socket]` adds the localhost UDP path and
+`[http][socket]` adds the HTTP TCP/UDP path.
 
