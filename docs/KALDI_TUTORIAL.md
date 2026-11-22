@@ -419,8 +419,7 @@ Kld::DeferredDestroyQueue retired;
 retired.retire(Kld::ResourceHandleKind::Texture, textureId);   // any thread
 // ... later, on the submission thread:
 retired.flushInto(mainThread);   // records DestroyTexture + frees the id
-
----
+```
 
 ## 4. Choosing between the two
 
