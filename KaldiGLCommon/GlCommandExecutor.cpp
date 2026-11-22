@@ -18,6 +18,14 @@
 
 namespace KALDIGL_NS {
 
+#if !KALDIGL_IS_GLES && !defined(GL_DEPTH_BITS)
+// glad's desktop header is generated without the default-framebuffer bit-depth
+// constants, although glGetIntegerv accepts them in every GL 3.0+ core profile.
+// The values are the stable ones from the GL specification.
+#define GL_DEPTH_BITS 0x0D56
+#define GL_STENCIL_BITS 0x0D57
+#endif
+
 namespace {
 
 /** @brief Maps a handler call onto one dispatch arm, aborting on failure. */
@@ -175,7 +183,8 @@ bool CommandExecutor::isHandleInUse(Kld::HandleId id) const
 		|| images_.find(id) != images_.end() || samplers_.find(id) != samplers_.end()
 		|| framebuffers_.find(id) != framebuffers_.end() || pipelines_.find(id) != pipelines_.end()
 		|| computePipelines_.find(id) != computePipelines_.end() || fences_.find(id) != fences_.end()
-		|| queryPools_.find(id) != queryPools_.end() || vertexArrays_.find(id) != vertexArrays_.end();
+		|| queryPools_.find(id) != queryPools_.end() || vertexArrays_.find(id) != vertexArrays_.end()
+		|| swapchains_.find(id) != swapchains_.end();
 }
 
 GlBufferObject* CommandExecutor::buffer(Kld::HandleId id)
@@ -635,10 +644,70 @@ Kld::HalStatus CommandExecutor::debugMarker(const Kld::OpDebugMarker& op)
 	return Kld::HalOk;
 }
 
-Kld::HalStatus CommandExecutor::createSwapchain(const Kld::OpCreateSwapchain&)
+Kld::HalStatus CommandExecutor::createSwapchain(const Kld::OpCreateSwapchain& op)
 {
-	return failUnsupported("explicit swapchains are not implemented by the GL backend; "
-			       "use BeginFrame/EndFrame/Present with DefaultFramebuffer");
+	if (op.id == Kld::DefaultSwapchain) {
+		return fail(Kld::HalStatusCode::InvalidCommand,
+			    "DefaultSwapchain is reserved for the backend-owned path; use a nonzero id");
+	}
+	if (op.descriptor == nullptr) {
+		return fail(Kld::HalStatusCode::InvalidCommand,
+			    "CreateSwapchain requires a descriptor");
+	}
+	const Kld::SwapchainDescriptor& descriptor = *op.descriptor;
+	if (isHandleInUse(op.id) || swapchains_.count(op.id) != 0) {
+		return fail(Kld::HalStatusCode::InvalidCommand, "swapchain handle is already in use");
+	}
+	if (descriptor.nativeSurface != nullptr) {
+		return failUnsupported("GL presents through the context's own drawable; pass a null "
+				       "native surface");
+	}
+	if (descriptor.presentMode == Kld::PresentMode::Mailbox) {
+		return failUnsupported("OpenGL has no mailbox present mode; use Fifo or Immediate "
+				       "(the swap interval itself belongs to the platform layer)");
+	}
+	if (descriptor.colorFormat == Kld::TextureFormat::INVALID) {
+		return fail(Kld::HalStatusCode::InvalidCommand,
+			    "the swapchain descriptor needs a color format");
+	}
+	for (std::uint32_t index = 0; index < descriptor.imageBindingCount; ++index) {
+		const Kld::SwapchainImageBinding& binding = descriptor.imageBindings[index];
+		if (binding.colorImage != 0 || binding.depthStencilImage != 0
+		    || binding.framebuffer != 0) {
+			return failUnsupported("GL exposes a single backend-owned image; leave the "
+					       "swapchain image bindings zero");
+		}
+	}
+	GLint depthBits = 0;
+	GLint stencilBits = 0;
+	glGetIntegerv(GL_DEPTH_BITS, &depthBits);
+	glGetIntegerv(GL_STENCIL_BITS, &stencilBits);
+	const bool hasDepthStencil = depthBits > 0 || stencilBits > 0;
+	if (descriptor.depthStencilFormat != Kld::TextureFormat::INVALID && !hasDepthStencil) {
+		return failUnsupported("the drawable has no depth or stencil buffer; create the "
+				       "context with one, or leave depthStencilFormat unset");
+	}
+	GlSwapchainObject object;
+	object.width = descriptor.width;
+	object.height = descriptor.height;
+	if (object.width == 0 || object.height == 0) {
+		GLint viewport[4] = { 0, 0, 0, 0 };
+		glGetIntegerv(GL_VIEWPORT, viewport);
+		if (object.width == 0 && viewport[2] > 0) {
+			object.width = static_cast<std::uint16_t>(viewport[2]);
+		}
+		if (object.height == 0 && viewport[3] > 0) {
+			object.height = static_cast<std::uint16_t>(viewport[3]);
+		}
+	}
+	if (object.width == 0 || object.height == 0) {
+		return fail(Kld::HalStatusCode::InvalidCommand,
+			    "the swapchain extent is zero and the current viewport does not define one");
+	}
+	object.presentMode = descriptor.presentMode;
+	object.depthStencil = hasDepthStencil;
+	swapchains_.emplace(op.id, object);
+	return Kld::HalOk;
 }
 
 Kld::HalStatus CommandExecutor::destroySwapchain(const Kld::OpDestroySwapchain& op)
@@ -646,18 +715,50 @@ Kld::HalStatus CommandExecutor::destroySwapchain(const Kld::OpDestroySwapchain& 
 	if (op.id == Kld::DefaultSwapchain) {
 		return Kld::HalOk; // The default target is backend-owned; nothing to destroy.
 	}
-	return failUnsupported("explicit swapchains are not implemented by the GL backend");
+	const auto found = swapchains_.find(op.id);
+	if (found == swapchains_.end()) {
+		return failInvalidHandle("swapchain", op.id);
+	}
+	swapchains_.erase(found);
+	return Kld::HalOk;
 }
 
-Kld::HalStatus CommandExecutor::resizeSwapchain(const Kld::OpResizeSwapchain&)
+Kld::HalStatus CommandExecutor::resizeSwapchain(const Kld::OpResizeSwapchain& op)
 {
-	return failUnsupported("explicit swapchains are not implemented by the GL backend");
+	if (op.id == Kld::DefaultSwapchain) {
+		// The platform owns the drawable size; there is nothing to recreate.
+		return Kld::HalOk;
+	}
+	const auto found = swapchains_.find(op.id);
+	if (found == swapchains_.end()) {
+		return failInvalidHandle("swapchain", op.id);
+	}
+	for (std::uint32_t index = 0; index < op.imageBindingCount; ++index) {
+		const Kld::SwapchainImageBinding& binding = op.imageBindings[index];
+		if (binding.colorImage != 0 || binding.depthStencilImage != 0
+		    || binding.framebuffer != 0) {
+			return failUnsupported("GL exposes a single backend-owned image; leave the "
+					       "swapchain image bindings zero");
+		}
+	}
+	// Advisory only: the drawable keeps the size the window system gave it.
+	if (op.width != 0) {
+		found->second.width = op.width;
+	}
+	if (op.height != 0) {
+		found->second.height = op.height;
+	}
+	return Kld::HalOk;
 }
 
 Kld::HalStatus CommandExecutor::acquireSwapchainImage(const Kld::OpAcquireSwapchainImage& op)
 {
 	if (op.swapchain != Kld::DefaultSwapchain) {
-		return failUnsupported("explicit swapchains are not implemented by the GL backend");
+		const auto found = swapchains_.find(op.swapchain);
+		if (found == swapchains_.end()) {
+			return failInvalidHandle("swapchain", op.swapchain);
+		}
+		found->second.acquired = true;
 	}
 	if (op.callback != nullptr) {
 		const Kld::SwapchainAcquireInfo info { op.swapchain, Kld::SwapchainStatus::Ready, 0, 0, 0,
@@ -669,10 +770,31 @@ Kld::HalStatus CommandExecutor::acquireSwapchainImage(const Kld::OpAcquireSwapch
 
 Kld::HalStatus CommandExecutor::presentSwapchain(const Kld::OpPresentSwapchain& op)
 {
-	if (op.swapchain != Kld::DefaultSwapchain) {
-		return failUnsupported("explicit swapchains are not implemented by the GL backend");
+	if (op.swapchain == Kld::DefaultSwapchain) {
+		return present(Kld::OpPresent { Kld::DefaultFramebuffer });
 	}
-	return present(Kld::OpPresent { Kld::DefaultFramebuffer });
+	const auto found = swapchains_.find(op.swapchain);
+	if (found == swapchains_.end()) {
+		return failInvalidHandle("swapchain", op.swapchain);
+	}
+	if (!found->second.acquired) {
+		return fail(Kld::HalStatusCode::InvalidResourceState,
+			    "PresentSwapchain needs an acquired image (AcquireSwapchainImage)");
+	}
+	if (op.imageIndex != 0) {
+		return fail(Kld::HalStatusCode::InvalidCommand,
+			    "GL exposes a single presentable image, so the index must be 0");
+	}
+	try {
+		context_.swapBuffers();
+	} catch (const std::exception& error) {
+		found->second.acquired = false;
+		frameActive_ = false;
+		return fail(Kld::HalStatusCode::SwapchainLost, error.what());
+	}
+	found->second.acquired = false;
+	frameActive_ = false;
+	return Kld::HalOk;
 }
 
 Kld::HalStatus CommandExecutor::beginRenderPass(const Kld::OpBeginRenderPass& op)

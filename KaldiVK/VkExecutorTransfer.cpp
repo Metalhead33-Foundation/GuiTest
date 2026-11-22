@@ -65,7 +65,7 @@ Kld::HalStatus CommandExecutor::destroyQueryPool(const Kld::OpDestroyQueryPool& 
 	}
 	DeferredDestroy deferred {};
 	deferred.queryPool_ = found->second.pool;
-	deferred_.push_back(deferred);
+	defer(deferred);
 	queryPools_.erase(found);
 	return Kld::HalOk;
 }

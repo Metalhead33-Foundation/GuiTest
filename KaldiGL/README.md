@@ -9,7 +9,9 @@ images, samplers, framebuffers, SPIR-V graphics/compute pipelines, bindings, eve
 draw and indirect form, render state, barriers, transfers/readbacks, queries, debug
 labels and the `BeginFrame`/`Present` path. Destroy commands delete GL names
 immediately, which is the HAL's deferred retirement for OpenGL. Explicit swapchain
-objects are the one deliberate gap (`UnsupportedBaseline`); GL presentation is the
+objects (HAL 1.1) are a validated view of that drawable: `AcquireSwapchainImage`
+reports `DefaultFramebuffer` with image index 0, `PresentSwapchain` swaps the window,
+and a non-null native surface or mailbox pacing answers `UnsupportedBaseline`; GL presentation is the
 default framebuffer. The executor has been validated with an offscreen triangle plus
 per-pixel readback on both dialects (NVIDIA, EGL). The context and capability half is
 described below.
@@ -56,10 +58,10 @@ compiled without Position-Independent Code (`-fPIC`)
 
 ## TODO
 
-- [x] Implement `Device::capabilities()` and report `KaldiHalVersion1_0` with probed limits.
-- [x] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set (explicit swapchain objects report `UnsupportedBaseline`).
+- [x] Implement `Device::capabilities()` and report `KaldiHalVersion1_1` with probed limits.
+- [x] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set, including explicit swapchain objects (a validated view of the default drawable).
 - [x] Create and own an OpenGL 4.3 core context from the `SDL_SysWMinfo` passed to `kld_create_rendering_device` (EGL or GLX, via `GL::createContext`).
-- [ ] Implement the backend-owned `DefaultFramebuffer` and the `BeginFrame`/`EndFrame`/`Present` path, plus explicit swapchains. (The default path works; explicit swapchain objects are still `UnsupportedBaseline`.)
+- [x] Implement the backend-owned `DefaultFramebuffer` and the `BeginFrame`/`EndFrame`/`Present` path, plus explicit swapchain objects. (A GL swapchain is a validated view of the context drawable: one backend-owned image at index 0, and `PresentSwapchain` swaps the window buffers.)
 - [ ] Implement deferred resource retirement for destroy commands. (GL deletes names immediately, which the driver already defers until the last referencing command; document this as the retirement policy or add an explicit queue if a driver behaviour ever needs it.)
 - [x] Compile the GLSL produced by `GL::spirvToGlsl()` into program objects and wire `Kld::PipelineBindingLayout` to explicit uniform/sampler bindings.
 - [ ] Return real status/error strings instead of `nullptr`. (Devices, executors and the C ABI report messages; the remaining `nullptr` is `kld_get_last_error_message` before the first failure.)

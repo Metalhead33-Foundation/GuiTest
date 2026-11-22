@@ -61,6 +61,12 @@ Kld::HalStatus CommandExecutor::createSwapchainObjects()
 	if (caps.maxImageCount > 0) {
 		imageCount = std::min(imageCount, caps.maxImageCount);
 	}
+	// Two queue families need concurrent sharing; the transfer recorded on the
+	// graphics queue must be visible to the presentation engine without an
+	// explicit ownership transfer.
+	const std::uint32_t families[2] = { context_.graphicsQueueFamily(),
+					    context_.presentQueueFamily() };
+	const bool separateFamilies = families[0] != families[1];
 	VkSwapchainCreateInfoKHR info {};
 	info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	info.surface = surface;
@@ -70,7 +76,12 @@ Kld::HalStatus CommandExecutor::createSwapchainObjects()
 	info.imageExtent = extent;
 	info.imageArrayLayers = 1;
 	info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	info.imageSharingMode =
+		separateFamilies ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+	if (separateFamilies) {
+		info.queueFamilyIndexCount = 2;
+		info.pQueueFamilyIndices = families;
+	}
 	info.preTransform = caps.currentTransform;
 	info.compositeAlpha = composite;
 	info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
@@ -85,15 +96,16 @@ Kld::HalStatus CommandExecutor::createSwapchainObjects()
 	VkAttachmentDescription color {};
 	color.format = swapchainFormat_;
 	color.samples = VK_SAMPLE_COUNT_1_BIT;
-	// Load, not clear: the executor clears explicitly in BeginFrame so a render
-	// pass re-begun after a mid-frame flush preserves the image. The acquired image
-	// is already in PRESENT_SRC_KHR, so LOAD needs no transition.
+	// The acquired image is transitioned to COLOR_ATTACHMENT_OPTIMAL right after
+	// the acquire, and present transitions it back, so the pass itself stays in
+	// that layout. LOAD (not CLEAR) keeps a pass that is re-begun after a mid-frame
+	// flush from wiping the image; BeginFrame clears explicitly.
 	color.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	color.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	color.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	color.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	color.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	color.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	VkAttachmentReference colorRef { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
 	VkSubpassDescription subpass {};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -152,11 +164,20 @@ Kld::HalStatus CommandExecutor::createSwapchainObjects()
 	return Kld::HalOk;
 }
 
+void CommandExecutor::waitForPresentQueue() noexcept
+{
+	if (vkQueueWaitIdle == nullptr || context_.presentQueue() == VK_NULL_HANDLE) {
+		return;
+	}
+	(void)vkQueueWaitIdle(context_.presentQueue());
+}
+
 void CommandExecutor::destroySwapchainObjects() noexcept
 {
 	if (vkDestroySwapchainKHR == nullptr) {
 		return;
 	}
+	waitForPresentQueue();
 	for (VkFramebuffer framebuffer : swapchainFramebuffers_) {
 		vkDestroyFramebuffer(context_.device(), framebuffer, nullptr);
 	}
@@ -208,6 +229,26 @@ Kld::HalStatus CommandExecutor::acquireDefaultImage()
 	(void)vkWaitForFences(context_.device(), 1, &acquireFence_, VK_TRUE, UINT64_MAX);
 	(void)vkResetFences(context_.device(), 1, &acquireFence_);
 	imageAcquired_ = true;
+	// The presentation engine hands the image over in an undefined layout; the
+	// render pass expects COLOR_ATTACHMENT_OPTIMAL. Discarding the old contents is
+	// intended: BeginFrame clears the image explicitly.
+	Kld::HalStatus status = ensureRecording();
+	if (!status.ok()) {
+		return status;
+	}
+	VkImageMemoryBarrier barrier {};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.srcAccessMask = 0;
+	barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = swapchainImages_[currentImageIndex_];
+	barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	vkCmdPipelineBarrier(commandBuffer_, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0,
+			     nullptr, 1, &barrier);
 	return Kld::HalOk;
 }
 
@@ -339,7 +380,32 @@ Kld::HalStatus CommandExecutor::present(const Kld::OpPresent& op)
 			    "Present needs an acquired swapchain image (BeginFrame)");
 	}
 	endActiveRenderPass();
-	Kld::HalStatus status = submitAndWait();
+	// Present needs the image back in PRESENT_SRC_KHR, which the render pass
+	// deliberately does not do (it ends in COLOR_ATTACHMENT_OPTIMAL so a re-begun
+	// pass stays valid).
+	Kld::HalStatus status = ensureRecording();
+	if (!status.ok()) {
+		return status;
+	}
+	VkImageMemoryBarrier barrier {};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	barrier.dstAccessMask = 0;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = swapchainImages_[currentImageIndex_];
+	barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	vkCmdPipelineBarrier(commandBuffer_, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			     VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1,
+			     &barrier);
+	// The present queue is usually the graphics queue, and then queue order alone
+	// guarantees the render finishes before the presentation engine reads the
+	// image, so waiting would only remove the overlap. Two different queues need
+	// the explicit drain.
+	const bool sameQueue = context_.presentQueue() == context_.graphicsQueue();
+	status = submitCurrent(!sameQueue);
 	if (!status.ok()) {
 		return status;
 	}

@@ -8,7 +8,7 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 149 test cases / 1969 assertions covering the
+**Status: implemented and passing.** 150 test cases / 1978 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
 snapshots, field deltas, interpolation, prediction, lockstep and the reference

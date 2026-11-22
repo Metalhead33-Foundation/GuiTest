@@ -93,7 +93,7 @@ bool hasGlExtension(std::string_view extension) noexcept;
  * @return The probed snapshot, or `Kld::halCapabilitiesNone()` when there is no
  *         current context or the GL entry points are not loaded.
  *
- * The returned struct always carries `Kld::KaldiHalVersion1_0`; a non-zero
+ * The returned struct always carries `Kld::KaldiHalVersion1_1`; a non-zero
  * `maxTexture2DSize` is the practical "this snapshot is real" indicator.
  */
 Kld::HalCapabilities probeCapabilities() noexcept;

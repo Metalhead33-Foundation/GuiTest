@@ -6,10 +6,11 @@ it. The rendering backends are separate shared libraries: [KaldiGL](../KaldiGL/R
 [KaldiGLES](../KaldiGLES/README.md), [KaldiVK](../KaldiVK/README.md),
 [KaldiD3D11](../KaldiD3D11/README.md) and [KaldiD3D12](../KaldiD3D12/README.md).
 
-**Status: the contract and the recording facade are implemented; no backend is.**
-The command vocabulary (98 opcodes), the HAL 1.0/1.1 contract, and the header-only
-recording facade are usable today. All five backend projects currently build stubs that
-export the C ABI but cannot execute commands yet.
+**Status: the contract and the recording facade are implemented; OpenGL, OpenGL ES and
+Vulkan execute it.** The command vocabulary (98 opcodes), the HAL 1.0/1.1 contract, and
+the header-only recording facade are usable today. `KaldiGL`, `KaldiGLES` and `KaldiVK`
+implement `processCommandQueue()` (the Vulkan backend reports HAL 1.1); `KaldiD3D11` and
+`KaldiD3D12` still build stubs that export the C ABI but cannot execute commands yet.
 
 ## Key files
 
@@ -67,7 +68,7 @@ Capability probing lives next to each backend's context layer: `KaldiGLCommon/Gl
 
 Command payloads may reference externally owned data by pointer. As with the existing texture upload commands, callers must keep pointed-to data alive until the backend has processed the command queue. That rule covers upload/readback memory, shader words, vertex descriptors, framebuffer attachment arrays, pipeline binding layouts, swapchain descriptors/image bindings/native surface pointers, render-pass descriptors/attachment arrays, debug strings, optional pipeline names, callbacks, and callback `userData`.
 
-`processCommandQueue()` is now implemented for the GL family and started for Vulkan. `KaldiGLCommon/GlCommandExecutor.*` is a complete OpenGL 4.3 / OpenGL ES 3.2 executor shared by both backends (resource registries, the `KLD_DISPATCH_*` structure, pipeline variants from SPIR-V, every draw/state/transfer/query handler, and the default frame path; explicit swapchain objects report `UnsupportedBaseline` because GL presentation is the default framebuffer). Its destroy commands delete GL names immediately, which satisfies the retirement contract because the GL driver keeps an object alive until the last referencing command has executed. `KaldiVK/VkCommandExecutor.*` is a synchronous submit-and-wait executor that implements the whole opcode set: host-visible buffers, 1D/2D/3D/array/cube textures and 2D images, samplers, framebuffers with a render pass each, SPIR-V graphics and compute pipelines with one descriptor set per binding kind, every draw/dispatch/copy/query form and the default swapchain path. Its `UnsupportedBaseline` answers name Vulkan 1.0 limitations precisely (explicit swapchains, base-instance draws, vertex instance divisors, per-sampler LOD bias, depth/stencil and compressed readback, multisampled framebuffers, debug labels). The Direct3D 11 and 12 `Device` classes now own their `Context` objects and probe real capabilities, but still answer `processCommandQueue()` with `UnsupportedBaseline`; their `.cpp` files document the intended registry/pipeline/retirement design in place.
+`processCommandQueue()` is implemented for the GL family and for Vulkan. `KaldiGLCommon/GlCommandExecutor.*` is a complete OpenGL 4.3 / OpenGL ES 3.2 executor shared by both backends (resource registries, the `KLD_DISPATCH_*` structure, pipeline variants from SPIR-V, every draw/state/transfer/query handler, the default frame path and explicit swapchain objects as a validated view of the drawable). Its destroy commands delete GL names immediately, which satisfies the retirement contract because the GL driver keeps an object alive until the last referencing command has executed. `KaldiVK/VkCommandExecutor.*` is a frames-in-flight executor (three slots, fence-driven retirement, a per-slot descriptor ring) that implements the whole opcode set: host-visible buffers, 1D/2D/3D/array/cube textures, 2D/multisampled/depth images, samplers, framebuffers with a render pass each, SPIR-V graphics and compute pipelines with one descriptor set per binding kind, every draw/dispatch/copy/query form, debug labels through `VK_EXT_debug_utils`, explicit swapchain objects, and the default swapchain path. Its remaining `UnsupportedBaseline` answers name Vulkan 1.0 limitations precisely (base-instance draws, vertex instance divisors, per-sampler LOD bias, depth/stencil and compressed readback, explicit swapchains with a depth attachment). The Direct3D 11 and 12 `Device` classes own their `Context` objects and probe real capabilities, but still answer `processCommandQueue()` with `UnsupportedBaseline`; their `.cpp` files document the intended registry/pipeline/retirement design in place.
 
 Readback commands use POD callbacks plus `void* userData`, matching the buffer mapping command style. Backend-provided callback data is valid only for the duration of the callback; callers must copy anything they need after the callback returns. The callback pointer and `userData` must remain valid until the backend has processed the command queue.
 
@@ -96,6 +97,8 @@ Destroy commands are logical retirement requests. Backends must delay physical d
 ## Kaldi HAL 1.1 contract additions
 
 Explicit swapchains are optional caller-visible presentation objects addressed by `HandleId`, with `DefaultSwapchain` reserved as `0` for the backend-owned default target. `SwapchainDescriptor` carries an opaque backend-facing native surface pointer, dimensions, color/depth formats, present mode, image count, and optional `SwapchainImageBinding` entries that associate swapchain image indices with predeclared image/framebuffer handles. `AcquireSwapchainImage` reports `SwapchainStatus` plus the active image through a POD callback, and `PresentSwapchain` presents an image by index. Existing `BeginFrame`, `EndFrame`, and `Present` remain the simple default-framebuffer path. Swapchain loss is still reported through `HalStatusCode::SwapchainLost`.
+
+Backends that own their presentable images report a *usable* framebuffer handle instead of the caller's: IDs from `BackendHandleBase` (`0x80000000`) upwards belong to the backend, so an acquire callback can hand back something the caller may bind but must not destroy. `HalCapabilities::supportsExplicitSwapchains` says whether a backend honours the whole group, and a 1.1 backend reports `KaldiHalVersion1_1`.
 
 Render-pass metadata is available through `RenderPassDescriptor`, `RenderPassColorAttachment`, and `RenderPassDepthStencilAttachment`. `BeginRenderPass` implicitly establishes its framebuffer for following draw commands and describes each attachment's load, clear, store, or don't-care policy. `EndRenderPass` closes that scope. The older `BindFramebuffer` plus explicit clear commands remain valid for immediate-style backends and simple command streams.
 
@@ -178,14 +181,17 @@ The strongest next move is probably not to add every modern GPU concept. It is t
 - [x] Implement `processCommandQueue()` for OpenGL 4.3 and OpenGL ES 3.2 (`KaldiGLCommon/GlCommandExecutor.*`): resource registries, deferred-retirement semantics via GL's own object lifetime, SPIR-V pipelines with a GL 4.3 command executor (all draws, state, barriers, transfers, queries, debug labels, render passes and the default frame path).
 - [x] Validate the GL and GLES executors with real offscreen draw + per-pixel readback smoke tests (EGL desktop GL and GLES, NVIDIA), including the invalid-handle error path.
 - [x] Implement the Vulkan command executor (`KaldiVK/VkCommandExecutor.*` and the `VkExecutor*` translation units): synchronous submit-and-wait, every resource kind, SPIR-V graphics/compute pipelines, all draws/dispatches/copies/queries and the default swapchain path, with documented `UnsupportedBaseline` answers for the remaining Vulkan 1.0 limitations.
-- [ ] Replace the Vulkan backend's synchronous submit-and-wait with frames in flight and a fence-driven retirement queue, and give the Direct3D 11/12 backends their own command executors.
+- [x] Replace the Vulkan backend's synchronous submit-and-wait with frames in flight and a fence-driven retirement queue.
+- [ ] Give the Direct3D 11/12 backends their own command executors.
+- [x] Implement explicit swapchain objects in the Vulkan backend (HAL 1.1) and as a validated drawable view in the GL family.
+- [x] Validate the swapchain contract against real OpenGL, OpenGL ES and Vulkan devices (create, acquire, draw, resize, present, destroy; validation-layer clean on NVIDIA).
 - [x] Validate the Vulkan device/buffer/frame path on NVIDIA and lavapipe with a live smoke test (buffer map + BeginFrame/EndFrame/Present).
 - [x] Give the Direct3D 11/12 device classes provisional `capabilities()`/`processCommandQueue()` implementations that report `UnsupportedBaseline`, and document the intended porting structure in place.
 
 ## Future graphics HAL TODOs
 
-- [ ] Implement the remaining backend work: Vulkan needs the texture/image/sampler/framebuffer/pipeline/descriptor/copy/query handlers ported on top of its synchronous core, and the Direct3D 11/12 backends need their device ownership, registries and command translation. GL/GLES `processCommandQueue` is complete apart from explicit swapchain objects (GL's default framebuffer is the presentation model).
-- [ ] Validate the swapchain contract against real OpenGL, Vulkan, Direct3D 11, and Direct3D 12 backends.
+- [ ] Implement the remaining backend work: the Direct3D 11/12 backends need their command translation (registries, pipelines, SPIR-V -> HLSL, retirement) on top of the device ownership they already have. GL/GLES, Vulkan and the swapchain contract are complete; Vulkan's remaining work is device-local buffer memory and depth/stencil readback.
+- [ ] Validate the swapchain contract against Direct3D 11 and Direct3D 12 backends (OpenGL, OpenGL ES and Vulkan are validated).
 - [ ] Validate render-pass/load-store metadata against tile-based and explicit APIs, then add subpasses or dependency metadata only if real backend work needs it.
 - [ ] Build a renderer-shaped parallel recording example to pressure-test merge ordering, shared allocation, and deferred destruction ergonomics.
 - [ ] Add RAII facade proxies for swapchains and render passes. `oop_detail` currently provides

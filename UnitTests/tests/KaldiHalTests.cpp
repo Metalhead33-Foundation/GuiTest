@@ -9,6 +9,7 @@
  */
 #include <catch2/catch_test_macros.hpp>
 #include <Kaldi/KldHal.hpp>
+#include <Kaldi/KaldiOperation.hpp>
 #include <cstring>
 
 static_assert(Kld::halCapabilitiesNone().maxTexture2DSize == 0,
@@ -46,8 +47,25 @@ TEST_CASE("Detached capability snapshots report no usable limits", "[kaldi][capa
 	CHECK_FALSE(capabilities.supportsReadback);
 	CHECK_FALSE(capabilities.supportsStorageResources);
 	CHECK_FALSE(capabilities.supportsMultisampleResolve);
+	CHECK_FALSE(capabilities.supportsExplicitSwapchains);
 
 	CHECK(Kld::kDefaultMaxFramesInFlight > 0);
+}
+
+TEST_CASE("The HAL 1.1 additions are additive only", "[kaldi][capabilities]")
+{
+	CHECK(Kld::KaldiHalVersion1_1.major == 1);
+	CHECK(Kld::KaldiHalVersion1_1.minor == 1);
+	CHECK(Kld::KaldiHalVersion1_1.patch == 0);
+	// 1.1 must be readable as "at least 1.0" by anyone comparing versions.
+	CHECK(Kld::KaldiHalVersion1_1.major == Kld::KaldiHalVersion1_0.major);
+	CHECK(Kld::KaldiHalVersion1_1.minor > Kld::KaldiHalVersion1_0.minor);
+
+	// Backend-owned handles live above every caller allocation, and above the two
+	// reserved default handles.
+	CHECK(Kld::BackendHandleBase > Kld::DefaultFramebuffer);
+	CHECK(Kld::BackendHandleBase > Kld::DefaultSwapchain);
+	CHECK(Kld::BackendHandleBase == 0x80000000u);
 }
 
 TEST_CASE("HalStatus distinguishes success from failure", "[kaldi][capabilities]")

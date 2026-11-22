@@ -51,6 +51,30 @@
 #include <glad/vulkan.h>
 #include <vector>
 
+/**
+ * @section kaldivk_debug_utils Debug-utils declarations
+ *
+ * glad's generated header covers Vulkan 1.0 core only, so the debug-label entry
+ * points and their label structure are declared here. They are used only when
+ * `VK_EXT_debug_utils` is enabled on the instance (see `Vk::Context`), which is
+ * also what makes `HalCapabilities::supportsDebugLabels` true.
+ */
+#ifndef VK_EXT_debug_utils
+#define VK_EXT_DEBUG_UTILS_EXTENSION_NAME "VK_EXT_debug_utils"
+#define VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT (VkStructureType)1000128002
+typedef struct VkDebugUtilsLabelEXT {
+	VkStructureType sType;
+	const void* pNext;
+	const char* pLabelName;
+	float color[4];
+} VkDebugUtilsLabelEXT;
+typedef void(VKAPI_PTR* PFN_vkCmdBeginDebugUtilsLabelEXT)(VkCommandBuffer commandBuffer,
+							  const VkDebugUtilsLabelEXT* pLabelInfo);
+typedef void(VKAPI_PTR* PFN_vkCmdEndDebugUtilsLabelEXT)(VkCommandBuffer commandBuffer);
+typedef void(VKAPI_PTR* PFN_vkCmdInsertDebugUtilsLabelEXT)(VkCommandBuffer commandBuffer,
+							   const VkDebugUtilsLabelEXT* pLabelInfo);
+#endif
+
 namespace Vk {
 
 /** @brief Symbolic name of a `VkResult` ("VK_SUCCESS", "VK_ERROR_..."). */

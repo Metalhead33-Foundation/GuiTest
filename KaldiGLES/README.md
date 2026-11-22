@@ -9,7 +9,9 @@ images, samplers, framebuffers, SPIR-V graphics/compute pipelines, bindings, eve
 draw and indirect form, render state, barriers, transfers/readbacks, queries, debug
 labels and the `BeginFrame`/`Present` path. Destroy commands delete GL names
 immediately, which is the HAL's deferred retirement for OpenGL ES. Explicit swapchain
-objects are the one deliberate gap (`UnsupportedBaseline`). The executor has been
+objects (HAL 1.1) are a validated view of that drawable: `AcquireSwapchainImage`
+reports `DefaultFramebuffer` with image index 0, `PresentSwapchain` swaps the window,
+and a non-null native surface or mailbox pacing answers `UnsupportedBaseline`. The executor has been
 validated with an offscreen triangle plus per-pixel readback on an ES 3.2 context
 (NVIDIA).
 
@@ -62,10 +64,10 @@ A CPU-side conversion in Euphemy is the intended fix.
 
 ## TODO
 
-- [x] Implement `Device::capabilities()` and report `KaldiHalVersion1_0` with probed limits.
-- [x] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set (explicit swapchain objects report `UnsupportedBaseline`).
+- [x] Implement `Device::capabilities()` and report `KaldiHalVersion1_1` with probed limits.
+- [x] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set, including explicit swapchain objects (a validated view of the default drawable).
 - [x] Create and own an OpenGL ES 3.2 context from the native window handle (EGL, via `GLES::createContext`).
-- [ ] Implement the backend-owned `DefaultFramebuffer` and the `BeginFrame`/`EndFrame`/`Present` path, plus explicit swapchains. (The default path works; explicit swapchain objects are still `UnsupportedBaseline`.)
+- [x] Implement the backend-owned `DefaultFramebuffer` and the `BeginFrame`/`EndFrame`/`Present` path, plus explicit swapchain objects. (A GL swapchain is a validated view of the context drawable: one backend-owned image at index 0, and `PresentSwapchain` swaps the window buffers.)
 - [ ] Implement deferred resource retirement for destroy commands. (Immediate `glDelete*` is already deferred by the driver; document or replace with an explicit queue.)
 - [x] Compile the GLSL ES produced by `GLES::spirvToGlsl()` into program objects.
 - [ ] Return real status/error strings instead of `nullptr`. (Devices and executors report messages; `kld_get_last_error_message` is only `nullptr` before the first failure.)

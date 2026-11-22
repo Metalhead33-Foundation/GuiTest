@@ -234,7 +234,7 @@ Kld::HalStatus CommandExecutor::createGraphicsVariant(VkPipelineObject& object,
 	raster.lineWidth = 1.0f;
 	VkPipelineMultisampleStateCreateInfo multisample {};
 	multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisample.rasterizationSamples = pass.samples;
 	multisample.sampleShadingEnable = VK_FALSE;
 	multisample.minSampleShading = 1.0f;
 	VkPipelineDepthStencilStateCreateInfo depthStencil {};
@@ -417,22 +417,17 @@ Kld::HalStatus CommandExecutor::destroyPipeline(const Kld::OpDestroyPipeline& op
 		for (auto& variant : byPass.second) {
 			DeferredDestroy entry {};
 			entry.pipeline_ = variant.second;
-			deferred_.push_back(entry);
+			defer(entry);
 		}
-	}
-	for (const VkDescriptorPool pool : found->second.descriptorPools) {
-		DeferredDestroy entry {};
-		entry.descriptorPool_ = pool;
-		deferred_.push_back(entry);
 	}
 	DeferredDestroy tail {};
 	tail.layout_ = found->second.layout;
 	for (VkDescriptorSetLayout setLayout : found->second.setLayouts) {
 		DeferredDestroy entry {};
 		entry.setLayout_ = setLayout;
-		deferred_.push_back(entry);
+		defer(entry);
 	}
-	deferred_.push_back(tail);
+	defer(tail);
 	pipelines_.erase(found);
 	return Kld::HalOk;
 }
@@ -449,38 +444,17 @@ Kld::HalStatus CommandExecutor::destroyComputePipeline(const Kld::OpDestroyCompu
 	}
 	DeferredDestroy entry {};
 	entry.pipeline_ = found->second.computePipeline;
-	deferred_.push_back(entry);
-	for (const VkDescriptorPool pool : found->second.descriptorPools) {
-		DeferredDestroy poolEntry {};
-		poolEntry.descriptorPool_ = pool;
-		deferred_.push_back(poolEntry);
-	}
+	defer(entry);
 	DeferredDestroy tail {};
 	tail.layout_ = found->second.layout;
 	for (VkDescriptorSetLayout setLayout : found->second.setLayouts) {
-		DeferredDestroy entry {};
-		entry.setLayout_ = setLayout;
-		deferred_.push_back(entry);
+		DeferredDestroy setEntry {};
+		setEntry.setLayout_ = setLayout;
+		defer(setEntry);
 	}
-	deferred_.push_back(tail);
+	defer(tail);
 	computePipelines_.erase(found);
 	return Kld::HalOk;
-}
-
-void CommandExecutor::resetDescriptors() noexcept
-{
-	const auto reset = [this](VkPipelineObject& object) {
-		for (const VkDescriptorPool pool : object.descriptorPools) {
-			vkResetDescriptorPool(context_.device(), pool, 0);
-		}
-		object.descriptorSets.clear();
-	};
-	for (auto& entry : pipelines_) {
-		reset(entry.second);
-	}
-	for (auto& entry : computePipelines_) {
-		reset(entry.second);
-	}
 }
 
 Kld::HalStatus CommandExecutor::bindPipeline(const Kld::OpBindPipeline& op)
@@ -668,6 +642,52 @@ Kld::HalStatus CommandExecutor::bindIndexBuffer(const Kld::OpBindIndexBuffer& op
 	return Kld::HalOk;
 }
 
+VkDescriptorSet CommandExecutor::allocateDescriptorSet(VkDescriptorSetLayout layout,
+						       const std::vector<VkDescriptorPoolSize>& sizes)
+{
+	const VkDevice device = context_.device();
+	FrameSlot& slot = frames_[currentSlot_];
+	VkDescriptorSetAllocateInfo allocate {};
+	allocate.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocate.descriptorSetCount = 1;
+	allocate.pSetLayouts = &layout;
+	VkDescriptorSet set = VK_NULL_HANDLE;
+	for (VkDescriptorPool pool : slot.descriptorPools) {
+		allocate.descriptorPool = pool;
+		const VkResult result = vkAllocateDescriptorSets(device, &allocate, &set);
+		if (result == VK_SUCCESS) {
+			return set;
+		}
+		if (result != VK_ERROR_OUT_OF_POOL_MEMORY && result != VK_ERROR_FRAGMENTED_POOL) {
+			return VK_NULL_HANDLE;
+		}
+	}
+	// The frame needs more sets than its pools hold: widen the requirement and
+	// append a pool to this slot's ring.
+	std::vector<VkDescriptorPoolSize> widened = sizes;
+	if (widened.empty()) {
+		widened.push_back(VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1 });
+	}
+	for (VkDescriptorPoolSize& size : widened) {
+		size.descriptorCount = std::max(size.descriptorCount, 1u) * 64u;
+	}
+	VkDescriptorPoolCreateInfo poolInfo {};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.maxSets = 256;
+	poolInfo.poolSizeCount = static_cast<std::uint32_t>(widened.size());
+	poolInfo.pPoolSizes = widened.data();
+	VkDescriptorPool pool = VK_NULL_HANDLE;
+	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool) != VK_SUCCESS) {
+		return VK_NULL_HANDLE;
+	}
+	slot.descriptorPools.push_back(pool);
+	allocate.descriptorPool = pool;
+	if (vkAllocateDescriptorSets(device, &allocate, &set) != VK_SUCCESS) {
+		return VK_NULL_HANDLE;
+	}
+	return set;
+}
+
 Kld::HalStatus CommandExecutor::updateDescriptors(VkPipelineObject& object)
 {
 	bool anySlots = false;
@@ -681,49 +701,17 @@ Kld::HalStatus CommandExecutor::updateDescriptors(VkPipelineObject& object)
 	if (!status.ok()) {
 		return status;
 	}
-	const auto allocateSet = [this, &object](std::size_t kind) -> VkDescriptorSet {
-		const auto createPool = [this, &object]() -> bool {
-			VkDescriptorPoolCreateInfo poolInfo {};
-			poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-			poolInfo.maxSets = 256;
-			poolInfo.poolSizeCount = static_cast<std::uint32_t>(object.poolSizes.size());
-			poolInfo.pPoolSizes = object.poolSizes.data();
-			VkDescriptorPool pool = VK_NULL_HANDLE;
-			if (vkCreateDescriptorPool(context_.device(), &poolInfo, nullptr, &pool)
-			    != VK_SUCCESS) {
-				return false;
-			}
-			object.descriptorPools.push_back(pool);
-			return true;
-		};
-		for (;;) {
-			if (object.descriptorPools.empty() && !createPool()) {
-				return VK_NULL_HANDLE;
-			}
-			VkDescriptorSetAllocateInfo allocate {};
-			allocate.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-			allocate.descriptorPool = object.descriptorPools.back();
-			allocate.descriptorSetCount = 1;
-			allocate.pSetLayouts = &object.setLayouts[kind];
-			VkDescriptorSet set = VK_NULL_HANDLE;
-			if (vkAllocateDescriptorSets(context_.device(), &allocate, &set) == VK_SUCCESS) {
-				return set;
-			}
-			if (!createPool()) {
-				return VK_NULL_HANDLE;
-			}
-		}
-	};
 	for (std::size_t kind = 0; kind < object.slotsByKind.size(); ++kind) {
 		const std::vector<VkDescriptorSlot>& slots = object.slotsByKind[kind];
 		if (slots.empty()) {
 			continue;
 		}
-		const VkDescriptorSet set = allocateSet(kind);
+		const VkDescriptorSet set = allocateDescriptorSet(object.setLayouts[kind],
+								 object.poolSizes);
 		if (set == VK_NULL_HANDLE) {
-			return fail(Kld::HalStatusCode::AllocationFailed, "vkCreateDescriptorPool failed");
+			return fail(Kld::HalStatusCode::AllocationFailed,
+				    "vkCreateDescriptorPool/vkAllocateDescriptorSets failed");
 		}
-		object.descriptorSets.push_back(set);
 		std::vector<VkDescriptorImageInfo> images;
 		std::vector<VkDescriptorBufferInfo> ranges;
 		std::vector<VkWriteDescriptorSet> writes;

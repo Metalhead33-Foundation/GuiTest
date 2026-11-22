@@ -105,14 +105,16 @@ Kld::HalCapabilities probeCapabilities(const Context& context)
 	capabilities.supportsIndirectDraw = true;
 	// Occlusion and timestamp queries are core Vulkan 1.0.
 	capabilities.supportsQueries = true;
-	// VK_EXT_debug_utils/VK_EXT_debug_marker are not enabled by Vk::Context yet;
-	// until they are, debug labels would be dropped instead of being consumed.
-	capabilities.supportsDebugLabels = false;
+	// Command-buffer labels use VK_EXT_debug_utils when the context enabled it.
+	capabilities.supportsDebugLabels = context.debugUtilsEnabled();
 	capabilities.supportsReadback = true;
 	capabilities.supportsStorageResources =
 		capabilities.maxStorageBufferBindings > 0 && capabilities.maxStorageImageBindings > 0;
 	capabilities.supportsMultisampleResolve = capabilities.maxSamples > 1;
 	capabilities.supportsTextureCompression = supportsBcFormats(context.physicalDevice());
+	// Explicit swapchain objects are implemented on top of the context surface.
+	capabilities.supportsExplicitSwapchains = true;
+	capabilities.version = Kld::KaldiHalVersion1_1;
 
 	return capabilities;
 }

@@ -32,6 +32,7 @@ SOURCES +=  \
     VkCapabilities.cpp \
     VkCommandExecutor.cpp \
     VkExecutorFrames.cpp \
+    VkExecutorSwapchains.cpp \
     VkExecutorResources.cpp \
     VkExecutorPipelines.cpp \
     VkExecutorTransfer.cpp \

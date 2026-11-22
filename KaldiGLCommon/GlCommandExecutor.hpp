@@ -36,11 +36,17 @@
  * @section kaldigl_executor_unsupported Deliberate gaps
  *
  * The GL backend reports `HalStatusCode::UnsupportedBaseline` (never a silent
- * no-op) for: explicit swapchain creation/resize (the default framebuffer path
- * is the GL presentation model), 1D textures on GLES, `PolygonMode::Line`/`Point`
- * on GLES, depth clamp on GLES, stencil-only image readback, base-instance draws
- * on GLES, and timestamp queries on GLES without `EXT_disjoint_timer_query`.
- * Everything else in `Kld::Opcode` is implemented.
+ * no-op) for: a non-null native surface or a mailbox present mode on an explicit
+ * swapchain, swapchain image bindings (GL has one backend-owned image), 1D
+ * textures on GLES, `PolygonMode::Line`/`Point` on GLES, depth clamp on GLES,
+ * stencil-only image readback, base-instance draws on GLES, and timestamp queries
+ * on GLES without `EXT_disjoint_timer_query`. Everything else in `Kld::Opcode` is
+ * implemented.
+ *
+ * Explicit swapchains are a *validated view* of the default drawable rather than
+ * a second presentation target: `AcquireSwapchainImage` reports
+ * `DefaultFramebuffer` with image index `0`, and `PresentSwapchain` swaps the
+ * window's buffers. That keeps one caller protocol across GL and Vulkan.
  */
 #include "GlBackend.hpp"
 #if KALDIGL_IS_GLES
@@ -130,6 +136,36 @@ struct GlFramebufferObject {
 	std::uint16_t height = 0;
 	/** @brief Attachments in declaration order. */
 	std::vector<GlFramebufferAttachment> attachments;
+};
+
+/**
+ * @brief One explicit swapchain object over the context's default drawable.
+ *
+ * OpenGL has no swapchain: there is exactly one presentable image per context,
+ * the window's default framebuffer (name `0`). An explicit swapchain is therefore
+ * a *validated view* of that drawable - it records the requested extent, pacing
+ * and depth/stencil requirement, and `AcquireSwapchainImage` reports framebuffer
+ * `DefaultFramebuffer` with image index `0`. This keeps one portable caller
+ * protocol (`create`, `acquire`, draw into the reported framebuffer, `present`)
+ * across GL and Vulkan without pretending GL owns multiple images.
+ *
+ * The drawable's real size belongs to the window system, so @ref width /
+ * @ref height are advisory: `ResizeSwapchain` records them and the backend keeps
+ * rendering into whatever the platform gave the context.
+ */
+struct GlSwapchainObject {
+	/** @brief Drawable framebuffer name; always 0 (the window's back buffer). */
+	GLuint framebuffer = 0;
+	/** @brief Advisory width in pixels. */
+	std::uint16_t width = 0;
+	/** @brief Advisory height in pixels. */
+	std::uint16_t height = 0;
+	/** @brief Recorded pacing policy. */
+	Kld::PresentMode presentMode = Kld::PresentMode::Fifo;
+	/** @brief True when the drawable has a depth and/or stencil buffer. */
+	bool depthStencil = false;
+	/** @brief True between a successful acquire and the matching present. */
+	bool acquired = false;
 };
 
 /**
@@ -409,6 +445,7 @@ private:
 	std::unordered_map<Kld::HandleId, GlTextureObject> images_;
 	std::unordered_map<Kld::HandleId, GlSamplerObject> samplers_;
 	std::unordered_map<Kld::HandleId, GlFramebufferObject> framebuffers_;
+	std::unordered_map<Kld::HandleId, GlSwapchainObject> swapchains_;
 	std::unordered_map<Kld::HandleId, GlPipelineObject> pipelines_;
 	std::unordered_map<Kld::HandleId, GlPipelineObject> computePipelines_;
 	std::unordered_map<Kld::HandleId, GlFenceObject> fences_;

@@ -33,6 +33,16 @@ struct HalVersion {
 inline constexpr HalVersion KaldiHalVersion1_0 { 1, 0, 0 };
 
 /**
+ * @brief Version tag for the first additive extension of the HAL contract.
+ *
+ * 1.1 adds only optional surface area, so a 1.1 consumer degrades cleanly on a
+ * 1.0 backend: explicit swapchain objects, a capability flag for them, and the
+ * backend-reserved handle range that reports backend-owned framebuffers back to
+ * the caller.
+ */
+inline constexpr HalVersion KaldiHalVersion1_1 { 1, 1, 0 };
+
+/**
  * @brief Baseline capabilities exposed by a backend after private probing.
  *
  * Backend-specific checks, such as OpenGL extension enumeration or Vulkan
@@ -94,6 +104,17 @@ struct HalCapabilities {
 	bool supportsStorageResources;
 	/** @brief True when multisampled image resolve commands are supported. */
 	bool supportsMultisampleResolve;
+	/**
+	 * @brief True when explicit swapchain objects (HAL 1.1) are honoured.
+	 *
+	 * A false value means `Opcode`::CreateSwapchain answers
+	 * `HalStatus`Code::UnsupportedBaseline and callers must stay on the
+	 * default-frame path (`BeginFrame`/`EndFrame`/`Present` with
+	 * @ref DefaultFramebuffer). A true value additionally promises that
+	 * @ref SwapchainAcquireInfo reports a usable framebuffer handle, so an
+	 * acquire callback is enough to start drawing into the acquired image.
+	 */
+	bool supportsExplicitSwapchains;
 };
 
 /**
@@ -112,10 +133,11 @@ inline constexpr uint32_t kDefaultMaxFramesInFlight = 3;
  *
  * Every limit is zero and every feature flag is false; only @ref
  * HalCapabilities::version is filled in, because the backend still implements the
- * v1.0 contract. Backends return this from a detached/uninitialized device, and
- * probes fall back to it when the API objects they need are missing. A zero limit
- * means "not usable", never "unlimited" - callers must not plan work against a
- * snapshot that has not been replaced by a real one.
+ * baseline v1.0 contract (a 1.1 backend replaces the version during probing).
+ * Backends return this from a detached/uninitialized device, and probes fall back
+ * to it when the API objects they need are missing. A zero limit means "not
+ * usable", never "unlimited" - callers must not plan work against a snapshot that
+ * has not been replaced by a real one.
  */
 inline constexpr HalCapabilities halCapabilitiesNone() noexcept
 {

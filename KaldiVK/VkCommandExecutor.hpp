@@ -4,21 +4,20 @@
  * @file VkCommandExecutor.hpp
  * @brief Vulkan implementation of `Kld::Device::processCommandQueue()`.
  *
- * @section kaldivk_executor_model Execution model (bring-up, deliberately simple)
+ * @section kaldivk_executor_model Execution model
  *
- * The executor records into one primary command buffer and submits it
- * **synchronously**: `process()` returns only after `vkQueueWaitIdle`, unless a
- * frame started with `BeginFrame` is open, in which case the command buffer
- * stays open until `Present` (or the next `process()` call ends it). That keeps
- * handle/readback semantics identical to the GL backend without per-frame
- * fences, timeline semaphores or a retirement queue. The price is throughput:
- * every non-frame submission is a full round trip, which the first production
- * version should replace with frames-in-flight and deferred retirement (both are
- * already designed for in `Kaldi/README.md`).
+ * The executor keeps **three frames in flight**. `process()` records into the
+ * current frame slot's command buffer and submits it when the call ends (or when a
+ * frame is presented) **without waiting**; work is awaited only when a slot is
+ * about to be reused, or when a command needs host-visible results (`MapBuffer`,
+ * readbacks, query results, explicit barriers around a swapchain recreate).
  *
- * Because submissions are synchronous, destroy commands go into a deferred list
- * released after the queue is idle. Fence objects carry values but no GPU
- * timeline; `SignalFence`/`WaitFence` reduce to bookkeeping and say so.
+ * Each slot owns its command pool, command buffer, submit fence, a descriptor-pool
+ * ring and its own deferred-destruction list, so a slot's retired objects are freed
+ * as soon as its fence signals instead of when the device goes idle. A frame opened
+ * with `BeginFrame` keeps its command buffer open until `Present`; a command that
+ * needs host results mid-frame flushes and re-opens it, which is why the swapchain
+ * render passes use `LOAD`/`STORE` and keep a stable attachment layout.
  *
  * @section kaldivk_executor_memory Memory policy
  *
@@ -26,29 +25,32 @@
  * `HOST_VISIBLE | HOST_CACHED`) and stays mapped. Images are device-local;
  * uploads use temporary host-visible staging buffers recorded into the same
  * command buffer. A production backend should move static data to device-local
- * memory through a staging ring.
+ * memory through a staging ring; buffers stay host-visible because `MapBuffer`
+ * hands the mapping to the caller.
  *
  * @section kaldivk_executor_scope Implemented command scope
  *
  * Implemented: buffers (create/destroy/resize/update/map); 1D, 2D, 3D, array and
- * cube textures plus 2D images (create/destroy/resize/update/readback,
- * compressed uploads, blit-chain mip generation, multisample resolve); samplers;
- * framebuffers, each with its own render pass; graphics pipelines from SPIR-V
- * with a pipeline-variant cache and one descriptor set per binding kind; compute
- * pipelines and dispatch; texture/sampler/uniform/storage-buffer/storage-image
- * bindings; every draw and indirect form; viewport and scissor; clears;
- * barriers/transitions; buffer and image copies; occlusion and timestamp queries;
- * and the default swapchain path (`BeginFrame`/`EndFrame`/`Present`).
+ * cube textures plus 2D, multisampled and depth/stencil images
+ * (create/destroy/resize/update/readback, compressed uploads, blit-chain mip
+ * generation, `vkCmdResolveImage` resolves); samplers; framebuffers - including
+ * multisampled attachments, each with its own render pass and sample count -
+ * graphics pipelines from SPIR-V with a pipeline-variant cache and one descriptor
+ * set per binding kind; compute pipelines and dispatch; texture/sampler/uniform/
+ * storage-buffer/storage-image bindings; every draw and indirect form; viewport and
+ * scissor; clears; barriers/transitions; buffer and image copies; occlusion and
+ * timestamp queries; debug labels (`VK_EXT_debug_utils`); explicit swapchain
+ * objects; and the default swapchain path (`BeginFrame`/`EndFrame`/`Present`).
  *
- * Deliberately unsupported (`HalStatusCode::UnsupportedBaseline`): explicit
- * swapchain objects, base-instance draws (Vulkan 1.0 has no base-instance draw
- * parameter without `VK_KHR_shader_draw_parameters`), vertex instance divisors
- * above 1 (`VK_EXT_vertex_attribute_divisor`), per-sampler LOD bias (a Vulkan 1.1
- * feature), mip generation for depth/stencil and block-compressed images,
- * blits and readback of depth/stencil images, readback of block-compressed
- * images, framebuffers with multisampled attachments, block-compressed uploads
- * whose extents are not multiples of four, and debug labels (the context enables
- * no debug-marker extension). Limits come from `Vk::probeCapabilities()`.
+ * Deliberately unsupported (`HalStatusCode::UnsupportedBaseline`): base-instance
+ * draws (Vulkan 1.0 has no base-instance draw parameter without
+ * `VK_KHR_shader_draw_parameters`), vertex instance divisors above 1
+ * (`VK_EXT_vertex_attribute_divisor`), per-sampler LOD bias (a Vulkan 1.1 feature),
+ * mip generation for depth/stencil and block-compressed images, blits and readback
+ * of depth/stencil images, readback of block-compressed images, block-compressed
+ * uploads whose extents are not multiples of four, and explicit swapchains with a
+ * depth attachment or caller-declared images. Limits come from
+ * `Vk::probeCapabilities()`.
  */
 #include "VkCapabilities.hpp"
 #include "VkContext.hpp"
@@ -118,6 +120,48 @@ struct VkFramebufferObject {
 	VkFormat depthFormat = VK_FORMAT_UNDEFINED;
 	bool hasDepth = false;
 	bool hasStencil = false;
+	/** @brief Sample count of every attachment (Vulkan needs one value). */
+	VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+	/**
+	 * @brief True when the executor owns this framebuffer on behalf of a swapchain.
+	 *
+	 * Such entries are published under a handle from the backend-reserved range
+	 * (`Kld::BackendHandleBase` upwards) so an acquire callback can hand the
+	 * caller something usable with `BindFramebuffer`/`BeginRenderPass`. The
+	 * caller must not destroy them: `DestroyFramebuffer` rejects them, and
+	 * `DestroySwapchain` retires them.
+	 */
+	bool backendOwned = false;
+};
+
+/**
+ * @brief One explicit swapchain: images, views, backend-owned framebuffers.
+ *
+ * Vulkan owns the presentable images, so they are never exposed as `Image`
+ * handles; instead every image gets a framebuffer handle from the
+ * backend-reserved range, which is what `SwapchainAcquireInfo` reports. That is
+ * the whole draw path of an explicit swapchain: acquire, bind the reported
+ * framebuffer, draw, present by image index.
+ *
+ * The render pass mirrors the default swapchain pass: one color attachment that
+ * stays in `COLOR_ATTACHMENT_OPTIMAL` with `LOAD`/`STORE`. The acquire transitions
+ * the image in and the present transitions it back to `PRESENT_SRC_KHR`, which is
+ * what keeps a re-begun pass valid.
+ */
+struct VkSwapchainObject {
+	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+	VkSurfaceKHR surface = VK_NULL_HANDLE;
+	VkRenderPass renderPass = VK_NULL_HANDLE;
+	VkFormat format = VK_FORMAT_UNDEFINED;
+	VkExtent2D extent {};
+	std::vector<VkImage> images;
+	std::vector<VkImageView> views;
+	std::vector<VkFramebuffer> framebuffers;
+	/** @brief Handles reported through `SwapchainAcquireInfo::framebuffer`. */
+	std::vector<Kld::HandleId> framebufferHandles;
+	Kld::PresentMode presentMode = Kld::PresentMode::Fifo;
+	std::uint32_t currentImage = 0;
+	bool acquired = false;
 };
 
 /** @brief A descriptor slot declared by a pipeline's binding layout. */
@@ -198,16 +242,13 @@ struct VkPipelineObject {
 	VkPipelineLayout layout = VK_NULL_HANDLE;
 	std::array<VkDescriptorSetLayout, 5> setLayouts {};
 	/**
-	 * @brief Pools the descriptor sets are allocated from.
+	 * @brief Descriptor types/counts this pipeline needs from a pool.
 	 *
-	 * Descriptor sets are written immediately before the draw that uses them, so
-	 * every draw needs its own set: two draws in one command buffer must not share
-	 * one, because the second write would retroactively change the first draw's
-	 * bindings. A new pool is created when the last one is exhausted; all of them
-	 * are reset once the queue is idle.
+	 * Sets themselves come from the frame slot's descriptor ring (see
+	 * @ref FrameSlot), because a set must not be reset while the submission that
+	 * reads it is still running. This vector only describes how large a pool has
+	 * to be, so the first allocation for a pipeline can size one correctly.
 	 */
-	std::vector<VkDescriptorPool> descriptorPools;
-	std::vector<VkDescriptorSet> descriptorSets;
 	std::vector<VkDescriptorPoolSize> poolSizes;
 	std::array<std::vector<VkDescriptorSlot>, 5> slotsByKind;
 	std::vector<std::vector<std::uint32_t>> spirv;
@@ -242,6 +283,8 @@ struct VkPassInfo {
 	bool hasDepth = false;
 	bool hasStencil = false;
 	std::uint32_t layers = 1;
+	/** @brief Attachment sample count; the pipeline variant must match it. */
+	VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
 };
 
 /**
@@ -265,6 +308,52 @@ public:
 	std::uint64_t executedCommands() const noexcept { return executedCommands_; }
 
 private:
+	/** @brief One object whose physical destruction waits for its frame slot. */
+	struct DeferredDestroy {
+		VkBuffer buffer_ = VK_NULL_HANDLE;
+		VkDeviceMemory bufferMemory_ = VK_NULL_HANDLE;
+		VkImage image_ = VK_NULL_HANDLE;
+		VkDeviceMemory imageMemory_ = VK_NULL_HANDLE;
+		VkImageView view_ = VK_NULL_HANDLE;
+		VkSampler sampler_ = VK_NULL_HANDLE;
+		VkFramebuffer framebuffer_ = VK_NULL_HANDLE;
+		VkRenderPass renderPass_ = VK_NULL_HANDLE;
+		VkPipeline pipeline_ = VK_NULL_HANDLE;
+		VkPipelineLayout layout_ = VK_NULL_HANDLE;
+		VkDescriptorSetLayout setLayout_ = VK_NULL_HANDLE;
+		VkDescriptorPool descriptorPool_ = VK_NULL_HANDLE;
+		VkQueryPool queryPool_ = VK_NULL_HANDLE;
+	};
+
+	/**
+	 * @brief One frame in flight: command pool, command buffer, fence, descriptors.
+	 *
+	 * Submission rotates through these slots. A slot may be submitted and left
+	 * running; the executor only waits for its fence when the slot is about to be
+	 * reused (a real frames-in-flight ring) or when a command needs host-visible
+	 * results (`Buffer::map`, readbacks, query results, and the paths that call
+	 * `submitAndWait()`).
+	 *
+	 * Descriptor pools live here rather than in the pipeline objects: every draw
+	 * writes its own descriptor sets, and a set must not be reset while the
+	 * submission that reads it is still running. Resetting a slot's pools together
+	 * with its command pool (on reuse, once the fence signalled) gives exactly that
+	 * lifetime, so the sets behave as a per-frame ring instead of accumulating.
+	 *
+	 * `deferred` is the slot's retirement list: objects destroyed by a command
+	 * recorded here are freed when *this* slot's fence signals, not when the whole
+	 * device goes idle.
+	 */
+	struct FrameSlot {
+		VkCommandPool pool = VK_NULL_HANDLE;
+		VkCommandBuffer commands = VK_NULL_HANDLE;
+		VkFence fence = VK_NULL_HANDLE;
+		/** @brief True between `vkQueueSubmit` and the fence wait. */
+		bool pending = false;
+		std::vector<VkDescriptorPool> descriptorPools;
+		std::vector<DeferredDestroy> deferred;
+	};
+
 	Kld::HalStatus createBuffer(const Kld::OpCreateBufferObject&);
 	Kld::HalStatus destroyBuffer(const Kld::OpDestroy&);
 	Kld::HalStatus resizeBuffer(const Kld::OpResizeBufferObject&);
@@ -381,8 +470,11 @@ private:
 
 	Kld::HalStatus ensureRecording();
 	Kld::HalStatus submitAndWait();
+	Kld::HalStatus submitCurrent(bool wait);
 	Kld::HalStatus flushForHostAccess();
-	void flushDeferred() noexcept;
+	void waitForAllFrames() noexcept;
+	void flushDeferred(std::vector<DeferredDestroy>& list) noexcept;
+	void releaseFrameSlot(FrameSlot& slot) noexcept;
 	std::uint32_t findMemoryType(std::uint32_t typeBits, VkMemoryPropertyFlags properties) const;
 
 	Kld::HalStatus ensureImageLayout(VkTextureObject& object);
@@ -402,7 +494,6 @@ private:
 	Kld::HalStatus createHostBuffer(std::uint32_t size, VkBuffer& buffer, VkDeviceMemory& memory,
 					void*& mapped, bool& coherent);
 	void destroyBufferObjects(VkBuffer& buffer, VkDeviceMemory& memory, void*& mapped) noexcept;
-	VkCommandBuffer commandBufferForTransfer();
 
 	Kld::HalStatus createPipelineLayout(VkPipelineObject& object,
 					    const Kld::PipelineBindingLayout* layout);
@@ -410,52 +501,72 @@ private:
 					     const VkPipelineState& state, VkPipeline& pipeline);
 	Kld::HalStatus createComputeObject(VkPipelineObject& object);
 	Kld::HalStatus updateDescriptors(VkPipelineObject& object);
+	/**
+	 * @brief Allocates one descriptor set from the current frame slot's ring.
+	 *
+	 * Existing pools are tried first; when a frame needs more sets than the base
+	 * pool holds, a new pool is created from @p sizes and appended to the slot.
+	 * @p sizes is the pipeline's per-kind requirement, already widened.
+	 */
+	VkDescriptorSet allocateDescriptorSet(VkDescriptorSetLayout layout,
+					      const std::vector<VkDescriptorPoolSize>& sizes);
 	Kld::HalStatus prepareDraw(VkPipelineObject*& object, bool lines);
 	VkStencilOpState toStencilState(const Kld::StencilFaceState& state) const;
 	VkPipelineState currentPipelineState(bool lines) const;
 	Kld::HalStatus bindVertexInputs();
 	const VkPassInfo* currentPassInfo() const;
-	/** @brief Resets every descriptor pool; requires an idle queue. */
-	void resetDescriptors() noexcept;
 
 	Kld::HalStatus ensureSwapchain();
 	Kld::HalStatus createSwapchainObjects();
 	void destroySwapchainObjects() noexcept;
+	/**
+	 * @brief Waits until the presentation queue stops using the current swapchain.
+	 *
+	 * `vkQueuePresentKHR` is not tracked by the submit fence, so a destroy or
+	 * recreate has to drain the present queue itself.
+	 */
+	void waitForPresentQueue() noexcept;
 	Kld::HalStatus acquireDefaultImage();
 	Kld::HalStatus ensureRenderPass(Kld::HandleId framebufferId);
 	void endActiveRenderPass();
 	Kld::HalStatus applyClear(const Kld::OpClearColorAttachment& op);
+
+	// Explicit swapchains (HAL 1.1).
+	VkSwapchainObject* swapchain(Kld::HandleId id);
+	Kld::HalStatus buildSwapchainObjects(VkSwapchainObject& object, VkSurfaceKHR surface,
+					     VkExtent2D requestedExtent, VkFormat format,
+					     Kld::PresentMode presentMode,
+					     std::uint32_t requestedImageCount);
+	void destroySwapchainObject(VkSwapchainObject& object) noexcept;
+	Kld::HandleId allocateBackendHandle();
+	bool ownsActiveFramebuffer(VkSwapchainObject& object) const noexcept;
 	Context& context_;
 	Kld::HalCapabilities capabilities_;
 	std::string message_;
 	std::uint64_t executedCommands_ = 0;
 
+	/** @brief Frames the executor keeps in flight. */
+	static constexpr std::size_t kFramesInFlight = 3;
+
+	std::array<FrameSlot, kFramesInFlight> frames_ {};
+	std::size_t currentSlot_ = 0;
+
+	/** @brief Aliases of the current slot, so handler code needs no indirection. */
 	VkCommandPool commandPool_ = VK_NULL_HANDLE;
 	VkCommandBuffer commandBuffer_ = VK_NULL_HANDLE;
 	bool recording_ = false;
 
-	struct DeferredDestroy {
-		VkBuffer buffer_ = VK_NULL_HANDLE;
-		VkDeviceMemory bufferMemory_ = VK_NULL_HANDLE;
-		VkImage image_ = VK_NULL_HANDLE;
-		VkDeviceMemory imageMemory_ = VK_NULL_HANDLE;
-		VkImageView view_ = VK_NULL_HANDLE;
-		VkSampler sampler_ = VK_NULL_HANDLE;
-		VkFramebuffer framebuffer_ = VK_NULL_HANDLE;
-		VkRenderPass renderPass_ = VK_NULL_HANDLE;
-		VkPipeline pipeline_ = VK_NULL_HANDLE;
-		VkPipelineLayout layout_ = VK_NULL_HANDLE;
-		VkDescriptorSetLayout setLayout_ = VK_NULL_HANDLE;
-		VkDescriptorPool descriptorPool_ = VK_NULL_HANDLE;
-		VkQueryPool queryPool_ = VK_NULL_HANDLE;
-	};
-	std::vector<DeferredDestroy> deferred_;
+	/** @brief Queues @p entry for destruction when this slot's fence signals. */
+	void defer(DeferredDestroy entry) { frames_[currentSlot_].deferred.push_back(entry); }
 
 	std::unordered_map<Kld::HandleId, VkBufferObject> buffers_;
 	std::unordered_map<Kld::HandleId, VkTextureObject> textures_;
 	std::unordered_map<Kld::HandleId, VkTextureObject> images_;
 	std::unordered_map<Kld::HandleId, VkSamplerObject> samplers_;
 	std::unordered_map<Kld::HandleId, VkFramebufferObject> framebuffers_;
+	std::unordered_map<Kld::HandleId, VkSwapchainObject> swapchains_;
+	/** @brief Next handle to hand out from the backend-reserved range. */
+	Kld::HandleId nextBackendHandle_ = Kld::BackendHandleBase;
 	std::unordered_map<Kld::HandleId, VkPipelineObject> pipelines_;
 	std::unordered_map<Kld::HandleId, VkPipelineObject> computePipelines_;
 	std::unordered_map<Kld::HandleId, std::uint64_t> fences_;
@@ -540,6 +651,15 @@ private:
 	bool depthRangeUnrestricted_ = false;
 	bool occlusionPrecise_ = false;
 	float maxAnisotropy_ = 1.0f;
+
+	/** @brief `VK_EXT_debug_utils` label entry points; null when unavailable. */
+	PFN_vkCmdBeginDebugUtilsLabelEXT cmdBeginDebugUtilsLabel_ = nullptr;
+	PFN_vkCmdEndDebugUtilsLabelEXT cmdEndDebugUtilsLabel_ = nullptr;
+	PFN_vkCmdInsertDebugUtilsLabelEXT cmdInsertDebugUtilsLabel_ = nullptr;
+	/** @brief True when all three label entry points were resolved. */
+	bool debugLabels_ = false;
+	/** @brief Open label regions, so an unbalanced End cannot underflow. */
+	std::uint32_t debugLabelDepth_ = 0;
 };
 
 }

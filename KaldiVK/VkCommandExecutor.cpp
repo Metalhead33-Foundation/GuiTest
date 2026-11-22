@@ -34,21 +34,33 @@ CommandExecutor::CommandExecutor(Context& context, const Kld::HalCapabilities& c
 	, capabilities_(capabilities)
 {
 	vertexBindings_.resize(std::max<std::uint32_t>(capabilities_.maxVertexBuffers, 16));
-	VkCommandPoolCreateInfo poolInfo {};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	poolInfo.queueFamilyIndex = context_.graphicsQueueFamily();
-	if (vkCreateCommandPool(context_.device(), &poolInfo, nullptr, &commandPool_) != VK_SUCCESS) {
-		throw std::runtime_error("VkCommandExecutor: vkCreateCommandPool failed");
+	for (FrameSlot& slot : frames_) {
+		VkCommandPoolCreateInfo poolInfo {};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		poolInfo.queueFamilyIndex = context_.graphicsQueueFamily();
+		if (vkCreateCommandPool(context_.device(), &poolInfo, nullptr, &slot.pool)
+		    != VK_SUCCESS) {
+			throw std::runtime_error("VkCommandExecutor: vkCreateCommandPool failed");
+		}
+		VkCommandBufferAllocateInfo allocateInfo {};
+		allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocateInfo.commandPool = slot.pool;
+		allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocateInfo.commandBufferCount = 1;
+		if (vkAllocateCommandBuffers(context_.device(), &allocateInfo, &slot.commands)
+		    != VK_SUCCESS) {
+			throw std::runtime_error("VkCommandExecutor: vkAllocateCommandBuffers failed");
+		}
+		VkFenceCreateInfo fenceInfo {};
+		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		if (vkCreateFence(context_.device(), &fenceInfo, nullptr, &slot.fence)
+		    != VK_SUCCESS) {
+			throw std::runtime_error("VkCommandExecutor: vkCreateFence failed");
+		}
 	}
-	VkCommandBufferAllocateInfo allocateInfo {};
-	allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocateInfo.commandPool = commandPool_;
-	allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocateInfo.commandBufferCount = 1;
-	if (vkAllocateCommandBuffers(context_.device(), &allocateInfo, &commandBuffer_) != VK_SUCCESS) {
-		throw std::runtime_error("VkCommandExecutor: vkAllocateCommandBuffers failed");
-	}
+	commandPool_ = frames_[0].pool;
+	commandBuffer_ = frames_[0].commands;
 	VkFenceCreateInfo fenceInfo {};
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	if (vkCreateFence(context_.device(), &fenceInfo, nullptr, &acquireFence_) != VK_SUCCESS) {
@@ -105,7 +117,21 @@ CommandExecutor::CommandExecutor(Context& context, const Kld::HalCapabilities& c
 	if (maxAnisotropy_ < 1.0f) {
 		maxAnisotropy_ = 1.0f;
 	}
-	(void)ensureSwapchain();
+	// Debug labels need the instance extension plus three device entry points;
+	// without them the handlers stay no-ops and capabilities say so.
+	if (context_.debugUtilsEnabled()) {
+		cmdBeginDebugUtilsLabel_ = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(
+			vkGetDeviceProcAddr(context_.device(), "vkCmdBeginDebugUtilsLabelEXT"));
+		cmdEndDebugUtilsLabel_ = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(
+			vkGetDeviceProcAddr(context_.device(), "vkCmdEndDebugUtilsLabelEXT"));
+		cmdInsertDebugUtilsLabel_ = reinterpret_cast<PFN_vkCmdInsertDebugUtilsLabelEXT>(
+			vkGetDeviceProcAddr(context_.device(), "vkCmdInsertDebugUtilsLabelEXT"));
+		debugLabels_ = cmdBeginDebugUtilsLabel_ != nullptr && cmdEndDebugUtilsLabel_ != nullptr
+			       && cmdInsertDebugUtilsLabel_ != nullptr;
+	}
+	// The default swapchain is created lazily: a Vulkan surface can back only one
+	// swapchain, so an application that uses an explicit swapchain on the
+	// context's own surface must not have the default one claimed at startup.
 }
 
 CommandExecutor::~CommandExecutor()
@@ -136,7 +162,7 @@ bool CommandExecutor::isHandleInUse(Kld::HandleId id) const
 		|| samplers_.count(id) != 0 || framebuffers_.count(id) != 0
 		|| pipelines_.count(id) != 0 || computePipelines_.count(id) != 0
 		|| fences_.count(id) != 0 || queryPools_.count(id) != 0
-		|| vertexArrays_.count(id) != 0;
+		|| vertexArrays_.count(id) != 0 || swapchains_.count(id) != 0;
 }
 
 VkBufferObject* CommandExecutor::buffer(Kld::HandleId id)
@@ -252,6 +278,25 @@ Kld::HalStatus CommandExecutor::ensureRecording()
 	if (recording_) {
 		return Kld::HalOk;
 	}
+	FrameSlot& slot = frames_[currentSlot_];
+	if (slot.pending) {
+		if (vkWaitForFences(context_.device(), 1, &slot.fence, VK_TRUE, UINT64_MAX)
+		    != VK_SUCCESS) {
+			return fail(Kld::HalStatusCode::BackendError, "vkWaitForFences failed");
+		}
+		slot.pending = false;
+		flushDeferred(slot.deferred);
+	}
+	// The slot is idle: its command buffer and every descriptor set allocated
+	// from it are no longer referenced by queued work.
+	if (vkResetCommandPool(context_.device(), slot.pool, 0) != VK_SUCCESS) {
+		return fail(Kld::HalStatusCode::BackendError, "vkResetCommandPool failed");
+	}
+	for (VkDescriptorPool pool : slot.descriptorPools) {
+		(void)vkResetDescriptorPool(context_.device(), pool, 0);
+	}
+	commandPool_ = slot.pool;
+	commandBuffer_ = slot.commands;
 	VkCommandBufferBeginInfo beginInfo {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -262,32 +307,59 @@ Kld::HalStatus CommandExecutor::ensureRecording()
 	return Kld::HalOk;
 }
 
-Kld::HalStatus CommandExecutor::submitAndWait()
+Kld::HalStatus CommandExecutor::submitCurrent(bool wait)
 {
 	endActiveRenderPass();
-	if (!recording_) {
-		flushDeferred();
-		return Kld::HalOk;
+	if (recording_) {
+		if (vkEndCommandBuffer(commandBuffer_) != VK_SUCCESS) {
+			recording_ = false;
+			return fail(Kld::HalStatusCode::BackendError, "vkEndCommandBuffer failed");
+		}
+		FrameSlot& slot = frames_[currentSlot_];
+		(void)vkResetFences(context_.device(), 1, &slot.fence);
+		VkSubmitInfo submitInfo {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer_;
+		if (vkQueueSubmit(context_.graphicsQueue(), 1, &submitInfo, slot.fence)
+		    != VK_SUCCESS) {
+			recording_ = false;
+			return fail(Kld::HalStatusCode::BackendError, "vkQueueSubmit failed");
+		}
+		slot.pending = true;
+		recording_ = false;
+		// Debug labels are command-buffer scoped, so ending the buffer closes any
+		// region that is still open instead of letting the depth drift.
+		debugLabelDepth_ = 0;
 	}
-	if (vkEndCommandBuffer(commandBuffer_) != VK_SUCCESS) {
-		return fail(Kld::HalStatusCode::BackendError, "vkEndCommandBuffer failed");
+	if (wait) {
+		waitForAllFrames();
+	} else {
+		// Keep the submission running and record into the next slot. Reusing this
+		// slot waits for its fence in `ensureRecording()`, which is the ring.
+		currentSlot_ = (currentSlot_ + 1) % kFramesInFlight;
 	}
-	VkSubmitInfo submitInfo {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer_;
-	if (vkQueueSubmit(context_.graphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-		return fail(Kld::HalStatusCode::BackendError, "vkQueueSubmit failed");
-	}
-	if (vkQueueWaitIdle(context_.graphicsQueue()) != VK_SUCCESS) {
-		return fail(Kld::HalStatusCode::BackendError, "vkQueueWaitIdle failed");
-	}
-	recording_ = false;
-	(void)vkResetCommandPool(context_.device(), commandPool_, 0);
-	// Every descriptor set written so far belonged to already submitted commands.
-	resetDescriptors();
-	flushDeferred();
 	return Kld::HalOk;
+}
+
+Kld::HalStatus CommandExecutor::submitAndWait()
+{
+	return submitCurrent(true);
+}
+
+void CommandExecutor::waitForAllFrames() noexcept
+{
+	if (vkWaitForFences == nullptr || context_.device() == VK_NULL_HANDLE) {
+		return;
+	}
+	for (FrameSlot& slot : frames_) {
+		if (!slot.pending) {
+			continue;
+		}
+		(void)vkWaitForFences(context_.device(), 1, &slot.fence, VK_TRUE, UINT64_MAX);
+		slot.pending = false;
+		flushDeferred(slot.deferred);
+	}
 }
 
 Kld::HalStatus CommandExecutor::flushForHostAccess()
@@ -295,9 +367,9 @@ Kld::HalStatus CommandExecutor::flushForHostAccess()
 	return submitAndWait();
 }
 
-void CommandExecutor::flushDeferred() noexcept
+void CommandExecutor::flushDeferred(std::vector<DeferredDestroy>& list) noexcept
 {
-	for (const DeferredDestroy& entry : deferred_) {
+	for (const DeferredDestroy& entry : list) {
 		if (entry.buffer_ != VK_NULL_HANDLE) {
 			vkDestroyBuffer(context_.device(), entry.buffer_, nullptr);
 		}
@@ -338,7 +410,7 @@ void CommandExecutor::flushDeferred() noexcept
 			vkDestroyQueryPool(context_.device(), entry.queryPool_, nullptr);
 		}
 	}
-	deferred_.clear();
+	list.clear();
 }
 
 void CommandExecutor::releaseAll() noexcept
@@ -348,6 +420,10 @@ void CommandExecutor::releaseAll() noexcept
 	}
 	(void)vkDeviceWaitIdle(context_.device());
 	endActiveRenderPass();
+	for (auto& entry : swapchains_) {
+		destroySwapchainObject(entry.second);
+	}
+	swapchains_.clear();
 	destroySwapchainObjects();
 	for (auto& entry : buffers_) {
 		if (entry.second.mapped != nullptr) {
@@ -383,9 +459,6 @@ void CommandExecutor::releaseAll() noexcept
 		if (object.computePipeline != VK_NULL_HANDLE) {
 			vkDestroyPipeline(context_.device(), object.computePipeline, nullptr);
 		}
-		for (const VkDescriptorPool pool : object.descriptorPools) {
-			vkDestroyDescriptorPool(context_.device(), pool, nullptr);
-		}
 		for (VkDescriptorSetLayout setLayout : object.setLayouts) {
 			if (setLayout != VK_NULL_HANDLE) {
 				vkDestroyDescriptorSetLayout(context_.device(), setLayout, nullptr);
@@ -414,7 +487,6 @@ void CommandExecutor::releaseAll() noexcept
 	fences_.clear();
 	queryPools_.clear();
 	vertexArrays_.clear();
-	flushDeferred();
 	if (dummyTexture_.image != VK_NULL_HANDLE) {
 		releaseTexture(dummyTexture_);
 		dummyTexture_ = VkTextureObject {};
@@ -432,12 +504,35 @@ void CommandExecutor::releaseAll() noexcept
 		vkDestroyFence(context_.device(), acquireFence_, nullptr);
 		acquireFence_ = VK_NULL_HANDLE;
 	}
-	if (commandPool_ != VK_NULL_HANDLE) {
-		vkDestroyCommandPool(context_.device(), commandPool_, nullptr);
-		commandPool_ = VK_NULL_HANDLE;
-		commandBuffer_ = VK_NULL_HANDLE;
+	for (FrameSlot& slot : frames_) {
+		releaseFrameSlot(slot);
 	}
 	recording_ = false;
+}
+
+void CommandExecutor::releaseFrameSlot(FrameSlot& slot) noexcept
+{
+	const VkDevice device = context_.device();
+	flushDeferred(slot.deferred);
+	for (VkDescriptorPool pool : slot.descriptorPools) {
+		if (pool != VK_NULL_HANDLE) {
+			vkDestroyDescriptorPool(device, pool, nullptr);
+		}
+	}
+	slot.descriptorPools.clear();
+	if (slot.fence != VK_NULL_HANDLE) {
+		vkDestroyFence(device, slot.fence, nullptr);
+		slot.fence = VK_NULL_HANDLE;
+	}
+	if (slot.pool != VK_NULL_HANDLE) {
+		// Destroying the pool also frees the command buffer it owns.
+		vkDestroyCommandPool(device, slot.pool, nullptr);
+		slot.pool = VK_NULL_HANDLE;
+		slot.commands = VK_NULL_HANDLE;
+	}
+	slot.pending = false;
+	commandPool_ = VK_NULL_HANDLE;
+	commandBuffer_ = VK_NULL_HANDLE;
 }
 
 Kld::HalStatus CommandExecutor::process(std::span<const Kld::GfxOp> commands)
@@ -556,7 +651,7 @@ Kld::HalStatus CommandExecutor::process(std::span<const Kld::GfxOp> commands)
 	}
 	KLD_DISPATCH_END();
 	if (kldStatus.ok() && !frameActive_) {
-		const Kld::HalStatus flushed = submitAndWait();
+		const Kld::HalStatus flushed = submitCurrent(false);
 		if (!flushed.ok()) {
 			return flushed;
 		}
@@ -569,11 +664,17 @@ Kld::HalStatus CommandExecutor::setViewport(const Kld::OpSetViewport& op)
 	viewport_.x = op.x;
 	// Kaldi's viewport follows the GL convention (origin at the bottom-left);
 	// Vulkan's is top-left, so the rectangle is flipped to keep the same image.
-	std::uint32_t height = swapchainExtent_.height;
-	if (boundFramebuffer_ != Kld::DefaultFramebuffer) {
-		if (VkFramebufferObject* target = framebuffer(boundFramebuffer_)) {
-			height = target->height;
+	std::uint32_t height = 0;
+	if (boundFramebuffer_ == Kld::DefaultFramebuffer) {
+		// The default swapchain is created on first use, so its extent is only
+		// known after this call.
+		const Kld::HalStatus status = ensureSwapchain();
+		if (!status.ok()) {
+			return status;
 		}
+		height = swapchainExtent_.height;
+	} else if (VkFramebufferObject* target = framebuffer(boundFramebuffer_)) {
+		height = target->height;
 	}
 	viewport_.y = static_cast<float>(height) - (op.y + op.height);
 	viewport_.width = op.width;
@@ -589,11 +690,15 @@ Kld::HalStatus CommandExecutor::setViewport(const Kld::OpSetViewport& op)
 
 Kld::HalStatus CommandExecutor::setScissor(const Kld::OpSetScissor& op)
 {
-	std::uint32_t height = swapchainExtent_.height;
-	if (boundFramebuffer_ != Kld::DefaultFramebuffer) {
-		if (VkFramebufferObject* target = framebuffer(boundFramebuffer_)) {
-			height = target->height;
+	std::uint32_t height = 0;
+	if (boundFramebuffer_ == Kld::DefaultFramebuffer) {
+		const Kld::HalStatus status = ensureSwapchain();
+		if (!status.ok()) {
+			return status;
 		}
+		height = swapchainExtent_.height;
+	} else if (VkFramebufferObject* target = framebuffer(boundFramebuffer_)) {
+		height = target->height;
 	}
 	scissor_.offset.x = std::max(op.x, 0);
 	scissor_.offset.y = std::max(static_cast<std::int32_t>(height) - op.y
@@ -840,79 +945,57 @@ Kld::HalStatus CommandExecutor::waitFence(const Kld::OpWaitFence& op)
 	return Kld::HalOk;
 }
 
-Kld::HalStatus CommandExecutor::debugLabelBegin(const Kld::OpDebugLabelBegin&)
+Kld::HalStatus CommandExecutor::debugLabelBegin(const Kld::OpDebugLabelBegin& op)
 {
-	// Vk::Context enables no debug-marker extension yet; capabilities() reports
-	// supportsDebugLabels == false, so labels are consumed and dropped.
+	if (!debugLabels_) {
+		// No VK_EXT_debug_utils: capabilities() already reported
+		// supportsDebugLabels == false, so the label is consumed and dropped.
+		return Kld::HalOk;
+	}
+	Kld::HalStatus status = ensureRecording();
+	if (!status.ok()) {
+		return status;
+	}
+	VkDebugUtilsLabelEXT label {};
+	label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+	label.pLabelName = op.name != nullptr ? op.name : "";
+	for (int channel = 0; channel < 4; ++channel) {
+		label.color[channel] = op.color[channel];
+	}
+	cmdBeginDebugUtilsLabel_(commandBuffer_, &label);
+	++debugLabelDepth_;
 	return Kld::HalOk;
 }
 
 Kld::HalStatus CommandExecutor::debugLabelEnd(const Kld::OpDebugLabelEnd&)
 {
-	return Kld::HalOk;
-}
-
-Kld::HalStatus CommandExecutor::debugMarker(const Kld::OpDebugMarker&)
-{
-	return Kld::HalOk;
-}
-
-Kld::HalStatus CommandExecutor::createSwapchain(const Kld::OpCreateSwapchain&)
-{
-	return failUnsupported("explicit swapchains are not implemented by the Vulkan backend");
-}
-
-Kld::HalStatus CommandExecutor::destroySwapchain(const Kld::OpDestroySwapchain& op)
-{
-	if (op.id == Kld::DefaultSwapchain) {
+	if (!debugLabels_ || debugLabelDepth_ == 0) {
 		return Kld::HalOk;
 	}
-	return failUnsupported("explicit swapchains are not implemented by the Vulkan backend");
-}
-
-Kld::HalStatus CommandExecutor::resizeSwapchain(const Kld::OpResizeSwapchain& op)
-{
-	if (op.id != Kld::DefaultSwapchain) {
-		return failUnsupported("explicit swapchains are not implemented by the Vulkan backend");
+	if (recording_) {
+		cmdEndDebugUtilsLabel_(commandBuffer_);
 	}
-	Kld::HalStatus status = submitAndWait();
-	if (!status.ok()) {
-		return status;
-	}
-	destroySwapchainObjects();
-	swapchainExtent_ = VkExtent2D { op.width, op.height };
-	return createSwapchainObjects();
-}
-
-Kld::HalStatus CommandExecutor::acquireSwapchainImage(const Kld::OpAcquireSwapchainImage& op)
-{
-	if (op.swapchain != Kld::DefaultSwapchain) {
-		return failUnsupported("explicit swapchains are not implemented by the Vulkan backend");
-	}
-	Kld::HalStatus status = ensureSwapchain();
-	if (!status.ok()) {
-		return status;
-	}
-	if (!imageAcquired_) {
-		status = acquireDefaultImage();
-		if (!status.ok()) {
-			return status;
-		}
-	}
-	if (op.callback != nullptr) {
-		const Kld::SwapchainAcquireInfo info { op.swapchain, Kld::SwapchainStatus::Ready,
-						       currentImageIndex_, 0, 0, Kld::DefaultFramebuffer };
-		op.callback(&info, op.userData);
-	}
+	--debugLabelDepth_;
 	return Kld::HalOk;
 }
 
-Kld::HalStatus CommandExecutor::presentSwapchain(const Kld::OpPresentSwapchain& op)
+Kld::HalStatus CommandExecutor::debugMarker(const Kld::OpDebugMarker& op)
 {
-	if (op.swapchain != Kld::DefaultSwapchain) {
-		return failUnsupported("explicit swapchains are not implemented by the Vulkan backend");
+	if (!debugLabels_) {
+		return Kld::HalOk;
 	}
-	return present(Kld::OpPresent { Kld::DefaultFramebuffer });
+	Kld::HalStatus status = ensureRecording();
+	if (!status.ok()) {
+		return status;
+	}
+	VkDebugUtilsLabelEXT label {};
+	label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+	label.pLabelName = op.name != nullptr ? op.name : "";
+	for (int channel = 0; channel < 4; ++channel) {
+		label.color[channel] = op.color[channel];
+	}
+	cmdInsertDebugUtilsLabel_(commandBuffer_, &label);
+	return Kld::HalOk;
 }
 
 }

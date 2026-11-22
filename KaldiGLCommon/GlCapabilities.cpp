@@ -185,6 +185,9 @@ Kld::HalCapabilities probeCapabilities() noexcept
 			static_cast<std::uint32_t>(queryInteger(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS));
 		capabilities.maxStorageImageBindings = static_cast<std::uint32_t>(queryInteger(GL_MAX_IMAGE_UNITS));
 	}
+	// Explicit swapchain objects are a validated view of the context drawable.
+	capabilities.supportsExplicitSwapchains = true;
+	capabilities.version = Kld::KaldiHalVersion1_1;
 
 	return capabilities;
 }

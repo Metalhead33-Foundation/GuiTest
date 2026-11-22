@@ -113,6 +113,15 @@ public:
 	const ContextConfig& config() const noexcept { return config_; }
 	/** @brief `VkPhysicalDeviceProperties::deviceName`. */
 	std::string_view deviceName() const noexcept { return std::string_view(properties_.deviceName); }
+	/**
+	 * @brief True when `VK_EXT_debug_utils` is enabled on the instance.
+	 *
+	 * The extension is optional: it is enabled when the loader offers it, and the
+	 * command-buffer label entry points are then resolved through
+	 * `vkGetDeviceProcAddr`. `HalCapabilities::supportsDebugLabels` mirrors this
+	 * flag, so a backend never claims labels it cannot emit.
+	 */
+	bool debugUtilsEnabled() const noexcept { return debugUtils_; }
 	/** @brief True when the instance, device and surface are all valid. */
 	bool isValid() const noexcept
 	{
@@ -134,6 +143,8 @@ private:
 	uint32_t presentQueueFamily_ = 0;
 	VkPhysicalDeviceProperties properties_{};
 	VkPhysicalDeviceFeatures features_{};
+	/** @brief True when `VK_EXT_debug_utils` was enabled on the instance. */
+	bool debugUtils_ = false;
 };
 
 }

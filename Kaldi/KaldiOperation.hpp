@@ -80,6 +80,22 @@ constexpr HandleId DefaultFramebuffer = 0;
 constexpr HandleId DefaultSwapchain = 0;
 
 /**
+ * @brief First handle ID in the range reserved for backend-preallocated objects.
+ *
+ * Handle IDs below this value belong to the caller's allocator; IDs from this
+ * value upwards belong to the backend (HAL 1.1). A backend uses the range when it
+ * has to hand back something the caller can *use* but does not own - today that is
+ * the framebuffer of an acquired swapchain image, reported through
+ * `SwapchainAcquireInfo`::framebuffer.
+ *
+ * Those handles work with every command that accepts the resource kind, but they
+ * must not be destroyed by the caller: destroying the owning swapchain retires
+ * them, and a destroy command aimed at one is rejected instead of silently
+ * corrupting the backend's bookkeeping.
+ */
+constexpr HandleId BackendHandleBase = 0x80000000u;
+
+/**
  * @brief Operation selector for `GfxOp`.
  *
  * Each opcode has a matching payload member in `GfxOp`::opt, except legacy

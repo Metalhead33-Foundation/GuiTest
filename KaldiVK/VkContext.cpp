@@ -163,11 +163,18 @@ Context::Context(const Kld::NativeWindowHandles& window, const ContextConfig& co
 		loadGlobalFunctions();
 
 		// ── Instance ──────────────────────────────────────────────────────────
-		const std::vector<const char*> extensions = requiredInstanceExtensions(window.system);
+		std::vector<const char*> extensions = requiredInstanceExtensions(window.system);
 		for (const char* required : extensions) {
 			if (!instanceExtensionAvailable(required)) {
 				throw std::runtime_error(std::string("VkContext: the Vulkan loader does not offer ") + required);
 			}
+		}
+		// Optional: command-buffer debug labels. Enabling it is what makes
+		// HalCapabilities::supportsDebugLabels truthful, so try before falling
+		// back to silently dropped labels.
+		if (instanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+			debugUtils_ = true;
 		}
 
 		std::vector<const char*> layers;

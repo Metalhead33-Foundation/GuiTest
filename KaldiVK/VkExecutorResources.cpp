@@ -230,7 +230,7 @@ Kld::HalStatus CommandExecutor::destroyBuffer(const Kld::OpDestroy& op)
 		vkUnmapMemory(context_.device(), found->second.memory);
 		found->second.mapped = nullptr;
 	}
-	deferred_.push_back(deferred);
+	defer(deferred);
 	buffers_.erase(found);
 	return Kld::HalOk;
 }
@@ -251,7 +251,7 @@ Kld::HalStatus CommandExecutor::resizeBuffer(const Kld::OpResizeBufferObject& op
 		vkUnmapMemory(context_.device(), object->memory);
 		object->mapped = nullptr;
 	}
-	deferred_.push_back(deferred);
+	defer(deferred);
 	buffers_.erase(op.id);
 	// The HAL allows undefined contents after a resize.
 	return createBuffer(Kld::OpCreateBufferObject { op.id, op.size, 0, nullptr });
@@ -268,6 +268,13 @@ Kld::HalStatus CommandExecutor::updateBuffer(const Kld::OpUpdateBufferObject& op
 	}
 	if (object->mapped == nullptr) {
 		return fail(Kld::HalStatusCode::BackendError, "the buffer is not host visible");
+	}
+	// The mapping is persistent and the buffer may be read by work still in
+	// flight, so drain before the host overwrites it. Frames-in-flight would
+	// otherwise turn a per-frame uniform update into a data race.
+	Kld::HalStatus status = flushForHostAccess();
+	if (!status.ok()) {
+		return status;
 	}
 	std::memcpy(static_cast<std::uint8_t*>(object->mapped) + op.offset, op.data, op.size);
 	if (!object->coherent) {
@@ -293,17 +300,18 @@ Kld::HalStatus CommandExecutor::mapBuffer(const Kld::OpMapBufferObject& op)
 	if (object->mapped == nullptr) {
 		return fail(Kld::HalStatusCode::BackendError, "the buffer is not host visible");
 	}
+	// The caller may read *or* write through the mapping, and either way the GPU
+	// must be done with the range: queued work may still read it (write access),
+	// or may have written it (read access).
+	Kld::HalStatus mapStatus = flushForHostAccess();
+	if (!mapStatus.ok()) {
+		return mapStatus;
+	}
 	VkMappedMemoryRange range {};
 	range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
 	range.memory = object->memory;
 	range.size = VK_WHOLE_SIZE;
 	if (op.access != Kld::BufferMapAccess::WriteOnly) {
-		// The mapping is persistent, but the GPU may have written the buffer since
-		// the last submission; make those writes visible before handing it out.
-		const Kld::HalStatus status = flushForHostAccess();
-		if (!status.ok()) {
-			return status;
-		}
 		vkInvalidateMappedMemoryRanges(context_.device(), 1, &range);
 	}
 	op.callback(static_cast<std::uint8_t*>(object->mapped) + op.offset, size, op.userData);
@@ -511,7 +519,7 @@ Kld::HalStatus CommandExecutor::uploadImageLevel(VkTextureObject& object, std::u
 	deferred.buffer_ = staging;
 	deferred.bufferMemory_ = stagingMemory;
 	vkUnmapMemory(context_.device(), stagingMemory);
-	deferred_.push_back(deferred);
+	defer(deferred);
 	return Kld::HalOk;
 }
 
@@ -1005,7 +1013,7 @@ Kld::HalStatus CommandExecutor::destroyTexture(const Kld::OpDestroy& op)
 	deferred.view_ = found->second.view;
 	deferred.image_ = found->second.image;
 	deferred.imageMemory_ = found->second.memory;
-	deferred_.push_back(deferred);
+	defer(deferred);
 	textures_.erase(found);
 	return Kld::HalOk;
 }
@@ -1038,7 +1046,7 @@ Kld::HalStatus CommandExecutor::resizeTexture2D(const Kld::OpResizeTexture2D& op
 	deferred.view_ = object->view;
 	deferred.image_ = object->image;
 	deferred.imageMemory_ = object->memory;
-	deferred_.push_back(deferred);
+	defer(deferred);
 	const VkImageUsageFlags usage = object->usage;
 	object->view = VK_NULL_HANDLE;
 	object->image = VK_NULL_HANDLE;
@@ -1224,7 +1232,7 @@ Kld::HalStatus CommandExecutor::destroySampler(const Kld::OpDestroy& op)
 	}
 	DeferredDestroy deferred {};
 	deferred.sampler_ = found->second.sampler;
-	deferred_.push_back(deferred);
+	defer(deferred);
 	samplers_.erase(found);
 	return Kld::HalOk;
 }
@@ -1258,6 +1266,13 @@ Kld::HalStatus CommandExecutor::createImage2D(const Kld::OpCreateImage2D& op)
 	if (!status.ok()) {
 		return status;
 	}
+	// Every later command (render pass attachment, storage image, sampled view)
+	// expects the image in GENERAL, so transition once here instead of at each use.
+	status = ensureImageLayout(object);
+	if (!status.ok()) {
+		destroyImageObjects(context_.device(), object);
+		return status;
+	}
 	images_.emplace(op.id, object);
 	return Kld::HalOk;
 }
@@ -1287,7 +1302,7 @@ Kld::HalStatus CommandExecutor::resizeImage2D(const Kld::OpResizeImage2D& op)
 	deferred.view_ = object->view;
 	deferred.image_ = object->image;
 	deferred.imageMemory_ = object->memory;
-	deferred_.push_back(deferred);
+	defer(deferred);
 	const VkImageUsageFlags usage = object->usage;
 	object->view = VK_NULL_HANDLE;
 	object->image = VK_NULL_HANDLE;
@@ -1388,12 +1403,47 @@ Kld::HalStatus CommandExecutor::resolveImage2D(const Kld::OpResolveImage2D& op)
 		return fail(Kld::HalStatusCode::InvalidResourceState,
 			    "ResolveImage2D needs a multisampled source image");
 	}
+	if (destination->samples != VK_SAMPLE_COUNT_1_BIT) {
+		return fail(Kld::HalStatusCode::InvalidCommand,
+			    "the resolve destination must be a single-sample image");
+	}
 	if (source->format != destination->format) {
 		return fail(Kld::HalStatusCode::InvalidCommand,
 			    "a resolve needs matching source and destination formats");
 	}
-	return blitImages(*source, op.sourceX, op.sourceY, *destination, op.destinationX,
-			  op.destinationY, op.width, op.height);
+	if (op.width == 0 || op.height == 0
+	    || static_cast<std::uint32_t>(op.sourceX) + op.width > source->width
+	    || static_cast<std::uint32_t>(op.sourceY) + op.height > source->height
+	    || static_cast<std::uint32_t>(op.destinationX) + op.width > destination->width
+	    || static_cast<std::uint32_t>(op.destinationY) + op.height > destination->height) {
+		return fail(Kld::HalStatusCode::InvalidCommand,
+			    "the resolve region is outside one of the images");
+	}
+	// The source is normally the attachment that was just drawn into, and a blit
+	// or resolve cannot run inside an active render pass.
+	endActiveRenderPass();
+	Kld::HalStatus status = ensureImageLayout(*source);
+	if (!status.ok()) {
+		return status;
+	}
+	status = ensureImageLayout(*destination);
+	if (!status.ok()) {
+		return status;
+	}
+	status = ensureRecording();
+	if (!status.ok()) {
+		return status;
+	}
+	// vkCmdBlitImage rejects a multisampled source; only a resolve is valid there.
+	VkImageResolve region {};
+	region.srcSubresource = { source->aspect, 0, 0, 1 };
+	region.dstSubresource = { destination->aspect, 0, 0, 1 };
+	region.srcOffset = { op.sourceX, op.sourceY, 0 };
+	region.dstOffset = { op.destinationX, op.destinationY, 0 };
+	region.extent = { op.width, op.height, 1 };
+	vkCmdResolveImage(commandBuffer_, source->image, VK_IMAGE_LAYOUT_GENERAL,
+			  destination->image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+	return Kld::HalOk;
 }
 
 Kld::HalStatus CommandExecutor::destroyImage(const Kld::OpDestroyImage& op)
@@ -1406,7 +1456,7 @@ Kld::HalStatus CommandExecutor::destroyImage(const Kld::OpDestroyImage& op)
 	deferred.view_ = found->second.view;
 	deferred.image_ = found->second.image;
 	deferred.imageMemory_ = found->second.memory;
-	deferred_.push_back(deferred);
+	defer(deferred);
 	images_.erase(found);
 	return Kld::HalOk;
 }
@@ -1427,15 +1477,23 @@ Kld::HalStatus CommandExecutor::createFramebuffer(const Kld::OpCreateFramebuffer
 	std::map<std::uint32_t, VkTextureObject*> colors;
 	VkTextureObject* depth = nullptr;
 	bool stencilOnly = false;
+	VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+	bool samplesKnown = false;
 	for (std::uint32_t index = 0; index < op.attachmentCount; ++index) {
 		const Kld::FramebufferAttachment& attachment = op.attachments[index];
 		VkTextureObject* target = image(attachment.image);
 		if (target == nullptr) {
 			return failInvalidHandle("image", attachment.image);
 		}
-		if (target->samples != VK_SAMPLE_COUNT_1_BIT) {
-			return failUnsupported(
-				"framebuffers with multisampled attachments are not implemented");
+		if (!samplesKnown) {
+			samples = target->samples;
+			samplesKnown = true;
+		} else if (samples != target->samples) {
+			// Vulkan has one sample count per render pass, so Kaldi's attachments
+			// have to agree. Resolve multisampled targets with ResolveImage2D.
+			return fail(Kld::HalStatusCode::InvalidCommand,
+				    "Vulkan requires every framebuffer attachment to share one sample "
+				    "count");
 		}
 		if (attachment.role == Kld::FramebufferAttachmentRole::Color) {
 			if (attachment.colorAttachmentIndex >= capabilities_.maxColorAttachments) {
@@ -1464,10 +1522,26 @@ Kld::HalStatus CommandExecutor::createFramebuffer(const Kld::OpCreateFramebuffer
 	std::vector<VkAttachmentReference> colorRefs;
 	attachments.reserve(colors.size() + (depth != nullptr ? 1 : 0));
 	colorRefs.reserve(colors.size());
+	// The render pass below declares GENERAL as the initial layout, so the
+	// attachments have to be there before the first pass begins. Creating an image
+	// does not transition it, and a framebuffer may be built from an image that no
+	// upload ever touched.
+	for (const auto& entry : colors) {
+		const Kld::HalStatus status = ensureImageLayout(*entry.second);
+		if (!status.ok()) {
+			return status;
+		}
+	}
+	if (depth != nullptr) {
+		const Kld::HalStatus status = ensureImageLayout(*depth);
+		if (!status.ok()) {
+			return status;
+		}
+	}
 	for (const auto& entry : colors) {
 		VkAttachmentDescription description {};
 		description.format = entry.second->format;
-		description.samples = VK_SAMPLE_COUNT_1_BIT;
+		description.samples = samples;
 		// Every image lives in GENERAL, so LOAD needs no transition and preserves
 		// whatever earlier commands (including a previous render pass) wrote.
 		description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -1484,7 +1558,7 @@ Kld::HalStatus CommandExecutor::createFramebuffer(const Kld::OpCreateFramebuffer
 	if (depth != nullptr) {
 		VkAttachmentDescription description {};
 		description.format = depth->format;
-		description.samples = VK_SAMPLE_COUNT_1_BIT;
+		description.samples = samples;
 		description.loadOp = stencilOnly ? VK_ATTACHMENT_LOAD_OP_DONT_CARE
 						 : VK_ATTACHMENT_LOAD_OP_LOAD;
 		description.storeOp = stencilOnly ? VK_ATTACHMENT_STORE_OP_DONT_CARE
@@ -1525,6 +1599,7 @@ Kld::HalStatus CommandExecutor::createFramebuffer(const Kld::OpCreateFramebuffer
 	object.width = op.width;
 	object.height = op.height;
 	object.hasDepth = depth != nullptr && !stencilOnly;
+	object.samples = samples;
 	object.hasStencil = depth != nullptr;
 	if (vkCreateRenderPass(context_.device(), &passInfo, nullptr, &object.renderPass)
 	    != VK_SUCCESS) {
@@ -1558,6 +1633,7 @@ Kld::HalStatus CommandExecutor::createFramebuffer(const Kld::OpCreateFramebuffer
 	info.depthFormat = object.depthFormat;
 	info.hasDepth = object.hasDepth;
 	info.hasStencil = object.hasStencil;
+	info.samples = object.samples;
 	passInfos_[object.renderPass] = info;
 	framebuffers_.emplace(op.id, object);
 	return Kld::HalOk;
@@ -1569,11 +1645,16 @@ Kld::HalStatus CommandExecutor::destroyFramebuffer(const Kld::OpDestroyFramebuff
 	if (found == framebuffers_.end()) {
 		return failInvalidHandle("framebuffer", op.id);
 	}
+	if (found->second.backendOwned) {
+		return fail(Kld::HalStatusCode::InvalidCommand,
+			    "framebuffer " + std::to_string(op.id)
+				    + " belongs to a swapchain; destroy the swapchain instead");
+	}
 	passInfos_.erase(found->second.renderPass);
 	DeferredDestroy deferred {};
 	deferred.framebuffer_ = found->second.framebuffer;
 	deferred.renderPass_ = found->second.renderPass;
-	deferred_.push_back(deferred);
+	defer(deferred);
 	if (boundFramebuffer_ == op.id) {
 		endActiveRenderPass();
 		boundFramebuffer_ = Kld::DefaultFramebuffer;
