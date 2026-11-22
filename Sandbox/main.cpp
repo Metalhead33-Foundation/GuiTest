@@ -15,6 +15,7 @@ int main(void)
 	testTextPipeline();
 	testSignals();
 	testGeometryBatches();
+	testNetLoopback();
 	testFontParser();
 	return 0;
 }

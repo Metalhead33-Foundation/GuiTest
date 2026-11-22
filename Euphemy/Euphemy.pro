@@ -9,6 +9,14 @@ DEFINES += MH_EUPH_EXPORT
 LIBS += -fopenmp -ldl -lpng16 -lgif -lturbojpeg -lsndfile -lsamplerate -lopenmpt \
         -lwebp -lwebpdecoder -lwebpdemux -lwebpmux -lzstd -lsnappy -lphysfs -lssl -lcrypto
 
+# io_uring is optional. When liburing is present the wrapper is compiled and
+# linked; otherwise EuphIoUring.cpp provides runtime-unavailable stubs.
+CONFIG += link_pkgconfig
+system(pkg-config --exists liburing) {
+    PKGCONFIG += liburing
+    DEFINES += MH_HAS_IO_URING
+}
+
 INCLUDEPATH += $$PWD/..
 
 # Link to sibling library
@@ -51,7 +59,17 @@ SOURCES += \
  Media/Image/EuphStandardColour.cpp \
  Media/Image/EuphTGA.cpp \
  Media/Image/EuphWEBP.cpp \
- Memory/EuphMemory.cpp
+ Memory/EuphMemory.cpp \
+ Net/EuphHttpClient.cpp \
+ Net/EuphHttpConnection.cpp \
+ Net/EuphHttpServer.cpp \
+ Platform/EuphEpollPoller.cpp \
+ Platform/EuphEventLoopWakeup.cpp \
+ Platform/EuphEventPollerFactory.cpp \
+ Platform/EuphIocp.cpp \
+ Platform/EuphIoUring.cpp \
+ Platform/EuphKqueuePoller.cpp \
+ Platform/EuphWSAPollPoller.cpp
 
 HEADERS += \
  Asset/EuphAssetRuntime.hpp \
@@ -95,7 +113,18 @@ HEADERS += \
  Media/Image/EuphStandardColour.hpp \
  Media/Image/EuphTGA.hpp \
  Media/Image/EuphWEBP.hpp \
- Memory/EuphMemory.hpp
+ Memory/EuphMemory.hpp \
+ Net/EuphHttpClient.hpp \
+ Net/EuphHttpConnection.hpp \
+ Net/EuphHttpServer.hpp \
+ Net/EuphUdpTransport.hpp \
+ Platform/EuphEpollPoller.hpp \
+ Platform/EuphEventLoopWakeup.hpp \
+ Platform/EuphEventPollerFactory.hpp \
+ Platform/EuphIocp.hpp \
+ Platform/EuphIoUring.hpp \
+ Platform/EuphKqueuePoller.hpp \
+ Platform/EuphWSAPollPoller.hpp
 
 DISTFILES += \
     Euphemy.pri \

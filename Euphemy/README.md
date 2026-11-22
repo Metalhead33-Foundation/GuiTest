@@ -15,7 +15,7 @@ and compiled translation units. The gaps are listed at the end of this file.
 | Export macro | `MH_EUPH_EXPORT` while building, `MH_EUPH_API` for consumers |
 | Consumer hook | `include(Euphemy/Euphemy.pri)` adds the include path and `-lEuphemy` |
 | Internal dependency | Elvavena (`-lElvavena`) |
-| External libraries | libsndfile, libsamplerate, libopenmpt, libpng16, gif, turbojpeg, libwebp (+decoder/demux/mux), zstd, snappy, PhysFS, OpenSSL (`ssl`, `crypto`) |
+| External libraries | libsndfile, libsamplerate, libopenmpt, libpng16, gif, turbojpeg, libwebp (+decoder/demux/mux), zstd, snappy, PhysFS, OpenSSL (`ssl`, `crypto`); optional `liburing` |
 
 ## Implemented
 
@@ -32,11 +32,45 @@ and compiled translation units. The gaps are listed at the end of this file.
 | `EuphRandomDevice.hpp` | Random-byte source device |
 | `EuphStdfileWrapper.hpp` | Adapts `FILE*` / standard streams to `Elv::Io::Device` |
 | `EuphTempFile.hpp` | Temporary-file creation (`mkstemp`, `O_TMPFILE`, ...) and RAII cleanup |
-| `EuphSocket.hpp` | POSIX sockets as `Elv::Io::Device` (address family, socket type, connect/listen/accept) |
+| `EuphSocket.hpp` | Sockets as `Elv::Io::Device`: address families, TCP/UDP, connect/bind/listen/accept, opaque `Elv::Net::Endpoint` conversion, non-blocking datagram send/receive. Owns WinSock lifetime and frees `addrinfo` |
 | `EuphZstd.hpp` / `.cpp` | `ZstdCompressor` (write proxy) and `ZstdDecompressor` (read proxy) |
 | `EuphSnappy.hpp` / `.cpp` | `SnappyCompressor` (write proxy) and `SnappyDecompressor` (read proxy) over a small chunked container (`"SNPY"` magic, per-chunk compressed/uncompressed sizes) |
 | `EuphCryptoProxyDevice.hpp` | `CryptoWriteDeviceProxy` / `CryptoReadDeviceProxy` plus the `CipherType` enum (OpenSSL-backed) |
 | `PhysFS.hpp` | `PhysFS` namespace wrapper around the PhysFS virtual filesystem |
+
+### `Net/` - concrete transports over the platform sockets
+
+| Header | Contents |
+|---|---|
+| `EuphUdpTransport.hpp` | `UdpTransport` implements `Elv::Net::DatagramTransport` over `Euph::Io::Socket`: unbound client sockets, server bind with ephemeral ports, non-blocking receive and `resolve`/`localEndpoint`. This is the bridge between Elvavena's session layer and the OS |
+| `EuphHttpClient.hpp` / `.cpp` | Minimal blocking HTTP client over TCP or connected UDP; one socket per request, `Content-Length` framing, sync result and executor-friendly `requestAsync`, `Signal<HttpFailure>` |
+| `EuphHttpServer.hpp` / `.cpp` | Minimal TCP/UDP server scaffold; bind/listen, read one request, delegate to a pure-virtual `HttpRequestHandler`, serialize the response and close |
+| `EuphHttpConnection.hpp` / `.cpp` | Shared blocking socket read/write helpers with timeout configuration and HTTP parser progress |
+
+The transport is intentionally thin. Protocol state (reliability, fragmentation,
+heartbeats) lives in `Elvavena/Net/ElvNetSession.*`; encryption/authentication and NAT
+traversal are not part of this adapter. The HTTP layer is likewise deliberately
+minimal: no routing, TLS, chunked encoding, keep-alive, JSON serialization or
+automatic body interpretation. Subclass `HttpRequestHandler` for application policy.
+
+### `Platform/` - event pollers and completion wrappers
+
+| Header | Contents |
+|---|---|
+| `EuphEventPollerFactory.hpp` | `createEventPoller()` selects epoll on Linux, kqueue on Apple/BSD and WSAPoll on Windows; returns null when unavailable. `createIoUringIfAvailable()` gives a runtime fallback, and `createPollingEventLoop()` wires a native poller + wakeup |
+| `EuphEpollPoller.hpp` / `.cpp` | `EpollPoller` implements `Elv::Io::EventPoller`: add/modify/remove, level/edge/one-shot flags, poll timeout and event-token mapping |
+| `EuphKqueuePoller.hpp` / `.cpp` | `KqueuePoller` maps read/write filters, `EV_CLEAR`/`EV_ONESHOT` and EOF/error flags to the same seam; unavailable stub elsewhere |
+| `EuphWSAPollPoller.hpp` / `.cpp` | `WSAPollPoller` implements the same seam for Windows sockets; non-Windows builds provide an unavailable stub |
+| `EuphEventLoopWakeup.hpp` / `.cpp` | `WakeupEvent` uses eventfd/pipe on POSIX and a loopback UDP pair on Windows; `createWakeupEvent()` returns null when unsupported |
+| `EuphIoUring.hpp` / `.cpp` | `IoUring` RAII wrapper over liburing: NOP/read/write/accept/connect/poll/timeout, registered fixed buffers, batched completion wait and runtime availability probe. Compiled only against liburing when detected; otherwise stubbed with `-ENOSYS` |
+| `EuphIocp.hpp` / `.cpp` | `Iocp` RAII wrapper over Windows I/O completion ports: associate handles, post packets, batched wait. Overlapped accept/connect/send/receive are caller-submitted operations delivered through the port |
+
+`EventPoller` is readiness (which handle is ready); `IoUring`/`Iocp` are completion
+(one record per submitted operation). They are separate because forcing a completion
+API into a readiness interface loses the operation result and buffer ownership model.
+`liburing` is optional in the qmake project; Docker, Android and ChromeOS can also
+disable `io_uring_setup` at runtime, so callers must fall back to epoll/WSAPoll for
+readiness or `Elv::Io::Async<ThreadPool>` for blocking file work.
 
 ### `Media/Image/` - image containers and codecs
 
@@ -111,3 +145,22 @@ transitions are documented on `ResidencyState` in `EuphAssetTypes.hpp`.
 - [ ] Codec coverage is uneven: `UnitTests` round-trips PNG, TGA, zstd, Snappy, the font
       containers and the configuration format, but JPEG/WebP (lossy, buffer-based entry
       points) and GIF/DDS (decode only) have no automated check.
+- [ ] The platform wrappers are only exercised on Linux: epoll, the polling loop and
+      the io_uring availability path have tests; WSAPoll, IOCP and kqueue need
+      Windows/BSD CI. A `select(2)` fallback is still missing.
+- [ ] `liburing` is optional at compile time, but a build without it still compiles
+      `EuphIoUring.cpp` as a stub. Runtime `io_uring_setup` failures (Docker seccomp,
+      Android, ChromeOS) are detected by `IoUring::isValid()`/`runtimeAvailable()` and
+      must be handled by falling back to epoll/kqueue/WSAPoll or a thread-pool I/O path.
+- [ ] io_uring supports accept/connect and registered fixed buffers; `sendmsg`/
+      `recvmsg` receive-buffer rings and buffer-update tags remain future work.
+- [ ] The HTTP client/server are deliberately one-request-per-connection blocking
+      helpers. No TLS, chunked transfer, keep-alive, routing, URL decoding or
+      automatic JSON serialization is provided; extend `HttpRequestHandler` and use
+      a reverse proxy/TLS terminator for production-facing services.
+- [ ] The UDP transport's automated coverage is a Linux localhost smoke test
+      (`UnitTests` tag `[net][socket]`). The WinSock branch, IPv6-specific paths and
+      platform socket-option behaviour are not exercised by CI yet.
+- [ ] `UdpTransport` is plaintext. Add authentication/encryption (DTLS or a
+      game-level handshake) above the transport before exposing it to untrusted
+      networks; the Elvavena session token is not a security mechanism.

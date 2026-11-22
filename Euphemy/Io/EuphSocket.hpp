@@ -9,14 +9,22 @@
  * and backend implementations that include this module.
  */
 #include <Euphemy/Config/EuphLib.hpp>
+#include <Elvavena/Io/ElvEventPoller.hpp>
 #include <Elvavena/Io/ElvIoDevice.hpp>
+#include <Elvavena/Net/ElvNetTypes.hpp>
 #include <cstdint>
+#include <optional>
+#include <span>
+#include <string_view>
 #ifdef _WIN32
-#include <windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <windows.h>
 #pragma comment(lib, "Ws2_32.lib")
-#elif defined (__unix)
+#elif defined(__unix__) || defined(__unix)
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -29,6 +37,16 @@
 #endif
 namespace Euph {
 namespace Io {
+
+#ifdef _WIN32
+using SocketHandle = SOCKET;          ///< Native socket handle.
+using SocketLength = int;             ///< Native sockaddr length type.
+inline constexpr SocketHandle InvalidSocketHandle = INVALID_SOCKET;
+#else
+using SocketHandle = int;             ///< Native socket handle.
+using SocketLength = socklen_t;       ///< Native sockaddr length type.
+inline constexpr SocketHandle InvalidSocketHandle = -1;
+#endif
 
 /**
  * @brief Enumeration defining the possible states of a socket.
@@ -157,7 +175,7 @@ private:
 	 *
 	 * The underlying file descriptor for the socket.
 	 */
-	int sockfd_;
+	SocketHandle sockfd_;
 
 	/**
 	 * @brief Current state of the socket.
@@ -187,8 +205,9 @@ private:
 	 * @param sockType  Socket type (e.g., TCP, UDP).
 	 * @param host	  Hostname or IP address to connect to.
 	 * @param port	  Port number to connect to.
+	 * @param passive  True for a server-side wildcard lookup.
 	 */
-	void initialize(AddressFamily family, SocketType sockType, const char* host, const char* port);
+	void initialize(AddressFamily family, SocketType sockType, const char* host, const char* port, bool passive = false);
 
 public:
 	/**
@@ -215,6 +234,72 @@ public:
 	 * @param port	  Port number to connect to.
 	 */
 	Socket(AddressFamily family, SocketType sockType, const char* host, const char* port);
+
+	/**
+	 * @brief Creates a socket without resolving a peer address.
+	 * @param family Address family.
+	 * @param sockType Socket type.
+	 * @param bindable True to request a wildcard bindable address.
+	 */
+	Socket(AddressFamily family, SocketType sockType, bool bindable);
+
+	/**
+	 * @brief Resolves a host and service into an opaque endpoint.
+	 * @param family Address family.
+	 * @param sockType Socket type.
+	 * @param host Hostname, textual address, or null for wildcard.
+	 * @param port Port number or service name.
+	 * @param passive True for a server-side wildcard lookup.
+	 * @return Endpoint on success.
+	 */
+	static std::optional<Elv::Net::Endpoint> resolveEndpoint(AddressFamily family,
+		SocketType sockType, const char* host, const char* port, bool passive = false);
+
+	/**
+	 * @brief Binds the socket to an endpoint.
+	 * @param endpoint Local endpoint.
+	 * @return True on success; sets state to BOUND.
+	 */
+	bool bindTo(const Elv::Net::Endpoint& endpoint);
+
+	/**
+	 * @brief Connects the socket to an endpoint.
+	 * @param endpoint Remote endpoint.
+	 * @return True on success; sets state to CONNECTED.
+	 */
+	bool connectTo(const Elv::Net::Endpoint& endpoint);
+
+	/**
+	 * @brief Returns the local endpoint bound to the socket.
+	 * @return Local endpoint on success.
+	 */
+	std::optional<Elv::Net::Endpoint> localEndpoint() const;
+
+	/**
+	 * @brief Returns the numeric local port.
+	 * @return Port in host byte order, or empty when unavailable.
+	 */
+	std::optional<std::uint16_t> localPort() const;
+
+	/**
+	 * @brief Receives one datagram without blocking (the socket must be
+	 *        non-blocking for the WouldBlock path).
+	 * @param buffer Destination buffer.
+	 * @param from Receives the sender endpoint.
+	 * @param status Optional status out-parameter.
+	 * @return Number of bytes received, or empty for WouldBlock/error.
+	 */
+	std::optional<size_t> receiveDatagram(std::span<std::byte> buffer,
+		Elv::Net::Endpoint& from, Elv::Net::NetError* status = nullptr);
+
+	/**
+	 * @brief Sends one datagram.
+	 * @param to Destination endpoint.
+	 * @param payload Bytes to send.
+	 * @return @ref Elv::Net::NetError::None on success.
+	 */
+	Elv::Net::NetError sendDatagram(const Elv::Net::Endpoint& to,
+		std::span<const std::byte> payload);
 
 	/**
 	 * @brief Destructor for the Socket class.
@@ -326,6 +411,12 @@ public:
 	 * @return		 True if the socket is valid, false otherwise.
 	 */
 	bool isValid() const override;
+
+	/**
+	 * @brief Returns the native handle for OS event pollers.
+	 * @return File descriptor or SOCKET, or @ref Elv::Io::InvalidNativeHandle.
+	 */
+	[[nodiscard]] Elv::Io::NativeHandle nativeHandle() const noexcept;
 
 	// Socket-specific methods
 

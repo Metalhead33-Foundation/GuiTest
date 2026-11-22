@@ -20,10 +20,22 @@ INCLUDEPATH += $$PWD
 
 SOURCES += \
     tests/AssetRuntimeTests.cpp \
+    tests/BitStreamTests.cpp \
     tests/CompressionTests.cpp \
     tests/ConfigTests.cpp \
     tests/FontRoundTripTests.cpp \
-    tests/ImageCodecTests.cpp
+    tests/HarukaStreamerRingTests.cpp \
+    tests/HttpTests.cpp \
+    tests/ImageCodecTests.cpp \
+    tests/NetClockRpcTests.cpp \
+    tests/NetPredictionInterpolationTests.cpp \
+    tests/NetReplicationTests.cpp \
+    tests/NetReplicationPipelineTests.cpp \
+    tests/NetSessionTests.cpp \
+    tests/NetSnapshotTests.cpp \
+    tests/NetTransportTests.cpp \
+    tests/PlatformWrappersTests.cpp \
+    tests/UdpTransportTests.cpp
 
 HEADERS += \
     support/TestSupport.hpp

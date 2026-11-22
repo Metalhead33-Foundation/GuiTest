@@ -43,7 +43,7 @@ header that includes every Haruka component.
 | `HrkPlaybackState.hpp` / `.cpp` | `PlaybackState` - cursor, play status and repeat flag |
 | `HrkPlaybackStatePlayable.hpp` / `.cpp` | `PlaybackStatePlayable` - combines `Playable` with `IHasPlaybackState` |
 | `HrkSoundSource.hpp` / `.cpp` | `SoundSource` - plays an in-memory `SoundBufferHandle`, honouring cursor/repeat and validating the output format |
-| `HrkRingBufferedStreamer.hpp` / `.cpp` | `RingBufferedStreamer` - base for pull-based decoders with a seekable ring buffer and decoder/state-cursor synchronisation |
+| `HrkRingBufferedStreamer.hpp` / `.cpp` | `RingBufferedStreamer` - base for pull-based decoders with a seekable ring buffer and decoder/state-cursor synchronisation. The sample storage is `Elv::Util::ContiguousRingBuffer<float>`; the class keeps only decoder/source state |
 | `HrkSoundStreamer.hpp` / `.cpp` | `SoundStreamer` - `RingBufferedStreamer` backed by `Euph::Media::Audio::SoundFile` (libsndfile) |
 | `HrkModuleStreamer.hpp` / `.cpp` | `ModuleStreamer` - `RingBufferedStreamer` backed by `Euph::Media::Audio::ModuleRenderer` (libopenmpt) |
 

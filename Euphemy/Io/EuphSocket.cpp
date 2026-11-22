@@ -1,4 +1,6 @@
 #include "EuphSocket.hpp"
+#include <algorithm>
+#include <cerrno>
 #include <exception>
 #include <string>
 #include <sstream>
@@ -104,12 +106,77 @@ public:
 	}
 };
 #pragma comment(lib, "Ws2_32.lib")
-#else
-#define INVALID_SOCKET -1
 #endif
 
 namespace Euph {
 namespace Io {
+
+namespace {
+
+/**
+ * @brief Copies a native sockaddr into the opaque networking endpoint.
+ * @param address Native address.
+ * @param length Native address length.
+ * @return Endpoint value; empty when @p address is null or @p length is invalid.
+ */
+Elv::Net::Endpoint endpointFromSockaddr(const sockaddr* address, SocketLength length) {
+	Elv::Net::Endpoint endpoint;
+	if (address == nullptr || length <= 0) return endpoint;
+	const std::size_t size = std::min<std::size_t>(
+		static_cast<std::size_t>(length), Elv::Net::Endpoint::StorageSize);
+	std::memcpy(endpoint.storage.data(), address, size);
+	endpoint.size = static_cast<std::uint16_t>(size);
+	endpoint.family = static_cast<std::uint16_t>(address->sa_family);
+	return endpoint;
+}
+
+/** @brief Returns the platform's last socket error code. */
+int lastSocketError() {
+#ifdef _WIN32
+	return WSAGetLastError();
+#else
+	return errno;
+#endif
+}
+
+/**
+ * @brief Maps a native socket error into a @ref Elv::Net::NetError.
+ * @param error Native error code.
+ * @return Descriptive networking error.
+ */
+Elv::Net::NetError netErrorFromSocketError(int error) {
+#ifdef _WIN32
+	switch (error) {
+	case WSAEWOULDBLOCK:
+		return Elv::Net::NetError::WouldBlock;
+	case WSAEMSGSIZE:
+		return Elv::Net::NetError::MessageTooLarge;
+	case WSAENOTCONN:
+	case WSAENOTSOCK:
+		return Elv::Net::NetError::NotConnected;
+	default:
+		return Elv::Net::NetError::ProtocolError;
+	}
+#else
+	switch (error) {
+	case EAGAIN:
+#if EWOULDBLOCK != EAGAIN
+	case EWOULDBLOCK:
+#endif
+	case EINTR:
+		return Elv::Net::NetError::WouldBlock;
+	case EMSGSIZE:
+		return Elv::Net::NetError::MessageTooLarge;
+	case ENOTCONN:
+	case EBADF:
+		return Elv::Net::NetError::NotConnected;
+	default:
+		return Elv::Net::NetError::ProtocolError;
+	}
+#endif
+}
+
+} // namespace
 
 struct SocketSystemInitializer {
 	int iResult;
@@ -143,7 +210,11 @@ std::shared_ptr<SocketSystemInitializer> Socket::init = nullptr;
 
 Socket::~Socket()
 {
-	if(sockfd_ >= 0)
+	if (info != nullptr) {
+		freeaddrinfo(info);
+		info = nullptr;
+	}
+	if (sockfd_ != InvalidSocketHandle)
 	{
 #ifdef _WIN32
 		closesocket(sockfd_);
@@ -154,24 +225,44 @@ Socket::~Socket()
 }
 
 Socket::Socket(Socket&& mov)
+	: info(mov.info), sockfd_(mov.sockfd_), state(mov.state)
 {
-	this->sockfd_ = mov.sockfd_;
-	mov.sockfd_ = -1;
+	mov.info = nullptr;
+	mov.sockfd_ = InvalidSocketHandle;
+	mov.state = SocketState::DISCONNECTED;
 }
 
 Socket& Socket::operator=(Socket&& mov)
 {
+	if (this == &mov) return *this;
+	if (info != nullptr) {
+		freeaddrinfo(info);
+		info = nullptr;
+	}
+	if (sockfd_ != InvalidSocketHandle)
+	{
+#ifdef _WIN32
+		closesocket(sockfd_);
+#else
+		close(sockfd_);
+#endif
+	}
+	this->info = mov.info;
 	this->sockfd_ = mov.sockfd_;
-	mov.sockfd_ = -1;
+	this->state = mov.state;
+	mov.info = nullptr;
+	mov.sockfd_ = InvalidSocketHandle;
+	mov.state = SocketState::DISCONNECTED;
 	return *this;
 }
 
-void Socket::initialize(AddressFamily family, SocketType sockType, const char* host, const char* port)
+void Socket::initialize(AddressFamily family, SocketType sockType, const char* host, const char* port, bool passive)
 {
 	addrinfo* result = nullptr;
 	addrinfo hints;
 	memset(&hints, 0, sizeof(addrinfo));
 	hints.ai_family = int(family);
+	hints.ai_flags = passive ? AI_PASSIVE : 0;
 	switch (sockType) {
 	case SocketType::TCP: hints.ai_socktype = SOCK_STREAM; hints.ai_protocol = IPPROTO_TCP; break;
 	case SocketType::UDP: hints.ai_socktype = SOCK_DGRAM; hints.ai_protocol = IPPROTO_UDP; break;
@@ -185,8 +276,8 @@ void Socket::initialize(AddressFamily family, SocketType sockType, const char* h
 #endif
 	}
 	this->info = result;
-	this->sockfd_ = socket(this->info->ai_family, this->info->ai_socktype, this->info->ai_protocol);
-	if (this->sockfd_ == INVALID_SOCKET) {
+	this->sockfd_ = static_cast<SocketHandle>(socket(this->info->ai_family, this->info->ai_socktype, this->info->ai_protocol));
+	if (this->sockfd_ == InvalidSocketHandle) {
 #ifdef _WIN32
 		throw WinsockSocketException(WSAGetLastError());
 #else
@@ -195,32 +286,150 @@ void Socket::initialize(AddressFamily family, SocketType sockType, const char* h
 	}
 }
 
-Socket::Socket(intptr_t rawSock) : info(nullptr), sockfd_(rawSock), state( (rawSock == INVALID_SOCKET) ? SocketState::DISCONNECTED : SocketState::CONNECTED)
+Socket::Socket(intptr_t rawSock) : info(nullptr), sockfd_(static_cast<SocketHandle>(rawSock)), state( (sockfd_ == InvalidSocketHandle) ? SocketState::DISCONNECTED : SocketState::CONNECTED)
 {
 	if (!init) init = std::shared_ptr<SocketSystemInitializer>(new SocketSystemInitializer(2, 2));
 }
 
-Socket::Socket(intptr_t rawSock, SocketState state) : info(nullptr), sockfd_(rawSock), state(state)
+Socket::Socket(intptr_t rawSock, SocketState state) : info(nullptr), sockfd_(static_cast<SocketHandle>(rawSock)), state(state)
 {
 	if (!init) init = std::shared_ptr<SocketSystemInitializer>(new SocketSystemInitializer(2, 2));
 }
 
-Socket::Socket(AddressFamily family, SocketType sockType, const char* host, const char* port) : info(nullptr), sockfd_(INVALID_SOCKET), state(SocketState::DISCONNECTED)
+Socket::Socket(AddressFamily family, SocketType sockType, const char* host, const char* port) : info(nullptr), sockfd_(InvalidSocketHandle), state(SocketState::DISCONNECTED)
 {
 	if (!init) init = std::shared_ptr<SocketSystemInitializer>(new SocketSystemInitializer(2, 2));
 	initialize(family,sockType,host,port);
 }
 
+Socket::Socket(AddressFamily family, SocketType sockType, bool bindable)
+	: info(nullptr), sockfd_(InvalidSocketHandle), state(SocketState::DISCONNECTED)
+{
+	if (!init) init = std::shared_ptr<SocketSystemInitializer>(new SocketSystemInitializer(2, 2));
+	initialize(family, sockType, nullptr, "0", bindable);
+}
+
+std::optional<Elv::Net::Endpoint> Socket::resolveEndpoint(AddressFamily family,
+	SocketType sockType, const char* host, const char* port, bool passive)
+{
+	addrinfo hints;
+	std::memset(&hints, 0, sizeof(addrinfo));
+	hints.ai_family = static_cast<int>(family);
+	hints.ai_flags = passive ? AI_PASSIVE : 0;
+	switch (sockType) {
+	case SocketType::TCP: hints.ai_socktype = SOCK_STREAM; hints.ai_protocol = IPPROTO_TCP; break;
+	case SocketType::UDP: hints.ai_socktype = SOCK_DGRAM; hints.ai_protocol = IPPROTO_UDP; break;
+	}
+	addrinfo* result = nullptr;
+	const char* node = (host != nullptr && *host != '\0') ? host : nullptr;
+	if (getaddrinfo(node, port, &hints, &result) != 0) return std::nullopt;
+	Elv::Net::Endpoint endpoint = endpointFromSockaddr(result->ai_addr, result->ai_addrlen);
+	freeaddrinfo(result);
+	if (!endpoint.isValid()) return std::nullopt;
+	return endpoint;
+}
+
+bool Socket::bindTo(const Elv::Net::Endpoint& endpoint)
+{
+	if (!isValid() || !endpoint.isValid()) return false;
+	if (::bind(sockfd_, reinterpret_cast<const sockaddr*>(endpoint.storage.data()),
+		static_cast<SocketLength>(endpoint.size)) != 0) {
+		state = SocketState::DISCONNECTED;
+		return false;
+	}
+	state = SocketState::BOUND;
+	return true;
+}
+
+bool Socket::connectTo(const Elv::Net::Endpoint& endpoint)
+{
+	if (!isValid() || !endpoint.isValid()) return false;
+	if (::connect(sockfd_, reinterpret_cast<const sockaddr*>(endpoint.storage.data()),
+		static_cast<SocketLength>(endpoint.size)) != 0) {
+		state = SocketState::DISCONNECTED;
+		return false;
+	}
+	state = SocketState::CONNECTED;
+	return true;
+}
+
+std::optional<Elv::Net::Endpoint> Socket::localEndpoint() const
+{
+	if (!isValid()) return std::nullopt;
+	sockaddr_storage storage {};
+	SocketLength length = sizeof(storage);
+	if (getsockname(sockfd_, reinterpret_cast<sockaddr*>(&storage), &length) != 0) {
+		return std::nullopt;
+	}
+	return endpointFromSockaddr(reinterpret_cast<const sockaddr*>(&storage), length);
+}
+
+std::optional<std::uint16_t> Socket::localPort() const
+{
+	if (!isValid()) return std::nullopt;
+	sockaddr_storage storage {};
+	SocketLength length = sizeof(storage);
+	if (getsockname(sockfd_, reinterpret_cast<sockaddr*>(&storage), &length) != 0) {
+		return std::nullopt;
+	}
+	if (storage.ss_family == AF_INET) {
+		return ntohs(reinterpret_cast<const sockaddr_in*>(&storage)->sin_port);
+	}
+	if (storage.ss_family == AF_INET6) {
+		return ntohs(reinterpret_cast<const sockaddr_in6*>(&storage)->sin6_port);
+	}
+	return std::nullopt;
+}
+
+std::optional<size_t> Socket::receiveDatagram(std::span<std::byte> buffer,
+	Elv::Net::Endpoint& from, Elv::Net::NetError* status)
+{
+	if (status != nullptr) *status = Elv::Net::NetError::None;
+	if (!isValid() || buffer.empty()) {
+		if (status != nullptr) *status = Elv::Net::NetError::ProtocolError;
+		return std::nullopt;
+	}
+	sockaddr_storage storage {};
+	SocketLength length = sizeof(storage);
+	const auto received = recvfrom(sockfd_, reinterpret_cast<char*>(buffer.data()),
+		static_cast<int>(buffer.size()), 0,
+		reinterpret_cast<sockaddr*>(&storage), &length);
+	if (received < 0) {
+		if (status != nullptr) *status = netErrorFromSocketError(lastSocketError());
+		return std::nullopt;
+	}
+	from = endpointFromSockaddr(reinterpret_cast<const sockaddr*>(&storage), length);
+	if (status != nullptr) *status = Elv::Net::NetError::None;
+	return static_cast<size_t>(received);
+}
+
+Elv::Net::NetError Socket::sendDatagram(const Elv::Net::Endpoint& to,
+	std::span<const std::byte> payload)
+{
+	if (!isValid() || !to.isValid()) return Elv::Net::NetError::InvalidEndpoint;
+	const auto sent = sendto(sockfd_, reinterpret_cast<const char*>(payload.data()),
+		static_cast<int>(payload.size()), 0,
+		reinterpret_cast<const sockaddr*>(to.storage.data()),
+		static_cast<SocketLength>(to.size));
+	if (sent < 0) return netErrorFromSocketError(lastSocketError());
+	if (static_cast<size_t>(sent) != payload.size()) return Elv::Net::NetError::ProtocolError;
+	return Elv::Net::NetError::None;
+}
+
 size_t Socket::read(void* buffer, size_t size, size_t count)
 {
-	ssize_t bytesRead = recv(sockfd_, static_cast<char*>(buffer), size * count, 0);
-	return bytesRead / size;
+	if (buffer == nullptr || size == 0 || count == 0) return 0;
+	const auto bytesRead = recv(sockfd_, static_cast<char*>(buffer), size * count, 0);
+	if (bytesRead <= 0) return 0;
+	return static_cast<size_t>(bytesRead) / size;
 }
 
 size_t Socket::write(const void* buffer, size_t size, size_t count)
 {
-	ssize_t bytesWritten = send(sockfd_, (const char*)buffer, size * count, 0);
-	return bytesWritten / size;
+	if (buffer == nullptr || size == 0 || count == 0) return 0;
+	const auto bytesWritten = send(sockfd_, static_cast<const char*>(buffer), size * count, 0);
+	if (bytesWritten <= 0) return 0;
+	return static_cast<size_t>(bytesWritten) / size;
 }
 
 int Socket::seek(long offset, Elv::Io::SeekOrigin whence)
@@ -237,7 +446,7 @@ long Socket::tell()
 
 size_t Socket::size()
 {
-	return -1;
+	return 0;
 }
 
 bool Socket::eof()
@@ -257,15 +466,23 @@ bool Socket::flush()
 
 bool Socket::isValid() const
 {
-	return sockfd_ >= 0;
+	return sockfd_ != InvalidSocketHandle;
+}
+
+Elv::Io::NativeHandle Socket::nativeHandle() const noexcept
+{
+	return sockfd_ == InvalidSocketHandle
+		? Elv::Io::InvalidNativeHandle
+		: static_cast<Elv::Io::NativeHandle>(sockfd_);
 }
 
 void Socket::setBlocking(bool isBlocking)
 {
-	u_long val = !isBlocking;
 #ifdef _WIN32
+	u_long val = isBlocking ? 0u : 1u;
 	ioctlsocket(sockfd_, FIONBIO, &val);
 #else
+	int val = isBlocking ? 0 : 1;
 	ioctl(sockfd_, FIONBIO, &val);
 #endif
 }
@@ -277,28 +494,26 @@ SocketState Socket::getState() const
 
 bool Socket::connectTo()
 {
-	if(connect(sockfd_,info->ai_addr,sizeof(sockaddr)) == -1)
+	if (info == nullptr) return false;
+	if (connect(sockfd_, info->ai_addr, info->ai_addrlen) != 0)
 	{
 		state = SocketState::DISCONNECTED;
 		return false;
 	}
-	else {
-		state = SocketState::CONNECTED;
-		return true;
-	}
+	state = SocketState::CONNECTED;
+	return true;
 }
 
 bool Socket::bindTo()
 {
-	if(bind(sockfd_,info->ai_addr,sizeof(sockaddr)) == -1)
+	if (info == nullptr) return false;
+	if (bind(sockfd_, info->ai_addr, info->ai_addrlen) != 0)
 	{
 		state = SocketState::DISCONNECTED;
 		return false;
 	}
-	else {
-		state = SocketState::CONNECTED;
-		return true;
-	}
+	state = SocketState::BOUND;
+	return true;
 }
 
 int Socket::listenForConnections(int backlog)
@@ -308,13 +523,13 @@ int Socket::listenForConnections(int backlog)
 
 intptr_t Socket::acceptConnection()
 {
-	return accept(sockfd_,nullptr,nullptr);
+	return static_cast<intptr_t>(accept(sockfd_, nullptr, nullptr));
 }
 
 bool Socket::getDebug() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(int);
+	SocketLength len=sizeof(int);
 	if(getsockopt(sockfd_,IPPROTO_TCP,SO_DEBUG,&retval,&len) == -1) return false;
 	else return bool(retval.integer);
 }
@@ -326,7 +541,7 @@ void Socket::setDebug(bool nval)
 bool Socket::getBroadcast() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(int);
+	SocketLength len=sizeof(int);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_BROADCAST,&retval,&len) == -1) return false;
 	else return bool(retval.integer);
 }
@@ -338,7 +553,7 @@ void Socket::setBroadcast(bool nval)
 bool Socket::getReuseAddr() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(int);
+	SocketLength len=sizeof(int);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_REUSEADDR,&retval,&len) == -1) return false;
 	else return bool(retval.integer);
 }
@@ -350,7 +565,7 @@ void Socket::setReuseAddr(bool nval)
 bool Socket::getKeepAlive() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(int);
+	SocketLength len=sizeof(int);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_KEEPALIVE,&retval,&len) == -1) return false;
 	else return bool(retval.integer);
 }
@@ -362,7 +577,7 @@ void Socket::setKeepAlive(bool nval)
 int Socket::getOobinline() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(int);
+	SocketLength len=sizeof(int);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_OOBINLINE,&retval,&len) == -1) return -1;
 	else return retval.integer;
 }
@@ -373,7 +588,7 @@ void Socket::setOobinline(int nval)
 int Socket::getSndBuffSize() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(int);
+	SocketLength len=sizeof(int);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_SNDBUF,&retval,&len) == -1) return -1;
 	else return retval.integer;
 }
@@ -384,7 +599,7 @@ void Socket::setSndBuffSize(int nval)
 int Socket::getRcvBuffSize() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(int);
+	SocketLength len=sizeof(int);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_RCVBUF,&retval,&len) == -1) return -1;
 	else return retval.integer;
 }
@@ -395,7 +610,7 @@ void Socket::setRcvBuffSize(int nval)
 bool Socket::getDontRoute() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(int);
+	SocketLength len=sizeof(int);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_DONTROUTE,&retval,&len) == -1) return false;
 	else return bool(retval.integer);
 }
@@ -407,7 +622,7 @@ void Socket::setDontRoute(bool nval)
 int Socket::getRclLoWat() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(int);
+	SocketLength len=sizeof(int);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_RCVLOWAT,&retval,&len) == -1) return -1;
 	else return retval.integer;
 }
@@ -418,7 +633,7 @@ void Socket::setRclLoWat(int nval)
 timeval Socket::getRcvTimeout() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(timeval);
+	SocketLength len=sizeof(timeval);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_RCVTIMEO,&retval,&len) == -1) return timeval();
 	else return retval.tim;
 }
@@ -429,7 +644,7 @@ void Socket::setRcvTimeout(timeval nval)
 int Socket::getSndLoWat() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(int);
+	SocketLength len=sizeof(int);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_SNDLOWAT,&retval,&len) == -1) return -1;
 	else return retval.integer;
 }
@@ -440,7 +655,7 @@ void Socket::setSndLoWat(int nval)
 timeval Socket::getSndTimeout() const
 {
 	ReceiptClass retval;
-	socklen_t len=sizeof(timeval);
+	SocketLength len=sizeof(timeval);
 	if(getsockopt(sockfd_,SOL_SOCKET,SO_SNDTIMEO,&retval,&len) == -1) return timeval();
 	else return retval.tim;
 }

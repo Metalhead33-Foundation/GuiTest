@@ -8,8 +8,12 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 27 test cases covering the asset runtime, compression, image
-codecs, the font containers and configuration.
+**Status: implemented and passing.** 106 test cases / 1151 assertions covering the
+asset runtime, compression, image codecs, the font containers, configuration,
+bit-level packet coding, the networking foundation (transport/session/clock/RPC,
+snapshots, field deltas, interpolation, prediction, lockstep and the reference
+pipeline), the minimal HTTP parser/client/server, the platform wrappers and a
+localhost UDP smoke test.
 
 ## Build and run
 
@@ -27,6 +31,21 @@ The suite exits non-zero when a check fails, so it can be used as a gate. Useful
 ```sh
 ./UnitTests/UnitTests --list-tests          # names and tags
 ./UnitTests/UnitTests "[roundtrip]"        # only round-trip cases
+./UnitTests/UnitTests "[net]"              # networking foundation (no OS sockets)
+./UnitTests/UnitTests "[net][socket]"      # localhost UDP transport
+./UnitTests/UnitTests "[ringbuffer]"       # contiguous streaming buffer + Haruka streamer
+./UnitTests/UnitTests "[eventloop]"        # polling loop + epoll/eventfd integration
+./UnitTests/UnitTests "[epoll]"            # Linux epoll readiness poller
+./UnitTests/UnitTests "[kqueue]"           # kqueue availability/stub
+./UnitTests/UnitTests "[uring]"            # io_uring availability path
+./UnitTests/UnitTests "[iocp]"             # IOCP stub/Windows path
+./UnitTests/UnitTests "[snapshot]"         # snapshot delta/baseline framing
+./UnitTests/UnitTests "[interpolation]"    # jitter/schema interpolation
+./UnitTests/UnitTests "[prediction]"       # input queues/checksum rollback
+./UnitTests/UnitTests "[lockstep]"         # input collection/checksum exchange
+./UnitTests/UnitTests "[pipeline]"         # per-peer replication server/client
+./UnitTests/UnitTests "[http]"             # parser; "[http][socket]" also TCP/UDP
+./UnitTests/UnitTests "[fielddelta]"       # snapshot field-level delta
 ./UnitTests/UnitTests "Snappy*" -s         # one group, showing passing assertions
 ```
 
@@ -49,6 +68,18 @@ build Catch2 as a single amalgamated header and replace the includes.
 | `tests/ImageCodecTests.cpp` | PNG and TGA encode -> decode reproduce the exact pixels of a 23x17 image; re-encoding a decoded PNG is byte-identical |
 | `tests/FontRoundTripTests.cpp` | Lotte `PreprocessedFontFace` and `StoredVectorImage` through `Elv::Io::DataStream`, comparing every persisted field (metadata, metrics, kerning, SDF payload, mipmaps) |
 | `tests/ConfigTests.cpp` | Configuration text round-trip for every typed value; default caching for missing keys; parsing a hand-written document; rejection of keys without a type prefix |
+| `tests/BitStreamTests.cpp` | MSB-first bit packing; mixed-width fields; full-range zig-zag signed values; varints; exact float/half bit patterns; quantized float clamping and degenerate ranges; buffer-full/exhausted errors; overlong varint rejection |
+| `tests/NetTransportTests.cpp` | Wrap-safe sequence comparison and ack windows; CRC-32C/FNV-1a vectors; ring-buffer ordering, overwrite and move-only elements; endpoint value semantics; loopback latency, loss, duplication, oversize rejection and endpoint lifecycle |
+| `tests/NetSessionTests.cpp` | Two-session handshake and retry; reliable ordered delivery and ack tags; delivery over a 35% lossy link; fragmentation/reassembly; heartbeat timeout; graceful disconnect; unreliable channel delivery; input validation |
+| `tests/NetClockRpcTests.cpp` | RTT/offset estimation and smoothing, bounded sample history, tick/time conversion; typed RPC encode/dispatch, enums/blobs, unknown/malformed/denied calls and handler exceptions |
+| `tests/NetReplicationTests.cpp` | Generation-checked ID reuse, component/entity-kind validation, object-schema bit-stream round-trip, component masks, stale-handle rejection, interest filtering |
+| `tests/NetSnapshotTests.cpp` | Full spawn baseline, ack-gated deltas, changed/removed component masks, despawns, rejected tags, malformed magic/version/truncation; schema field-delta full/delta modes |
+| `tests/NetPredictionInterpolationTests.cpp` | Jitter ordering/interpolation, schema field rules, snapshot jitter buffer, input/delay queues, checksum rollback, lockstep readiness and divergence |
+| `tests/NetReplicationPipelineTests.cpp` | Per-peer `OwnerInterest` snapshots, ack routing, peer removal, client parse/jitter buffer |
+| `tests/HttpTests.cpp` | Request/response serialization, incomplete/malformed/oversize parsing, HEAD suppression, TCP POST, TCP HEAD, `EventLoop` async request, UDP request/response, failure-signal emission |
+| `tests/PlatformWrappersTests.cpp` | Contiguous ring-buffer spans/wrap/bulk copy/resize; event-poller factory; epoll pipe readiness with modify/remove; polling loop commands/readiness/wakeup; kqueue stub; io_uring NOP when available; IOCP unavailable stub |
+| `tests/HarukaStreamerRingTests.cpp` | Deterministic `RingBufferedStreamer` through a four-frame ring; interleaved and separate-channel output across repeated wraps |
+| `tests/UdpTransportTests.cpp` | Localhost non-blocking UDP request/reply through `Euph::Net::UdpTransport` and `Euph::Io::Socket`, including ephemeral-port binding and source-endpoint capture |
 
 `support/TestSupport.hpp` holds the shared helpers: deterministic payload generators and
 `readToEnd()`, which drains a decompressing proxy device (its `size()` reports the *compressed* size,

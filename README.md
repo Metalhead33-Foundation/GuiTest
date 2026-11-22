@@ -24,14 +24,14 @@ list, and the headers are the API reference.
 
 | Module | Status | What works today | Main remaining work |
 |---|---|---|---|
-| [Elvavena](Elvavena/README.md) | Implemented | Device abstraction, containers/allocators, `DataStream` with checked LEB128, scope guards/defer stack, async I/O, event loop, thread pool, dynamic libraries, signals/slots | OS event-source integration for `EventLoop`; direct tests |
-| [Euphemy](Euphemy/README.md) | Implemented, small gaps | File/memory/socket/temp devices, zstd + crypto proxies, PNG/JPEG/TGA/WebP encode+decode, GIF/DDS decode, sound files, module rendering, resampling, convolution, config, optional PMR arenas, CPU asset runtime | `BufferDevice::isValid()` stub; GIF/DDS encoders; prune stale build dependencies |
-| [Haruka](Haruka/README.md) | Partial | Pull-based `Playable` graph, mixer, matrix/ambisonic panners, resampler, sound/module streamers, in-memory sources, dry/wet effect chain (clamp, crush, convolver, impulse-response synthesis) | No output device, no listener/3D model, wider test coverage |
+| [Elvavena](Elvavena/README.md) | Implemented, networking M4 + M5 reference pipeline, minimal HTTP core, platform I/O seam | Device abstraction, containers/allocators, `DataStream`/schema with checked LEB128, bit-level packet codec, transport-agnostic session with reliable channels/fragmentation/heartbeats, deterministic loopback, clock sync, typed RPC, NetId/component schema/entity registry/interest hooks, snapshot/delta baselines, field-level deltas, interpolation/jitter, prediction/rollback and lockstep helpers, reference replication pipeline, HTTP parser/serializer, checksums/ring buffers, portable `EventPoller`/`EventLoopWakeup` seams, `EventLoop` and `PollingEventLoop`, contiguous streaming ring buffer, scope guards/defer stack, async I/O, thread pool, dynamic libraries, signals/slots | WinSock/IPv6 coverage, `select(2)` fallback, HTTP TLS/chunked/keep-alive, per-handle timers/poll cancellation |
+| [Euphemy](Euphemy/README.md) | Implemented, small gaps | File/memory/socket/temp devices, UDP `DatagramTransport` over `EuphSocket`, minimal HTTP client/server over TCP/UDP, epoll/kqueue/WSAPoll pollers, eventfd/pipe/socket-pair wakeups, optional io_uring and IOCP completion wrappers (accept/connect/fixed buffers), zstd + crypto proxies, PNG/JPEG/TGA/WebP encode+decode, GIF/DDS decode, sound files, module rendering, resampling, convolution, config, optional PMR arenas, CPU asset runtime | `BufferDevice::isValid()` stub; GIF/DDS encoders; WinSock/IPv6/kqueue CI; `select(2)` fallback; `sendmsg` buffer rings |
+| [Haruka](Haruka/README.md) | Partial | Pull-based `Playable` graph, mixer, matrix/ambisonic panners, resampler, sound/module streamers (using Elvavena's `ContiguousRingBuffer`), in-memory sources, dry/wet effect chain (clamp, crush, convolver, impulse-response synthesis) | No output device, no listener/3D model, wider test coverage |
 | [Kaldi](Kaldi/README.md) | Contract + facade implemented | HAL 1.0/1.1 contract, 98-opcode command vocabulary, header-only recording facade, merge/deferred-destroy helpers | No working backend yet; swapchain/render-pass proxies; tests |
 | [KaldiGL](KaldiGL/README.md), [KaldiGLES](KaldiGLES/README.md), [KaldiVK](KaldiVK/README.md), [KaldiD3D11](KaldiD3D11/README.md), [KaldiD3D12](KaldiD3D12/README.md) | Stubs | Shared library target and C ABI exports | All rendering, context/swapchain creation, command translation |
 | [Lotte](Lotte/README.md) | Partial | Kaldi facade aliases, CPU→GPU asset streamer, FontPacker font (`WODF`) and vector-image (`WODI`) formats, MML parser, rich-text runs, text layout, glyph quads, mesh and GUI geometry batches | Renderer, GUI widgets, glyph atlas, 3D |
-| [UnitTests](UnitTests/README.md) | Working | Catch2 suite: asset runtime behaviour, zstd/Snappy round-trips, PNG/TGA round-trips, font `WODF`/`WODI` round-trips, configuration round-trip | More codec and Kaldi backend coverage |
-| [Sandbox](Sandbox/README.md) | Manual playground | Ad-hoc scenarios: GPU asset streamer, async I/O, image dumps, audio effects, text pipeline, signals, geometry batches | Grows as needed by hand; not part of the gate |
+| [UnitTests](UnitTests/README.md) | Working | Catch2 suite (106 cases/1151 assertions): asset runtime behaviour, zstd/Snappy round-trips, PNG/TGA round-trips, font `WODF`/`WODI` round-trips, configuration round-trip, bit-stream/loopback/session netcode, clock/RPC/replication core, snapshot delta baselines and field deltas, interpolation/jitter, prediction/rollback, lockstep, reference pipeline, HTTP parser/TCP/UDP client-server, ring-buffer/event-loop/event-poller/io_uring paths, localhost UDP | More codec and Kaldi backend coverage; WinSock/IPv6/kqueue paths |
+| [Sandbox](Sandbox/README.md) | Manual playground | Ad-hoc scenarios: GPU asset streamer, async I/O, image dumps, audio effects, text pipeline, signals, geometry batches, netcode loopback replication | Grows as needed by hand; not part of the gate |
 
 ## Documentation
 
@@ -42,6 +42,12 @@ list, and the headers are the API reference.
 - `docs/SALVAGE.md` records what was carried over from the older trees
   (`GuiTest-legacy`, `GuiTest-legacy2`/`NewBeginning`), what was deliberately dropped,
   and why each surviving concept changed shape.
+- `docs/NETCODE.md` records the networking layer split, the session/wire contract,
+  the extension points and the remaining netcode milestones.
+- `docs/PLATFORM.md` records the readiness/completion wrapper split, the optional
+  io_uring fallback and the two ring-buffer contracts.
+- `docs/HTTP.md` records the intentionally minimal HTTP parser/client/server split
+  and the extension points left to applications.
 - Render the reference with:
   ```sh
   doxygen Doxyfile
