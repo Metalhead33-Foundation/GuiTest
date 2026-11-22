@@ -48,8 +48,24 @@ TEST_CASE("Detached capability snapshots report no usable limits", "[kaldi][capa
 	CHECK_FALSE(capabilities.supportsStorageResources);
 	CHECK_FALSE(capabilities.supportsMultisampleResolve);
 	CHECK_FALSE(capabilities.supportsExplicitSwapchains);
+	// The zero value of the HAL 1.2 field is the OpenGL/Direct3D convention, so a
+	// consumer that never sees a probed device keeps the pre-1.2 assumption.
+	CHECK(capabilities.clipSpaceYAxis == Kld::ClipSpaceYAxis::Up);
 
 	CHECK(Kld::kDefaultMaxFramesInFlight > 0);
+}
+
+TEST_CASE("The HAL 1.2 additions are additive only", "[kaldi][capabilities]")
+{
+	CHECK(Kld::KaldiHalVersion1_2.major == 1);
+	CHECK(Kld::KaldiHalVersion1_2.minor == 2);
+	CHECK(Kld::KaldiHalVersion1_2.patch == 0);
+	// Reading "at least 1.0"/"at least 1.1" must stay true for a 1.2 backend.
+	CHECK(Kld::KaldiHalVersion1_2.major == Kld::KaldiHalVersion1_1.major);
+	CHECK(Kld::KaldiHalVersion1_2.minor > Kld::KaldiHalVersion1_1.minor);
+
+	// The two conventions are distinct values so a switch over them is exhaustive.
+	CHECK(Kld::ClipSpaceYAxis::Up != Kld::ClipSpaceYAxis::Down);
 }
 
 TEST_CASE("The HAL 1.1 additions are additive only", "[kaldi][capabilities]")

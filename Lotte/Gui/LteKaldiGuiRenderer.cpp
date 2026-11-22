@@ -109,6 +109,17 @@ KaldiGuiRenderer::KaldiGuiRenderer(Gfx::ResourceFactory& factory,
 	viewportWidth_ = std::max<std::uint16_t>(1, settings.viewportWidth);
 	viewportHeight_ = std::max<std::uint16_t>(1, settings.viewportHeight);
 
+	// Vulkan's clip space is y-down and OpenGL/Direct3D's is y-up, so the pixel
+	// transform has to follow the backend instead of assuming one convention. The
+	// factory's device knows; an explicit setting overrides it for device-less
+	// recording.
+	clipSpaceYAxis_ = settings.clipSpaceYAxis.value_or(Kld::ClipSpaceYAxis::Up);
+	if (!settings.clipSpaceYAxis) {
+		if (const Kld::Device* device = factory_.device()) {
+			clipSpaceYAxis_ = device->capabilities().clipSpaceYAxis;
+		}
+	}
+
 	// Straight-alpha blending: the GUI authors PNGs with straight alpha, and the
 	// shader deliberately does not premultiply.
 	blend_ = Kld::OpSetBlendState{
@@ -198,8 +209,7 @@ void KaldiGuiRenderer::beginFrame()
 
 glm::fvec2 KaldiGuiRenderer::toNdc(glm::fvec2 pixel) const noexcept
 {
-	return glm::fvec2(2.0f * pixel.x / float(viewportWidth_) - 1.0f,
-			  1.0f - 2.0f * pixel.y / float(viewportHeight_));
+	return pixelToClipSpace(pixel, viewportSize(), clipSpaceYAxis_);
 }
 
 void KaldiGuiRenderer::appendColouredQuad(glm::fvec2 topLeft, glm::fvec2 bottomRight,

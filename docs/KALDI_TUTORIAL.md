@@ -487,6 +487,16 @@ Practical consequences:
    required to be thread-safe.
 9. **Depth/stencil readback returns the portable texel**, not the driver's internal
    layout: depth bytes first, stencil last (§2.4).
+10. **Clip-space y is not portable.** The viewport *rectangle* uses the OpenGL
+    convention everywhere (origin bottom-left), but the NDC y direction differs:
+    Vulkan's `y = +1` is the bottom of the framebuffer, OpenGL's and Direct3D's is
+    the top. Read `HalCapabilities::clipSpaceYAxis` (HAL 1.2) before building a UI
+    transform or a projection matrix - otherwise the same vertices render
+    vertically flipped on one backend. This is the classic reason a Vulkan port of
+    an OpenGL renderer shows everything upside down.
+11. **Hiding the system pointer is the host's job.** SDL keeps drawing its own
+    cursor over your rendered one; `SDL_ShowCursor(SDL_DISABLE)` (and restoring it
+    on focus loss) is not something a renderer can do for you.
 
 ---
 

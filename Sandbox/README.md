@@ -57,10 +57,22 @@ Missing backend, missing GPU or a refused device is not fatal: it logs
 
 | Input | Effect |
 |---|---|
-| Mouse motion / click | Moves the cursor; the cursor's origin point (hotspot) is what lands on the pointer |
+| Mouse motion / click | Moves the cursor; the cursor's origin point (hotspot) is what lands on the pointer. The window system's pointer is hidden while the window is focused, so only the engine cursor is visible |
 | `Tab` | Cycles the loaded cursors (`wodmouse.png`: upper-left arrow, `hourglass2.png`: center-intended hourglass) |
 | `1`-`9` | Sets the active cursor's anchor in enum order: TopLeft, Top, TopRight, Left, Center, Right, BottomLeft, Bottom, BottomRight. Each change logs the re-resolved hotspot |
 | `Esc` | Quits |
+
+The startup log names the loaded backend and the clip-space y axis it reports, because that
+axis is what the pixel transform has to follow:
+
+```text
+INFO: Kaldi HAL 1.2.0 via Vulkan Renderer (0.1.0), clip-space y down (Vulkan-style), clearing to 0xFF102030 every frame
+INFO: Kaldi HAL 1.2.0 via OpenGL Renderer (0.1.0), clip-space y up (GL/D3D-style), clearing to 0xFF102030 every frame
+```
+
+Vulkan's clip space is y-down while OpenGL's and Direct3D's is y-up; `KaldiGuiRenderer` reads
+`Kld::HalCapabilities::clipSpaceYAxis` and flips accordingly. Assuming either convention
+hard-codes a vertically mirrored UI on the other backend.
 
 ```ini
 ; build/Desktop-Debug/config.ini

@@ -126,6 +126,7 @@ SOURCES += \
     tests/KaldiCommandBufferTests.cpp \
     tests/KaldiDispatchSwitchTests.cpp \
     tests/KaldiDispatchTests.cpp \
+    tests/KaldiGuiRendererTests.cpp \
     tests/KaldiHalTests.cpp \
     tests/NativeWindowTests.cpp \
     tests/NetClockRpcTests.cpp \

@@ -61,6 +61,8 @@ private:
 	void setActiveCursorAnchor(Lotte::Gui::CursorAnchor anchor);
 public:
 	GameSystem(Euph::Conf::Configuration& config);
+	/** @brief Shows the system pointer again before the window goes away. */
+	~GameSystem() override;
 
 	// AppSystem interface
 protected:

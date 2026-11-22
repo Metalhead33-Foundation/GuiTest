@@ -41,6 +41,12 @@ std::optional<Lotte::Gui::CursorAnchor> anchorForNumberKey(SDL_Keycode key)
 	return numberKeyAnchors[key - SDLK_1];
 }
 
+/** @brief Short name of a clip-space y axis, for the startup log. */
+const char* clipSpaceAxisName(Kld::ClipSpaceYAxis axis) noexcept
+{
+	return axis == Kld::ClipSpaceYAxis::Down ? "down (Vulkan-style)" : "up (GL/D3D-style)";
+}
+
 } // namespace
 
 
@@ -84,9 +90,11 @@ void GameSystem::startGraphics()
 	try {
 		kaldi = std::make_unique<Lotte::Gfx::KaldiContext>(windowInfo,
 				std::uint16_t(width), std::uint16_t(height), settings);
-		SDL_Log("Kaldi HAL %s via %s (%s), clearing to 0x%08X every frame",
+		SDL_Log("Kaldi HAL %s via %s (%s), clip-space y %s, clearing to 0x%08X every frame",
 			kaldi->halVersionName().c_str(), kaldi->rendererName().data(),
-			kaldi->backendVersion().data(), static_cast<unsigned>(packedColor));
+			kaldi->backendVersion().data(),
+			clipSpaceAxisName(kaldi->capabilities().clipSpaceYAxis),
+			static_cast<unsigned>(packedColor));
 		guiRenderer = std::make_unique<Lotte::Gui::KaldiGuiRenderer>(kaldi->resources(),
 			Lotte::Gui::KaldiGuiRendererSettings{ std::uint16_t(width),
 							      std::uint16_t(height) });
@@ -98,6 +106,10 @@ void GameSystem::startGraphics()
 			SDL_Log("Graphics upload failed (%d): %s", static_cast<int>(status.code),
 				status.message != nullptr ? status.message : "(no message)");
 		}
+		// The engine draws its own cursor now, so the window system's pointer must
+		// not overlap it. It comes back when the window loses focus (see
+		// handleWindowEvent) and when the system shuts down.
+		SDL_ShowCursor(SDL_DISABLE);
 	} catch (const std::exception& error) {
 		// Rendering is optional here: without a usable GPU the audio half still runs
 		// and `render()` becomes a no-op, which keeps the playground usable.
@@ -106,6 +118,11 @@ void GameSystem::startGraphics()
 		kaldi.reset();
 		SDL_Log("Graphics disabled: %s", error.what());
 	}
+}
+
+GameSystem::~GameSystem()
+{
+	SDL_ShowCursor(SDL_ENABLE);
 }
 
 void GameSystem::loadCursors()
@@ -317,4 +334,18 @@ void GameSystem::handleUserEvent(const SDL_UserEvent& event)
 
 void GameSystem::handleWindowEvent(const SDL_WindowEvent& event)
 {
+	// The engine cursor only replaces the system pointer while the window is
+	// focused; losing focus must give the pointer back so the desktop stays usable.
+	switch (event.event) {
+		case SDL_WINDOWEVENT_FOCUS_GAINED:
+			if (kaldi && guiRenderer) {
+				SDL_ShowCursor(SDL_DISABLE);
+			}
+			break;
+		case SDL_WINDOWEVENT_FOCUS_LOST:
+			SDL_ShowCursor(SDL_ENABLE);
+			break;
+		default:
+			break;
+	}
 }

@@ -12,7 +12,9 @@
  *   used for every textured quad, tinted or not);
  * - positions are converted to clip space on the CPU, so neither shader needs a
  *   uniform buffer, push constants or a camera - the renderer owns the viewport
- *   size instead;
+ *   size instead. The transform follows `Kld::HalCapabilities::clipSpaceYAxis`
+ *   (Vulkan is y-down, OpenGL/Direct3D is y-up), which is what keeps the same
+ *   pixel-space UI upright on every backend;
  * - geometry accumulates in @ref Lotte::Gui::GuiGeometryBatch objects and is
  *   recorded by one end-of-frame @ref flush(). A texture change closes the current
  *   textured *run* (a texture+sampler state plus its index range) and starts a new
@@ -49,6 +51,7 @@
 #include <Lotte/Gui/LteGuiVertex.hpp>
 #include <glm/glm.hpp>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace Lotte {
@@ -60,7 +63,41 @@ struct KaldiGuiRendererSettings {
 	std::uint16_t viewportWidth = 1;
 	/** @brief Initial framebuffer height in pixels; at least 1. */
 	std::uint16_t viewportHeight = 1;
+	/**
+	 * @brief Clip-space y direction used by the pixel transform.
+	 *
+	 * Empty (the default) means "ask the factory's device":
+	 * `Kld::HalCapabilities::clipSpaceYAxis` is `Down` on Vulkan and `Up` on
+	 * OpenGL/Direct3D. When no device is attached, `Up` is assumed. Set it
+	 * explicitly only when rendering without a device (tests, offline recording).
+	 */
+	std::optional<Kld::ClipSpaceYAxis> clipSpaceYAxis;
 };
+
+/**
+ * @brief Converts a pixel position into clip space for a given y-axis convention.
+ * @param pixel Position in pixels, origin at the top-left corner of the target.
+ * @param viewport Target size in pixels.
+ * @param axis Clip-space y direction the backend uses
+ *        (`Kld::HalCapabilities::clipSpaceYAxis`).
+ * @return Clip-space position with `z = 0` implicit; see the return value notes.
+ *
+ * With @ref Kld::ClipSpaceYAxis::Down (Vulkan) pixel `y = 0` maps to `-1` and
+ * `y = height` to `+1`. With @ref Kld::ClipSpaceYAxis::Up (OpenGL/Direct3D) the
+ * mapping is mirrored. This is the exact transform that keeps a UI authored with
+ * a top-left origin upright on every backend, and the helper is public so a 3D
+ * camera can reuse the same convention instead of re-deriving it.
+ */
+inline glm::fvec2 pixelToClipSpace(glm::fvec2 pixel, glm::fvec2 viewport,
+				   Kld::ClipSpaceYAxis axis) noexcept
+{
+	if (viewport.x <= 0.0f || viewport.y <= 0.0f) {
+		return glm::fvec2(0.0f);
+	}
+	const float x = 2.0f * pixel.x / viewport.x - 1.0f;
+	const float y = 2.0f * pixel.y / viewport.y - 1.0f;
+	return axis == Kld::ClipSpaceYAxis::Down ? glm::fvec2(x, y) : glm::fvec2(x, -y);
+}
 
 /**
  * @brief Kaldi-backed GUI renderer.
@@ -90,6 +127,8 @@ public:
 	void setViewportSize(std::uint16_t width, std::uint16_t height) noexcept;
 	/** @brief The current viewport size in pixels. */
 	glm::fvec2 viewportSize() const noexcept;
+	/** @brief Clip-space y direction the renderer was built with. */
+	Kld::ClipSpaceYAxis clipSpaceYAxis() const noexcept { return clipSpaceYAxis_; }
 
 	/**
 	 * @brief Resets the per-frame CPU caches.
@@ -136,7 +175,7 @@ private:
 		std::uint32_t indexCount = 0;
 	};
 
-	/** @brief Pixel position to Vulkan clip space (y grows downwards). */
+	/** @brief Pixel position to the backend's clip space (see @ref pixelToClipSpace). */
 	glm::fvec2 toNdc(glm::fvec2 pixel) const noexcept;
 	/** @brief Appends four coloured corners as two triangles. */
 	void appendColouredQuad(glm::fvec2 topLeft, glm::fvec2 bottomRight,
@@ -193,6 +232,8 @@ private:
 	/** @brief Viewport size in pixels, never zero. */
 	std::uint16_t viewportWidth_ = 1;
 	std::uint16_t viewportHeight_ = 1;
+	/** @brief Clip-space y direction used by @ref toNdc(). */
+	Kld::ClipSpaceYAxis clipSpaceYAxis_ = Kld::ClipSpaceYAxis::Up;
 };
 
 } // namespace Gui

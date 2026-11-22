@@ -43,6 +43,43 @@ inline constexpr HalVersion KaldiHalVersion1_0 { 1, 0, 0 };
 inline constexpr HalVersion KaldiHalVersion1_1 { 1, 1, 0 };
 
 /**
+ * @brief Version tag for the second additive extension of the HAL contract.
+ *
+ * 1.2 adds @ref HalCapabilities::clipSpaceYAxis, which names the direction of the
+ * positive y axis in normalized device coordinates. It is additive: a 1.1
+ * consumer that ignores it keeps working, because a backend that does not report
+ * 1.2 leaves the field at its zero value (`Up`, the OpenGL/Direct3D convention).
+ */
+inline constexpr HalVersion KaldiHalVersion1_2 { 1, 2, 0 };
+
+/**
+ * @brief Direction of the positive y axis in normalized device coordinates.
+ *
+ * `OpSetViewport` uses the OpenGL convention for the viewport *rectangle*: `y` is
+ * measured from the bottom of the framebuffer, and backends translate that to
+ * their own window-space origin. The clip-space **y direction** is a different
+ * question, and the graphics APIs genuinely disagree:
+ *
+ * | API | y = +1 in NDC is | Value |
+ * |---|---|---|
+ * | OpenGL / OpenGL ES | the top of the framebuffer | @ref ClipSpaceYAxis::Up |
+ * | Direct3D 11 / 12 | the top of the framebuffer | @ref ClipSpaceYAxis::Up |
+ * | Vulkan | the bottom of the framebuffer | @ref ClipSpaceYAxis::Down |
+ *
+ * A renderer that builds clip-space positions itself (a 2D UI whose vertices are
+ * pixels, or a projection matrix) **must** consult this instead of assuming one
+ * convention: without it, the same vertex data renders vertically flipped on one
+ * of the backends. Vulkan's inverted axis is the reason "one shader for every
+ * backend" projects need this flag.
+ */
+enum class ClipSpaceYAxis : uint8_t {
+	/** @brief NDC `y = +1` is the top of the framebuffer (OpenGL, Direct3D). */
+	Up,
+	/** @brief NDC `y = +1` is the bottom of the framebuffer (Vulkan). */
+	Down
+};
+
+/**
  * @brief Baseline capabilities exposed by a backend after private probing.
  *
  * Backend-specific checks, such as OpenGL extension enumeration or Vulkan
@@ -115,6 +152,15 @@ struct HalCapabilities {
 	 * acquire callback is enough to start drawing into the acquired image.
 	 */
 	bool supportsExplicitSwapchains;
+	/**
+	 * @brief Direction of the positive y axis in clip space (HAL 1.2).
+	 *
+	 * Zero-initialised to @ref ClipSpaceYAxis::Up, the OpenGL/Direct3D
+	 * convention, so consumers that never see a probed Vulkan device keep the
+	 * pre-1.2 assumption. Vulkan backends report @ref ClipSpaceYAxis::Down; see
+	 * @ref ClipSpaceYAxis for why a renderer must not hard-code either value.
+	 */
+	ClipSpaceYAxis clipSpaceYAxis;
 };
 
 /**
