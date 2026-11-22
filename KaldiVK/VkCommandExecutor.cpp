@@ -66,6 +66,11 @@ CommandExecutor::CommandExecutor(Context& context, const Kld::HalCapabilities& c
 	if (vkCreateFence(context_.device(), &fenceInfo, nullptr, &acquireFence_) != VK_SUCCESS) {
 		throw std::runtime_error("VkCommandExecutor: vkCreateFence failed");
 	}
+	// Marker fence for the presentation queue; see notePresented().
+	if (vkCreateFence(context_.device(), &fenceInfo, nullptr, &presentMarkerFence_)
+	    != VK_SUCCESS) {
+		throw std::runtime_error("VkCommandExecutor: vkCreateFence failed");
+	}
 
 	VkSamplerCreateInfo samplerInfo {};
 	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -413,12 +418,97 @@ void CommandExecutor::flushDeferred(std::vector<DeferredDestroy>& list) noexcept
 	list.clear();
 }
 
+void CommandExecutor::notePresented() noexcept
+{
+	presentPending_ = true;
+	if (presentMarkerArmed_) {
+		// The armed marker sits *before* this present on the queue, so it no longer
+		// proves that the newest present was consumed.
+		presentMarkerStale_ = true;
+	}
+}
+
+bool CommandExecutor::drainPresentQueue(std::uint64_t timeoutNanoseconds) noexcept
+{
+	if (!presentPending_) {
+		return true;
+	}
+	if (vkWaitForFences == nullptr || context_.device() == VK_NULL_HANDLE) {
+		return true;
+	}
+	const VkDevice device = context_.device();
+	if (!presentMarkerArmed_) {
+		// An empty submission on the presentation queue is a queue-ordered marker:
+		// presentations are ordered with respect to other queue operations, so this
+		// fence signals only after the queue consumed the presents queued before it.
+		(void)vkResetFences(device, 1, &presentMarkerFence_);
+		VkSubmitInfo marker {};
+		marker.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		marker.commandBufferCount = 0;
+		if (vkQueueSubmit(context_.presentQueue(), 1, &marker, presentMarkerFence_)
+		    != VK_SUCCESS) {
+			return false;
+		}
+		presentMarkerArmed_ = true;
+		presentMarkerStale_ = false;
+	}
+	if (vkWaitForFences(device, 1, &presentMarkerFence_, VK_TRUE, timeoutNanoseconds)
+	    != VK_SUCCESS) {
+		// Still presenting. The armed marker stays, so a later call can reuse it
+		// without another submission.
+		return false;
+	}
+	presentMarkerArmed_ = false;
+	(void)vkResetFences(device, 1, &presentMarkerFence_);
+	if (presentMarkerStale_) {
+		// A present was queued after the marker: it is drained, but the newest one
+		// is not, so a fresh marker is needed before anything can be destroyed.
+		presentMarkerStale_ = false;
+		return false;
+	}
+	presentPending_ = false;
+	return true;
+}
+
+void CommandExecutor::retireSwapchainHandle(VkSwapchainKHR swapchain) noexcept
+{
+	if (swapchain == VK_NULL_HANDLE || vkDestroySwapchainKHR == nullptr) {
+		return;
+	}
+	if (!presentPending_) {
+		// Nothing is queued on the presentation queue, so the handle is free.
+		vkDestroySwapchainKHR(context_.device(), swapchain, nullptr);
+		return;
+	}
+	retiredSwapchains_.push_back(swapchain);
+}
+
+void CommandExecutor::flushRetiredSwapchains(std::uint64_t timeoutNanoseconds) noexcept
+{
+	if (retiredSwapchains_.empty() || vkDestroySwapchainKHR == nullptr) {
+		return;
+	}
+	if (presentPending_ && !drainPresentQueue(timeoutNanoseconds)) {
+		return;
+	}
+	for (VkSwapchainKHR swapchain : retiredSwapchains_) {
+		vkDestroySwapchainKHR(context_.device(), swapchain, nullptr);
+	}
+	retiredSwapchains_.clear();
+}
+
 void CommandExecutor::releaseAll() noexcept
 {
 	if (vkDeviceWaitIdle == nullptr || context_.device() == VK_NULL_HANDLE) {
 		return;
 	}
 	(void)vkDeviceWaitIdle(context_.device());
+	// The device is idle, so every present has completed and swapchain handles can
+	// be destroyed immediately; the marker fence is no longer needed.
+	presentPending_ = false;
+	presentMarkerArmed_ = false;
+	presentMarkerStale_ = false;
+	flushRetiredSwapchains(0);
 	endActiveRenderPass();
 	for (auto& entry : swapchains_) {
 		destroySwapchainObject(entry.second);
@@ -503,6 +593,10 @@ void CommandExecutor::releaseAll() noexcept
 	if (acquireFence_ != VK_NULL_HANDLE) {
 		vkDestroyFence(context_.device(), acquireFence_, nullptr);
 		acquireFence_ = VK_NULL_HANDLE;
+	}
+	if (presentMarkerFence_ != VK_NULL_HANDLE) {
+		vkDestroyFence(context_.device(), presentMarkerFence_, nullptr);
+		presentMarkerFence_ = VK_NULL_HANDLE;
 	}
 	for (FrameSlot& slot : frames_) {
 		releaseFrameSlot(slot);
@@ -655,6 +749,11 @@ Kld::HalStatus CommandExecutor::process(std::span<const Kld::GfxOp> commands)
 		if (!flushed.ok()) {
 			return flushed;
 		}
+	}
+	// Swapchains parked by an earlier resize/destroy are released as soon as the
+	// presentation queue caught up; the poll keeps that path non-blocking.
+	if (kldStatus.ok()) {
+		flushRetiredSwapchains(0);
 	}
 	return kldStatus;
 }

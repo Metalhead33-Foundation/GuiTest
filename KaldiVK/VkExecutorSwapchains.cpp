@@ -134,7 +134,8 @@ Kld::HalStatus CommandExecutor::buildSwapchainObjects(VkSwapchainObject& object,
 						      VkExtent2D requestedExtent,
 						      VkFormat format,
 						      Kld::PresentMode presentMode,
-						      std::uint32_t requestedImageCount)
+						      std::uint32_t requestedImageCount,
+						      VkSwapchainKHR oldSwapchain)
 {
 	const VkPhysicalDevice physical = context_.physicalDevice();
 	const VkDevice device = context_.device();
@@ -209,6 +210,11 @@ Kld::HalStatus CommandExecutor::buildSwapchainObjects(VkSwapchainObject& object,
 	info.compositeAlpha = composite;
 	info.presentMode = vkPresentMode;
 	info.clipped = VK_TRUE;
+	// Retiring the previous swapchain as part of the replacement is the portable
+	// way to recreate: some WSIs (X11 among them) allow only one swapchain per
+	// native window, and it lets the driver hand the images over without the
+	// application draining the presentation queue first.
+	info.oldSwapchain = oldSwapchain;
 	const VkResult createResult = vkCreateSwapchainKHR(device, &info, nullptr,
 							   &object.swapchain);
 	if (createResult != VK_SUCCESS) {
@@ -345,36 +351,38 @@ Kld::HalStatus CommandExecutor::buildSwapchainObjects(VkSwapchainObject& object,
 	return Kld::HalOk;
 }
 
-void CommandExecutor::destroySwapchainObject(VkSwapchainObject& object) noexcept
+void CommandExecutor::releaseSwapchainResources(VkSwapchainObject& object) noexcept
 {
-	if (vkDestroySwapchainKHR == nullptr) {
-		return;
-	}
-	// A presentation still in flight keeps the swapchain busy; the submit fence
-	// does not cover vkQueuePresentKHR.
-	waitForPresentQueue();
-	const VkDevice device = context_.device();
+	// The views, framebuffers and render pass are only referenced by recorded
+	// command buffers, so they go to the current frame slot's retirement list: the
+	// slot is submitted after every earlier one, so its fence covers them. That is
+	// what makes retiring a swapchain wait-free. Only the handle itself needs the
+	// presentation-queue marker.
 	for (VkFramebuffer framebuffer : object.framebuffers) {
-		if (framebuffer != VK_NULL_HANDLE) {
-			vkDestroyFramebuffer(device, framebuffer, nullptr);
+		if (framebuffer == VK_NULL_HANDLE) {
+			continue;
 		}
+		DeferredDestroy entry {};
+		entry.framebuffer_ = framebuffer;
+		defer(entry);
 	}
 	for (VkImageView view : object.views) {
-		if (view != VK_NULL_HANDLE) {
-			vkDestroyImageView(device, view, nullptr);
+		if (view == VK_NULL_HANDLE) {
+			continue;
 		}
+		DeferredDestroy entry {};
+		entry.view_ = view;
+		defer(entry);
 	}
 	if (object.renderPass != VK_NULL_HANDLE) {
 		passInfos_.erase(object.renderPass);
-		vkDestroyRenderPass(device, object.renderPass, nullptr);
-	}
-	if (object.swapchain != VK_NULL_HANDLE) {
-		vkDestroySwapchainKHR(device, object.swapchain, nullptr);
+		DeferredDestroy entry {};
+		entry.renderPass_ = object.renderPass;
+		defer(entry);
 	}
 	for (Kld::HandleId handle : object.framebufferHandles) {
 		framebuffers_.erase(handle);
 	}
-	object.swapchain = VK_NULL_HANDLE;
 	object.renderPass = VK_NULL_HANDLE;
 	object.images.clear();
 	object.views.clear();
@@ -382,8 +390,23 @@ void CommandExecutor::destroySwapchainObject(VkSwapchainObject& object) noexcept
 	object.framebufferHandles.clear();
 	object.acquired = false;
 	object.currentImage = 0;
-	// `surface`, `format`, `extent` and `presentMode` survive so a resize can
-	// rebuild in place without asking the caller to repeat the descriptor.
+	// `swapchain`, `surface`, `format`, `extent` and `presentMode` survive: the
+	// handle waits for the presentation queue, and a resize reuses the metadata.
+}
+
+void CommandExecutor::destroySwapchainObject(VkSwapchainObject& object) noexcept
+{
+	if (vkDestroySwapchainKHR == nullptr) {
+		return;
+	}
+	releaseSwapchainResources(object);
+	if (object.swapchain != VK_NULL_HANDLE) {
+		// Everything that referenced the images is gone, but the presentation queue
+		// may still be using the swapchain; destroy it now if it is free, otherwise
+		// park the handle until the present marker fence signals.
+		retireSwapchainHandle(object.swapchain);
+		object.swapchain = VK_NULL_HANDLE;
+	}
 }
 
 Kld::HalStatus CommandExecutor::createSwapchain(const Kld::OpCreateSwapchain& op)
@@ -437,7 +460,7 @@ Kld::HalStatus CommandExecutor::createSwapchain(const Kld::OpCreateSwapchain& op
 	VkSwapchainObject object;
 	status = buildSwapchainObjects(object, surface,
 				       VkExtent2D { descriptor.width, descriptor.height }, format,
-				       descriptor.presentMode, descriptor.imageCount);
+				       descriptor.presentMode, descriptor.imageCount, VK_NULL_HANDLE);
 	if (!status.ok()) {
 		return status;
 	}
@@ -454,10 +477,11 @@ Kld::HalStatus CommandExecutor::destroySwapchain(const Kld::OpDestroySwapchain& 
 	if (found == swapchains_.end()) {
 		return failInvalidHandle("swapchain", op.id);
 	}
-	Kld::HalStatus status = submitAndWait();
-	if (!status.ok()) {
-		return status;
-	}
+	// Nothing here waits for the queue: the views/framebuffers are retired through
+	// the frame slot's fence and the handle itself through the present marker, so a
+	// stalled presentation queue cannot block the command (bounded poll here only
+	// frees the handle immediately in the common case).
+	(void)drainPresentQueue(kPresentDrainTimeout);
 	if (ownsActiveFramebuffer(found->second)) {
 		endActiveRenderPass();
 		boundFramebuffer_ = Kld::DefaultFramebuffer;
@@ -474,9 +498,15 @@ Kld::HalStatus CommandExecutor::resizeSwapchain(const Kld::OpResizeSwapchain& op
 		if (!status.ok()) {
 			return status;
 		}
-		destroySwapchainObjects();
+		// Recreate through `oldSwapchain`, keeping the old handle parked until the
+		// presentation queue released it.
+		const VkSwapchainKHR previous = swapchain_;
+		releaseSwapchainObjects();
+		swapchain_ = VK_NULL_HANDLE;
 		swapchainExtent_ = VkExtent2D { op.width, op.height };
-		return createSwapchainObjects();
+		status = createSwapchainObjects(previous);
+		retireSwapchainHandle(previous);
+		return status;
 	}
 	VkSwapchainObject* object = swapchain(op.id);
 	if (object == nullptr) {
@@ -497,13 +527,21 @@ Kld::HalStatus CommandExecutor::resizeSwapchain(const Kld::OpResizeSwapchain& op
 		endActiveRenderPass();
 		boundFramebuffer_ = Kld::DefaultFramebuffer;
 	}
-	// Rebuild in place, keeping the published framebuffer handles stable.
+	// Rebuild in place, keeping the published framebuffer handles stable. The old
+	// swapchain goes to the driver as `oldSwapchain` so it retires as part of the
+	// replacement - a native window can back only one swapchain, and this avoids
+	// draining the presentation queue before the recreate.
 	const std::vector<Kld::HandleId> handles = object->framebufferHandles;
-	destroySwapchainObject(*object);
+	const VkSwapchainKHR previous = object->swapchain;
+	releaseSwapchainResources(*object);
+	object->swapchain = VK_NULL_HANDLE;
 	object->framebufferHandles = handles;
 	status = buildSwapchainObjects(*object, object->surface,
 				       VkExtent2D { op.width, op.height }, object->format,
-				       object->presentMode, 0);
+				       object->presentMode, 0, previous);
+	// The driver retired `previous` either way: on success it hands the images
+	// over, on failure it stays valid but the caller's handle is gone.
+	retireSwapchainHandle(previous);
 	if (!status.ok()) {
 		// A half-rebuilt swapchain is useless; drop it instead of leaving a
 		// handle that cannot present.
@@ -658,6 +696,7 @@ Kld::HalStatus CommandExecutor::presentSwapchain(const Kld::OpPresentSwapchain& 
 	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		return fail(Kld::HalStatusCode::BackendError, "vkQueuePresentKHR failed");
 	}
+	notePresented();
 	return Kld::HalOk;
 }
 

@@ -17,7 +17,7 @@ Kld::HalStatus CommandExecutor::ensureSwapchain()
 	return createSwapchainObjects();
 }
 
-Kld::HalStatus CommandExecutor::createSwapchainObjects()
+Kld::HalStatus CommandExecutor::createSwapchainObjects(VkSwapchainKHR oldSwapchain)
 {
 	VkPhysicalDevice device = context_.physicalDevice();
 	VkSurfaceKHR surface = context_.surface();
@@ -86,6 +86,10 @@ Kld::HalStatus CommandExecutor::createSwapchainObjects()
 	info.compositeAlpha = composite;
 	info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
 	info.clipped = VK_TRUE;
+	// Hand the previous swapchain over as `oldSwapchain`: the driver retires it as
+	// part of the replacement, which is the only portable way to recreate on a
+	// native window that can back a single swapchain.
+	info.oldSwapchain = oldSwapchain;
 	if (vkCreateSwapchainKHR(context_.device(), &info, nullptr, &swapchain_) != VK_SUCCESS) {
 		return fail(Kld::HalStatusCode::SwapchainLost, "vkCreateSwapchainKHR failed");
 	}
@@ -164,12 +168,40 @@ Kld::HalStatus CommandExecutor::createSwapchainObjects()
 	return Kld::HalOk;
 }
 
-void CommandExecutor::waitForPresentQueue() noexcept
+void CommandExecutor::releaseSwapchainObjects() noexcept
 {
-	if (vkQueueWaitIdle == nullptr || context_.presentQueue() == VK_NULL_HANDLE) {
-		return;
+	// Retired through the current frame slot: the views/framebuffers only have to
+	// outlive the command buffers that reference them, and this slot's fence covers
+	// every submission before it.
+	for (VkFramebuffer framebuffer : swapchainFramebuffers_) {
+		if (framebuffer == VK_NULL_HANDLE) {
+			continue;
+		}
+		DeferredDestroy entry {};
+		entry.framebuffer_ = framebuffer;
+		defer(entry);
 	}
-	(void)vkQueueWaitIdle(context_.presentQueue());
+	for (VkImageView view : swapchainViews_) {
+		if (view == VK_NULL_HANDLE) {
+			continue;
+		}
+		DeferredDestroy entry {};
+		entry.view_ = view;
+		defer(entry);
+	}
+	if (swapchainRenderPass_ != VK_NULL_HANDLE) {
+		passInfos_.erase(swapchainRenderPass_);
+		DeferredDestroy entry {};
+		entry.renderPass_ = swapchainRenderPass_;
+		defer(entry);
+	}
+	swapchainFramebuffers_.clear();
+	swapchainViews_.clear();
+	swapchainImages_.clear();
+	swapchainRenderPass_ = VK_NULL_HANDLE;
+	imageAcquired_ = false;
+	activePass_ = VK_NULL_HANDLE;
+	activeFramebuffer_ = VK_NULL_HANDLE;
 }
 
 void CommandExecutor::destroySwapchainObjects() noexcept
@@ -177,28 +209,13 @@ void CommandExecutor::destroySwapchainObjects() noexcept
 	if (vkDestroySwapchainKHR == nullptr) {
 		return;
 	}
-	waitForPresentQueue();
-	for (VkFramebuffer framebuffer : swapchainFramebuffers_) {
-		vkDestroyFramebuffer(context_.device(), framebuffer, nullptr);
-	}
-	for (VkImageView view : swapchainViews_) {
-		vkDestroyImageView(context_.device(), view, nullptr);
-	}
-	if (swapchainRenderPass_ != VK_NULL_HANDLE) {
-		passInfos_.erase(swapchainRenderPass_);
-		vkDestroyRenderPass(context_.device(), swapchainRenderPass_, nullptr);
-	}
+	releaseSwapchainObjects();
 	if (swapchain_ != VK_NULL_HANDLE) {
-		vkDestroySwapchainKHR(context_.device(), swapchain_, nullptr);
+		// The presentation queue is not covered by the submit fences, so the handle
+		// is destroyed now when it is free and parked otherwise.
+		retireSwapchainHandle(swapchain_);
+		swapchain_ = VK_NULL_HANDLE;
 	}
-	swapchainFramebuffers_.clear();
-	swapchainViews_.clear();
-	swapchainImages_.clear();
-	swapchain_ = VK_NULL_HANDLE;
-	swapchainRenderPass_ = VK_NULL_HANDLE;
-	imageAcquired_ = false;
-	activePass_ = VK_NULL_HANDLE;
-	activeFramebuffer_ = VK_NULL_HANDLE;
 }
 
 Kld::HalStatus CommandExecutor::acquireDefaultImage()
@@ -214,8 +231,14 @@ Kld::HalStatus CommandExecutor::acquireDefaultImage()
 		if (!status.ok()) {
 			return status;
 		}
-		destroySwapchainObjects();
-		status = createSwapchainObjects();
+		// Recreate through `oldSwapchain` instead of destroy-then-create: a native
+		// window can back only one swapchain, and the presentation queue may still
+		// hold the previous one.
+		const VkSwapchainKHR previous = swapchain_;
+		releaseSwapchainObjects();
+		swapchain_ = VK_NULL_HANDLE;
+		status = createSwapchainObjects(previous);
+		retireSwapchainHandle(previous);
 		if (!status.ok()) {
 			return status;
 		}
@@ -424,6 +447,7 @@ Kld::HalStatus CommandExecutor::present(const Kld::OpPresent& op)
 	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		return fail(Kld::HalStatusCode::BackendError, "vkQueuePresentKHR failed");
 	}
+	notePresented();
 	return Kld::HalOk;
 }
 

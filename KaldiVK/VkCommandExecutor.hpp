@@ -517,15 +517,54 @@ private:
 	const VkPassInfo* currentPassInfo() const;
 
 	Kld::HalStatus ensureSwapchain();
-	Kld::HalStatus createSwapchainObjects();
+	/** @brief Creates the default swapchain; @p oldSwapchain is retired as part of it. */
+	Kld::HalStatus createSwapchainObjects(VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE);
+	/**
+	 * @brief Destroys the default swapchain's views/framebuffers/render pass.
+	 *
+	 * Keeps `swapchain_` for the caller, so a recreate can pass it as
+	 * `oldSwapchain` - a native window backs one swapchain at a time.
+	 */
+	void releaseSwapchainObjects() noexcept;
 	void destroySwapchainObjects() noexcept;
 	/**
-	 * @brief Waits until the presentation queue stops using the current swapchain.
+	 * @brief Notes that a present was queued, so retirement has to wait for it.
 	 *
-	 * `vkQueuePresentKHR` is not tracked by the submit fence, so a destroy or
-	 * recreate has to drain the present queue itself.
+	 * `vkQueuePresentKHR` is not covered by the submit fences, and a presentation
+	 * engine may keep a swapchain busy for an unbounded time (a minimised window, a
+	 * headless X server, a slow compositor). Blocking the queue would hang the whole
+	 * backend there, so a present only *arms a marker*: an empty submission on the
+	 * presentation queue, whose fence signals once the queue got past the present.
 	 */
-	void waitForPresentQueue() noexcept;
+	void notePresented() noexcept;
+	/**
+	 * @brief Waits (bounded) until the presentation queue consumed its last present.
+	 * @param timeoutNanoseconds Upper bound for the wait; `0` polls once.
+	 * @return True when nothing is pending on the presentation queue any more.
+	 */
+	bool drainPresentQueue(std::uint64_t timeoutNanoseconds) noexcept;
+	/**
+	 * @brief Destroys retired swapchains whose present completed; never blocks.
+	 * @param timeoutNanoseconds Upper bound for the drain attempt.
+	 */
+	void flushRetiredSwapchains(std::uint64_t timeoutNanoseconds) noexcept;
+	/**
+	 * @brief Hands a swapchain handle to the deferred-destruction list.
+	 *
+	 * A handle whose last present is still on the queue cannot be destroyed, so it
+	 * is parked here and released by @ref flushRetiredSwapchains once the marker
+	 * fence signals - or by `releaseAll()`, after the device is idle.
+	 */
+	void retireSwapchainHandle(VkSwapchainKHR swapchain) noexcept;
+	/**
+	 * @brief Destroys the views/framebuffers/render pass of @p object and its handles.
+	 *
+	 * Leaves `swapchain`, `surface`, `format`, `extent` and `presentMode` alone: those
+	 * are the pieces a resize carries over to the replacement swapchain.
+	 */
+	void releaseSwapchainResources(VkSwapchainObject& object) noexcept;
+	/** @brief How long a swapchain destroy/resize may block on the present queue. */
+	static constexpr std::uint64_t kPresentDrainTimeout = 100000000ull;
 	Kld::HalStatus acquireDefaultImage();
 	Kld::HalStatus ensureRenderPass(Kld::HandleId framebufferId);
 	void endActiveRenderPass();
@@ -536,7 +575,8 @@ private:
 	Kld::HalStatus buildSwapchainObjects(VkSwapchainObject& object, VkSurfaceKHR surface,
 					     VkExtent2D requestedExtent, VkFormat format,
 					     Kld::PresentMode presentMode,
-					     std::uint32_t requestedImageCount);
+					     std::uint32_t requestedImageCount,
+					     VkSwapchainKHR oldSwapchain);
 	void destroySwapchainObject(VkSwapchainObject& object) noexcept;
 	Kld::HandleId allocateBackendHandle();
 	bool ownsActiveFramebuffer(VkSwapchainObject& object) const noexcept;
@@ -630,6 +670,23 @@ private:
 	VkFormat swapchainFormat_ = VK_FORMAT_UNDEFINED;
 	VkExtent2D swapchainExtent_ {};
 	VkFence acquireFence_ = VK_NULL_HANDLE;
+	/**
+	 * @brief Fence of the present marker; signals once the present queue advanced.
+	 *
+	 * Armed lazily, because it costs an empty submission. `presentMarkerStale_`
+	 * records the case where another present was queued after the armed marker:
+	 * that marker no longer proves anything about the newest present, so the drain
+	 * reports "still pending" and a fresh marker is armed on the next attempt.
+	 */
+	VkFence presentMarkerFence_ = VK_NULL_HANDLE;
+	/** @brief True while a present may still be unprocessed by the present queue. */
+	bool presentPending_ = false;
+	/** @brief True while a marker submission is waiting for its fence. */
+	bool presentMarkerArmed_ = false;
+	/** @brief True when a present was queued after the armed marker. */
+	bool presentMarkerStale_ = false;
+	/** @brief Swapchain handles whose last present has not finished yet. */
+	std::vector<VkSwapchainKHR> retiredSwapchains_;
 	std::uint32_t currentImageIndex_ = 0;
 	bool imageAcquired_ = false;
 	bool frameActive_ = false;

@@ -69,9 +69,20 @@ Constraints worth knowing:
   handles (they are accepted and validated, not honoured).
 - Acquire transitions the image to `COLOR_ATTACHMENT_OPTIMAL` and present
   transitions it back to `PRESENT_SRC_KHR`; the render pass itself stays in the
-  attachment layout so a re-begun pass is valid. Destroying or resizing a
-  swapchain drains the presentation queue first, because `vkQueuePresentKHR` is
-  not covered by the submit fence.
+  attachment layout so a re-begun pass is valid.
+- Recreating a swapchain hands the old handle to the driver as `oldSwapchain`, so it
+  retires as part of the replacement. That is the portable way to resize on a native
+  window that can back only one swapchain, and it keeps the framebuffer handles
+  reported to the caller stable.
+- **Nothing in the swapchain lifecycle blocks on the presentation queue.**
+  `vkQueuePresentKHR` is not covered by the submit fences, so a present arms a
+  *marker*: an empty submission on the presentation queue, whose fence proves that
+  the queue got past the present. Views, framebuffers and the render pass are retired
+  through the frame slot's fence (a later submission, so its fence covers them), the
+  swapchain handle is destroyed once the marker signals, and a handle that is still
+  busy is parked and released by later non-blocking polls - or at teardown, after the
+  device went idle. A presentation engine that never completes a present therefore
+  stalls only the work that genuinely needs the queue, never a resize or destroy call.
 
 ## Deliberate gaps
 
@@ -134,4 +145,4 @@ it is unit-testable and reusable by any tooling that needs the same mappings.
 - [x] Support multisampled framebuffer attachments and `vkCmdResolveImage`-backed resolves.
 - [ ] Move static resources to device-local memory through a staging ring; buffers are currently host-visible for simplicity.
 - [ ] Support depth/stencil readback (the image formats are already created; the copy paths reject them).
-- [ ] Validate the explicit-swapchain resize path on lavapipe: a hidden/unmapped X11 window never drains the presentation queue, so the pre-resize wait blocks there (a GPU or a visible window is fine).
+- [ ] Validate the explicit-swapchain resize/destroy flow on lavapipe: on this host its X11 WSI aborts the process with `BadDrawable` on the first present (a pixmap it owns is freed before `XPutImage` completes), so that flow is validated on NVIDIA only.
