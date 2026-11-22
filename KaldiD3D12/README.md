@@ -21,7 +21,7 @@ compiled without Position-Independent Code (`-fPIC`)
 |---|---|
 | qmake target | `KaldiD3D12` (`TEMPLATE = lib`, shared, C++20, no Qt) |
 | Export macro | `MH_KALDI_IMPL_EXPORT` while building, `MH_KALDI_IMPL_API` for consumers |
-| Files | `KaldiD3D12Device.*`, `KldImplLib.h`, `D3D12Util.*` (win32 only), plus the shared sources from `KaldiD3DCommon` |
+| Files | `KaldiD3D12Device.*`, `KldImplLib.h`, `D3D12Util.*`, `D3D12Capabilities.*` (win32 only), plus the shared sources from `KaldiD3DCommon` |
 | Depends on | Kaldi headers via `include(../Kaldi.pri)`; links `spirv-cross-core` and `spirv-cross-hlsl` for SPIR-V to HLSL cross-compilation (a backend concern, not a Kaldi or Euphemy dependency). The previous `-lspirv-cross-glsl` link was wrong: this backend emits HLSL. |
 | Platform | Windows (Direct3D 12); the portable `.so` stub target is still generated on other hosts |
 
@@ -34,6 +34,7 @@ compiled without Position-Independent Code (`-fPIC`)
 | `KaldiD3D12Device.cpp` | Stub exports: create returns `nullptr`, destroy is a no-op, renderer name is `"Direct3D12 Renderer"`, version is `"0.0.1"`, last error is `nullptr` |
 | `D3D12Context.hpp` / `.cpp` | `D3D12::Context`: factory, adapter pick, device, direct queue, flip-model swap chain, RTV heap, fence-based `waitForGpu()`, `present()` and `resize()`; **Windows only, unverifiable here** |
 | `D3D12Util.hpp` / `D3D12Util.cpp` | `Kld::VertexDescriptor` -> owning `D3D12_INPUT_ELEMENT_DESC` layout, `DecodeTarget` -> `D3D12_SUBRESOURCE_DATA`; **Windows only** |
+| `D3D12Capabilities.hpp` / `.cpp` | `D3D12::probeCapabilities(ID3D12Device*)`: `D3D12_REQ_*` extents, MSAA quality levels, the always-available FL 11_0 feature set, BC1/BC3 `CheckFeatureSupport`; **Windows only, unverifiable here** |
 | `../KaldiD3DCommon/D3DUtil.*` | Euphemy `Format` and `Kld::PrimitiveType` -> `DXGI_FORMAT`, depth/compression queries, 256-byte alignment and mip-count helpers; Windows only |
 | `../KaldiD3DCommon/D3DSPirvShader.*` | SPIR-V (`Kld::ShaderBinaryDescriptor`) -> HLSL source (Shader Model 5.1 default, `D3D::direct3D12Options()`); portable |
 
@@ -44,7 +45,7 @@ it contains an older `d3d12.h`/`dxgiformat.h` and the two header sets cannot be 
 
 ## TODO
 
-- [ ] Implement `Device::capabilities()` and report `KaldiHalVersion1_0` with limits probed from the D3D12 device.
+- [x] Add `D3D12::probeCapabilities(ID3D12Device*)` reporting `KaldiHalVersion1_0` with probed limits (wire it into `Device::capabilities()` once the backend owns its device).
 - [ ] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set.
 - [ ] Create the factory/device/command queue/swapchain and the descriptor heaps needed by the Kaldi resource model.
 - [ ] Translate the Kaldi render-pass and binding-layout descriptors into D3D12 root signatures and pipeline state objects.

@@ -23,11 +23,13 @@ SOURCES +=  \
     ../glad/src/vulkan.c \
     VkPlatform.cpp \
     VkContext.cpp \
+    VkCapabilities.cpp \
     VkUtil.cpp \
     KaldiVulkanDevice.cpp
 HEADERS += \
     VkPlatform.hpp \
     VkContext.hpp \
+    VkCapabilities.hpp \
     VkUtil.hpp \
     KaldiVulkanDevice.hpp \
     KldImplLib.h

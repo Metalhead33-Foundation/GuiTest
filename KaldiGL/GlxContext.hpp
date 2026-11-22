@@ -9,10 +9,17 @@
  * build. It is only compiled into `KaldiGL`; the OpenGL ES backend has no GLX
  * path at all, and Wayland/Windows/Android must use the EGL implementation.
  *
- * Unlike the legacy class this replaces, the framebuffer configuration is chosen
- * from @ref ContextConfig (channel sizes, depth/stencil, double buffering), the
- * `GLXFBConfig` array is freed with `XFree`, and every failure is reported with
- * a message that names the failing GLX call.
+ * Unlike the legacy class this replaces, the framebuffer configuration is looked
+ * up from the window's own X visual (`glXMakeCurrent` only accepts a drawable
+ * whose visual matches the FBConfig), the `GLXFBConfig` array is freed with
+ * `XFree`, and every failure is reported with a message that names the failing
+ * GLX call or the missing visual.
+ *
+ * @note GLX cannot override the framebuffer layout of an existing window: the
+ * window's visual fixes the color/depth/stencil buffers, so
+ * @ref ContextConfig::redBits, `depthBits`, `stencilBits`, `doubleBuffered` and
+ * friends only act as preferences. Use EGL, or create the window with the
+ * desired visual, if those must be exact.
  */
 #include "GlContext.hpp"
 #include <glad/glx.h>

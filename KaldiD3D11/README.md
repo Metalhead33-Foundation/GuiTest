@@ -21,7 +21,7 @@ compiled without Position-Independent Code (`-fPIC`)
 |---|---|
 | qmake target | `KaldiD3D11` (`TEMPLATE = lib`, shared, C++20, no Qt) |
 | Export macro | `MH_KALDI_IMPL_EXPORT` while building, `MH_KALDI_IMPL_API` for consumers |
-| Files | `KaldiD3D11Device.*`, `KldImplLib.h`, `D3D11Util.*` (win32 only), plus the shared sources from `KaldiD3DCommon` |
+| Files | `KaldiD3D11Device.*`, `KldImplLib.h`, `D3D11Util.*`, `D3D11Capabilities.*` (win32 only), plus the shared sources from `KaldiD3DCommon` |
 | Depends on | Kaldi headers via `include(../Kaldi.pri)`; links `spirv-cross-core` and `spirv-cross-hlsl` for SPIR-V to HLSL cross-compilation (a backend concern, not a Kaldi or Euphemy dependency) |
 | Platform | Windows (Direct3D 11); the portable `.so` stub target is still generated on other hosts |
 
@@ -34,6 +34,7 @@ compiled without Position-Independent Code (`-fPIC`)
 | `KaldiD3D11Device.cpp` | Stub exports: create returns `nullptr`, destroy is a no-op, renderer name is `"Direct3D11 Renderer"`, version is `"0.0.1"`, last error is `nullptr` |
 | `D3D11Context.hpp` / `.cpp` | `D3D11::Context`: `D3D11CreateDeviceAndSwapChain`, the RTV/DSV pair, `present()` and `resize()`; **Windows only, unverifiable here** |
 | `D3D11Util.hpp` / `D3D11Util.cpp` | `Kld::VertexDescriptor` -> owning `D3D11_INPUT_ELEMENT_DESC` layout, `Kld::BufferMapAccess` -> `D3D11_MAP`, `DecodeTarget` -> `D3D11_SUBRESOURCE_DATA`; **Windows only** |
+| `D3D11Capabilities.hpp` / `.cpp` | `D3D11::probeCapabilities(ID3D11Device*)`: `D3D11_REQ_*` extents, MSAA sample-count query, feature-level 11_0 gates for compute/indirect/UAV, BC1/BC3 format support; **Windows only, unverifiable here** |
 | `../KaldiD3DCommon/D3DUtil.*` | Euphemy `Format` and `Kld::PrimitiveType` -> `DXGI_FORMAT`, depth/compression queries, alignment helpers; Windows only |
 | `../KaldiD3DCommon/D3DSPirvShader.*` | SPIR-V (`Kld::ShaderBinaryDescriptor`) -> HLSL source (Shader Model 5.0 default); portable, no D3D headers needed |
 
@@ -49,7 +50,7 @@ Windows SDK, and not something to ship in a binary release.
 
 ## TODO
 
-- [ ] Implement `Device::capabilities()` and report `KaldiHalVersion1_0` with limits probed from the D3D11 device.
+- [x] Add `D3D11::probeCapabilities(ID3D11Device*)` reporting `KaldiHalVersion1_0` with probed limits (wire it into `Device::capabilities()` once the backend owns its device).
 - [ ] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set.
 - [ ] Create the `ID3D11Device`/`ID3D11DeviceContext` and an `IDXGISwapChain` from the `SDL_SysWMinfo` HWND.
 - [ ] Feed `D3D::spirvToHlsl()` output through `D3DCompile` (or `dxc`) and create the shader objects.

@@ -26,8 +26,8 @@ HEADERS += \
 
 # D3D11Util includes <d3d11.h>, which only exists on Windows hosts.
 win32 {
-    SOURCES += D3D11Util.cpp D3D11Context.cpp
-    HEADERS += D3D11Util.hpp D3D11Context.hpp
+    SOURCES += D3D11Util.cpp D3D11Context.cpp D3D11Capabilities.cpp
+    HEADERS += D3D11Util.hpp D3D11Context.hpp D3D11Capabilities.hpp
 }
 
 DISTFILES += \

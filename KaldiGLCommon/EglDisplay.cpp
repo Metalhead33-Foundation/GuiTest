@@ -87,6 +87,14 @@ EglDisplay::EglDisplay(EGLNativeDisplayType nativeDisplay)
 		display_ = EGL_NO_DISPLAY;
 		throwEglFailure("eglInitialize", error);
 	}
+	// The bootstrap in ensureEglLoaded() ran before any display was initialized, so
+	// glad could only probe the bare EGL 1.0 entry points (it queries EGL_VERSION
+	// of an uninitialized display, gets null and falls back to 1.0). Re-run the
+	// loader with the initialized display so the 1.4/1.5 entry points - notably
+	// eglGetCurrentContext, which the context destructor uses - become available
+	// as well. The initial 1.0 pointers are already present, so a failure here only
+	// leaves them untouched.
+	(void)gladLoaderLoadEGL(display_);
 	supportsContextProfiles_ = (majorVersion_ > 1 || (majorVersion_ == 1 && minorVersion_ >= 5)) ||
 							   hasExtension(eglQueryString(display_, EGL_EXTENSIONS), "EGL_KHR_create_context");
 }

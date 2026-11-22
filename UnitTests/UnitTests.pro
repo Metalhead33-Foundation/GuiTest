@@ -59,6 +59,7 @@ SOURCES += \
     tests/ImageCodecTests.cpp \
     tests/KaldiDispatchSwitchTests.cpp \
     tests/KaldiDispatchTests.cpp \
+    tests/KaldiHalTests.cpp \
     tests/NativeWindowTests.cpp \
     tests/NetClockRpcTests.cpp \
     tests/NetPredictionInterpolationTests.cpp \

@@ -2,14 +2,16 @@
 
 OpenGL ES 3.2 backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 
-**Status: stub.** The library builds and exports the backend C ABI, but no rendering is
-implemented. `GLES::Device` declares no overrides for `Kld::Device`'s pure virtual
-functions, so it is abstract and nothing can be submitted to it yet. What *does* work is
-the window-system half: `GLES::createContext()` turns an SDL window into a current OpenGL
-ES 3.2 context through EGL and loads the GL entry points - the remaining work is the
-command queue. The translation helpers the implementation needs already exist in
-[`KaldiGLCommon`](../KaldiGLCommon/README.md) and are compiled into this library - before
-the refactor, `GlUtil`/`GlSpirvShader` only existed inside `KaldiGL`.
+**Status: stub.** The library builds and exports the backend C ABI, and `GLES::Device` now
+implements `capabilities()` by probing the context it creates, but `processCommandQueue()`
+is still missing, so the class is abstract and nothing can be submitted to it yet. What
+*does* work is the window-system and capability half: `GLES::createContext()` turns an SDL
+window into a current OpenGL ES 3.2 context through EGL, loads the GL entry points, and
+`GLES::probeCapabilities()` reports the portable limits (`GL_MAX_*`, ES version gates, and
+the S3TC/`GL_KHR_debug` extensions), with the ES-specific answers (`maxTexture1DSize = 0`,
+one vertex buffer before ES 3.2). The translation helpers the implementation needs already
+exist in [`KaldiGLCommon`](../KaldiGLCommon/README.md) and are compiled into this library -
+before the refactor, `GlUtil`/`GlSpirvShader` only existed inside `KaldiGL`.
 
 Requires [SPIRV-Cross](https://github.com/khronosgroup/spirv-cross) to be built with `cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSPIRV_CROSS_SHARED=ON`.
 Otherwise, the compiler will complain about linking static SPIRV-Cross
@@ -32,10 +34,11 @@ compiled without Position-Independent Code (`-fPIC`)
 | File | State |
 |---|---|
 | `KldImplLib.h` | Declares the backend C ABI: `kld_create_rendering_device`, `kld_destroy_rendering_device`, `kld_get_renderer_name`, `kld_get_version`, `kld_get_last_error_message` |
-| `KaldiGLESDevice.hpp` | `GLES::Device : Kld::Device`; owns the EGL `Context`, exposes `context()`, `apiName()`, `swapBuffers()`; still abstract because the command-queue half is unimplemented |
-| `KaldiGLESDevice.cpp` | EGL context creation/make-current/GL loading in the `Device` constructor, teardown in the destructor; C exports still return `nullptr` until `capabilities()`/`processCommandQueue()` exist |
+| `KaldiGLESDevice.hpp` | `GLES::Device : Kld::Device`; owns the EGL `Context`, implements `capabilities()` from a probed snapshot, exposes `context()`, `apiName()`, `swapBuffers()`; still abstract because the command-queue half is unimplemented |
+| `KaldiGLESDevice.cpp` | EGL context creation/make-current/GL loading and the capability probe in the `Device` constructor, teardown in the destructor; C exports still return `nullptr` until `processCommandQueue()` exists |
 | `../KaldiGLCommon/GlContext.*`, `EglDisplay.*`, `EglContext.*` | Shared context contract (`Context`, `ContextConfig`, `createContext()`), EGL display refcounting and the EGL implementation |
 | `../KaldiGLCommon/GlContextConfig.*` | `Kld::ConfigProvider` for `ContextConfig` (GLES defaults: 3.2, no profile bits) |
+| `../KaldiGLCommon/GlCapabilities.*` | `GLES::probeCapabilities()`: `GL_MAX_*` limits, ES version gates for compute/indirect draws/storage resources, and `GL_KHR_debug`/S3TC extension detection |
 | `../Kaldi/KldDispatch.hpp` | Backend-side dispatch layer the command queue will use: `KLD_OPCODE_LIST`, `opcodeName()` diagnostics, and the structure-shifting macros (computed goto on GCC/Clang, `switch` fallback) that keep one handler body per opcode |
 
 ## ES-specific limitations
@@ -55,7 +58,7 @@ A CPU-side conversion in Euphemy is the intended fix.
 
 ## TODO
 
-- [ ] Implement `Device::capabilities()` and report `KaldiHalVersion1_0` with probed limits (this is what unblocks `kld_create_rendering_device`).
+- [x] Implement `Device::capabilities()` and report `KaldiHalVersion1_0` with probed limits (the C ABI still waits for `processCommandQueue()`).
 - [ ] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set.
 - [x] Create and own an OpenGL ES 3.2 context from the native window handle (EGL, via `GLES::createContext`).
 - [ ] Implement the backend-owned `DefaultFramebuffer` and the `BeginFrame`/`EndFrame`/`Present` path, plus explicit swapchains.

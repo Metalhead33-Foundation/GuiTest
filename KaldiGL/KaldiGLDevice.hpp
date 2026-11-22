@@ -5,10 +5,9 @@
  * @brief OpenGL implementation of the Kaldi rendering device contract.
  *
  * The device owns the GL context (EGL or GLX, see `GlContext.hpp`) and therefore
- * the window-system half of the backend. Command translation
- * (`Kld::Device::capabilities()` and `Kld::Device::processCommandQueue()`) is
- * still unimplemented, so `Device` remains abstract: the constructors below are
- * the ownership skeleton that the first command-queue implementation inherits.
+ * the window-system half of the backend. `capabilities()` is probed from that
+ * context during construction; `processCommandQueue()` is still unimplemented, so
+ * `Device` remains abstract until the command-queue implementation lands.
  *
  * @section kaldigl_device_lifetime Lifetime
  *
@@ -26,7 +25,9 @@ namespace GL {
 /**
  * @brief OpenGL implementation of the Kaldi rendering device contract.
  *
- * @note Abstract: the command-queue half of `Kld::Device` is not implemented yet.
+ * `capabilities()` is implemented by probing the context created in the
+ * constructor; `processCommandQueue()` is still unimplemented, so `Device`
+ * remains abstract until the command queue lands.
  */
 class MH_KALDI_IMPL_API Device : public Kld::Device
 {
@@ -51,6 +52,9 @@ public:
 	Device(Device&&) = delete;
 	Device& operator=(Device&&) = delete;
 
+	/** @brief The capabilities probed from the owned context, or none when detached. */
+	const Kld::HalCapabilities& capabilities() const override { return capabilities_; }
+
 	/** @brief The owned context, or @c nullptr for a detached device. */
 	Context* context() noexcept { return context_.get(); }
 	/** @brief The owned context, or @c nullptr for a detached device. */
@@ -69,6 +73,7 @@ public:
 
 private:
 	std::unique_ptr<Context> context_;
+	Kld::HalCapabilities capabilities_ = Kld::halCapabilitiesNone();
 };
 }
 #endif // KALDIGLDEVICE_HPP

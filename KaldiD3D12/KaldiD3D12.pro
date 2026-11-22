@@ -26,8 +26,8 @@ HEADERS += \
 
 # D3D12Util includes <directx/d3d12.h>, which only exists on Windows hosts.
 win32 {
-    SOURCES += D3D12Util.cpp D3D12Context.cpp
-    HEADERS += D3D12Util.hpp D3D12Context.hpp
+    SOURCES += D3D12Util.cpp D3D12Context.cpp D3D12Capabilities.cpp
+    HEADERS += D3D12Util.hpp D3D12Context.hpp D3D12Capabilities.hpp
 }
 
 DISTFILES += \

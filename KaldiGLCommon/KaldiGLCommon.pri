@@ -24,7 +24,8 @@ KALDIGL_COMMON_SOURCES += \
     $$PWD/EglDisplay.cpp \
     $$PWD/EglContext.cpp \
     $$PWD/GlSpirvShader.cpp \
-    $$PWD/GlUtil.cpp
+    $$PWD/GlUtil.cpp \
+    $$PWD/GlCapabilities.cpp
 
 KALDIGL_COMMON_HEADERS += \
     $$PWD/GlBackend.hpp \
@@ -33,5 +34,6 @@ KALDIGL_COMMON_HEADERS += \
     $$PWD/EglDisplay.hpp \
     $$PWD/EglContext.hpp \
     $$PWD/GlSpirvShader.hpp \
-    $$PWD/GlUtil.hpp
+    $$PWD/GlUtil.hpp \
+    $$PWD/GlCapabilities.hpp
 

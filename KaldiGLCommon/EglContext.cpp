@@ -130,6 +130,21 @@ EglContext::EglContext(std::shared_ptr<EglDisplay> display, EGLNativeWindowType 
 
 	const EGLDisplay dpy = display_->handle();
 
+	// EGL starts with the OpenGL ES client API bound. Desktop contexts have to
+	// bind EGL_OPENGL_API before eglCreateContext, otherwise the GL-specific
+	// context attributes (profile mask, forward-compatible flag) are rejected with
+	// EGL_BAD_ATTRIBUTE even when the config came from EGL_OPENGL_BIT.
+	if (eglBindAPI == nullptr) {
+		throw std::runtime_error("EglContext: eglBindAPI is unavailable (EGL 1.2 is required)");
+	}
+#if KALDIGL_IS_GLES
+	if (eglBindAPI(EGL_OPENGL_ES_API) != EGL_TRUE) {
+#else
+	if (eglBindAPI(EGL_OPENGL_API) != EGL_TRUE) {
+#endif
+		throwEglFailure("eglBindAPI", eglGetError());
+	}
+
 	const std::vector<EGLint> configAttribs = buildConfigAttributes(config_);
 	EGLint configCount = 0;
 	if (!eglChooseConfig(dpy, configAttribs.data(), &eglConfig_, 1, &configCount) || configCount < 1) {
@@ -157,7 +172,10 @@ EglContext::~EglContext()
 		return;
 	}
 	const EGLDisplay dpy = display_->handle();
-	if (eglGetCurrentContext() == context_) {
+	// eglGetCurrentContext is an EGL 1.4 entry point. A loader that could not
+	// detect the display version leaves it null, and calling it here would turn
+	// destruction into a crash; the context is then simply left unbound.
+	if (eglGetCurrentContext != nullptr && eglGetCurrentContext() == context_) {
 		eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	}
 	if (surface_ != EGL_NO_SURFACE) {

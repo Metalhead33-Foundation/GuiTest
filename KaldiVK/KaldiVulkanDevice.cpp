@@ -1,4 +1,5 @@
 #include "KaldiVulkanDevice.hpp"
+#include "VkCapabilities.hpp"
 #include <stdexcept>
 
 namespace Vk {
@@ -8,6 +9,7 @@ Device::Device() = default;
 Device::Device(const SDL_SysWMinfo& window, const ContextConfig& config)
 	: context_(std::make_unique<Context>(Kld::nativeWindowHandlesFrom(window), config))
 {
+	capabilities_ = probeCapabilities(*context_);
 }
 
 Device::~Device() = default;

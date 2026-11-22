@@ -61,6 +61,8 @@ handles; every backend consumes the result instead of repeating the SDL switch.
 
 `KldHal.hpp` defines the public HAL contract: `HalVersion`, `HalCapabilities`, `HalStatusCode`, and `HalStatus`. Backend-specific probing stays inside backend initialization. Higher layers consume the resulting portable capabilities and status codes instead of depending on backend-specific extension or feature details.
 
+Capability probing lives next to each backend's context layer: `KaldiGLCommon/GlCapabilities.*` (shared by OpenGL and OpenGL ES), `KaldiVK/VkCapabilities.*`, and the win32-only `D3D11Capabilities.*` / `D3D12Capabilities.*`. A probe fills `HalCapabilities` from the queries the API actually offers, gates optional features on the *actual* context/device version and extensions rather than on what was requested, and reports `Kld::halCapabilitiesNone()` when no device exists (a detached backend, or a probe running without a current context). `GL::Device`, `GLES::Device` and `Vk::Device` run their probe during construction and return the stored snapshot from `capabilities()`; the Direct3D probes are ready for the same wiring once those device classes own their API device.
+
 `KldDispatch.hpp` is the backend-side half of the submission boundary. It provides the `KLD_OPCODE_LIST` X-macro (the single source of truth for opcode names and `Kld::kOpcodeCount`), `Kld::opcodeName()` / `Kld::isKnownOpcode()` diagnostics, and the structure-shifting `KLD_DISPATCH_*` macros that turn one flat command span into a tag dispatch. On GCC and Clang the macros expand to direct threading (computed goto with one dispatch jump per handler); on MSVC and other compilers they expand to an equivalent `switch`, so a backend writes its handlers once. The layer is header-only, contains no backend API calls, and therefore serves every backend - the dispatch table lives entirely inside each backend's own `processCommandQueue` implementation. See @ref KldDispatch.hpp for the usage contract and the handler-termination rules.
 
 Command payloads may reference externally owned data by pointer. As with the existing texture upload commands, callers must keep pointed-to data alive until the backend has processed the command queue. That rule covers upload/readback memory, shader words, vertex descriptors, framebuffer attachment arrays, pipeline binding layouts, swapchain descriptors/image bindings/native surface pointers, render-pass descriptors/attachment arrays, debug strings, optional pipeline names, callbacks, and callback `userData`.
@@ -169,6 +171,7 @@ The strongest next move is probably not to add every modern GPU concept. It is t
 - [x] Add render-pass/load-store metadata while keeping the older bind/clear/draw model valid.
 - [x] Add conservative parallel recording helpers: shared handle allocation, ordered merge/append, and coordinator-owned deferred destruction.
 - [x] Add the backend-side dispatch layer (`KldDispatch.hpp`): `KLD_OPCODE_LIST`, opcode name/validity helpers, and the structure-shifting computed-goto / `switch` macros shared by every backend.
+- [x] Probe `HalCapabilities` in the GL, GLES, Vulkan, D3D11 and D3D12 backends, with `halCapabilitiesNone()` as the portable "not probed yet" fallback.
 
 ## Future graphics HAL TODOs
 

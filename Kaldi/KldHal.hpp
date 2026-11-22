@@ -96,6 +96,34 @@ struct HalCapabilities {
 	bool supportsMultisampleResolve;
 };
 
+/**
+ * @brief Conservative frame-in-flight count for APIs that do not expose one.
+ *
+ * `HalCapabilities`::maxFramesInFlight is a planning number, not always a hard
+ * API limit. OpenGL, Direct3D 11 and Vulkan-without-a-swapchain cannot answer
+ * "how many frames may I keep in flight" through a query, so their probes report
+ * this value, which matches the common double/triple-buffered default of
+ * desktop presentation.
+ */
+inline constexpr uint32_t kDefaultMaxFramesInFlight = 3;
+
+/**
+ * @brief Capability snapshot of a device that has not probed a backend API yet.
+ *
+ * Every limit is zero and every feature flag is false; only @ref
+ * HalCapabilities::version is filled in, because the backend still implements the
+ * v1.0 contract. Backends return this from a detached/uninitialized device, and
+ * probes fall back to it when the API objects they need are missing. A zero limit
+ * means "not usable", never "unlimited" - callers must not plan work against a
+ * snapshot that has not been replaced by a real one.
+ */
+inline constexpr HalCapabilities halCapabilitiesNone() noexcept
+{
+	HalCapabilities capabilities{};
+	capabilities.version = KaldiHalVersion1_0;
+	return capabilities;
+}
+
 /** @brief Portable status code returned by backend initialization/submission. */
 enum class HalStatusCode : uint8_t {
 	/**

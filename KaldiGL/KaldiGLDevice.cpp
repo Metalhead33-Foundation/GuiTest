@@ -1,4 +1,5 @@
 #include "KaldiGLDevice.hpp"
+#include "GlCapabilities.hpp"
 #include <stdexcept>
 
 namespace GL {
@@ -14,6 +15,7 @@ Device::Device(const SDL_SysWMinfo& window, const ContextConfig& config)
 		throw std::runtime_error("KaldiGL: the OpenGL entry points could not be loaded");
 	}
 	applyDefaultState();
+	capabilities_ = probeCapabilities();
 }
 
 Device::~Device()
@@ -43,9 +45,10 @@ void Device::swapBuffers()
 
 MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo)
 {
-	// A device can only be handed out once GL::Device implements
-	// capabilities()/processCommandQueue(); until then the context layer is
-	// exercised directly through GL::createContext().
+	// capabilities() exists now, but GL::Device stays abstract until
+	// processCommandQueue() is implemented, so the C ABI cannot hand out an
+	// instance yet. The context layer remains usable directly through
+	// GL::createContext() for capabilities probing and smoke tests.
 	(void)window_info;
 	(void)creationInfo;
 	return nullptr;

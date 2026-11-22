@@ -12,64 +12,75 @@ namespace KALDIGL_NS {
 
 namespace {
 
-/** @brief Appends a visual attribute unless the caller disabled that buffer. */
-void appendSize(std::vector<int>& attribs, int name, int bits)
+/** @brief Visual id of @p window, or @c 0 when it cannot be queried. */
+VisualID windowVisualId(::Display* display, ::Window window)
 {
-	if (bits > 0) {
-		attribs.push_back(name);
-		attribs.push_back(bits);
+	XWindowAttributes attributes {};
+	if (XGetWindowAttributes(display, window, &attributes) == 0 || attributes.visual == nullptr) {
+		return 0;
 	}
+	return XVisualIDFromVisual(attributes.visual);
 }
 
-/** @brief Asks GLX for the first framebuffer configuration matching @p attribs. */
-GLXFBConfig chooseFbConfig(::Display* display, int screen, const std::vector<int>& attribs)
+/** @brief Reads one integer attribute of @p config, or -1 when the query fails. */
+int fbConfigAttribute(::Display* display, GLXFBConfig config, int attribute)
 {
+	int value = 0;
+	return glXGetFBConfigAttrib(display, config, attribute, &value) == Success ? value : -1;
+}
+
+/**
+ * @brief Picks the framebuffer configuration that belongs to the window's visual.
+ *
+ * A GLX drawable must use the same visual as its FBConfig: `glXMakeCurrent`
+ * rejects anything else with an X `BadMatch`, and Xlib's default error handler
+ * aborts the process on that error. A caller-owned window (SDL creates its window
+ * from its own GL setup) therefore selects the configuration, not the other way
+ * round. `glXChooseFBConfig` is not usable for this: it filters by the requested
+ * channel/depth/stencil sizes, and the window's visual is a single fixed layout
+ * that rarely satisfies a generic request (a window without a stencil buffer has
+ * no matching configuration then, even though GLX can render into it).
+ *
+ * `ContextConfig` buffer sizes and MSAA are therefore advisory for GLX: the
+ * window's visual already fixes the framebuffer layout. @p wantedSamples is only
+ * used to prefer a matching configuration with at least that many samples.
+ *
+ * @return A window-capable RGBA configuration with the window's visual, or
+ *         @c nullptr when the X server offers none (the window is then not a GLX
+ *         drawable and the caller gets a clear error instead of an X abort).
+ */
+GLXFBConfig chooseFbConfig(::Display* display, int screen, ::Window window, int wantedSamples)
+{
+	const VisualID visual = windowVisualId(display, window);
+	if (visual == 0) {
+		return nullptr;
+	}
 	int count = 0;
-	GLXFBConfig* configs = glXChooseFBConfig(display, screen, attribs.data(), &count);
+	GLXFBConfig* configs = glXGetFBConfigs(display, screen, &count);
 	GLXFBConfig chosen = nullptr;
-	if (configs != nullptr && count > 0) {
-		chosen = configs[0];
+	GLXFBConfig fallback = nullptr;
+	for (int index = 0; index < count; ++index) {
+		const GLXFBConfig config = configs[index];
+		if (static_cast<VisualID>(fbConfigAttribute(display, config, GLX_VISUAL_ID)) != visual) {
+			continue;
+		}
+		const int drawableType = fbConfigAttribute(display, config, GLX_DRAWABLE_TYPE);
+		const int renderType = fbConfigAttribute(display, config, GLX_RENDER_TYPE);
+		if ((drawableType & GLX_WINDOW_BIT) == 0 || (renderType & GLX_RGBA_BIT) == 0) {
+			continue;
+		}
+		if (fallback == nullptr) {
+			fallback = config;
+		}
+		if (wantedSamples <= 1 || fbConfigAttribute(display, config, GLX_SAMPLES) >= wantedSamples) {
+			chosen = config;
+			break;
+		}
 	}
 	if (configs != nullptr) {
 		XFree(configs);
 	}
-	return chosen;
-}
-
-/** @brief Builds the detailed visual attribute list from @p config. */
-std::vector<int> detailedVisualAttributes(const ContextConfig& config)
-{
-	std::vector<int> attribs = {
-		GLX_X_RENDERABLE, True,
-		GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
-		GLX_RENDER_TYPE, GLX_RGBA_BIT,
-		GLX_X_VISUAL_TYPE, GLX_TRUE_COLOR
-	};
-	appendSize(attribs, GLX_RED_SIZE, config.redBits);
-	appendSize(attribs, GLX_GREEN_SIZE, config.greenBits);
-	appendSize(attribs, GLX_BLUE_SIZE, config.blueBits);
-	appendSize(attribs, GLX_ALPHA_SIZE, config.alphaBits);
-	appendSize(attribs, GLX_DEPTH_SIZE, config.depthBits);
-	appendSize(attribs, GLX_STENCIL_SIZE, config.stencilBits);
-	attribs.push_back(GLX_DOUBLEBUFFER);
-	attribs.push_back(config.doubleBuffered ? True : False);
-	attribs.push_back(None);
-	return attribs;
-}
-
-/**
- * @brief The minimal visual attribute list used as a fallback.
- *
- * Several drivers refuse an exact RGBA8 request for the default visual, so a
- * failed detailed query is retried with only the properties GLX requires.
- */
-std::vector<int> minimalVisualAttributes()
-{
-	return { GLX_X_RENDERABLE, True,
-			 GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
-			 GLX_RENDER_TYPE, GLX_RGBA_BIT,
-			 GLX_X_VISUAL_TYPE, GLX_TRUE_COLOR,
-			 None };
+	return chosen != nullptr ? chosen : fallback;
 }
 
 /** @brief Builds the `glXCreateContextAttribsARB` attribute list for @p config. */
@@ -118,12 +129,9 @@ GlxContext::GlxContext(::Display* display, ::Window window, const ContextConfig&
 		throw std::runtime_error("GlxContext: GLX could not be loaded (is libGL installed?)");
 	}
 
-	fbConfig_ = chooseFbConfig(display_, screen, detailedVisualAttributes(config_));
+	fbConfig_ = chooseFbConfig(display_, screen, window_, wantsMultisampling(config_) ? config_.sampleCount : 0);
 	if (fbConfig_ == nullptr) {
-		fbConfig_ = chooseFbConfig(display_, screen, minimalVisualAttributes());
-	}
-	if (fbConfig_ == nullptr) {
-		throw std::runtime_error("GlxContext: glXChooseFBConfig found no usable framebuffer configuration");
+		throw std::runtime_error("GlxContext: the window's visual has no window-capable GLX framebuffer configuration");
 	}
 
 	if (glXCreateContextAttribsARB == nullptr) {
