@@ -13,6 +13,8 @@
 #include <memory>
 namespace Hrk {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ProxyPlayable)
+
 /** @brief Base class for playables that forward to another playable. */
 class MH_HARUKA_API ProxyPlayable : public Playable
 {

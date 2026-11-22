@@ -305,8 +305,8 @@ class Device {
 	requires Util::Allocator<Alloc, T>
 	inline void readAllAsVector(std::vector<T, Alloc>& dst) {
 		auto sz = Util::div_ceil(size_t(size() - tell()), sizeof(T));
-		dst.resize(sz, 0);
-		read(&dst[0], sz);
+		dst.resize(sz, static_cast<T>(0));
+		read(std::span<T>(dst.data(),dst.size()));
 	}
 
 	/**

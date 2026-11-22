@@ -80,6 +80,22 @@ constexpr HandleId DefaultFramebuffer = 0;
 constexpr HandleId DefaultSwapchain = 0;
 
 /**
+ * @brief First handle ID in the range reserved for backend-preallocated objects.
+ *
+ * Handle IDs below this value belong to the caller's allocator; IDs from this
+ * value upwards belong to the backend (HAL 1.1). A backend uses the range when it
+ * has to hand back something the caller can *use* but does not own - today that is
+ * the framebuffer of an acquired swapchain image, reported through
+ * `SwapchainAcquireInfo`::framebuffer.
+ *
+ * Those handles work with every command that accepts the resource kind, but they
+ * must not be destroyed by the caller: destroying the owning swapchain retires
+ * them, and a destroy command aimed at one is rejected instead of silently
+ * corrupting the backend's bookkeeping.
+ */
+constexpr HandleId BackendHandleBase = 0x80000000u;
+
+/**
  * @brief Operation selector for `GfxOp`.
  *
  * Each opcode has a matching payload member in `GfxOp`::opt, except legacy
@@ -1437,7 +1453,13 @@ struct OpSetBlendState {
 	uint8_t colorWriteMask;
 };
 
-/** @brief Comparison operation used by depth/stencil tests. */
+/**
+ * @brief Comparison operation used by depth/stencil tests.
+ *
+ * @note `Always` is spelled `AlwaysPass` because `<X11/X.h>` defines a macro
+ * called `Always`; Kaldi's headers are included by the GLX and Vulkan backends,
+ * which pull Xlib in. See the macro-collision note in `Kaldi/README.md`.
+ */
 enum class CompareOp : uint8_t {
 	Never,
 	Less,
@@ -1446,7 +1468,7 @@ enum class CompareOp : uint8_t {
 	Greater,
 	NotEqual,
 	GreaterOrEqual,
-	Always
+	AlwaysPass
 };
 
 /** @brief Stencil buffer operation. */
@@ -1495,9 +1517,15 @@ struct OpSetDepthStencilState {
 	StencilFaceState back;
 };
 
-/** @brief Primitive culling mode. */
+/**
+ * @brief Primitive culling mode.
+ *
+ * @note "no culling" is spelled `NoCulling` because `<X11/X.h>` defines `None` as
+ * a macro, and the cross-platform backends include Xlib in the same translation
+ * unit.
+ */
 enum class CullMode : uint8_t {
-	None,
+	NoCulling,
 	Front,
 	Back,
 	FrontAndBack

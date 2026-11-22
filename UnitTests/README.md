@@ -8,12 +8,44 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 106 test cases / 1151 assertions covering the
+**Status: implemented and passing.** 157 test cases / 2020 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
 snapshots, field deltas, interpolation, prediction, lockstep and the reference
 pipeline), the minimal HTTP parser/client/server, the platform wrappers and a
-localhost UDP smoke test.
+localhost UDP smoke test, plus the graphics side: HLSL/GLSL -> SPIR-V shader
+compilation and SPIR-V -> GLSL cross-compilation, the Vulkan/DXGI format tables,
+backend configuration clamping (including the GL executor policy keys), the SDL
+window-handle extraction, the Kaldi HAL capability fallbacks, the Kaldi
+command-dispatch layer (both the computed-goto and the `switch` structure) and the
+object-oriented recording facade (`Kaldi/KldCommandBuffer.hpp`).
+
+## Shader assets
+
+HLSL is the project's primary shading language, so the suite compiles real HLSL
+instead of hand-written SPIR-V words. Two independent paths are covered:
+
+- `tests/ShaderCompileTests.cpp` drives `Lotte::Gfx::compileShaderProgram()` at run
+  time (the same entry point a game or tool uses).
+- `shaders/*.hlsl` are compiled to `.spv` **at build time** by `UnitTests.pro`,
+  using `QMAKE_EXTRA_COMPILERS` exactly like the WasmJit test harness compiles
+  AssemblyScript to `.wasm`. `tests/ShaderAssetTests.cpp` then loads those blobs
+  from the build tree and feeds them to the SPIR-V -> GLSL cross-compiler, so a
+  broken shader file breaks the build/test run rather than a backend later.
+
+The build-time rule needs `glslang` (Khronos). It defaults to `/usr/bin/glslang`
+and can be pointed elsewhere with `qmake UnitTests.pro GLSLANG=/path/to/glslang`;
+if the compiler is missing the rule is disabled with a configure-time warning and
+the asset tests are compiled out.
+
+Note that **glslang's HLSL front-end is deprecated upstream** (as of April 2026,
+removed at the next major version; KhronosGroup/glslang issue #4210). The rule is
+kept because it is the only build-time proof that the shader assets compile at
+all; the intended replacement is DXC with `-HV 2016` plus its legacy flags, which
+keeps the accepted language at Shader Model 4/5 level even though DXC only emits
+Shader Model 6 profiles. The migration is **deferred indefinitely**, and
+[`docs/SHADERS.md`](../docs/SHADERS.md) records the reference `dxc` invocation,
+what every flag does, and the acceptance gate for the switch.
 
 ## Build and run
 
@@ -21,10 +53,12 @@ localhost UDP smoke test.
 cd build/Desktop-Debug
 /usr/bin/qmake6 ../../Project.pro
 env MAKE=/usr/bin/make /usr/bin/make -j16 QMAKE=/usr/bin/qmake6
-LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka ./UnitTests/UnitTests
+LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK ./UnitTests/UnitTests
 ```
 
 `LD_LIBRARY_PATH` is required because the sibling libraries are not found through an rpath.
+`KaldiVK` is on the path because the test binary links the Vulkan backend's translation layer
+(`VkUtil`); it does not create a Vulkan device.
 
 The suite exits non-zero when a check fails, so it can be used as a gate. Useful Catch2 arguments:
 
@@ -46,6 +80,12 @@ The suite exits non-zero when a check fails, so it can be used as a gate. Useful
 ./UnitTests/UnitTests "[pipeline]"         # per-peer replication server/client
 ./UnitTests/UnitTests "[http]"             # parser; "[http][socket]" also TCP/UDP
 ./UnitTests/UnitTests "[fielddelta]"       # snapshot field-level delta
+./UnitTests/UnitTests "[shader]"           # HLSL/GLSL -> SPIR-V (+ SPIRV-Cross)
+./UnitTests/UnitTests "[format]"           # Vulkan/DXGI format tables
+./UnitTests/UnitTests "[backend]"          # Kaldi backend configuration contract
+./UnitTests/UnitTests "[nativewindow]"     # SDL -> native window handles
+./UnitTests/UnitTests "[dispatch]"         # Kaldi dispatch (computed goto + switch)
+./UnitTests/UnitTests "[capabilities]"     # HAL fallbacks + status helpers
 ./UnitTests/UnitTests "Snappy*" -s         # one group, showing passing assertions
 ```
 
@@ -68,17 +108,22 @@ build Catch2 as a single amalgamated header and replace the includes.
 | `tests/ImageCodecTests.cpp` | PNG and TGA encode -> decode reproduce the exact pixels of a 23x17 image; re-encoding a decoded PNG is byte-identical |
 | `tests/FontRoundTripTests.cpp` | Lotte `PreprocessedFontFace` and `StoredVectorImage` through `Elv::Io::DataStream`, comparing every persisted field (metadata, metrics, kerning, SDF payload, mipmaps) |
 | `tests/ConfigTests.cpp` | Configuration text round-trip for every typed value; default caching for missing keys; parsing a hand-written document; rejection of keys without a type prefix |
+| `tests/BackendConfigTests.cpp` | The Kaldi config contract end to end: GL provider defaults written with typed keys, key prefixes matching value types, clamping (`iGlSamples=999` -> 16), unknown enumerations falling back, missing sections keeping defaults, `.ini` serialize -> parse -> apply round-trip, per-purpose common defaults |
 | `tests/BitStreamTests.cpp` | MSB-first bit packing; mixed-width fields; full-range zig-zag signed values; varints; exact float/half bit patterns; quantized float clamping and degenerate ranges; buffer-full/exhausted errors; overlong varint rejection |
-| `tests/NetTransportTests.cpp` | Wrap-safe sequence comparison and ack windows; CRC-32C/FNV-1a vectors; ring-buffer ordering, overwrite and move-only elements; endpoint value semantics; loopback latency, loss, duplication, oversize rejection and endpoint lifecycle |
-| `tests/NetSessionTests.cpp` | Two-session handshake and retry; reliable ordered delivery and ack tags; delivery over a 35% lossy link; fragmentation/reassembly; heartbeat timeout; graceful disconnect; unreliable channel delivery; input validation |
+| `tests/FormatTranslationTests.cpp` | Vulkan (`VkUtil`) and DXGI (`D3DUtil`) tables: formats that exist, formats the APIs cannot express, vertex formats, sampler/layout/stage masks, alignment helpers |
+| `tests/KaldiCommandBufferTests.cpp` | The object-oriented facade without a device: one handle namespace across kinds with id recycling, write-buffer-only recording, proxy create/destroy commands, move semantics, `mergeCommandBuffers` ordering, `DeferredDestroyQueue` mapping to the right destroy opcode, `submit()` handing the read buffer to a recording device |
+| `tests/HarukaStreamerRingTests.cpp` | Deterministic `RingBufferedStreamer` through a four-frame ring; interleaved and separate-channel output across repeated wraps |
+| `tests/HttpTests.cpp` | Request/response serialization, incomplete/malformed/oversize parsing, HEAD suppression, TCP POST, TCP HEAD, `EventLoop` async request, UDP request/response, failure-signal emission |
+| `tests/NativeWindowTests.cpp` | `Kld::nativeWindowHandlesFrom()` for unsupported subsystems, X11 and Wayland (including the `wl_surface` vs `wl_egl_window` split), plus the GL `ContextConfig`/`ContextApi` defaults |
 | `tests/NetClockRpcTests.cpp` | RTT/offset estimation and smoothing, bounded sample history, tick/time conversion; typed RPC encode/dispatch, enums/blobs, unknown/malformed/denied calls and handler exceptions |
-| `tests/NetReplicationTests.cpp` | Generation-checked ID reuse, component/entity-kind validation, object-schema bit-stream round-trip, component masks, stale-handle rejection, interest filtering |
-| `tests/NetSnapshotTests.cpp` | Full spawn baseline, ack-gated deltas, changed/removed component masks, despawns, rejected tags, malformed magic/version/truncation; schema field-delta full/delta modes |
 | `tests/NetPredictionInterpolationTests.cpp` | Jitter ordering/interpolation, schema field rules, snapshot jitter buffer, input/delay queues, checksum rollback, lockstep readiness and divergence |
 | `tests/NetReplicationPipelineTests.cpp` | Per-peer `OwnerInterest` snapshots, ack routing, peer removal, client parse/jitter buffer |
-| `tests/HttpTests.cpp` | Request/response serialization, incomplete/malformed/oversize parsing, HEAD suppression, TCP POST, TCP HEAD, `EventLoop` async request, UDP request/response, failure-signal emission |
+| `tests/NetReplicationTests.cpp` | Generation-checked ID reuse, component/entity-kind validation, object-schema bit-stream round-trip, component masks, stale-handle rejection, interest filtering |
+| `tests/NetSessionTests.cpp` | Two-session handshake and retry; reliable ordered delivery and ack tags; delivery over a 35% lossy link; fragmentation/reassembly; heartbeat timeout; graceful disconnect; unreliable channel delivery; input validation |
+| `tests/NetSnapshotTests.cpp` | Full spawn baseline, ack-gated deltas, changed/removed component masks, despawns, rejected tags, malformed magic/version/truncation; schema field-delta full/delta modes |
+| `tests/NetTransportTests.cpp` | Wrap-safe sequence comparison and ack windows; CRC-32C/FNV-1a vectors; ring-buffer ordering, overwrite and move-only elements; endpoint value semantics; loopback latency, loss, duplication, oversize rejection and endpoint lifecycle |
 | `tests/PlatformWrappersTests.cpp` | Contiguous ring-buffer spans/wrap/bulk copy/resize; event-poller factory; epoll pipe readiness with modify/remove; polling loop commands/readiness/wakeup; kqueue stub; io_uring NOP when available; IOCP unavailable stub |
-| `tests/HarukaStreamerRingTests.cpp` | Deterministic `RingBufferedStreamer` through a four-frame ring; interleaved and separate-channel output across repeated wraps |
+| `tests/ShaderCompileTests.cpp` | Lotte's HLSL/GLSL -> SPIR-V compiler: one blob per stage, `Kld::ShaderBinaryDescriptor` views consistent with the stored words, empty/duplicate/diagnostic/include failure paths, `Pipeline` ownership |
 | `tests/UdpTransportTests.cpp` | Localhost non-blocking UDP request/reply through `Euph::Net::UdpTransport` and `Euph::Io::Socket`, including ephemeral-port binding and source-endpoint capture |
 
 `support/TestSupport.hpp` holds the shared helpers: deterministic payload generators and

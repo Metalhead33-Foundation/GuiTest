@@ -12,6 +12,8 @@
 #include <Haruka/Core/HrkAudioPacket.hpp>
 namespace Hrk {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Playable)
+
 /** @brief Abstract source or processor that writes audio frames into an output packet. */
 class Playable {
 public:

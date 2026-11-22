@@ -14,6 +14,8 @@
 #include <span>
 namespace Hrk {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(MatrixPanner)
+
 /** @brief Applies a caller-editable channel matrix while proxying another playable. */
 class MH_HARUKA_API MatrixPanner : public ProxyPlayable
 {

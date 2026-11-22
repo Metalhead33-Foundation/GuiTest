@@ -31,6 +31,8 @@
 
 namespace Hrk {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ImpulseResponse)
+
 /**
  * @brief Channel-planar impulse response with an explicit sample rate.
  */

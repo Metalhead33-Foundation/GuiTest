@@ -12,6 +12,7 @@
 #include <Euphemy/Media/Audio/EuphModuleRenderer.hpp>
 
 namespace Hrk {
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ModuleStreamer)
 /** @brief Ring-buffered streamer backed by a module/tracker renderer. */
 class MH_HARUKA_API ModuleStreamer : public RingBufferedStreamer
 {
@@ -28,6 +29,11 @@ public:
 	const Euph::Media::Audio::ModuleRenderer& getModuleRenderer() const;
 	/** @brief Returns mutable access to the module renderer. */
 	Euph::Media::Audio::ModuleRenderer& getModuleRenderer();
+
+	// getState() is inherited from PlaybackStatePlayable: do NOT add a second
+	// PlaybackState here. RingBufferedStreamer::outputTo() consults the inherited
+	// `state`, so shadowing it would make every setPlayStatus()/setCursor() call
+	// from the outside a no-op and playback would never start.
 };
 }
 #endif // HRKMODULESTREAMER_HPP

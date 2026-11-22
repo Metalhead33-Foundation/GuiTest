@@ -16,13 +16,32 @@ There is no renderer and no GUI widget system yet; see the TODO list.
 | qmake target | `Lotte` (`TEMPLATE = lib`, `CONFIG += shared c++2a`, no Qt) |
 | Export macro | `MH_LOTTE_EXPORT` while building, `MH_LOTTE_API` for consumers |
 | Consumer hook | `include(Lotte/Lotte.pri)` adds the include path and links Lotte/Euphemy/Elvavena |
-| Dependencies | Elvavena, Euphemy, Kaldi headers, GLM, utfcpp (header-only, `#include <utf8cpp/utf8.h>`) |
+| Dependencies | Elvavena, Euphemy, Kaldi headers, GLM, utfcpp (header-only, `#include <utf8cpp/utf8.h>`), glslang + glslang-default-resource-limits + SPIRV (shader compilation) |
 
-Compiled units: `Asset/LteGpuAssetStreamer.cpp` and the six `Text/*.cpp` files. The
-`Gui/` and `GFX/` headers are header-only (templates plus inline recording helpers).
+Compiled units: `Asset/LteGpuAssetStreamer.cpp`, `Conf/LteBackendConfig.cpp`, `GFX/LtePipeline.cpp` and the six
+`Text/*.cpp` files. The `Gui/` headers are header-only (templates plus inline recording
+helpers).
 
 Kaldi is consumed header-only through `Kaldi.pri`. Do not add `-lKaldi` or `libKaldi`
 to Lotte; use the top-level include path.
+
+## Shader compilation
+
+`GFX/LtePipeline.cpp` is the only place in the tree that compiles shaders, and it
+uses the **HLSL front-end of glslang** (linked as `-lglslang -lSPIRV
+-lglslang-default-resource-limits`). HLSL is the engine's authoring language; the
+compiler always emits *Vulkan* SPIR-V 1.0 (`EShClientVulkan`,
+`EShTargetVulkan_1_0`, `EShTargetSpv_1_0`) so a single blob serves every backend:
+Vulkan consumes it as-is, while the GL/GLES and D3D11/D3D12 backends cross-compile
+it with SPIRV-Cross.
+
+**glslang's HLSL front-end is deprecated** (as of April 2026, removed at the next
+major version; see [issue #4210](https://github.com/KhronosGroup/glslang/issues/4210)).
+The intended replacement is [DXC](https://github.com/microsoft/DirectXShaderCompiler),
+whose only notable flaw here is that it targets Shader Model 6.x while this engine
+authors HLSL at Shader Model 4/5 level. The migration is **deferred indefinitely**;
+[`docs/SHADERS.md`](../docs/SHADERS.md) records the reference `dxc` invocation,
+what each flag does, and the acceptance gate for the switch.
 
 ## Implemented
 
@@ -33,6 +52,8 @@ to Lotte; use the top-level include path.
 | `Asset/LteGpuAssetStreamer.hpp` / `.cpp` | `GpuAssetStreamer` - bridges Euphemy's CPU `ResourceRegistry` to Kaldi command buffers. Queues buffer/texture uploads and evictions, accounts GPU bytes against a budget, supports priority/pinning/strong references, and records work into move-only `GpuCommandBatch` objects that keep payload memory alive until commit or fail |
 | `Text/LteFontFace.hpp` | FontPacker-compatible `WODF` font-face format: SDF/MSDF/MSDFA channel types, distance metrics, glyph metrics, kerning tables, absolute-offset TOC, and both importer (`operator>>`) and exporter (`operator<<`) over `Elv::Io::DataStream` |
 | `VectorGraphic/LteStoredVectorImage.hpp` | FontPacker-compatible `WODI` stored-vector-image format with mip levels, encoding flags and stream import/export |
+| `Conf/LteBackendConfig.hpp` / `.cpp` | Bridge between `Kld::ConfigProvider` and `Euph::Conf::Configuration`: writes a backend's field defaults into an `.ini`, serializes/parses the text, loads/saves through `Elv::Io::System`, and applies the file back through a `Kld::ConfigReader` (which clamps every value) |
+| `GFX/LtePipeline.hpp` / `.cpp` | `compileShaderProgram()` (glslang's HLSL front-end, see [`docs/SHADERS.md`](../docs/SHADERS.md); HLSL or GLSL input, always emits **Vulkan** SPIR-V 1.0 so one blob serves every backend, pluggable `ShaderIncludeResolver`), the owning `ShaderBinary` (SPIR-V words + stage, convertible to `Kld::ShaderBinaryDescriptor`) and `Pipeline` (owns stages + vertex attributes and exposes Kaldi views) |
 
 ### `Text/` - rich text pipeline
 

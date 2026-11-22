@@ -54,38 +54,33 @@ enum class ResourceHandleKind : uint8_t {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @brief Typed ID pools for every resource kind.
+ * @brief Handle allocation for every resource kind.
  *
- * Each resource kind gets its own `IdPool` so IDs are independently recycled.
- * The allocator is shared across all pools.
+ * All kinds draw from one `IdPool`, because `Kld::HandleId` is a single namespace
+ * across kinds: the backends reject a handle that is already live under any kind,
+ * so two kinds must never hand out the same number. The `ResourceHandleKind`
+ * parameter on the helpers is still required - it decides which destroy command a
+ * proxy or a `DeferredDestroyQueue` records - but it no longer selects a pool.
  */
 template <typename HandleAllocator = std::allocator<HandleId>>
 class HandleStorage {
 public:
 	typedef Elv::Util::IdPool<HandleId, HandleAllocator> HandlePool;
 private:
-	HandlePool bufferIds;
-	HandlePool textureIds;
-	HandlePool samplerIds;
-	HandlePool imageIds;
-	HandlePool framebufferIds;
-	HandlePool pipelineIds;
-	HandlePool computePipelineIds;
-	HandlePool fenceIds;
-	HandlePool queryPoolIds;
-	HandlePool swapchainIds;
+	/**
+	 * @brief The single pool every resource kind draws from.
+	 *
+	 * `Kld::HandleId` is *one* namespace across kinds: every backend keeps a
+	 * per-kind registry but rejects a handle that is already live under *any* kind,
+	 * so two kinds must never hand out the same number. Per-kind pools would break
+	 * that immediately - each would start at the same value - which is why the kind
+	 * argument below selects only the destroy command the proxies record, never the
+	 * pool.
+	 */
+	HandlePool ids;
 public:
 	inline explicit HandleStorage(const HandleAllocator& handleAlloc = HandleAllocator())
-		: bufferIds(handleAlloc),
-		textureIds(handleAlloc),
-		samplerIds(handleAlloc),
-		imageIds(handleAlloc),
-		framebufferIds(handleAlloc),
-		pipelineIds(handleAlloc),
-		computePipelineIds(handleAlloc),
-		fenceIds(handleAlloc),
-		queryPoolIds(handleAlloc),
-		swapchainIds(handleAlloc)
+		: ids(handleAlloc)
 	{}
 
 	inline explicit HandleStorage(size_t reservedBufferFreelistSize,
@@ -99,97 +94,49 @@ public:
 								  size_t reservedQueryPoolFreelistSize,
 								  size_t reservedSwapchainFreelistSize,
 								  const HandleAllocator& handleAlloc = HandleAllocator())
-		: bufferIds(reservedBufferFreelistSize, handleAlloc),
-		textureIds(reservedTextureFreelistSize, handleAlloc),
-		samplerIds(reservedSamplerFreelistSize, handleAlloc),
-		imageIds(reservedImageFreelistSize, handleAlloc),
-		framebufferIds(reservedFramebufferFreelistSize, handleAlloc),
-		pipelineIds(reservedPipelineFreelistSize, handleAlloc),
-		computePipelineIds(reservedComputePipelineFreelistSize, handleAlloc),
-		fenceIds(reservedFenceFreelistSize, handleAlloc),
-		queryPoolIds(reservedQueryPoolFreelistSize, handleAlloc),
-		swapchainIds(reservedSwapchainFreelistSize, handleAlloc)
+		: ids(reservedBufferFreelistSize
+				  + reservedTextureFreelistSize
+				  + reservedSamplerFreelistSize
+				  + reservedImageFreelistSize
+				  + reservedFramebufferFreelistSize
+				  + reservedPipelineFreelistSize
+				  + reservedComputePipelineFreelistSize
+				  + reservedFenceFreelistSize
+				  + reservedQueryPoolFreelistSize
+				  + reservedSwapchainFreelistSize,
+			  handleAlloc)
 	{}
 
+	/**
+	 * @brief Acquires one handle.
+	 * @param kind Selects nothing today; it keeps call sites explicit about what the
+	 *        handle will name and keeps the signature future-proof.
+	 */
 	[[nodiscard]] inline HandleId acquireId(ResourceHandleKind kind) {
-		switch (kind) {
-			case ResourceHandleKind::Buffer:          return bufferIds.acquireId();
-			case ResourceHandleKind::Texture:         return textureIds.acquireId();
-			case ResourceHandleKind::Sampler:         return samplerIds.acquireId();
-			case ResourceHandleKind::Image:           return imageIds.acquireId();
-			case ResourceHandleKind::Framebuffer:     return framebufferIds.acquireId();
-			case ResourceHandleKind::Pipeline:        return pipelineIds.acquireId();
-			case ResourceHandleKind::ComputePipeline: return computePipelineIds.acquireId();
-			case ResourceHandleKind::Fence:           return fenceIds.acquireId();
-			case ResourceHandleKind::QueryPool:       return queryPoolIds.acquireId();
-			case ResourceHandleKind::Swapchain:       return swapchainIds.acquireId();
-			default:                                  return 0;
-		}
+		(void)kind;
+		return ids.acquireId();
 	}
 
-	inline void acquireIds(ResourceHandleKind kind, HandleId* ids, size_t idCount) {
-		switch (kind) {
-			case ResourceHandleKind::Buffer:          return bufferIds.acquireMultiple(ids, idCount);
-			case ResourceHandleKind::Texture:         return textureIds.acquireMultiple(ids, idCount);
-			case ResourceHandleKind::Sampler:         return samplerIds.acquireMultiple(ids, idCount);
-			case ResourceHandleKind::Image:           return imageIds.acquireMultiple(ids, idCount);
-			case ResourceHandleKind::Framebuffer:     return framebufferIds.acquireMultiple(ids, idCount);
-			case ResourceHandleKind::Pipeline:        return pipelineIds.acquireMultiple(ids, idCount);
-			case ResourceHandleKind::ComputePipeline: return computePipelineIds.acquireMultiple(ids, idCount);
-			case ResourceHandleKind::Fence:           return fenceIds.acquireMultiple(ids, idCount);
-			case ResourceHandleKind::QueryPool:       return queryPoolIds.acquireMultiple(ids, idCount);
-			case ResourceHandleKind::Swapchain:       return swapchainIds.acquireMultiple(ids, idCount);
-			default:                                  return;
-		}
+	/** @brief Acquires @p idCount handles into @p out. */
+	inline void acquireIds(ResourceHandleKind kind, HandleId* out, size_t idCount) {
+		(void)kind;
+		ids.acquireMultiple(out, idCount);
 	}
 
 	template <typename Function>
 	inline void acquireIds(ResourceHandleKind kind, Function&& fun, size_t idCount) {
-		switch (kind) {
-			case ResourceHandleKind::Buffer:          return bufferIds.acquireMultiple(idCount, fun);
-			case ResourceHandleKind::Texture:         return textureIds.acquireMultiple(idCount, fun);
-			case ResourceHandleKind::Sampler:         return samplerIds.acquireMultiple(idCount, fun);
-			case ResourceHandleKind::Image:           return imageIds.acquireMultiple(idCount, fun);
-			case ResourceHandleKind::Framebuffer:     return framebufferIds.acquireMultiple(idCount, fun);
-			case ResourceHandleKind::Pipeline:        return pipelineIds.acquireMultiple(idCount, fun);
-			case ResourceHandleKind::ComputePipeline: return computePipelineIds.acquireMultiple(idCount, fun);
-			case ResourceHandleKind::Fence:           return fenceIds.acquireMultiple(idCount, fun);
-			case ResourceHandleKind::QueryPool:       return queryPoolIds.acquireMultiple(idCount, fun);
-			case ResourceHandleKind::Swapchain:       return swapchainIds.acquireMultiple(idCount, fun);
-			default:                                  return;
-		}
+		(void)kind;
+		ids.acquireMultiple(idCount, std::forward<Function>(fun));
 	}
 
 	inline void freeId(ResourceHandleKind kind, HandleId id) {
-		switch (kind) {
-			case ResourceHandleKind::Buffer:          bufferIds.release(id);          break;
-			case ResourceHandleKind::Texture:         textureIds.release(id);         break;
-			case ResourceHandleKind::Sampler:         samplerIds.release(id);         break;
-			case ResourceHandleKind::Image:           imageIds.release(id);           break;
-			case ResourceHandleKind::Framebuffer:     framebufferIds.release(id);     break;
-			case ResourceHandleKind::Pipeline:        pipelineIds.release(id);        break;
-			case ResourceHandleKind::ComputePipeline: computePipelineIds.release(id); break;
-			case ResourceHandleKind::Fence:           fenceIds.release(id);           break;
-			case ResourceHandleKind::QueryPool:       queryPoolIds.release(id);       break;
-			case ResourceHandleKind::Swapchain:       swapchainIds.release(id);       break;
-			default:                                  return;
-		}
+		(void)kind;
+		ids.release(id);
 	}
 
-	inline void freeIds(ResourceHandleKind kind, const HandleId* ids, size_t idCount) {
-		switch (kind) {
-			case ResourceHandleKind::Buffer:          bufferIds.releaseMultiple(ids, idCount);          break;
-			case ResourceHandleKind::Texture:         textureIds.releaseMultiple(ids, idCount);         break;
-			case ResourceHandleKind::Sampler:         samplerIds.releaseMultiple(ids, idCount);         break;
-			case ResourceHandleKind::Image:           imageIds.releaseMultiple(ids, idCount);           break;
-			case ResourceHandleKind::Framebuffer:     framebufferIds.releaseMultiple(ids, idCount);     break;
-			case ResourceHandleKind::Pipeline:        pipelineIds.releaseMultiple(ids, idCount);        break;
-			case ResourceHandleKind::ComputePipeline: computePipelineIds.releaseMultiple(ids, idCount); break;
-			case ResourceHandleKind::Fence:           fenceIds.releaseMultiple(ids, idCount);           break;
-			case ResourceHandleKind::QueryPool:       queryPoolIds.releaseMultiple(ids, idCount);       break;
-			case ResourceHandleKind::Swapchain:       swapchainIds.releaseMultiple(ids, idCount);       break;
-			default:                                  return;
-		}
+	inline void freeIds(ResourceHandleKind kind, const HandleId* list, size_t idCount) {
+		(void)kind;
+		ids.releaseMultiple(list, idCount);
 	}
 };
 
@@ -316,7 +263,27 @@ public:
 
 #define OOP_DETAIL_HEADER template <typename HandleAllocator = std::allocator<HandleId>, typename CommandAllocator = std::allocator<GfxOp>>
 
-
+/**
+ * @brief The object-oriented recording surface: RAII proxies plus create helpers.
+ *
+ * `oop_detail` is parameterised by the allocators so a project can plug in its own
+ * pools; @ref OopFacade is the default instantiation and what most callers use.
+ *
+ * Everything here is a thin wrapper over the `GfxOp` tagged union:
+ *
+ * - `createXxx(dispatcher, ...)` allocates a handle from the dispatcher's pool and
+ *   appends the matching `CreateXxx` command.
+ * - Resource proxies (`Buffer`, `Texture`, `Image`, `Sampler`, `Framebuffer`,
+ *   `Pipeline`, `ComputePipeline`, `Fence`, `QueryPool`) are move-only handles that
+ *   record their destroy command when they go out of scope, and expose the commands
+ *   that operate on their resource as member functions.
+ * - The free-standing static helpers cover commands that own no resource:
+ *   `beginFrame`/`endFrame`/`present`, `beginRenderPass`/`endRenderPass`, the draw
+ *   forms, state setters, compute dispatch and debug labels.
+ *
+ * The proxies hold a raw pointer to the dispatcher, so the dispatcher must outlive
+ * every proxy created from it.
+ */
 OOP_DETAIL_HEADER struct oop_detail {
 	typedef HandleAllocator                           IdAlloc;
 	typedef CommandAllocator                          CommandAlloc;
@@ -755,6 +722,40 @@ OOP_DETAIL_HEADER
 }
 
 /**
+ * @brief Merges a single source dispatcher; shorthand for the span overload.
+ *
+ * Merging reads the source's *read* buffer, so the source must have been swapped
+ * (`getCommandBuffer().swapBuffers()`) after its last recorded command.
+ */
+OOP_DETAIL_HEADER
+	inline void mergeCommandBuffers(
+		CommandDispatcher<HandleAllocator, CommandAllocator>&       destination,
+		const CommandDispatcher<HandleAllocator, CommandAllocator>& source)
+{
+	const CommandDispatcher<HandleAllocator, CommandAllocator>* sources[1] = { &source };
+	mergeCommandBuffers(destination,
+			    std::span<const CommandDispatcher<HandleAllocator, CommandAllocator>* const>(
+				    sources, 1));
+}
+
+/**
+ * @brief Merges a brace list of source dispatchers, in the listed order.
+ *
+ * `mergeCommandBuffers(destination, { &first, &second })` is the readable form of
+ * the span overload; null entries are skipped.
+ */
+OOP_DETAIL_HEADER
+	inline void mergeCommandBuffers(
+		CommandDispatcher<HandleAllocator, CommandAllocator>&                        destination,
+		std::initializer_list<const CommandDispatcher<HandleAllocator, CommandAllocator>*> sources)
+{
+	mergeCommandBuffers(
+		destination,
+		std::span<const CommandDispatcher<HandleAllocator, CommandAllocator>* const>(
+			sources.begin(), sources.size()));
+}
+
+/**
  * @brief One deferred resource retirement request.
  *
  * Useful when ownership crosses threads or when a worker dispatcher has already
@@ -809,6 +810,21 @@ public:
 		clear();
 	}
 };
+
+/**
+ * @brief The facade with the default allocators: what most callers use.
+ *
+ * ```cpp
+ * Kld::CommandDispatcher<> dispatcher;
+ * auto vbo = Kld::OopFacade::createBuffer(dispatcher, bytes, Kld::BUFFER_USAGE_VERTEX, data);
+ * vbo.bindVertex(0, 0, stride);
+ * dispatcher.getCommandBuffer().swapBuffers();
+ * const Kld::HalStatus status = dispatcher.submit(device);
+ * ```
+ *
+ * See `docs/KALDI_TUTORIAL.md` for a complete walk-through.
+ */
+using OopFacade = oop_detail<>;
 
 } // namespace Kld
 #endif // KLDCOMMANDBUFFER_HPP

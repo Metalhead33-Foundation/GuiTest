@@ -6,10 +6,15 @@ it. The rendering backends are separate shared libraries: [KaldiGL](../KaldiGL/R
 [KaldiGLES](../KaldiGLES/README.md), [KaldiVK](../KaldiVK/README.md),
 [KaldiD3D11](../KaldiD3D11/README.md) and [KaldiD3D12](../KaldiD3D12/README.md).
 
-**Status: the contract and the recording facade are implemented; no backend is.**
-The command vocabulary (98 opcodes), the HAL 1.0/1.1 contract, and the header-only
-recording facade are usable today. All five backend projects currently build stubs that
-export the C ABI but cannot execute commands yet.
+**New here? Read [docs/KALDI_TUTORIAL.md](../docs/KALDI_TUTORIAL.md).** It walks through
+the raw tagged-union API and the object-oriented facade side by side, with a complete
+textured triangle, and explains the retirement, lifetime and threading contracts.
+
+**Status: the contract and the recording facade are implemented; OpenGL, OpenGL ES and
+Vulkan execute it.** The command vocabulary (98 opcodes), the HAL 1.0/1.1 contract, and
+the header-only recording facade are usable today. `KaldiGL`, `KaldiGLES` and `KaldiVK`
+implement `processCommandQueue()` (the Vulkan backend reports HAL 1.1); `KaldiD3D11` and
+`KaldiD3D12` still build stubs that export the C ABI but cannot execute commands yet.
 
 ## Key files
 
@@ -18,12 +23,41 @@ export the C ABI but cannot execute commands yet.
 | `KaldiOperation.hpp` | The command vocabulary: 98 `Opcode` values, their POD payload structs, and the `GfxOp` tagged union |
 | `KldHal.hpp` | `HalVersion`/`KaldiHalVersion1_0`, `HalCapabilities`, `HalStatusCode`, `HalStatus` |
 | `KldDevice.hpp` | The abstract backend submission interface `Device` |
-| `KldCommandBuffer.hpp` | Header-only recording facade: `HandleStorage`, `CommandDispatcher`, RAII proxies, `mergeCommandBuffers`, `DeferredDestroyQueue` |
+| `KldCommandBuffer.hpp` | Header-only recording facade: `HandleStorage` (one id pool for every kind), `CommandDispatcher`, `OopFacade` proxies, `mergeCommandBuffers`, `DeferredDestroyQueue`; documented in [docs/KALDI_TUTORIAL.md](../docs/KALDI_TUTORIAL.md) |
 | `KldVertexFormat.hpp` | `PrimitiveType`, `AttributeDescriptor`, `VertexDescriptor` |
+| `KldNativeWindow.hpp` | `WindowSystem`, `NativeWindowHandles`, `nativeWindowHandlesFrom(SDL_SysWMinfo)` - the backend-neutral window-handle extraction shared by EGL/GLX/WGL/D3D/Vulkan |
+| `KldConfig.hpp` | Configuration contract: `ContextPurpose`, `DeviceConfig`, `ConfigField`, `ConfigReader`, `ConfigProvider`, and the field-reading helpers that clamp values |
 | `KaldiLib.h` | C ABI shared with dynamically loaded backends (device creation, renderer name, version, last error) |
 
 Kaldi's `.pro` still produces a shared library, but there is no public linkable API;
 consumers add `include(Kaldi/Kaldi.pri)` for include paths and do not link `-lKaldi`.
+
+## Macro collisions with platform headers
+
+Kaldi headers are included in the same translation unit as `<X11/Xlib.h>` by the GLX and
+Vulkan backends, and Xlib is generous with short, attractive macro names. These
+identifiers were therefore renamed, and the reason is recorded on each declaration:
+
+| Was | Is | Because `<X11/X.h>`/`Xdefs.h` defines |
+|---|---|---|
+| `CompareOp::Always` | `CompareOp::AlwaysPass` | `#define Always 2` |
+| `CullMode::None` | `CullMode::NoCulling` | `#define None 0L` |
+| `HalStatusCode::Success` | `HalStatusCode::Succeeded` | `#define Success 0` |
+| `ConfigValueType::Bool/Integer/Float/String` | `...::BoolValue/IntegerValue/FloatValue/StringValue` | `typedef int Bool;` (and similar typedefs elsewhere) |
+
+When adding enumerators or field names to Kaldi, keep them long enough not to collide with
+`None`, `Always`, `Success`, `Bool`, `True`, `False`, `Status`, `Window` or `Display`.
+
+## Window handles and configuration
+
+`KldNativeWindow.hpp` is the one place that knows how to turn `SDL_SysWMinfo` into native
+handles; every backend consumes the result instead of repeating the SDL switch.
+`KldConfig.hpp` is the configuration contract: a backend describes the settings it exposes
+(`ConfigField` with key, type, range, default, choices, help) and applies them from a
+`ConfigReader`. The GL provider lives in `KaldiGLCommon/GlContextConfig.hpp`, and the
+`.ini` persistence (`Euph::Conf::Configuration`) lives in
+`Lotte/Conf/LteBackendConfig.hpp`.
+
 
 
 ## Current command model
@@ -32,7 +66,13 @@ consumers add `include(Kaldi/Kaldi.pri)` for include paths and do not link `-lKa
 
 `KldHal.hpp` defines the public HAL contract: `HalVersion`, `HalCapabilities`, `HalStatusCode`, and `HalStatus`. Backend-specific probing stays inside backend initialization. Higher layers consume the resulting portable capabilities and status codes instead of depending on backend-specific extension or feature details.
 
+Capability probing lives next to each backend's context layer: `KaldiGLCommon/GlCapabilities.*` (shared by OpenGL and OpenGL ES), `KaldiVK/VkCapabilities.*`, and the win32-only `D3D11Capabilities.*` / `D3D12Capabilities.*`. A probe fills `HalCapabilities` from the queries the API actually offers, gates optional features on the *actual* context/device version and extensions rather than on what was requested, and reports `Kld::halCapabilitiesNone()` when no device exists (a detached backend, or a probe running without a current context). `GL::Device`, `GLES::Device` and `Vk::Device` run their probe during construction and return the stored snapshot from `capabilities()`; the Direct3D probes are ready for the same wiring once those device classes own their API device.
+
+`KldDispatch.hpp` is the backend-side half of the submission boundary. It provides the `KLD_OPCODE_LIST` X-macro (the single source of truth for opcode names and `Kld::kOpcodeCount`), `Kld::opcodeName()` / `Kld::isKnownOpcode()` diagnostics, and the structure-shifting `KLD_DISPATCH_*` macros that turn one flat command span into a tag dispatch. On GCC and Clang the macros expand to direct threading (computed goto with one dispatch jump per handler); on MSVC and other compilers they expand to an equivalent `switch`, so a backend writes its handlers once. The layer is header-only, contains no backend API calls, and therefore serves every backend - the dispatch table lives entirely inside each backend's own `processCommandQueue` implementation. See @ref KldDispatch.hpp for the usage contract and the handler-termination rules.
+
 Command payloads may reference externally owned data by pointer. As with the existing texture upload commands, callers must keep pointed-to data alive until the backend has processed the command queue. That rule covers upload/readback memory, shader words, vertex descriptors, framebuffer attachment arrays, pipeline binding layouts, swapchain descriptors/image bindings/native surface pointers, render-pass descriptors/attachment arrays, debug strings, optional pipeline names, callbacks, and callback `userData`.
+
+`processCommandQueue()` is implemented for the GL family and for Vulkan. `KaldiGLCommon/GlCommandExecutor.*` is a complete OpenGL 4.3 / OpenGL ES 3.2 executor shared by both backends (resource registries, the `KLD_DISPATCH_*` structure, pipeline variants from SPIR-V, every draw/state/transfer/query handler, the default frame path and explicit swapchain objects as a validated view of the drawable). Its destroy commands delete GL names immediately, which satisfies the retirement contract because the GL driver keeps an object alive until the last referencing command has executed. `KaldiVK/VkCommandExecutor.*` is a frames-in-flight executor (three slots, fence-driven retirement, a per-slot descriptor ring and staging ring, allocation through VulkanMemoryAllocator) that implements the whole opcode set: device-local static buffers with host-visible ones for per-frame data, 1D/2D/3D/array/cube textures, 2D/multisampled/depth images, samplers, framebuffers with a render pass each, SPIR-V graphics and compute pipelines with one descriptor set per binding kind, every draw/dispatch/copy/query form, debug labels through `VK_EXT_debug_utils`, explicit swapchain objects, and the default swapchain path. Its remaining `UnsupportedBaseline` answers name Vulkan 1.0 limitations precisely (base-instance draws, vertex instance divisors, per-sampler LOD bias, depth/stencil and compressed readback, explicit swapchains with a depth attachment). The Direct3D 11 and 12 `Device` classes own their `Context` objects and probe real capabilities, but still answer `processCommandQueue()` with `UnsupportedBaseline`; their `.cpp` files document the intended registry/pipeline/retirement design in place.
 
 Readback commands use POD callbacks plus `void* userData`, matching the buffer mapping command style. Backend-provided callback data is valid only for the duration of the callback; callers must copy anything they need after the callback returns. The callback pointer and `userData` must remain valid until the backend has processed the command queue.
 
@@ -61,6 +101,8 @@ Destroy commands are logical retirement requests. Backends must delay physical d
 ## Kaldi HAL 1.1 contract additions
 
 Explicit swapchains are optional caller-visible presentation objects addressed by `HandleId`, with `DefaultSwapchain` reserved as `0` for the backend-owned default target. `SwapchainDescriptor` carries an opaque backend-facing native surface pointer, dimensions, color/depth formats, present mode, image count, and optional `SwapchainImageBinding` entries that associate swapchain image indices with predeclared image/framebuffer handles. `AcquireSwapchainImage` reports `SwapchainStatus` plus the active image through a POD callback, and `PresentSwapchain` presents an image by index. Existing `BeginFrame`, `EndFrame`, and `Present` remain the simple default-framebuffer path. Swapchain loss is still reported through `HalStatusCode::SwapchainLost`.
+
+Backends that own their presentable images report a *usable* framebuffer handle instead of the caller's: IDs from `BackendHandleBase` (`0x80000000`) upwards belong to the backend, so an acquire callback can hand back something the caller may bind but must not destroy. `HalCapabilities::supportsExplicitSwapchains` says whether a backend honours the whole group, and a 1.1 backend reports `KaldiHalVersion1_1`.
 
 Render-pass metadata is available through `RenderPassDescriptor`, `RenderPassColorAttachment`, and `RenderPassDepthStencilAttachment`. `BeginRenderPass` implicitly establishes its framebuffer for following draw commands and describes each attachment's load, clear, store, or don't-care policy. `EndRenderPass` closes that scope. The older `BindFramebuffer` plus explicit clear commands remain valid for immediate-style backends and simple command streams.
 
@@ -137,13 +179,23 @@ The strongest next move is probably not to add every modern GPU concept. It is t
 - [x] Add explicit swapchain objects, present modes, image/framebuffer bindings, acquire callbacks, and present commands.
 - [x] Add render-pass/load-store metadata while keeping the older bind/clear/draw model valid.
 - [x] Add conservative parallel recording helpers: shared handle allocation, ordered merge/append, and coordinator-owned deferred destruction.
+- [x] Add the backend-side dispatch layer (`KldDispatch.hpp`): `KLD_OPCODE_LIST`, opcode name/validity helpers, and the structure-shifting computed-goto / `switch` macros shared by every backend.
+- [x] Probe `HalCapabilities` in the GL, GLES, Vulkan, D3D11 and D3D12 backends, with `halCapabilitiesNone()` as the portable "not probed yet" fallback.
+- [x] Add the GL execution-policy configuration (`GlDeviceConfig`): a `Kld::ConfigProvider` that composes the context fields with UT-inspired keys (`bGlDebugLabels`, `bGlForceNearestFiltering`, `bGlForceTrilinear`, `fGlTextureLodBias`, `fGlMaxAnisotropy`, `iGlMaxTextureSize`), plus unit tests for the defaults, clamping and description.
+- [x] Implement `processCommandQueue()` for OpenGL 4.3 and OpenGL ES 3.2 (`KaldiGLCommon/GlCommandExecutor.*`): resource registries, deferred-retirement semantics via GL's own object lifetime, SPIR-V pipelines with a GL 4.3 command executor (all draws, state, barriers, transfers, queries, debug labels, render passes and the default frame path).
+- [x] Validate the GL and GLES executors with real offscreen draw + per-pixel readback smoke tests (EGL desktop GL and GLES, NVIDIA), including the invalid-handle error path.
+- [x] Implement the Vulkan command executor (`KaldiVK/VkCommandExecutor.*` and the `VkExecutor*` translation units): synchronous submit-and-wait, every resource kind, SPIR-V graphics/compute pipelines, all draws/dispatches/copies/queries and the default swapchain path, with documented `UnsupportedBaseline` answers for the remaining Vulkan 1.0 limitations.
+- [x] Replace the Vulkan backend's synchronous submit-and-wait with frames in flight and a fence-driven retirement queue.
+- [ ] Give the Direct3D 11/12 backends their own command executors.
+- [x] Implement explicit swapchain objects in the Vulkan backend (HAL 1.1) and as a validated drawable view in the GL family.
+- [x] Validate the swapchain contract against real OpenGL, OpenGL ES and Vulkan devices (create, acquire, draw, resize, present, destroy; validation-layer clean on NVIDIA).
+- [x] Validate the Vulkan device/buffer/frame path on NVIDIA and lavapipe with a live smoke test (buffer map + BeginFrame/EndFrame/Present).
+- [x] Give the Direct3D 11/12 device classes provisional `capabilities()`/`processCommandQueue()` implementations that report `UnsupportedBaseline`, and document the intended porting structure in place.
 
 ## Future graphics HAL TODOs
 
-- [ ] Implement the five backends. Today they are stubs: they export the C ABI but their
-      `Device` subclasses do not implement `capabilities()` or `processCommandQueue()`
-      (see each backend's README).
-- [ ] Validate the swapchain contract against real OpenGL, Vulkan, Direct3D 11, and Direct3D 12 backends.
+- [ ] Implement the remaining backend work: the Direct3D 11/12 backends need their command translation (registries, pipelines, SPIR-V -> HLSL, retirement) on top of the device ownership they already have. GL/GLES, Vulkan and the swapchain contract are complete; Vulkan's remaining work is device-local buffer memory and depth/stencil readback.
+- [ ] Validate the swapchain contract against Direct3D 11 and Direct3D 12 backends (OpenGL, OpenGL ES and Vulkan are validated).
 - [ ] Validate render-pass/load-store metadata against tile-based and explicit APIs, then add subpasses or dependency metadata only if real backend work needs it.
 - [ ] Build a renderer-shaped parallel recording example to pressure-test merge ordering, shared allocation, and deferred destruction ergonomics.
 - [ ] Add RAII facade proxies for swapchains and render passes. `oop_detail` currently provides

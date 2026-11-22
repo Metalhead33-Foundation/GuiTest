@@ -18,6 +18,8 @@ namespace Hrk {
 /** @brief Resampling quality and algorithm selector re-exported from Euphemy. */
 typedef Euph::Media::Audio::ResampleType ResampleType;
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Resampler)
+
 /** @brief Proxy playable that resamples its source into the requested output rate. */
 class MH_HARUKA_API Resampler : public ProxyPlayable
 {

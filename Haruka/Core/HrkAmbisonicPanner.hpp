@@ -14,6 +14,8 @@
 #include <span>
 namespace Hrk {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(AmbisonicPanner)
+
 /** @brief B-format style panner that derives four speaker gains from polar position. */
 class MH_HARUKA_API AmbisonicPanner : public ProxyPlayable
 {

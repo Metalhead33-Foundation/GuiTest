@@ -9,6 +9,7 @@
  * and backend implementations that include this module.
  */
 #include <Elvavena/Util/ElvUtilGlobals.hpp>
+#include <Elvavena/Util/ElvAllocatorBasic.hpp>
 
 #if defined(MH_HARUKA_EXPORT)
 #define MH_HARUKA_API MH33_API_EXPORT

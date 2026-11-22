@@ -11,6 +11,7 @@
 #include <Haruka/Core/HrkPlayable.hpp>
 
 namespace Hrk {
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(PlaybackState)
 /** @brief Cursor, play/pause state, and repeat flag shared by stream playables. */
 class MH_HARUKA_API PlaybackState
 {
@@ -43,6 +44,7 @@ public:
 	void setRepeat(bool newRepeat);
 };
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(IHasPlaybackState)
 /** @brief Interface for objects that expose mutable playback state. */
 class IHasPlaybackState {
 public:

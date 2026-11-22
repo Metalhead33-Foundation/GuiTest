@@ -12,6 +12,7 @@
 #include <Euphemy/Media/Audio/EuphSoundFile.hpp>
 
 namespace Hrk {
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(SoundStreamer)
 /** @brief Ring-buffered streamer backed by a decoded sound file. */
 class MH_HARUKA_API SoundStreamer : public RingBufferedStreamer
 {

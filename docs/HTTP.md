@@ -102,8 +102,8 @@ conflicting `Content-Length` values are rejected.
 
 ```sh
 cd build/Desktop-Debug
-LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka ./UnitTests/UnitTests "[http]"
-LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka ./UnitTests/UnitTests "[http][socket]"
+LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK ./UnitTests/UnitTests "[http]"
+LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK ./UnitTests/UnitTests "[http][socket]"
 ```
 
 `[http]` covers serialization, incomplete/malformed/oversize parsing and HEAD

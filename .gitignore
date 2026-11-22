@@ -74,6 +74,7 @@ Thumbs.db
 *.dll
 *.exe
 
+/.vscode/settings.json
 generated-docs
 generated-docs/*
 public

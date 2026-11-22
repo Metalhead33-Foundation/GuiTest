@@ -1,3 +1,9 @@
 [submodule "extern/doxygen-awesome-css"]
 	path = extern/doxygen-awesome-css
 	url = https://github.com/jothepro/doxygen-awesome-css.git
+[submodule "extern/DirectX-Headers"]
+	path = extern/DirectX-Headers
+	url = https://github.com/microsoft/DirectX-Headers
+[submodule "extern/DXSDK"]
+	path = extern/DXSDK
+	url = https://github.com/apitrace/dxsdk.git

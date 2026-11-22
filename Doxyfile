@@ -31,7 +31,7 @@ BUILTIN_STL_SUPPORT    = YES
 # the per-module READMEs describe what each module currently implements. Doxygen
 # nests a page only when another page names it with `\subpage`, so keep the note
 # tree shallow (docs/DOCUMENTATION.md §9).
-INPUT                  = README.md AGENTS.md Elvavena Test Kaldi KaldiGL KaldiVK KaldiD3D11 KaldiD3D12 KaldiGLES Haruka Lotte Euphemy docs
+INPUT                  = README.md AGENTS.md Elvavena Test Kaldi KaldiGL KaldiGLCommon KaldiVK KaldiD3D11 KaldiD3D12 KaldiD3DCommon KaldiGLES Haruka Lotte Euphemy docs
 FILE_PATTERNS          = *.h *.hpp *.md
 RECURSIVE              = YES
 EXCLUDE                = extern build Elvavena/Util/half.hpp Euphemy/Media/Audio/FFTConvolver

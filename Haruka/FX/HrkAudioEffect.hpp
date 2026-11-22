@@ -25,6 +25,9 @@
 
 namespace Hrk {
 
+
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Effect)
+
 /**
  * @brief Block-oriented audio processing node used by @ref EffectSlot.
  *

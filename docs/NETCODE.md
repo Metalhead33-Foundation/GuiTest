@@ -130,13 +130,13 @@ The networking tests run without the OS socket path:
 
 ```sh
 cd build/Desktop-Debug
-LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka ./UnitTests/UnitTests "[net]"
+LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK ./UnitTests/UnitTests "[net]"
 ```
 
 The localhost UDP smoke test is tagged separately:
 
 ```sh
-LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka ./UnitTests/UnitTests "[net][socket]"
+LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK ./UnitTests/UnitTests "[net][socket]"
 ```
 
 `[net]` covers bit streams, sequence/ack windows, checksums, ring buffers,
@@ -147,6 +147,6 @@ component schema validation, the object-schema codec, entity registry/component
 masks, interest filtering, snapshot spawn/delta/removal/despawn/ack baselines,
 interpolation/jitter buffers, prediction input/checksum rollback, lockstep
 input/checksum exchange and the per-peer replication pipeline. The current suite
-has 106 cases and 1151 assertions; `[net][socket]` adds the localhost UDP path and
+has 132 cases and 1393 assertions; `[net][socket]` adds the localhost UDP path and
 `[http][socket]` adds the HTTP TCP/UDP path.
 

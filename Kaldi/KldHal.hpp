@@ -33,6 +33,16 @@ struct HalVersion {
 inline constexpr HalVersion KaldiHalVersion1_0 { 1, 0, 0 };
 
 /**
+ * @brief Version tag for the first additive extension of the HAL contract.
+ *
+ * 1.1 adds only optional surface area, so a 1.1 consumer degrades cleanly on a
+ * 1.0 backend: explicit swapchain objects, a capability flag for them, and the
+ * backend-reserved handle range that reports backend-owned framebuffers back to
+ * the caller.
+ */
+inline constexpr HalVersion KaldiHalVersion1_1 { 1, 1, 0 };
+
+/**
  * @brief Baseline capabilities exposed by a backend after private probing.
  *
  * Backend-specific checks, such as OpenGL extension enumeration or Vulkan
@@ -94,12 +104,57 @@ struct HalCapabilities {
 	bool supportsStorageResources;
 	/** @brief True when multisampled image resolve commands are supported. */
 	bool supportsMultisampleResolve;
+	/**
+	 * @brief True when explicit swapchain objects (HAL 1.1) are honoured.
+	 *
+	 * A false value means `Opcode`::CreateSwapchain answers
+	 * `HalStatus`Code::UnsupportedBaseline and callers must stay on the
+	 * default-frame path (`BeginFrame`/`EndFrame`/`Present` with
+	 * @ref DefaultFramebuffer). A true value additionally promises that
+	 * @ref SwapchainAcquireInfo reports a usable framebuffer handle, so an
+	 * acquire callback is enough to start drawing into the acquired image.
+	 */
+	bool supportsExplicitSwapchains;
 };
+
+/**
+ * @brief Conservative frame-in-flight count for APIs that do not expose one.
+ *
+ * `HalCapabilities`::maxFramesInFlight is a planning number, not always a hard
+ * API limit. OpenGL, Direct3D 11 and Vulkan-without-a-swapchain cannot answer
+ * "how many frames may I keep in flight" through a query, so their probes report
+ * this value, which matches the common double/triple-buffered default of
+ * desktop presentation.
+ */
+inline constexpr uint32_t kDefaultMaxFramesInFlight = 3;
+
+/**
+ * @brief Capability snapshot of a device that has not probed a backend API yet.
+ *
+ * Every limit is zero and every feature flag is false; only @ref
+ * HalCapabilities::version is filled in, because the backend still implements the
+ * baseline v1.0 contract (a 1.1 backend replaces the version during probing).
+ * Backends return this from a detached/uninitialized device, and probes fall back
+ * to it when the API objects they need are missing. A zero limit means "not
+ * usable", never "unlimited" - callers must not plan work against a snapshot that
+ * has not been replaced by a real one.
+ */
+inline constexpr HalCapabilities halCapabilitiesNone() noexcept
+{
+	HalCapabilities capabilities{};
+	capabilities.version = KaldiHalVersion1_0;
+	return capabilities;
+}
 
 /** @brief Portable status code returned by backend initialization/submission. */
 enum class HalStatusCode : uint8_t {
-	/** @brief Operation completed successfully. */
-	Success,
+	/**
+	 * @brief Operation completed successfully.
+	 *
+	 * @note Spelled `Succeeded` rather than `Success` because `<X11/X.h>` defines a
+	 * `Success` macro and the backend translation units include Xlib.
+	 */
+	Succeeded,
 	/** @brief Backend initialization failed before a full capability snapshot existed. */
 	InitializationFailed,
 	/** @brief Backend cannot provide the required baseline HAL contract. */
@@ -136,11 +191,11 @@ struct HalStatus {
 	const char* message;
 
 	/** @brief Returns true when @ref code is `HalStatus`Code::Success. */
-	constexpr bool ok() const { return code == HalStatusCode::Success; }
+	constexpr bool ok() const { return code == HalStatusCode::Succeeded; }
 };
 
 /** @brief Canonical successful status value. */
-inline constexpr HalStatus HalOk { HalStatusCode::Success, nullptr };
+inline constexpr HalStatus HalOk { HalStatusCode::Succeeded, nullptr };
 
 }
 #endif // KLDHAL_HPP

@@ -7,6 +7,10 @@ DEFINES += MH_LOTTE_EXPORT
 INCLUDEPATH += $$PWD/..
 LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
 LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
+# glslang compiles HLSL/GLSL to SPIR-V. `glslang-default-resource-limits` provides
+# the upstream default TBuiltInResource that compileShaderProgram() hands to
+# TShader::parse(); linking it avoids maintaining our own copy of the limits table.
+LIBS += -lglslang -lSPIRV -lglslang-default-resource-limits
 # Kaldi is used by Lotte as a header-only dependency. Do not add -lKaldi
 # or libKaldi here; there is no Kaldi library target to link against.
 #
@@ -16,6 +20,8 @@ LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
 
 SOURCES += \
     Asset/LteGpuAssetStreamer.cpp \
+    Conf/LteBackendConfig.cpp \
+    GFX/LtePipeline.cpp \
     Text/LteHtmlEntities.cpp \
     Text/LteMarkupColour.cpp \
     Text/LteMarkupStack.cpp \
@@ -25,7 +31,9 @@ SOURCES += \
 
 HEADERS += \
     Asset/LteGpuAssetStreamer.hpp \
+    Conf/LteBackendConfig.hpp \
     GFX/LteMesh.hpp \
+    GFX/LtePipeline.hpp \
     Gui/LteGuiRenderCache.hpp \
     Gui/LteGuiRenderer.hpp \
     Gui/LteGuiVertex.hpp \

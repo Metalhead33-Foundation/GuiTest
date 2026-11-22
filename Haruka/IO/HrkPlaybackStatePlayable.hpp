@@ -12,6 +12,7 @@
 #include <Haruka/IO/HrkPlaybackState.hpp>
 
 namespace Hrk {
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(PlaybackStatePlayable)
 
 /** @brief Playable base that stores and exposes a PlaybackState. */
 class MH_HARUKA_API PlaybackStatePlayable : public Playable, public IHasPlaybackState
@@ -21,10 +22,14 @@ protected:
 	PlaybackState state;
 public:
 	/** @brief Returns immutable playback state. */
-	const PlaybackState& getState() const override;
+	const PlaybackState& getState() const final;
 
 	/** @brief Returns mutable playback state. */
-	PlaybackState& getState() override;
+	PlaybackState& getState() final;
+	// Both accessors are final on purpose: `state` is the single source of truth for
+	// play status/cursor (RingBufferedStreamer::outputTo() reads it directly), so a
+	// subclass overriding getState() with a second PlaybackState would silently break
+	// playback instead of producing a compiler diagnostic.
 };
 
 }
