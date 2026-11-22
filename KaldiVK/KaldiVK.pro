@@ -29,6 +29,7 @@ SOURCES +=  \
     ../glad/src/vulkan.c \
     VkPlatform.cpp \
     VkContext.cpp \
+    VkMemory.cpp \
     VkCapabilities.cpp \
     VkCommandExecutor.cpp \
     VkExecutorFrames.cpp \
@@ -41,6 +42,7 @@ SOURCES +=  \
 HEADERS += \
     VkPlatform.hpp \
     VkContext.hpp \
+    VkMemory.hpp \
     VkCapabilities.hpp \
     VkCommandExecutor.hpp \
     VkUtil.hpp \

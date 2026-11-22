@@ -189,22 +189,6 @@ Kld::HalStatus CommandExecutor::readQueryResults(const Kld::OpReadQueryResults& 
 // Copies
 // ─────────────────────────────────────────────────────────────────────────────
 
-namespace {
-
-/** @brief Orders earlier transfers before every later command. */
-void transferBarrier(VkCommandBuffer commandBuffer)
-{
-	VkMemoryBarrier barrier {};
-	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
-	barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
-	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
-			     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0,
-			     nullptr);
-}
-
-} // namespace
-
 Kld::HalStatus CommandExecutor::copyBuffer(const Kld::OpCopyBuffer& op)
 {
 	VkBufferObject* source = buffer(op.source);
@@ -406,20 +390,35 @@ Kld::HalStatus CommandExecutor::readBuffer(const Kld::OpReadBuffer& op)
 	if (op.callback == nullptr || op.offset > object->size || op.size > object->size - op.offset) {
 		return fail(Kld::HalStatusCode::InvalidCommand, "the readback range or callback is invalid");
 	}
-	if (object->mapped == nullptr) {
-		return fail(Kld::HalStatusCode::BackendError, "the buffer is not host visible");
+	if (!object->hostVisible) {
+		// Device-local buffer: copy through the staging ring and wait, so the
+		// callback sees the GPU's bytes without a mapping the buffer does not have.
+		Kld::HalStatus status = ensureRecording();
+		if (!status.ok()) {
+			return status;
+		}
+		StagingSlice slice;
+		status = requestStaging(op.size, slice);
+		if (!status.ok()) {
+			return status;
+		}
+		recordBufferToStaging(*object, op.offset, op.size, slice);
+		status = submitAndWait();
+		if (!status.ok()) {
+			return status;
+		}
+		invalidateStaging(slice);
+		op.callback(slice.mapped, op.size, op.userData);
+		return Kld::HalOk;
 	}
 	const Kld::HalStatus status = flushForHostAccess();
 	if (!status.ok()) {
 		return status;
 	}
-	if (!object->coherent) {
-		VkMappedMemoryRange range {};
-		range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-		range.memory = object->memory;
-		range.size = VK_WHOLE_SIZE;
-		vkInvalidateMappedMemoryRanges(context_.device(), 1, &range);
+	if (object->mapped == nullptr) {
+		return fail(Kld::HalStatusCode::BackendError, "the buffer has no host mapping");
 	}
+	(void)vmaInvalidateAllocation(memory_.handle(), object->allocation, 0, VK_WHOLE_SIZE);
 	op.callback(static_cast<const std::uint8_t*>(object->mapped) + op.offset, op.size,
 		    op.userData);
 	return Kld::HalOk;
@@ -458,26 +457,21 @@ Kld::HalStatus CommandExecutor::readImage2D(const Kld::OpReadImage2D& op)
 	}
 	// Vulkan requires the row pitch of a buffer image copy to be a multiple of 4.
 	const std::uint32_t rowPitch = ((op.width * texel) + 3u) & ~3u;
-	VkBuffer staging = VK_NULL_HANDLE;
-	VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
-	void* mapped = nullptr;
-	bool coherent = true;
-	Kld::HalStatus status =
-		createHostBuffer(rowPitch * op.height, staging, stagingMemory, mapped, coherent);
-	if (!status.ok()) {
-		return status;
-	}
 	endActiveRenderPass();
-	status = ensureImageLayout(*object);
+	Kld::HalStatus status = ensureImageLayout(*object);
 	if (status.ok()) {
 		status = ensureRecording();
 	}
 	if (!status.ok()) {
-		destroyBufferObjects(staging, stagingMemory, mapped);
+		return status;
+	}
+	StagingSlice slice;
+	status = requestStaging(rowPitch * op.height, slice);
+	if (!status.ok()) {
 		return status;
 	}
 	VkBufferImageCopy region {};
-	region.bufferOffset = 0;
+	region.bufferOffset = slice.offset;
 	region.bufferRowLength = op.width;
 	region.bufferImageHeight = op.height;
 	region.imageSubresource.aspectMask = object->aspect;
@@ -486,22 +480,14 @@ Kld::HalStatus CommandExecutor::readImage2D(const Kld::OpReadImage2D& op)
 	region.imageSubresource.layerCount = 1;
 	region.imageOffset = { op.x, op.y, object->imageType == VK_IMAGE_TYPE_3D ? op.layer : 0 };
 	region.imageExtent = { op.width, op.height, 1 };
-	vkCmdCopyImageToBuffer(commandBuffer_, object->image, VK_IMAGE_LAYOUT_GENERAL, staging, 1,
-			       &region);
+	vkCmdCopyImageToBuffer(commandBuffer_, object->image, VK_IMAGE_LAYOUT_GENERAL, slice.buffer,
+			       1, &region);
 	status = flushForHostAccess();
 	if (!status.ok()) {
-		destroyBufferObjects(staging, stagingMemory, mapped);
 		return status;
 	}
-	if (!coherent) {
-		VkMappedMemoryRange range {};
-		range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-		range.memory = stagingMemory;
-		range.size = VK_WHOLE_SIZE;
-		vkInvalidateMappedMemoryRanges(context_.device(), 1, &range);
-	}
-	op.callback(mapped, rowPitch * op.height, op.width, op.height, rowPitch, op.userData);
-	destroyBufferObjects(staging, stagingMemory, mapped);
+	invalidateStaging(slice);
+	op.callback(slice.mapped, rowPitch * op.height, op.width, op.height, rowPitch, op.userData);
 	return Kld::HalOk;
 }
 

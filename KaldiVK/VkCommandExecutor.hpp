@@ -21,12 +21,23 @@
  *
  * @section kaldivk_executor_memory Memory policy
  *
- * Every buffer comes from `HOST_VISIBLE | HOST_COHERENT` memory (falling back to
- * `HOST_VISIBLE | HOST_CACHED`) and stays mapped. Images are device-local;
- * uploads use temporary host-visible staging buffers recorded into the same
- * command buffer. A production backend should move static data to device-local
- * memory through a staging ring; buffers stay host-visible because `MapBuffer`
- * hands the mapping to the caller.
+ * Allocation goes through `VkMemoryAllocator` (`VkMemory.hpp`), so the executor
+ * only decides *where* a resource lives, never how the memory type is picked:
+ *
+ * - **Device-local**: vertex, index and plain transfer buffers, plus every image.
+ *   Static data is uploaded once through the staging ring, then read by the GPU at
+ *   full bandwidth.
+ * - **Host-visible, persistently mapped**: buffers flagged `BUFFER_USAGE_UNIFORM`,
+ *   `BUFFER_USAGE_STORAGE`, `BUFFER_USAGE_INDIRECT` or `BUFFER_USAGE_READBACK`.
+ *   Those are rewritten every frame (or read by the host), so a GPU round-trip
+ *   would be pure overhead.
+ *
+ * The staging ring is one host-visible buffer per frame slot, bumped per upload. A
+ * slice is only overwritten after the slot's fence signalled - either because the
+ * slot was reused or because the ring wrapped - so a copy never reads bytes the
+ * host has already replaced. `MapBuffer`, `UpdateBuffer` and `ReadBuffer` work on
+ * either kind of buffer: the device-local path stages the transfer instead of
+ * touching a mapping the buffer does not have.
  *
  * @section kaldivk_executor_scope Implemented command scope
  *
@@ -54,6 +65,7 @@
  */
 #include "VkCapabilities.hpp"
 #include "VkContext.hpp"
+#include "VkMemory.hpp"
 #include "VkUtil.hpp"
 #include <Kaldi/KldHal.hpp>
 #include <Kaldi/KaldiOperation.hpp>
@@ -72,7 +84,8 @@ namespace Vk {
 /** @brief One device-local image plus its view and tracked layout. */
 struct VkTextureObject {
 	VkImage image = VK_NULL_HANDLE;
-	VkDeviceMemory memory = VK_NULL_HANDLE;
+	/** @brief VMA allocation backing @ref image. */
+	VmaAllocation allocation = VK_NULL_HANDLE;
 	VkImageView view = VK_NULL_HANDLE;
 	VkFormat format = VK_FORMAT_UNDEFINED;
 	Kld::TextureFormat euphemyFormat {};
@@ -95,14 +108,25 @@ struct VkTextureObject {
 	bool cube = false;
 };
 
-/** @brief One host-visible buffer kept mapped for its whole life. */
+/**
+ * @brief One buffer plus the VMA allocation that backs it.
+ *
+ * `hostVisible` mirrors the memory the allocator chose: uniform, storage, indirect
+ * and readback buffers stay mappable for the caller, while static vertex/index and
+ * transfer buffers live in device-local memory and are filled through the staging
+ * ring instead.
+ */
 struct VkBufferObject {
 	VkBuffer buffer = VK_NULL_HANDLE;
-	VkDeviceMemory memory = VK_NULL_HANDLE;
+	/** @brief VMA allocation backing @ref buffer. */
+	VmaAllocation allocation = VK_NULL_HANDLE;
+	/** @brief Persistent mapping; null for device-local buffers. */
 	void* mapped = nullptr;
 	std::uint32_t size = 0;
-	/** @brief True when the memory type is `HOST_COHERENT` (no flush needed). */
-	bool coherent = true;
+	/** @brief `Kld::BufferUsage` bitmask the buffer was created with. */
+	std::uint32_t policy = 0;
+	/** @brief True when the buffer is mappable (see the memory policy). */
+	bool hostVisible = false;
 };
 
 /** @brief One sampler object. */
@@ -311,9 +335,9 @@ private:
 	/** @brief One object whose physical destruction waits for its frame slot. */
 	struct DeferredDestroy {
 		VkBuffer buffer_ = VK_NULL_HANDLE;
-		VkDeviceMemory bufferMemory_ = VK_NULL_HANDLE;
+		VmaAllocation bufferAllocation_ = VK_NULL_HANDLE;
 		VkImage image_ = VK_NULL_HANDLE;
-		VkDeviceMemory imageMemory_ = VK_NULL_HANDLE;
+		VmaAllocation imageAllocation_ = VK_NULL_HANDLE;
 		VkImageView view_ = VK_NULL_HANDLE;
 		VkSampler sampler_ = VK_NULL_HANDLE;
 		VkFramebuffer framebuffer_ = VK_NULL_HANDLE;
@@ -323,6 +347,39 @@ private:
 		VkDescriptorSetLayout setLayout_ = VK_NULL_HANDLE;
 		VkDescriptorPool descriptorPool_ = VK_NULL_HANDLE;
 		VkQueryPool queryPool_ = VK_NULL_HANDLE;
+	};
+
+	/**
+	 * @brief One host-visible region of the current frame slot's staging ring.
+	 *
+	 * Valid until the slot's fence signals, which is also when the ring rewinds.
+	 * `size` is the *reservation*, aligned so a non-coherent flush can name it: the
+	 * caller copies at most the bytes it asked for.
+	 */
+	struct StagingSlice {
+		VkBuffer buffer = VK_NULL_HANDLE;
+		VmaAllocation allocation = VK_NULL_HANDLE;
+		void* mapped = nullptr;
+		std::uint32_t offset = 0;
+		std::uint32_t size = 0;
+	};
+
+	/**
+	 * @brief Host-visible upload ring owned by one frame slot.
+	 *
+	 * Static data travels through this buffer instead of living in host-visible
+	 * memory for its whole life. `cursor` only rewinds once the slot's fence
+	 * signalled, so a slice is never overwritten while the copy that reads it is
+	 * still queued; the ring grows instead of wrapping in the middle of a frame
+	 * whenever one frame stages more than it holds.
+	 */
+	struct StagingRing {
+		VkBuffer buffer = VK_NULL_HANDLE;
+		VmaAllocation allocation = VK_NULL_HANDLE;
+		std::uint8_t* mapped = nullptr;
+		std::uint32_t capacity = 0;
+		/** @brief Next free byte offset. */
+		std::uint32_t cursor = 0;
 	};
 
 	/**
@@ -352,6 +409,8 @@ private:
 		bool pending = false;
 		std::vector<VkDescriptorPool> descriptorPools;
 		std::vector<DeferredDestroy> deferred;
+		/** @brief Upload ring whose slices live as long as this slot's work. */
+		StagingRing staging;
 	};
 
 	Kld::HalStatus createBuffer(const Kld::OpCreateBufferObject&);
@@ -475,7 +534,6 @@ private:
 	void waitForAllFrames() noexcept;
 	void flushDeferred(std::vector<DeferredDestroy>& list) noexcept;
 	void releaseFrameSlot(FrameSlot& slot) noexcept;
-	std::uint32_t findMemoryType(std::uint32_t typeBits, VkMemoryPropertyFlags properties) const;
 
 	Kld::HalStatus ensureImageLayout(VkTextureObject& object);
 	Kld::HalStatus createImageStorage(VkTextureObject& object, VkImageUsageFlags usage);
@@ -491,9 +549,27 @@ private:
 				  std::uint16_t sourceY, VkTextureObject& destination,
 				  std::uint16_t destinationX, std::uint16_t destinationY,
 				  std::uint16_t width, std::uint16_t height);
-	Kld::HalStatus createHostBuffer(std::uint32_t size, VkBuffer& buffer, VkDeviceMemory& memory,
-					void*& mapped, bool& coherent);
-	void destroyBufferObjects(VkBuffer& buffer, VkDeviceMemory& memory, void*& mapped) noexcept;
+	Kld::HalStatus createMappedBuffer(std::uint32_t size, VkBuffer& buffer,
+					  VmaAllocation& allocation, void*& mapped);
+	void destroyMappedBuffer(VkBuffer& buffer, VmaAllocation& allocation,
+				 void*& mapped) noexcept;
+	/** @brief Reserves @p size bytes in the current slot's staging ring. */
+	Kld::HalStatus requestStaging(std::uint32_t size, StagingSlice& slice);
+	/** @brief Makes the host writes in @p slice visible to the device. */
+	void flushStaging(const StagingSlice& slice) noexcept;
+	/** @brief Makes device writes in @p slice visible to the host. */
+	void invalidateStaging(const StagingSlice& slice) noexcept;
+	/** @brief Creates or grows the staging ring of @p slot. */
+	Kld::HalStatus createStagingRing(FrameSlot& slot, std::uint32_t capacity);
+	/** @brief Uploads @p data into a device-local buffer through the staging ring. */
+	Kld::HalStatus stagedBufferUpload(const VkBufferObject& object, std::uint32_t offset,
+					  std::uint32_t size, const void* data);
+	/** @brief Records `object[offset, offset + size)` into @p slice; recording only. */
+	void recordBufferToStaging(const VkBufferObject& object, std::uint32_t offset,
+				   std::uint32_t size, const StagingSlice& slice) noexcept;
+	/** @brief Records @p slice into `object[offset, offset + size)`; recording only. */
+	void recordStagingToBuffer(const StagingSlice& slice, const VkBufferObject& object,
+				   std::uint32_t offset, std::uint32_t size) noexcept;
 
 	Kld::HalStatus createPipelineLayout(VkPipelineObject& object,
 					    const Kld::PipelineBindingLayout* layout);
@@ -584,6 +660,13 @@ private:
 	Kld::HalCapabilities capabilities_;
 	std::string message_;
 	std::uint64_t executedCommands_ = 0;
+	/**
+	 * @brief VMA allocator serving every resource of this executor.
+	 *
+	 * Declared before the containers so it is destroyed *after* them: a `VmaAllocator`
+	 * must outlive the allocations it handed out.
+	 */
+	MemoryAllocator memory_;
 
 	/** @brief Frames the executor keeps in flight. */
 	static constexpr std::size_t kFramesInFlight = 3;
@@ -595,6 +678,14 @@ private:
 	VkCommandPool commandPool_ = VK_NULL_HANDLE;
 	VkCommandBuffer commandBuffer_ = VK_NULL_HANDLE;
 	bool recording_ = false;
+	/**
+	 * @brief Granularity of staging ring slices.
+	 *
+	 * `optimalBufferCopyOffsetAlignment` keeps the copies fast, and rounding up to
+	 * the non-coherent atom size keeps `vmaFlushAllocation` legal on memory types
+	 * that need the range aligned.
+	 */
+	std::uint32_t stagingAlignment_ = 4;
 
 	/** @brief Queues @p entry for destruction when this slot's fence signals. */
 	void defer(DeferredDestroy entry) { frames_[currentSlot_].deferred.push_back(entry); }

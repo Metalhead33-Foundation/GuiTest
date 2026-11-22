@@ -32,8 +32,15 @@ namespace {
 CommandExecutor::CommandExecutor(Context& context, const Kld::HalCapabilities& capabilities)
 	: context_(context)
 	, capabilities_(capabilities)
+	, memory_(context)
 {
 	vertexBindings_.resize(std::max<std::uint32_t>(capabilities_.maxVertexBuffers, 16));
+	// Staging slices have to satisfy both the copy alignment and the atom size that
+	// a non-coherent flush requires.
+	const VkPhysicalDeviceLimits& limits = context_.properties().limits;
+	stagingAlignment_ = std::max<std::uint32_t>(4, limits.optimalBufferCopyOffsetAlignment);
+	stagingAlignment_ = std::max<std::uint32_t>(stagingAlignment_,
+						    limits.nonCoherentAtomSize);
 	for (FrameSlot& slot : frames_) {
 		VkCommandPoolCreateInfo poolInfo {};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -103,14 +110,14 @@ CommandExecutor::CommandExecutor(Context& context, const Kld::HalCapabilities& c
 	// Unbound uniform/storage slots point at this buffer so a descriptor set is
 	// always complete; the draw-time validation still rejects genuinely missing
 	// bindings with a precise message.
-	const Kld::HalStatus bufferStatus = createHostBuffer(65536, dummyBuffer_.buffer,
-							     dummyBuffer_.memory,
-							     dummyBuffer_.mapped,
-							     dummyBuffer_.coherent);
+	const Kld::HalStatus bufferStatus = createMappedBuffer(65536, dummyBuffer_.buffer,
+							      dummyBuffer_.allocation,
+							      dummyBuffer_.mapped);
 	if (!bufferStatus.ok()) {
 		throw std::runtime_error("VkCommandExecutor: the placeholder buffer could not be created");
 	}
 	dummyBuffer_.size = 65536;
+	dummyBuffer_.hostVisible = true;
 	const VkPhysicalDeviceFeatures& features = context_.enabledFeatures();
 	wideLines_ = features.wideLines == VK_TRUE;
 	depthClampEnabled_ = features.depthClamp == VK_TRUE;
@@ -218,20 +225,6 @@ VkQueryPoolObject* CommandExecutor::queryPool(Kld::HandleId id)
 	return found == queryPools_.end() ? nullptr : &found->second;
 }
 
-std::uint32_t CommandExecutor::findMemoryType(std::uint32_t typeBits,
-					      VkMemoryPropertyFlags properties) const
-{
-	VkPhysicalDeviceMemoryProperties memory {};
-	vkGetPhysicalDeviceMemoryProperties(context_.physicalDevice(), &memory);
-	for (std::uint32_t index = 0; index < memory.memoryTypeCount; ++index) {
-		if ((typeBits & (1u << index)) != 0
-		    && (memory.memoryTypes[index].propertyFlags & properties) == properties) {
-			return index;
-		}
-	}
-	return UINT32_MAX;
-}
-
 VkStencilOpState CommandExecutor::toStencilState(const Kld::StencilFaceState& state) const
 {
 	const auto operation = [](Kld::StencilOp value) {
@@ -292,11 +285,12 @@ Kld::HalStatus CommandExecutor::ensureRecording()
 		slot.pending = false;
 		flushDeferred(slot.deferred);
 	}
-	// The slot is idle: its command buffer and every descriptor set allocated
-	// from it are no longer referenced by queued work.
+	// The slot is idle: its command buffer, its descriptor sets and its staging
+	// slices are no longer referenced by queued work, so the ring can start over.
 	if (vkResetCommandPool(context_.device(), slot.pool, 0) != VK_SUCCESS) {
 		return fail(Kld::HalStatusCode::BackendError, "vkResetCommandPool failed");
 	}
+	slot.staging.cursor = 0;
 	for (VkDescriptorPool pool : slot.descriptorPools) {
 		(void)vkResetDescriptorPool(context_.device(), pool, 0);
 	}
@@ -375,20 +369,14 @@ Kld::HalStatus CommandExecutor::flushForHostAccess()
 void CommandExecutor::flushDeferred(std::vector<DeferredDestroy>& list) noexcept
 {
 	for (const DeferredDestroy& entry : list) {
-		if (entry.buffer_ != VK_NULL_HANDLE) {
-			vkDestroyBuffer(context_.device(), entry.buffer_, nullptr);
-		}
-		if (entry.bufferMemory_ != VK_NULL_HANDLE) {
-			vkFreeMemory(context_.device(), entry.bufferMemory_, nullptr);
+		if (entry.buffer_ != VK_NULL_HANDLE || entry.bufferAllocation_ != VK_NULL_HANDLE) {
+			vmaDestroyBuffer(memory_.handle(), entry.buffer_, entry.bufferAllocation_);
 		}
 		if (entry.view_ != VK_NULL_HANDLE) {
 			vkDestroyImageView(context_.device(), entry.view_, nullptr);
 		}
-		if (entry.image_ != VK_NULL_HANDLE) {
-			vkDestroyImage(context_.device(), entry.image_, nullptr);
-		}
-		if (entry.imageMemory_ != VK_NULL_HANDLE) {
-			vkFreeMemory(context_.device(), entry.imageMemory_, nullptr);
+		if (entry.image_ != VK_NULL_HANDLE || entry.imageAllocation_ != VK_NULL_HANDLE) {
+			vmaDestroyImage(memory_.handle(), entry.image_, entry.imageAllocation_);
 		}
 		if (entry.sampler_ != VK_NULL_HANDLE) {
 			vkDestroySampler(context_.device(), entry.sampler_, nullptr);
@@ -516,16 +504,19 @@ void CommandExecutor::releaseAll() noexcept
 	swapchains_.clear();
 	destroySwapchainObjects();
 	for (auto& entry : buffers_) {
-		if (entry.second.mapped != nullptr) {
-			vkUnmapMemory(context_.device(), entry.second.memory);
+		if (entry.second.buffer != VK_NULL_HANDLE
+		    || entry.second.allocation != VK_NULL_HANDLE) {
+			vmaDestroyBuffer(memory_.handle(), entry.second.buffer,
+					 entry.second.allocation);
 		}
-		vkDestroyBuffer(context_.device(), entry.second.buffer, nullptr);
-		vkFreeMemory(context_.device(), entry.second.memory, nullptr);
 	}
 	const auto releaseTexture = [this](VkTextureObject& object) {
-		vkDestroyImageView(context_.device(), object.view, nullptr);
-		vkDestroyImage(context_.device(), object.image, nullptr);
-		vkFreeMemory(context_.device(), object.memory, nullptr);
+		if (object.view != VK_NULL_HANDLE) {
+			vkDestroyImageView(context_.device(), object.view, nullptr);
+		}
+		if (object.image != VK_NULL_HANDLE || object.allocation != VK_NULL_HANDLE) {
+			vmaDestroyImage(memory_.handle(), object.image, object.allocation);
+		}
 	};
 	for (auto& entry : textures_) {
 		releaseTexture(entry.second);
@@ -582,7 +573,8 @@ void CommandExecutor::releaseAll() noexcept
 		dummyTexture_ = VkTextureObject {};
 	}
 	if (dummyBuffer_.buffer != VK_NULL_HANDLE) {
-		destroyBufferObjects(dummyBuffer_.buffer, dummyBuffer_.memory, dummyBuffer_.mapped);
+		destroyMappedBuffer(dummyBuffer_.buffer, dummyBuffer_.allocation,
+				    dummyBuffer_.mapped);
 		dummyBuffer_ = VkBufferObject {};
 	}
 	passInfos_.clear();
@@ -608,6 +600,10 @@ void CommandExecutor::releaseFrameSlot(FrameSlot& slot) noexcept
 {
 	const VkDevice device = context_.device();
 	flushDeferred(slot.deferred);
+	if (slot.staging.buffer != VK_NULL_HANDLE || slot.staging.allocation != VK_NULL_HANDLE) {
+		vmaDestroyBuffer(memory_.handle(), slot.staging.buffer, slot.staging.allocation);
+		slot.staging = StagingRing {};
+	}
 	for (VkDescriptorPool pool : slot.descriptorPools) {
 		if (pool != VK_NULL_HANDLE) {
 			vkDestroyDescriptorPool(device, pool, nullptr);

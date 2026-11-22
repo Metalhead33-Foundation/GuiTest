@@ -81,16 +81,13 @@ std::uint32_t alignUp(std::uint32_t value, std::uint32_t alignment) noexcept
 }
 
 /** @brief Destroys the Vulkan objects of a partially or fully built image. */
-void destroyImageObjects(VkDevice device, VkTextureObject& object) noexcept
+void destroyImageObjects(VmaAllocator allocator, VkDevice device, VkTextureObject& object) noexcept
 {
 	if (object.view != VK_NULL_HANDLE) {
 		vkDestroyImageView(device, object.view, nullptr);
 	}
-	if (object.image != VK_NULL_HANDLE) {
-		vkDestroyImage(device, object.image, nullptr);
-	}
-	if (object.memory != VK_NULL_HANDLE) {
-		vkFreeMemory(device, object.memory, nullptr);
+	if (object.image != VK_NULL_HANDLE || object.allocation != VK_NULL_HANDLE) {
+		vmaDestroyImage(allocator, object.image, object.allocation);
 	}
 	object = VkTextureObject {};
 }
@@ -101,66 +98,186 @@ void destroyImageObjects(VkDevice device, VkTextureObject& object) noexcept
 // Buffers
 // ─────────────────────────────────────────────────────────────────────────────
 
-Kld::HalStatus CommandExecutor::createHostBuffer(std::uint32_t size, VkBuffer& buffer,
-						 VkDeviceMemory& memory, void*& mapped, bool& coherent)
+Kld::HalStatus CommandExecutor::createMappedBuffer(std::uint32_t size, VkBuffer& buffer,
+						  VmaAllocation& allocation, void*& mapped)
 {
 	VkBufferCreateInfo info {};
 	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	info.size = size == 0 ? 4 : size;
-	info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	// The placeholder buffer stands in for unbound uniform and storage slots, so it
+	// has to be usable as both.
+	info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+		| VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	if (vkCreateBuffer(context_.device(), &info, nullptr, &buffer) != VK_SUCCESS) {
-		return fail(Kld::HalStatusCode::AllocationFailed, "vkCreateBuffer failed");
-	}
-	VkMemoryRequirements requirements {};
-	vkGetBufferMemoryRequirements(context_.device(), buffer, &requirements);
-	std::uint32_t typeIndex = findMemoryType(requirements.memoryTypeBits,
-						 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-							 | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	coherent = typeIndex != UINT32_MAX;
-	if (!coherent) {
-		typeIndex = findMemoryType(requirements.memoryTypeBits,
-					   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-	}
-	if (typeIndex == UINT32_MAX) {
-		vkDestroyBuffer(context_.device(), buffer, nullptr);
+	VmaAllocationCreateInfo allocationInfo {};
+	allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
+	allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+		| VMA_ALLOCATION_CREATE_MAPPED_BIT;
+	VmaAllocationInfo created {};
+	if (vmaCreateBuffer(memory_.handle(), &info, &allocationInfo, &buffer, &allocation, &created)
+	    != VK_SUCCESS) {
 		buffer = VK_NULL_HANDLE;
-		return fail(Kld::HalStatusCode::AllocationFailed,
-			    "no host-visible memory type for a staging buffer");
+		allocation = VK_NULL_HANDLE;
+		mapped = nullptr;
+		return fail(Kld::HalStatusCode::AllocationFailed, "vmaCreateBuffer failed");
 	}
-	VkMemoryAllocateInfo allocate {};
-	allocate.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocate.allocationSize = requirements.size;
-	allocate.memoryTypeIndex = typeIndex;
-	if (vkAllocateMemory(context_.device(), &allocate, nullptr, &memory) != VK_SUCCESS) {
-		vkDestroyBuffer(context_.device(), buffer, nullptr);
-		buffer = VK_NULL_HANDLE;
-		return fail(Kld::HalStatusCode::AllocationFailed,
-			    "vkAllocateMemory failed for a staging buffer");
-	}
-	if (vkBindBufferMemory(context_.device(), buffer, memory, 0) != VK_SUCCESS
-	    || vkMapMemory(context_.device(), memory, 0, VK_WHOLE_SIZE, 0, &mapped) != VK_SUCCESS) {
-		destroyBufferObjects(buffer, memory, mapped);
-		return fail(Kld::HalStatusCode::BackendError, "the staging buffer could not be mapped");
-	}
+	mapped = created.pMappedData;
 	return Kld::HalOk;
 }
 
-void CommandExecutor::destroyBufferObjects(VkBuffer& buffer, VkDeviceMemory& memory,
-					   void*& mapped) noexcept
+void CommandExecutor::destroyMappedBuffer(VkBuffer& buffer, VmaAllocation& allocation,
+					 void*& mapped) noexcept
 {
-	if (mapped != nullptr) {
-		vkUnmapMemory(context_.device(), memory);
-		mapped = nullptr;
+	// The mapping belongs to the allocation, so unmapping is VMA's job.
+	mapped = nullptr;
+	if (buffer != VK_NULL_HANDLE || allocation != VK_NULL_HANDLE) {
+		vmaDestroyBuffer(memory_.handle(), buffer, allocation);
 	}
-	if (buffer != VK_NULL_HANDLE) {
-		vkDestroyBuffer(context_.device(), buffer, nullptr);
-		buffer = VK_NULL_HANDLE;
+	buffer = VK_NULL_HANDLE;
+	allocation = VK_NULL_HANDLE;
+}
+
+Kld::HalStatus CommandExecutor::createStagingRing(FrameSlot& slot, std::uint32_t capacity)
+{
+	VkBufferCreateInfo info {};
+	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	info.size = capacity;
+	info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	VmaAllocationCreateInfo allocationInfo {};
+	allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
+	// Every byte is written once per slice and never re-read by the host, which is
+	// exactly what the sequential-write hint asks VMA for.
+	allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+		| VMA_ALLOCATION_CREATE_MAPPED_BIT;
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VmaAllocation allocation = VK_NULL_HANDLE;
+	VmaAllocationInfo created {};
+	if (vmaCreateBuffer(memory_.handle(), &info, &allocationInfo, &buffer, &allocation, &created)
+	    != VK_SUCCESS) {
+		return fail(Kld::HalStatusCode::AllocationFailed,
+			    "the staging ring could not be allocated");
 	}
-	if (memory != VK_NULL_HANDLE) {
-		vkFreeMemory(context_.device(), memory, nullptr);
-		memory = VK_NULL_HANDLE;
+	if (created.pMappedData == nullptr) {
+		vmaDestroyBuffer(memory_.handle(), buffer, allocation);
+		return fail(Kld::HalStatusCode::AllocationFailed,
+			    "the staging ring is not host visible");
 	}
+	if (slot.staging.buffer != VK_NULL_HANDLE || slot.staging.allocation != VK_NULL_HANDLE) {
+		// The previous ring is still read by copies recorded before the growth.
+		DeferredDestroy entry {};
+		entry.buffer_ = slot.staging.buffer;
+		entry.bufferAllocation_ = slot.staging.allocation;
+		defer(entry);
+	}
+	slot.staging.buffer = buffer;
+	slot.staging.allocation = allocation;
+	slot.staging.mapped = static_cast<std::uint8_t*>(created.pMappedData);
+	slot.staging.capacity = capacity;
+	slot.staging.cursor = 0;
+	return Kld::HalOk;
+}
+
+Kld::HalStatus CommandExecutor::requestStaging(std::uint32_t size, StagingSlice& slice)
+{
+	if (size == 0) {
+		return fail(Kld::HalStatusCode::InvalidCommand, "a staging request needs a non-zero size");
+	}
+	FrameSlot& slot = frames_[currentSlot_];
+	const std::uint32_t reserve = alignUp(size, stagingAlignment_);
+	const bool fits = slot.staging.buffer != VK_NULL_HANDLE
+		&& slot.staging.cursor <= slot.staging.capacity
+		&& reserve <= slot.staging.capacity - slot.staging.cursor;
+	if (!fits) {
+		// The ring grows rather than wrapping: rewinding would overwrite slices the
+		// command buffer currently being recorded already references. Doubling keeps
+		// the growth amortised, and the old ring stays alive through the slot's
+		// retirement list until its fence signals.
+		const std::uint64_t wanted = std::uint64_t(slot.staging.cursor) + reserve;
+		const std::uint64_t doubled = std::uint64_t(slot.staging.capacity) * 2;
+		// A first slice would otherwise size the ring to that one upload; a floor keeps
+		// a stream of small uploads from reallocating on every call.
+		constexpr std::uint64_t kInitialCapacity = 256u * 1024u;
+		const std::uint64_t grown = std::max(
+			std::max(wanted, std::max<std::uint64_t>(reserve, doubled)), kInitialCapacity);
+		const std::uint32_t capacity =
+			static_cast<std::uint32_t>(std::min<std::uint64_t>(grown, UINT32_MAX));
+		const Kld::HalStatus status = createStagingRing(slot, capacity);
+		if (!status.ok()) {
+			return status;
+		}
+	}
+	slice.buffer = slot.staging.buffer;
+	slice.allocation = slot.staging.allocation;
+	slice.offset = slot.staging.cursor;
+	slice.size = reserve;
+	slice.mapped = slot.staging.mapped + slice.offset;
+	slot.staging.cursor += reserve;
+	return Kld::HalOk;
+}
+
+void CommandExecutor::flushStaging(const StagingSlice& slice) noexcept
+{
+	if (slice.allocation == VK_NULL_HANDLE) {
+		return;
+	}
+	// A no-op on coherent memory; VMA forwards to `vkFlushMappedMemoryRanges`
+	// otherwise, and the slice offset/size are already aligned for it.
+	(void)vmaFlushAllocation(memory_.handle(), slice.allocation, slice.offset, slice.size);
+}
+
+void CommandExecutor::invalidateStaging(const StagingSlice& slice) noexcept
+{
+	if (slice.allocation == VK_NULL_HANDLE) {
+		return;
+	}
+	(void)vmaInvalidateAllocation(memory_.handle(), slice.allocation, slice.offset,
+				      slice.size);
+}
+
+void CommandExecutor::recordStagingToBuffer(const StagingSlice& slice,
+					   const VkBufferObject& object, std::uint32_t offset,
+					   std::uint32_t size) noexcept
+{
+	VkBufferCopy copy {};
+	copy.srcOffset = slice.offset;
+	copy.dstOffset = offset;
+	copy.size = size;
+	vkCmdCopyBuffer(commandBuffer_, slice.buffer, object.buffer, 1, &copy);
+	transferBarrier(commandBuffer_);
+}
+
+void CommandExecutor::recordBufferToStaging(const VkBufferObject& object, std::uint32_t offset,
+					   std::uint32_t size, const StagingSlice& slice) noexcept
+{
+	VkBufferCopy copy {};
+	copy.srcOffset = offset;
+	copy.dstOffset = slice.offset;
+	copy.size = size;
+	vkCmdCopyBuffer(commandBuffer_, object.buffer, slice.buffer, 1, &copy);
+	transferBarrier(commandBuffer_);
+}
+
+Kld::HalStatus CommandExecutor::stagedBufferUpload(const VkBufferObject& object,
+						  std::uint32_t offset, std::uint32_t size,
+						  const void* data)
+{
+	if (data == nullptr || size == 0) {
+		return Kld::HalOk;
+	}
+	Kld::HalStatus status = ensureRecording();
+	if (!status.ok()) {
+		return status;
+	}
+	StagingSlice slice;
+	status = requestStaging(size, slice);
+	if (!status.ok()) {
+		return status;
+	}
+	std::memcpy(slice.mapped, data, size);
+	flushStaging(slice);
+	recordStagingToBuffer(slice, object, offset, size);
+	return Kld::HalOk;
 }
 
 Kld::HalStatus CommandExecutor::createBuffer(const Kld::OpCreateBufferObject& op)
@@ -170,6 +287,16 @@ Kld::HalStatus CommandExecutor::createBuffer(const Kld::OpCreateBufferObject& op
 	}
 	VkBufferObject object;
 	object.size = op.size;
+	// Buffers the host rewrites every frame - or reads back - keep a host-visible,
+	// persistently mapped allocation. Everything else (vertex, index and plain
+	// transfer buffers, which are static by nature) goes to device-local memory and
+	// is filled once through the staging ring.
+	const bool hostFacing = (op.policy
+				 & (Kld::BUFFER_USAGE_UNIFORM | Kld::BUFFER_USAGE_STORAGE
+				    | Kld::BUFFER_USAGE_INDIRECT | Kld::BUFFER_USAGE_READBACK))
+		!= 0;
+	object.hostVisible = hostFacing;
+	object.policy = op.policy;
 	VkBufferCreateInfo info {};
 	info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	info.size = op.size == 0 ? 4 : op.size;
@@ -180,38 +307,41 @@ Kld::HalStatus CommandExecutor::createBuffer(const Kld::OpCreateBufferObject& op
 	if ((op.policy & Kld::BUFFER_USAGE_STORAGE) != 0) info.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	if ((op.policy & Kld::BUFFER_USAGE_INDIRECT) != 0) info.usage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
 	info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	if (vkCreateBuffer(context_.device(), &info, nullptr, &object.buffer) != VK_SUCCESS) {
-		return fail(Kld::HalStatusCode::AllocationFailed, "vkCreateBuffer failed");
+	VmaAllocationCreateInfo allocationInfo {};
+	allocationInfo.usage = hostFacing ? VMA_MEMORY_USAGE_AUTO
+					  : VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+	if (hostFacing) {
+		allocationInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+			| VMA_ALLOCATION_CREATE_MAPPED_BIT;
 	}
-	VkMemoryRequirements requirements {};
-	vkGetBufferMemoryRequirements(context_.device(), object.buffer, &requirements);
-	std::uint32_t typeIndex = findMemoryType(requirements.memoryTypeBits,
-						 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-							 | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	object.coherent = typeIndex != UINT32_MAX;
-	if (!object.coherent) {
-		typeIndex = findMemoryType(requirements.memoryTypeBits,
-					   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+	VmaAllocationInfo created {};
+	if (vmaCreateBuffer(memory_.handle(), &info, &allocationInfo, &object.buffer,
+			    &object.allocation, &created) != VK_SUCCESS) {
+		return fail(Kld::HalStatusCode::AllocationFailed, "vmaCreateBuffer failed");
 	}
-	if (typeIndex == UINT32_MAX) {
-		vkDestroyBuffer(context_.device(), object.buffer, nullptr);
-		return fail(Kld::HalStatusCode::AllocationFailed, "no host-visible memory type for the buffer");
+	if (hostFacing) {
+		object.mapped = created.pMappedData;
+		if (object.mapped == nullptr) {
+			// Requesting MAPPED and getting no pointer means the allocator could not
+			// give a mappable type; a host-facing buffer without a mapping is useless.
+			vmaDestroyBuffer(memory_.handle(), object.buffer, object.allocation);
+			return fail(Kld::HalStatusCode::AllocationFailed,
+				    "the buffer has no mappable memory type");
+		}
 	}
-	VkMemoryAllocateInfo allocate {};
-	allocate.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocate.allocationSize = requirements.size;
-	allocate.memoryTypeIndex = typeIndex;
-	if (vkAllocateMemory(context_.device(), &allocate, nullptr, &object.memory) != VK_SUCCESS) {
-		vkDestroyBuffer(context_.device(), object.buffer, nullptr);
-		return fail(Kld::HalStatusCode::AllocationFailed, "vkAllocateMemory failed for a buffer");
-	}
-	vkBindBufferMemory(context_.device(), object.buffer, object.memory, 0);
-	if (vkMapMemory(context_.device(), object.memory, 0, VK_WHOLE_SIZE, 0, &object.mapped)
-	    != VK_SUCCESS) {
-		object.mapped = nullptr;
-	}
-	if (object.mapped != nullptr && op.data != nullptr) {
-		std::memcpy(object.mapped, op.data, op.size);
+	if (op.data != nullptr) {
+		Kld::HalStatus status = Kld::HalOk;
+		if (object.mapped != nullptr) {
+			std::memcpy(object.mapped, op.data, op.size);
+			(void)vmaFlushAllocation(memory_.handle(), object.allocation, 0,
+						 VK_WHOLE_SIZE);
+		} else {
+			status = stagedBufferUpload(object, 0, op.size, op.data);
+		}
+		if (!status.ok()) {
+			vmaDestroyBuffer(memory_.handle(), object.buffer, object.allocation);
+			return status;
+		}
 	}
 	buffers_.emplace(op.id, object);
 	return Kld::HalOk;
@@ -225,11 +355,7 @@ Kld::HalStatus CommandExecutor::destroyBuffer(const Kld::OpDestroy& op)
 	}
 	DeferredDestroy deferred {};
 	deferred.buffer_ = found->second.buffer;
-	deferred.bufferMemory_ = found->second.memory;
-	if (found->second.mapped != nullptr) {
-		vkUnmapMemory(context_.device(), found->second.memory);
-		found->second.mapped = nullptr;
-	}
+	deferred.bufferAllocation_ = found->second.allocation;
 	defer(deferred);
 	buffers_.erase(found);
 	return Kld::HalOk;
@@ -244,17 +370,17 @@ Kld::HalStatus CommandExecutor::resizeBuffer(const Kld::OpResizeBufferObject& op
 	if (object->size == op.size) {
 		return Kld::HalOk;
 	}
+	// The HAL allows undefined contents after a resize, so the policy and the size
+	// are all the replacement needs.
 	DeferredDestroy deferred {};
 	deferred.buffer_ = object->buffer;
-	deferred.bufferMemory_ = object->memory;
-	if (object->mapped != nullptr) {
-		vkUnmapMemory(context_.device(), object->memory);
-		object->mapped = nullptr;
-	}
-	defer(deferred);
+	deferred.bufferAllocation_ = object->allocation;
+	const std::uint32_t policy = object->policy;
 	buffers_.erase(op.id);
-	// The HAL allows undefined contents after a resize.
-	return createBuffer(Kld::OpCreateBufferObject { op.id, op.size, 0, nullptr });
+	const Kld::HalStatus status = createBuffer(Kld::OpCreateBufferObject { op.id, op.size, policy, nullptr });
+	// The old objects retire either way; a failed create must not leak them.
+	defer(deferred);
+	return status;
 }
 
 Kld::HalStatus CommandExecutor::updateBuffer(const Kld::OpUpdateBufferObject& op)
@@ -266,24 +392,23 @@ Kld::HalStatus CommandExecutor::updateBuffer(const Kld::OpUpdateBufferObject& op
 	if (op.data == nullptr || op.offset > object->size || op.size > object->size - op.offset) {
 		return fail(Kld::HalStatusCode::InvalidCommand, "buffer update range is outside the buffer");
 	}
-	if (object->mapped == nullptr) {
-		return fail(Kld::HalStatusCode::BackendError, "the buffer is not host visible");
-	}
-	// The mapping is persistent and the buffer may be read by work still in
-	// flight, so drain before the host overwrites it. Frames-in-flight would
-	// otherwise turn a per-frame uniform update into a data race.
+	// The buffer may be read by work still in flight, so drain before the host (or a
+	// copy) overwrites it. Frames-in-flight would otherwise turn a per-frame
+	// uniform update into a data race.
 	Kld::HalStatus status = flushForHostAccess();
 	if (!status.ok()) {
 		return status;
 	}
-	std::memcpy(static_cast<std::uint8_t*>(object->mapped) + op.offset, op.data, op.size);
-	if (!object->coherent) {
-		VkMappedMemoryRange range {};
-		range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-		range.memory = object->memory;
-		range.size = VK_WHOLE_SIZE;
-		vkFlushMappedMemoryRanges(context_.device(), 1, &range);
+	if (!object->hostVisible) {
+		// Device-local: stage the bytes and record the copy; the transfer barrier in
+		// `recordStagingToBuffer` makes them visible to the rest of the frame.
+		return stagedBufferUpload(*object, op.offset, op.size, op.data);
 	}
+	if (object->mapped == nullptr) {
+		return fail(Kld::HalStatusCode::BackendError, "the buffer has no host mapping");
+	}
+	std::memcpy(static_cast<std::uint8_t*>(object->mapped) + op.offset, op.data, op.size);
+	(void)vmaFlushAllocation(memory_.handle(), object->allocation, 0, VK_WHOLE_SIZE);
 	return Kld::HalOk;
 }
 
@@ -297,26 +422,53 @@ Kld::HalStatus CommandExecutor::mapBuffer(const Kld::OpMapBufferObject& op)
 	if (op.offset > object->size || size > object->size - op.offset || op.callback == nullptr) {
 		return fail(Kld::HalStatusCode::InvalidCommand, "buffer map range or callback is invalid");
 	}
-	if (object->mapped == nullptr) {
-		return fail(Kld::HalStatusCode::BackendError, "the buffer is not host visible");
-	}
 	// The caller may read *or* write through the mapping, and either way the GPU
 	// must be done with the range: queued work may still read it (write access),
 	// or may have written it (read access).
-	Kld::HalStatus mapStatus = flushForHostAccess();
-	if (!mapStatus.ok()) {
-		return mapStatus;
+	Kld::HalStatus status = flushForHostAccess();
+	if (!status.ok()) {
+		return status;
 	}
-	VkMappedMemoryRange range {};
-	range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	range.memory = object->memory;
-	range.size = VK_WHOLE_SIZE;
+	if (!object->hostVisible) {
+		// Device-local buffer: give the caller a staging mapping and round-trip the
+		// bytes, so map/modify keeps working without a host-visible allocation.
+		StagingSlice slice;
+		status = requestStaging(size, slice);
+		if (!status.ok()) {
+			return status;
+		}
+		if (op.access != Kld::BufferMapAccess::WriteOnly) {
+			status = ensureRecording();
+			if (!status.ok()) {
+				return status;
+			}
+			recordBufferToStaging(*object, op.offset, size, slice);
+			status = submitAndWait();
+			if (!status.ok()) {
+				return status;
+			}
+			invalidateStaging(slice);
+		}
+		op.callback(slice.mapped, size, op.userData);
+		if (op.access != Kld::BufferMapAccess::ReadOnly) {
+			flushStaging(slice);
+			status = ensureRecording();
+			if (!status.ok()) {
+				return status;
+			}
+			recordStagingToBuffer(slice, *object, op.offset, size);
+		}
+		return Kld::HalOk;
+	}
+	if (object->mapped == nullptr) {
+		return fail(Kld::HalStatusCode::BackendError, "the buffer has no host mapping");
+	}
 	if (op.access != Kld::BufferMapAccess::WriteOnly) {
-		vkInvalidateMappedMemoryRanges(context_.device(), 1, &range);
+		(void)vmaInvalidateAllocation(memory_.handle(), object->allocation, 0, VK_WHOLE_SIZE);
 	}
 	op.callback(static_cast<std::uint8_t*>(object->mapped) + op.offset, size, op.userData);
-	if (op.access != Kld::BufferMapAccess::ReadOnly && !object->coherent) {
-		vkFlushMappedMemoryRanges(context_.device(), 1, &range);
+	if (op.access != Kld::BufferMapAccess::ReadOnly) {
+		(void)vmaFlushAllocation(memory_.handle(), object->allocation, 0, VK_WHOLE_SIZE);
 	}
 	return Kld::HalOk;
 }
@@ -402,32 +554,17 @@ Kld::HalStatus CommandExecutor::createImageStorage(VkTextureObject& object, VkIm
 	if (object.cube) {
 		info.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 	}
-	if (vkCreateImage(context_.device(), &info, nullptr, &object.image) != VK_SUCCESS) {
-		return fail(Kld::HalStatusCode::AllocationFailed, "vkCreateImage failed");
-	}
 	object.usage = info.usage;
-	VkMemoryRequirements requirements {};
-	vkGetImageMemoryRequirements(context_.device(), object.image, &requirements);
-	std::uint32_t typeIndex = findMemoryType(requirements.memoryTypeBits,
-						 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	if (typeIndex == UINT32_MAX) {
-		typeIndex = findMemoryType(requirements.memoryTypeBits, 0);
-	}
-	if (typeIndex == UINT32_MAX) {
-		vkDestroyImage(context_.device(), object.image, nullptr);
+	VmaAllocationCreateInfo allocationInfo {};
+	// Images are the classic device-local resource; VMA prefers the device-local
+	// heap and only falls back when the format cannot live there.
+	allocationInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+	if (vmaCreateImage(memory_.handle(), &info, &allocationInfo, &object.image,
+			   &object.allocation, nullptr) != VK_SUCCESS) {
 		object.image = VK_NULL_HANDLE;
-		return fail(Kld::HalStatusCode::AllocationFailed, "no memory type for the image");
+		object.allocation = VK_NULL_HANDLE;
+		return fail(Kld::HalStatusCode::AllocationFailed, "vmaCreateImage failed");
 	}
-	VkMemoryAllocateInfo allocate {};
-	allocate.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocate.allocationSize = requirements.size;
-	allocate.memoryTypeIndex = typeIndex;
-	if (vkAllocateMemory(context_.device(), &allocate, nullptr, &object.memory) != VK_SUCCESS) {
-		vkDestroyImage(context_.device(), object.image, nullptr);
-		object.image = VK_NULL_HANDLE;
-		return fail(Kld::HalStatusCode::AllocationFailed, "vkAllocateMemory failed for an image");
-	}
-	vkBindImageMemory(context_.device(), object.image, object.memory, 0);
 	VkImageViewCreateInfo viewInfo {};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewInfo.image = object.image;
@@ -435,9 +572,7 @@ Kld::HalStatus CommandExecutor::createImageStorage(VkTextureObject& object, VkIm
 	viewInfo.format = object.format;
 	viewInfo.subresourceRange = { object.aspect, 0, object.levels, 0, object.layers };
 	if (vkCreateImageView(context_.device(), &viewInfo, nullptr, &object.view) != VK_SUCCESS) {
-		vkDestroyImage(context_.device(), object.image, nullptr);
-		vkFreeMemory(context_.device(), object.memory, nullptr);
-		object = VkTextureObject {};
+		destroyImageObjects(memory_.handle(), context_.device(), object);
 		return fail(Kld::HalStatusCode::BackendError, "vkCreateImageView failed");
 	}
 	return Kld::HalOk;
@@ -486,24 +621,15 @@ Kld::HalStatus CommandExecutor::uploadImageLevel(VkTextureObject& object, std::u
 	if (!status.ok()) {
 		return status;
 	}
-	VkBuffer staging = VK_NULL_HANDLE;
-	VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
-	void* mapped = nullptr;
-	bool coherent = true;
-	status = createHostBuffer(payload, staging, stagingMemory, mapped, coherent);
+	StagingSlice slice;
+	status = requestStaging(payload, slice);
 	if (!status.ok()) {
 		return status;
 	}
-	std::memcpy(mapped, data, payload);
-	if (!coherent) {
-		VkMappedMemoryRange range {};
-		range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-		range.memory = stagingMemory;
-		range.size = VK_WHOLE_SIZE;
-		vkFlushMappedMemoryRanges(context_.device(), 1, &range);
-	}
+	std::memcpy(slice.mapped, data, payload);
+	flushStaging(slice);
 	VkBufferImageCopy copy {};
-	copy.bufferOffset = 0;
+	copy.bufferOffset = slice.offset;
 	copy.bufferRowLength = rowStride / (block != 0 ? block : texel);
 	copy.bufferImageHeight = rows;
 	copy.imageSubresource.aspectMask = object.aspect;
@@ -512,14 +638,11 @@ Kld::HalStatus CommandExecutor::uploadImageLevel(VkTextureObject& object, std::u
 	copy.imageSubresource.layerCount = 1;
 	copy.imageOffset = { x, y, object.imageType == VK_IMAGE_TYPE_3D ? layer : 0 };
 	copy.imageExtent = { width, height, 1 };
-	vkCmdCopyBufferToImage(commandBuffer_, staging, object.image, VK_IMAGE_LAYOUT_GENERAL, 1,
-			       &copy);
-	// Retire the staging buffer only after the copy has executed.
-	DeferredDestroy deferred {};
-	deferred.buffer_ = staging;
-	deferred.bufferMemory_ = stagingMemory;
-	vkUnmapMemory(context_.device(), stagingMemory);
-	defer(deferred);
+	vkCmdCopyBufferToImage(commandBuffer_, slice.buffer, object.image,
+			       VK_IMAGE_LAYOUT_GENERAL, 1, &copy);
+	// The slice lives until the slot's fence signals, so only the ordering is left:
+	// a sample or blit later in this frame must not read before the copy finished.
+	transferBarrier(commandBuffer_);
 	return Kld::HalOk;
 }
 
@@ -697,7 +820,7 @@ Kld::HalStatus CommandExecutor::createTexture1D(const Kld::OpCreateTexture1D& op
 		status = uploadImage(object, op.pixels, 0, pitch, op.width, 1);
 	}
 	if (!status.ok()) {
-		destroyImageObjects(context_.device(), object);
+		destroyImageObjects(memory_.handle(), context_.device(), object);
 		return status;
 	}
 	textures_.emplace(op.id, object);
@@ -743,7 +866,7 @@ Kld::HalStatus CommandExecutor::createTexture2D(const Kld::OpCreateTexture2D& op
 		status = generateMips(object);
 	}
 	if (!status.ok()) {
-		destroyImageObjects(context_.device(), object);
+		destroyImageObjects(memory_.handle(), context_.device(), object);
 		return status;
 	}
 	textures_.emplace(op.id, object);
@@ -800,7 +923,7 @@ Kld::HalStatus CommandExecutor::createCompressedTexture2D(const Kld::OpCreateCom
 					  blocks * op.layout.bytesPerBlock, mip.byteSize);
 	}
 	if (!status.ok()) {
-		destroyImageObjects(context_.device(), object);
+		destroyImageObjects(memory_.handle(), context_.device(), object);
 		return status;
 	}
 	textures_.emplace(op.id, object);
@@ -858,7 +981,7 @@ Kld::HalStatus CommandExecutor::createTextureFromDecodeTarget(
 		status = failUnsupported("generating extra mips for a decode target is not implemented");
 	}
 	if (!status.ok()) {
-		destroyImageObjects(context_.device(), object);
+		destroyImageObjects(memory_.handle(), context_.device(), object);
 		return status;
 	}
 	textures_.emplace(op.id, object);
@@ -908,7 +1031,7 @@ Kld::HalStatus CommandExecutor::createTexture3D(const Kld::OpCreateTexture3D& op
 		status = generateMips(object);
 	}
 	if (!status.ok()) {
-		destroyImageObjects(context_.device(), object);
+		destroyImageObjects(memory_.handle(), context_.device(), object);
 		return status;
 	}
 	textures_.emplace(op.id, object);
@@ -948,7 +1071,7 @@ Kld::HalStatus CommandExecutor::createTextureCube(const Kld::OpCreateTextureCube
 		status = generateMips(object);
 	}
 	if (!status.ok()) {
-		destroyImageObjects(context_.device(), object);
+		destroyImageObjects(memory_.handle(), context_.device(), object);
 		return status;
 	}
 	textures_.emplace(op.id, object);
@@ -996,7 +1119,7 @@ Kld::HalStatus CommandExecutor::createTexture2DArray(const Kld::OpCreateTexture2
 		status = generateMips(object);
 	}
 	if (!status.ok()) {
-		destroyImageObjects(context_.device(), object);
+		destroyImageObjects(memory_.handle(), context_.device(), object);
 		return status;
 	}
 	textures_.emplace(op.id, object);
@@ -1012,7 +1135,7 @@ Kld::HalStatus CommandExecutor::destroyTexture(const Kld::OpDestroy& op)
 	DeferredDestroy deferred {};
 	deferred.view_ = found->second.view;
 	deferred.image_ = found->second.image;
-	deferred.imageMemory_ = found->second.memory;
+	deferred.imageAllocation_ = found->second.allocation;
 	defer(deferred);
 	textures_.erase(found);
 	return Kld::HalOk;
@@ -1045,12 +1168,12 @@ Kld::HalStatus CommandExecutor::resizeTexture2D(const Kld::OpResizeTexture2D& op
 	DeferredDestroy deferred {};
 	deferred.view_ = object->view;
 	deferred.image_ = object->image;
-	deferred.imageMemory_ = object->memory;
+	deferred.imageAllocation_ = object->allocation;
 	defer(deferred);
 	const VkImageUsageFlags usage = object->usage;
 	object->view = VK_NULL_HANDLE;
 	object->image = VK_NULL_HANDLE;
-	object->memory = VK_NULL_HANDLE;
+	object->allocation = VK_NULL_HANDLE;
 	object->layout = VK_IMAGE_LAYOUT_UNDEFINED;
 	object->format = format;
 	object->euphemyFormat = op.format;
@@ -1064,7 +1187,7 @@ Kld::HalStatus CommandExecutor::resizeTexture2D(const Kld::OpResizeTexture2D& op
 	if (!result.ok()) {
 		// The old storage is already retired; drop the handle rather than leave a
 		// half-built object behind.
-		destroyImageObjects(context_.device(), *object);
+		destroyImageObjects(memory_.handle(), context_.device(), *object);
 		textures_.erase(op.id);
 	}
 	return result;
@@ -1270,7 +1393,7 @@ Kld::HalStatus CommandExecutor::createImage2D(const Kld::OpCreateImage2D& op)
 	// expects the image in GENERAL, so transition once here instead of at each use.
 	status = ensureImageLayout(object);
 	if (!status.ok()) {
-		destroyImageObjects(context_.device(), object);
+		destroyImageObjects(memory_.handle(), context_.device(), object);
 		return status;
 	}
 	images_.emplace(op.id, object);
@@ -1301,12 +1424,12 @@ Kld::HalStatus CommandExecutor::resizeImage2D(const Kld::OpResizeImage2D& op)
 	DeferredDestroy deferred {};
 	deferred.view_ = object->view;
 	deferred.image_ = object->image;
-	deferred.imageMemory_ = object->memory;
+	deferred.imageAllocation_ = object->allocation;
 	defer(deferred);
 	const VkImageUsageFlags usage = object->usage;
 	object->view = VK_NULL_HANDLE;
 	object->image = VK_NULL_HANDLE;
-	object->memory = VK_NULL_HANDLE;
+	object->allocation = VK_NULL_HANDLE;
 	object->layout = VK_IMAGE_LAYOUT_UNDEFINED;
 	object->format = format;
 	object->euphemyFormat = op.format;
@@ -1315,7 +1438,7 @@ Kld::HalStatus CommandExecutor::resizeImage2D(const Kld::OpResizeImage2D& op)
 	object->levels = op.mipLevels > 0 ? op.mipLevels : 1;
 	const Kld::HalStatus result = createImageStorage(*object, usage);
 	if (!result.ok()) {
-		destroyImageObjects(context_.device(), *object);
+		destroyImageObjects(memory_.handle(), context_.device(), *object);
 		images_.erase(op.id);
 	}
 	return result;
@@ -1455,7 +1578,7 @@ Kld::HalStatus CommandExecutor::destroyImage(const Kld::OpDestroyImage& op)
 	DeferredDestroy deferred {};
 	deferred.view_ = found->second.view;
 	deferred.image_ = found->second.image;
-	deferred.imageMemory_ = found->second.memory;
+	deferred.imageAllocation_ = found->second.allocation;
 	defer(deferred);
 	images_.erase(found);
 	return Kld::HalOk;

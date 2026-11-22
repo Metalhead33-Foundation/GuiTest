@@ -110,6 +110,16 @@ VkPipelineStageFlags toVkPipelineStageFlags(uint32_t stageMask) noexcept;
 /** @brief Translates Kaldi's `AccessFlags` bitmask into `VkAccessFlags`. */
 VkAccessFlags toVkAccessFlags(uint32_t accessMask) noexcept;
 
+/**
+ * @brief Orders earlier transfer writes before every later command.
+ *
+ * A copy command's writes are made available in the transfer stage only; a vertex
+ * fetch, shader read or attachment read that follows in the same command buffer
+ * is not ordered against them without this barrier. Every staged upload ends with
+ * it, so a resource is readable as soon as the command that filled it is recorded.
+ */
+void transferBarrier(VkCommandBuffer commandBuffer) noexcept;
+
 }
 
 #endif // KALDIVKUTIL_HPP
