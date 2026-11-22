@@ -17,9 +17,6 @@ GameSystem::GameSystem(Euph::Conf::Configuration& config)
 		channels,
 		bufferSize
 		);
-	/*
-	Mixer(ChannelCount channelCount, InterleavingType interleavingType, SampleRate sampleRate, FrameCount frameCount);
-*/
 	mixer = Elv::Util::pmr_make_shared<Hrk::Mixer>(std::pmr::get_default_resource(),
 		Hrk::ChannelCount(channels), Hrk::InterleavingType::INTERLEAVED, Hrk::SampleRate(samplerate), Hrk::FrameCount(bufferSize)
 		);
@@ -28,19 +25,12 @@ GameSystem::GameSystem(Euph::Conf::Configuration& config)
 
 void GameSystem::initialize()
 {
-	/*
-	 const char* path, Elv::Io::Mode mode
-	*/
 	std::string modpath = std::string(config.getString("Game", "sSongPath", "/home/legacy/zene/GameMusic/Unreal Tournament/mod/Magnus.it"));
 	Euph::Io::uFile file = Elv::Util::pmr_make_unique<Euph::Io::File>(std::pmr::get_default_resource(), modpath.c_str(), Elv::Io::Mode::READ);
-	/*
-	ModuleStreamer(Elv::Io::uDevice&& fileDev, FrameCount ringCapacityFrames = FrameCount(8192), std::pmr::memory_resource* memRes = get_default_memory_resource());
-*/
-
 	if(file->isValid()) {
 		modplayer = Elv::Util::pmr_make_shared<Hrk::ModuleStreamer>(std::pmr::get_default_resource(),
 																	std::move(file));
-		mixer->getChildren().emplace(modplayer.get(), 0.5f);
+		mixer->getChildren().emplace(modplayer.get(), config.getFloat("Game","fModVolume",0.10F));
 		modplayer->getState().setCursor(Hrk::FrameIndex(0));
 		modplayer->getState().setPlayStatus(Hrk::PlayStatus::PLAYING);
 	} else {
