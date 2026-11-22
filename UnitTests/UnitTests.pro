@@ -117,6 +117,7 @@ SOURCES += \
     tests/BitStreamTests.cpp \
     tests/CompressionTests.cpp \
     tests/ConfigTests.cpp \
+    tests/CursorTests.cpp \
     tests/FontRoundTripTests.cpp \
     tests/FormatTranslationTests.cpp \
     tests/HarukaStreamerRingTests.cpp \
@@ -137,7 +138,8 @@ SOURCES += \
     tests/PlatformWrappersTests.cpp \
     tests/ShaderAssetTests.cpp \
     tests/ShaderCompileTests.cpp \
-    tests/UdpTransportTests.cpp
+    tests/UdpTransportTests.cpp \
+    tests/WriteableTexture2DTests.cpp
 
 HEADERS += \
     support/DispatchProbe.hpp \

@@ -24,7 +24,7 @@ The sibling shared libraries are not found through an rpath, so the `LD_LIBRARY_
 required - including the Kaldi backend the graphics context loads at run time (`KaldiVK`, and
 `KaldiGL`/`KaldiGLES` when those are selected).
 
-## `GameSystem`: audio and a cleared window
+## `GameSystem`: audio, a window and a cursor
 
 `main()` loads `config.ini` (if present, from the working directory), then hands it to a
 `GameSystem`, which wires up two independent halves and runs `updateLogic()`/`render()` until the
@@ -33,28 +33,53 @@ window is closed or ESC is pressed:
 | Half | What it does | Configuration |
 |---|---|---|
 | Audio | `Haruka_SDL_Driver` opens an SDL audio device, a `Hrk::Mixer` feeds it, and a `Hrk::ModuleStreamer` plays a module file | `[Audio] uSamplerate`, `uChannels`, `uBufferSize`; `[Game] sSongPath`, `fModVolume` |
-| Graphics | `KaldiContext` loads a Kaldi backend library, creates its rendering device on the SDL window, and `render()` clears the window to one colour every frame | `[Graphics] sBackendLibrary`, `sClearColor` |
+| Graphics | `Lotte::Gfx::KaldiContext` loads a Kaldi backend library, creates its rendering device on the SDL window, and `render()` clears the window and draws a cursor through `Lotte::Gui::KaldiGuiRenderer` | `[Graphics] sBackendLibrary`, `sClearColor`, `sCursor` |
 
-The graphics half is deliberately minimal - one `BeginFrame`/`ClearColorAttachment`/`EndFrame`/
-`Present` batch per frame, no resources - but it exercises the whole "backend is a dynamically
-loaded library" path: `KaldiContext` `dlopen`s the backend, calls
-`kld_create_rendering_device(window, size)`, reinterprets the handle as the `Kld::Device` it wraps,
-and destroys the device before unloading the library. Missing backend, missing GPU or a refused
-device is not fatal: it logs `Graphics disabled: ...` and the audio half keeps running.
+The graphics half is the project's first end-to-end texture path. `KaldiContext` `dlopen`s the
+backend, calls `kld_create_rendering_device(window, size)` and reinterprets the handle as the
+`Kld::Device` it wraps; it then owns the `CommandBuffer` and the `ResourceFactory` that record
+everything else. Startup compiles two HLSL programs with
+`Lotte::Gfx::compileShaderProgram`, creates the pipelines/sampler, decodes both cursor PNGs out of
+`cursors/`, converts them to RGBA8 (`WriteableTexture2D::fromDecodeTarget`), queues the initial
+texture upload and submits that batch. Each frame is:
+
+```text
+beginFrame   -> BeginFrame + ClearColorAttachment
+KaldiGuiRenderer::beginFrame -> reset the CPU caches
+Cursor::render -> one tinted textured quad at the mouse position
+flush        -> viewport/scissor/blend, BindPipeline, BindTexture, BindSampler,
+                buffer upload, BindVertex/IndexBuffer, DrawIndexed
+endFrame     -> EndFrame + Present, swapBuffers, processCommandQueue
+```
+
+Missing backend, missing GPU or a refused device is not fatal: it logs
+`Graphics disabled: ...` and the audio half keeps running.
+
+| Input | Effect |
+|---|---|
+| Mouse motion / click | Moves the cursor; the cursor's origin point (hotspot) is what lands on the pointer |
+| `Tab` | Cycles the loaded cursors (`wodmouse.png`: upper-left arrow, `hourglass2.png`: center-intended hourglass) |
+| `1`-`9` | Sets the active cursor's anchor in enum order: TopLeft, Top, TopRight, Left, Center, Right, BottomLeft, Bottom, BottomRight. Each change logs the re-resolved hotspot |
+| `Esc` | Quits |
 
 ```ini
 ; build/Desktop-Debug/config.ini
 [Graphics]
 sBackendLibrary=libKaldiVK.so
 sClearColor=0xFF20A030
+sCursor=cursors/wodmouse.png
 ```
 
 - `sBackendLibrary` is a soname resolved through `LD_LIBRARY_PATH` or an absolute path.
   `libKaldiVK.so`, `libKaldiGL.so` and `libKaldiGLES.so` all work.
 - `sClearColor` is a packed `0xAARRGGBB` **string**, not a `u` key: the configuration parses
   numbers in base 10, so a hex literal in a numeric key would silently read as `0`.
+- `sCursor` is the first cursor image; `cursors/hourglass2.png` is always loaded second. The
+  directory is copied into the build tree by `Sandbox.pro` (`CONFIG += file_copies`), so launching
+  from `build/Desktop-Debug/Sandbox` finds it.
 
-Leave `config.ini` out and the defaults apply (`libKaldiVK.so`, `0xFF102030`, 640x480, 48 kHz).
+Leave `config.ini` out and the defaults apply (`libKaldiVK.so`, `0xFF102030`,
+`cursors/wodmouse.png`, 640x480, 48 kHz).
 
 ## What `main()` currently runs
 

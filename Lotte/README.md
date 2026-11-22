@@ -6,8 +6,10 @@ renderer-facing integration belongs so that Euphemy can stay independent of Kald
 
 **Status: partial.** Lotte owns the Kaldi bridge types, the CPU-to-GPU asset upload
 scheduler, the FontPacker-compatible font/vector-image formats, the rich-text
-pipeline (MML parsing, text layout, glyph quads) and the mesh/GUI geometry batches.
-There is no renderer and no GUI widget system yet; see the TODO list.
+pipeline (MML parsing, text layout, glyph quads), the mesh/GUI geometry batches, a
+run-time-loaded Kaldi rendering context with a resource factory, a dirty-rectangle
+writable texture and a working GUI renderer with anchored (2D and 3D) cursors.
+There is no GUI widget system yet; see the TODO list.
 
 ## Build and consumption
 
@@ -18,9 +20,11 @@ There is no renderer and no GUI widget system yet; see the TODO list.
 | Consumer hook | `include(Lotte/Lotte.pri)` adds the include path and links Lotte/Euphemy/Elvavena |
 | Dependencies | Elvavena, Euphemy, Kaldi headers, GLM, utfcpp (header-only, `#include <utf8cpp/utf8.h>`), glslang + glslang-default-resource-limits + SPIRV (shader compilation) |
 
-Compiled units: `Asset/LteGpuAssetStreamer.cpp`, `Conf/LteBackendConfig.cpp`, `GFX/LtePipeline.cpp` and the six
-`Text/*.cpp` files. The `Gui/` headers are header-only (templates plus inline recording
-helpers).
+Compiled units: `Asset/LteGpuAssetStreamer.cpp`, `Conf/LteBackendConfig.cpp`,
+`GFX/LteKaldiContext.cpp`, `GFX/LtePipeline.cpp`, `GFX/LteResourceFactory.cpp`,
+`GFX/LteWriteableTexture2D.cpp`, `Gui/LteCursor.cpp`, `Gui/LteKaldiGuiRenderer.cpp` and
+the six `Text/*.cpp` files. The remaining `Gui/` and `GFX/` headers are header-only
+(templates plus inline recording helpers).
 
 Kaldi is consumed header-only through `Kaldi.pri`. Do not add `-lKaldi` or `libKaldi`
 to Lotte; use the top-level include path.
@@ -54,6 +58,51 @@ what each flag does, and the acceptance gate for the switch.
 | `VectorGraphic/LteStoredVectorImage.hpp` | FontPacker-compatible `WODI` stored-vector-image format with mip levels, encoding flags and stream import/export |
 | `Conf/LteBackendConfig.hpp` / `.cpp` | Bridge between `Kld::ConfigProvider` and `Euph::Conf::Configuration`: writes a backend's field defaults into an `.ini`, serializes/parses the text, loads/saves through `Elv::Io::System`, and applies the file back through a `Kld::ConfigReader` (which clamps every value) |
 | `GFX/LtePipeline.hpp` / `.cpp` | `compileShaderProgram()` (glslang's HLSL front-end, see [`docs/SHADERS.md`](../docs/SHADERS.md); HLSL or GLSL input, always emits **Vulkan** SPIR-V 1.0 so one blob serves every backend, pluggable `ShaderIncludeResolver`), the owning `ShaderBinary` (SPIR-V words + stage, convertible to `Kld::ShaderBinaryDescriptor`) and `Pipeline` (owns stages + vertex attributes and exposes Kaldi views) |
+
+### `GFX/` and `Gui/` - context, resources, cursor
+
+| Header | Contents |
+|---|---|
+| `GFX/LteKaldiContext.hpp` / `.cpp` | `KaldiContext` - the promoted `Sandbox/KaldiContext`: `dlopen`s a Kaldi backend, creates its device, owns one `CommandBuffer` plus a `ResourceFactory`, and provides the `beginFrame()` (BeginFrame + clear) / `endFrame()` (EndFrame + Present + swap + submit) protocol |
+| `GFX/LteResourceFactory.hpp` / `.cpp` | `ResourceFactory` - the one place Lotte allocates Kaldi handles through `Kld::oop_detail`: `createTexture2D` (raw pixels, `DecodeTarget`, or a shared `DecodeTarget` the factory retains), `createBuffer`, `createSampler`, `createPipeline`, `createImage2D`, `createFramebuffer`, plus `retain()`/`submit()` for the payload lifetime Kaldi requires |
+| `GFX/LteWriteableTexture2D.hpp` / `.cpp` | `WriteableTexture2D` - CPU RGBA8 surface mirrored by a Kaldi texture with a dirty rectangle: `setPixel`, `fill`, `blitRgba8` (atlas stamping), `resize`, and `recordUpdate()` which records one `UpdateTexture2D` per dirty row (one for a full-width rectangle) |
+| `GFX/LteImageConvert.hpp` | Header-only Euphemy → GUI conversion: `Rgba8Image`, `toRgba8()` for the 8-bit `RGBA/BGRA/RGB/BGR/RG/R` layouts, and `isRgba8Convertible()` |
+| `Gui/LteKaldiGuiRenderer.hpp` / `.cpp` | The first concrete `GuiRenderer`: two runtime-compiled HLSL pipelines (coloured `ColouredGuiVertex`, textured `ColouredTexturedGuiVertex`), CPU pixel→clip-space transform, `GuiGeometryBatch` per pipeline, texture-change flush and straight-alpha blending. `beginFrame()` resets the caches, `flush()` records uploads + draws |
+| `Gui/LteCursor.hpp` / `.cpp` | `AlphaCoverage` (alpha mask) + `CursorMetadata` (anchor, crawl mode, threshold, explicit hotspot, scale, visibility) + `Cursor`. Nine anchors (four corners, four edge midpoints, center) and five crawl modes (`NoCrawl`, `Diagonal`, `Vertical`, `Horizontal`, `Radial`); a 2D image visual (with atlas UVs) or a 3D model visual with a model-space origin and `modelPlacement()` |
+
+The cursor origin rules, in one place:
+
+| Anchor | Default crawl | What it does |
+|---|---|---|
+| `TopLeft`, `TopRight`, `BottomLeft`, `BottomRight` | `Diagonal` | walks the anchored diagonal towards the opposite corner until an opaque pixel shows up |
+| `Top`, `Bottom` | `Vertical` | walks the middle column inwards |
+| `Left`, `Right` | `Horizontal` | walks the middle row inwards |
+| `Center` | `Radial` | nearest opaque pixel by Chebyshev ring; an opaque center keeps the exact center point |
+
+A crawled origin is the center of the pixel it found (`x + 0.5`, `y + 0.5`), which is
+what makes an arrow tip or a reticle visually stable. `CursorMetadata` is the aggregate
+a JSON descriptor will deserialize into later; no JSON is parsed today.
+
+```cpp
+// Sandbox/GameSystem.cpp, abbreviated
+Lotte::Gfx::KaldiContext context(windowInfo, width, height, settings);
+Lotte::Gui::KaldiGuiRenderer gui(context.resources(), { width, height });
+Lotte::Gfx::WriteableTexture2D texture =
+    Lotte::Gfx::WriteableTexture2D::fromDecodeTarget(context.resources(), decodedPng);
+Lotte::Gui::CursorMetadata metadata;
+metadata.anchor = Lotte::Gui::CursorAnchor::TopLeft;
+metadata.alphaCrawl = true;
+const Lotte::Gui::AlphaCoverage coverage =
+    Lotte::Gui::AlphaCoverage::fromDecodeTarget(decodedPng);
+Lotte::Gui::Cursor cursor({ texture.handle(), { texture.width(), texture.height() } },
+                          &coverage, metadata);
+
+context.beginFrame();
+gui.beginFrame();
+cursor.render(gui, mousePosition);
+gui.flush();
+context.endFrame();
+```
 
 ### `Text/` - rich text pipeline
 
@@ -103,17 +152,25 @@ The CBOR map variants described by that specification are not implemented.
 
 ## TODOs and known gaps
 
-- [ ] No renderer. There is no render graph, command-list builder, material/shader
-      management, camera or frame loop. `Gui/LteGuiRenderer.hpp` defines the interface a
-      GUI renderer must implement but deliberately ships no implementation.
+- [x] A concrete GUI renderer exists (`Gui/LteKaldiGuiRenderer`) for the 2D primitive
+      vocabulary: coloured/textured/gradient quads, triangles and lines, batched per
+      pipeline and flushed on texture change.
+- [ ] No render graph, material/shader management, camera, 3D scene or post-processing.
+      The renderer converts pixels to clip space itself and owns no camera; a 3D
+      pipeline still has to be added on top of `KaldiContext`.
 - [ ] No GUI widget system. No widgets, layout, input routing or focus handling. The old
       `Widget`/`RootNode`/`TickboxWidget` classes were not carried over; `ElvSignal.hpp`
       provides the signals they used.
+- [ ] Cursor metadata is a C++ aggregate (`Lotte::Gui::CursorMetadata`); there is no JSON
+      loader yet, and only the 2D image visual is drawn. The 3D model visual produces a
+      placement matrix (`Cursor::modelPlacement`) that a 3D renderer must consume.
 - [ ] No glyph atlas. `Text/LteFontAtlas.hpp` documents what is missing (decode
       `StoredCharacter::sdf`, pack it into a texture, expose UV rectangles through
-      `GlyphAtlasMapping`) and implements the quad emission, but no texture, packer or
-      Kaldi upload path exists. Confirmed constraints from FontPacker: every payload is
-      a square `bitmapSize` × `bitmapSize` image because each glyph's metric box is
+      `GlyphAtlasMapping`) and implements the quad emission. `GFX/LteWriteableTexture2D`
+      now provides the atlas page (CPU pixels + dirty-rectangle upload) and
+      `CursorImageVisual::uv` shows the sub-rectangle convention, but the glyph packer
+      itself does not exist. Confirmed constraints from FontPacker: every payload is a
+      square `bitmapSize` × `bitmapSize` image because each glyph's metric box is
       stretched onto a square before downsampling, the padding is already baked into the
       payload (`bitmapPadding * bitmapSize / bitmapLogicalSize`), and MSDF payloads are
       stored as RGB888.
@@ -130,11 +187,14 @@ The CBOR map variants described by that specification are not implemented.
       duplicate the HAL.
 - [ ] No Kaldi `Swapchain`/`RenderPass` RAII proxies in `LteKld.hpp`; those commands are
       available only through the raw Kaldi opcode vocabulary.
-- [ ] The GPU command sequences recorded by `MeshBuilder` and `GuiGeometryBatch` are
-      unverified: there is no working Kaldi backend yet.
+- [ ] The GPU command sequences recorded by `MeshBuilder`, `GuiGeometryBatch` and
+      `KaldiGuiRenderer` are only smoke-tested: the Sandbox renders a cursor every frame
+      through the Vulkan backend, but nothing asserts the resulting pixels yet.
 - [ ] Text and geometry are covered by `testTextPipeline()` and `testGeometryBatches()` in
       `Sandbox`; the font and vector-image formats by `testFontParser()` and
-      `testFontRoundTrip()`. Nothing exercises a renderer, because none exists.
+      `testFontRoundTrip()`. The CPU half of the new cursor/texture code is covered by
+      `CursorTests` and `WriteableTexture2DTests` in `UnitTests`; the renderer itself has
+      no automated frame-level test.
 - [ ] The CBOR map variants of the FontPacker specification are not implemented.
 - [ ] `KerningMap` and the glyph map are `std::unordered_map`s, so exported font files
       are not byte-deterministic. Switch to ordered maps (or sort before writing) if

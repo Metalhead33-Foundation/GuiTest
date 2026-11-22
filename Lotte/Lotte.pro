@@ -21,7 +21,12 @@ LIBS += -lglslang -lSPIRV -lglslang-default-resource-limits
 SOURCES += \
     Asset/LteGpuAssetStreamer.cpp \
     Conf/LteBackendConfig.cpp \
+    GFX/LteKaldiContext.cpp \
     GFX/LtePipeline.cpp \
+    GFX/LteResourceFactory.cpp \
+    GFX/LteWriteableTexture2D.cpp \
+    Gui/LteCursor.cpp \
+    Gui/LteKaldiGuiRenderer.cpp \
     Text/LteHtmlEntities.cpp \
     Text/LteMarkupColour.cpp \
     Text/LteMarkupStack.cpp \
@@ -32,11 +37,17 @@ SOURCES += \
 HEADERS += \
     Asset/LteGpuAssetStreamer.hpp \
     Conf/LteBackendConfig.hpp \
+    GFX/LteImageConvert.hpp \
+    GFX/LteKaldiContext.hpp \
     GFX/LteMesh.hpp \
     GFX/LtePipeline.hpp \
+    GFX/LteResourceFactory.hpp \
+    GFX/LteWriteableTexture2D.hpp \
+    Gui/LteCursor.hpp \
     Gui/LteGuiRenderCache.hpp \
     Gui/LteGuiRenderer.hpp \
     Gui/LteGuiVertex.hpp \
+    Gui/LteKaldiGuiRenderer.hpp \
     LteKld.hpp \
     Text/LteFontAtlas.hpp \
     Text/LteFontFace.hpp \

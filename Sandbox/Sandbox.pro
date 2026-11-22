@@ -18,10 +18,16 @@ INCLUDEPATH += $$PWD/..
 SOURCES += main.cpp sandbox.cpp \
     AppSystem.cpp \
     GameSystem.cpp \
-    HarukaContext.cpp \
-    KaldiContext.cpp
+    HarukaContext.cpp
 HEADERS += sandbox.hpp \
     AppSystem.hpp \
     GameSystem.hpp \
-    HarukaContext.hpp \
-    KaldiContext.hpp
+    HarukaContext.hpp
+
+# The Sandbox renders its cursor images from `cursors/`; qmake's file_copies
+# feature mirrors them into the build directory next to the executable, so the
+# working directory of a run-from-build-dir launch finds `cursors/*.png`.
+CONFIG += file_copies
+cursorImages.files = $$files($$PWD/cursors/*.png)
+cursorImages.path = $$OUT_PWD/cursors
+COPIES += cursorImages

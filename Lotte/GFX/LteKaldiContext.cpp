@@ -1,7 +1,7 @@
-#include "KaldiContext.hpp"
+#include "LteKaldiContext.hpp"
 #include <Kaldi/KaldiOperation.hpp>
-#include <array>
 #include <stdexcept>
+#include <string>
 
 namespace {
 
@@ -26,9 +26,18 @@ T requireSymbol(const Elv::Util::DynamicLibrary& library, const char* name,
 
 } // namespace
 
-KaldiContext::KaldiContext(const SDL_SysWMinfo& window, int width, int height,
-			   const Settings& settings)
+namespace Lotte {
+namespace Gfx {
+
+KaldiContext::KaldiContext(const SDL_SysWMinfo& window, std::uint16_t width,
+			   std::uint16_t height, const KaldiContextSettings& settings)
+	: commands_(), resources_(commands_)
 {
+	clearColor_[0] = settings.clearColor[0];
+	clearColor_[1] = settings.clearColor[1];
+	clearColor_[2] = settings.clearColor[2];
+	clearColor_[3] = settings.clearColor[3];
+
 	library_ = std::make_unique<Elv::Util::DynamicLibrary>(settings.backendLibrary);
 	const MhCreateRenderingDevice createDevice =
 		library_->sym<MhCreateRenderingDevice>("kld_create_rendering_device");
@@ -37,8 +46,8 @@ KaldiContext::KaldiContext(const SDL_SysWMinfo& window, int width, int height,
 					 settings.backendLibrary + "'");
 	}
 	destroyDevice_ = requireSymbol<MhDestroyRenderingDevice>(*library_,
-								"kld_destroy_rendering_device",
-								settings.backendLibrary);
+						"kld_destroy_rendering_device",
+						settings.backendLibrary);
 	getLastError_ = requireSymbol<MhGetLastError>(*library_, "kld_get_last_error_message",
 						      settings.backendLibrary);
 	if (const MhGetRendererName getName = library_->sym<MhGetRendererName>("kld_get_renderer_name")) {
@@ -63,9 +72,13 @@ KaldiContext::KaldiContext(const SDL_SysWMinfo& window, int width, int height,
 		}
 		throw std::runtime_error(message);
 	}
-	// `MhRenderingDevice_t*` wraps the backend's `Kld::Device*`; see the header.
+	// `MhRenderingDevice_t*` wraps the backend's `Kld::Device*`; every backend's
+	// device derives from it single-inherited, so the cast is the identity.
 	device_ = reinterpret_cast<Kld::Device*>(handle_);
 	capabilities_ = device_->capabilities();
+	// Creation commands recorded before the first frame still have to reach the
+	// backend, so the factory needs the device immediately.
+	resources_.setDevice(device_);
 }
 
 KaldiContext::~KaldiContext()
@@ -86,22 +99,49 @@ std::string KaldiContext::halVersionName() const
 		std::to_string(version.patch);
 }
 
-Kld::HalStatus KaldiContext::clear(const float (&color)[4])
+void KaldiContext::setClearColor(const float (&color)[4]) noexcept
+{
+	clearColor_[0] = color[0];
+	clearColor_[1] = color[1];
+	clearColor_[2] = color[2];
+	clearColor_[3] = color[3];
+}
+
+Kld::HalStatus KaldiContext::beginFrame()
 {
 	if (device_ == nullptr) {
-		return Kld::HalStatus { Kld::HalStatusCode::InitializationFailed,
-					"KaldiContext: the device was not created" };
+		return { Kld::HalStatusCode::InitializationFailed,
+			 "KaldiContext: the device was not created" };
 	}
+	KldOopDetail::beginFrame(commands_);
 	const Kld::OpClearColorAttachment clearCommand {
-		Kld::DefaultFramebuffer, 0, { color[0], color[1], color[2], color[3] }
+		Kld::DefaultFramebuffer, 0,
+		{ clearColor_[0], clearColor_[1], clearColor_[2], clearColor_[3] }
 	};
-	// The default frame path is the whole point of this context: begin, clear, end,
-	// present - four commands, no resources, nothing to retire.
-	const std::array<Kld::GfxOp, 4> ops = { {
-		{ Kld::Opcode::BeginFrame, { .opBeginFrame = { Kld::DefaultFramebuffer } } },
-		{ Kld::Opcode::ClearColorAttachment, { .opClearColorAttachment = clearCommand } },
-		{ Kld::Opcode::EndFrame, { .opEndFrame = { Kld::DefaultFramebuffer } } },
-		{ Kld::Opcode::Present, { .opPresent = { Kld::DefaultFramebuffer } } }
-	} };
-	return device_->processCommandQueue(ops);
+	commands_.push({ Kld::Opcode::ClearColorAttachment,
+			 { .opClearColorAttachment = clearCommand } });
+	return Kld::HalOk;
 }
+
+Kld::HalStatus KaldiContext::endFrame()
+{
+	if (device_ == nullptr) {
+		return { Kld::HalStatusCode::InitializationFailed,
+			 "KaldiContext: the device was not created" };
+	}
+	KldOopDetail::endFrame(commands_);
+	KldOopDetail::present(commands_);
+	return resources_.submit();
+}
+
+Kld::HalStatus KaldiContext::submit()
+{
+	if (device_ == nullptr) {
+		return { Kld::HalStatusCode::InitializationFailed,
+			 "KaldiContext: the device was not created" };
+	}
+	return resources_.submit();
+}
+
+} // namespace Gfx
+} // namespace Lotte

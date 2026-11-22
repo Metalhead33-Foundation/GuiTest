@@ -3,28 +3,62 @@
 #include "AppSystem.hpp"
 #include <Euphemy/Config/EuphConfiguration.hpp>
 #include "HarukaContext.hpp"
-#include "KaldiContext.hpp"
 #include <Haruka/Core/HrkMixer.hpp>
 #include <Haruka/IO/HrkModuleStreamer.hpp>
+#include <Lotte/GFX/LteKaldiContext.hpp>
+#include <Lotte/GFX/LteWriteableTexture2D.hpp>
+#include <Lotte/Gui/LteCursor.hpp>
+#include <Lotte/Gui/LteKaldiGuiRenderer.hpp>
+#include <memory>
+#include <string>
+#include <vector>
 
 class GameSystem : public AppSystem
 {
 private:
+	/**
+	 * @brief One loadable cursor: its file, its GPU texture and its origin logic.
+	 *
+	 * The texture is declared before the cursor so the cursor (which only stores a
+	 * raw handle) is destroyed first and never outlives the handle it names.
+	 */
+	struct CursorEntry {
+		std::string path;
+		std::unique_ptr<Lotte::Gfx::WriteableTexture2D> texture;
+		Lotte::Gui::Cursor cursor;
+	};
+
 	Euph::Conf::Configuration& config;
 	Hrk::sMixer mixer;
 	Hrk::sModuleStreamer modplayer;
 	std::unique_ptr<Haruka_SDL_Driver> sdlDriver;
 	/**
-	 * @brief The Kaldi rendering context, or null when the backend could not start.
+	 * @brief The Lotte rendering context, or null when the backend could not start.
 	 *
-	 * Rendering is optional in the Sandbox: a machine without a usable GPU still
-	 * gets the audio half, and `render()` simply does nothing.
+	 * Declared before every object that owns a Kaldi proxy: the renderer's buffers,
+	 * pipelines, sampler and the cursor textures record their destroy commands into
+	 * this context's dispatcher, so they must be released before it.
 	 */
-	std::unique_ptr<KaldiContext> kaldi;
+	std::unique_ptr<Lotte::Gfx::KaldiContext> kaldi;
+	/** @brief Records GUI geometry into the context's dispatcher. */
+	std::unique_ptr<Lotte::Gui::KaldiGuiRenderer> guiRenderer;
+	/** @brief The cursors loaded from `cursors/`; Tab cycles, 1-9 set the anchor. */
+	std::vector<CursorEntry> cursors;
+	/** @brief Index into @ref cursors of the cursor being drawn. */
+	std::size_t activeCursor = 0;
+	/** @brief Last known mouse position in window pixels. */
+	glm::fvec2 cursorPosition = glm::fvec2(0.0f);
 	/** @brief Linear RGBA the window is cleared to every frame (`[Graphics]`). */
 	float clearColor[4] = { 0.05f, 0.06f, 0.09f, 1.0f };
-	/** @brief True once a clear has failed, so the log is not spammed per frame. */
-	bool clearFailureLogged = false;
+	/** @brief True once a frame has failed, so the log is not spammed per frame. */
+	bool frameFailureLogged = false;
+
+	/** @brief Loads the backend, the GUI renderer and the cursor textures. */
+	void startGraphics();
+	/** @brief Decodes the cursor PNGs and builds their @ref Lotte::Gui::Cursor objects. */
+	void loadCursors();
+	/** @brief Replaces the active cursor's anchor and re-resolves its origin. */
+	void setActiveCursorAnchor(Lotte::Gui::CursorAnchor anchor);
 public:
 	GameSystem(Euph::Conf::Configuration& config);
 
