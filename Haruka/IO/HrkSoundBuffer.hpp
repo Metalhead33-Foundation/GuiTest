@@ -14,6 +14,7 @@
 
 namespace Hrk {
 
+DEFINE_STRUCT_WITH_POLYMORPHIC_ALLOCATOR(SoundBufferMetadata)
 /** @brief Metadata stored alongside an intrusive sound sample buffer. */
 struct SoundBufferMetadata {
 	/** @brief Number of frames held by the sample buffer. */

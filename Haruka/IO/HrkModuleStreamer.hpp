@@ -12,6 +12,7 @@
 #include <Euphemy/Media/Audio/EuphModuleRenderer.hpp>
 
 namespace Hrk {
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(ModuleStreamer)
 /** @brief Ring-buffered streamer backed by a module/tracker renderer. */
 class MH_HARUKA_API ModuleStreamer : public RingBufferedStreamer
 {
@@ -21,6 +22,7 @@ private:
 	FrameCount decodeFrames(float* dstInterleaved, FrameCount frameCount, ChannelCount streamChannels, SampleRate streamSampleRate) override;
 	bool seekDecoder(FrameIndex cursor, ChannelCount streamChannels, SampleRate streamSampleRate) override;
 	bool rewindDecoder(ChannelCount streamChannels, SampleRate streamSampleRate) override;
+	PlaybackState playbackState;
 public:
 	/** @brief Opens a module stream from an I/O device. */
 	ModuleStreamer(Elv::Io::uDevice&& fileDev, FrameCount ringCapacityFrames = FrameCount(8192), std::pmr::memory_resource* memRes = get_default_memory_resource());
@@ -28,6 +30,10 @@ public:
 	const Euph::Media::Audio::ModuleRenderer& getModuleRenderer() const;
 	/** @brief Returns mutable access to the module renderer. */
 	Euph::Media::Audio::ModuleRenderer& getModuleRenderer();
+
+	// IHasPlaybackState interface
+	const PlaybackState& getState() const override;
+	PlaybackState& getState() override;
 };
 }
 #endif // HRKMODULESTREAMER_HPP

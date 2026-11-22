@@ -12,6 +12,7 @@
 #include <Haruka/IO/HrkPlaybackState.hpp>
 
 namespace Hrk {
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(PlaybackStatePlayable)
 
 /** @brief Playable base that stores and exposes a PlaybackState. */
 class MH_HARUKA_API PlaybackStatePlayable : public Playable, public IHasPlaybackState

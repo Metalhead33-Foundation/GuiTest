@@ -22,6 +22,7 @@ namespace Hrk {
 inline std::pmr::memory_resource* get_default_memory_resource() {
 	return std::pmr::get_default_resource();
 }
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(RingBufferedStreamer)
 
 /** @brief Base class for pull-based decoders with a seekable ring buffer. */
 class MH_HARUKA_API RingBufferedStreamer : public PlaybackStatePlayable

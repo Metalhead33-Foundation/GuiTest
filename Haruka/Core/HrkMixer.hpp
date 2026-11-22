@@ -14,6 +14,8 @@
 #include <unordered_map>
 namespace Hrk {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Mixer)
+
 /** @brief Mixes multiple playable children into one output stream. */
 class MH_HARUKA_API Mixer : public Playable
 {

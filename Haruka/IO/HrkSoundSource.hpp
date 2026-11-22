@@ -11,6 +11,7 @@
 #include <Haruka/IO/HrkPlaybackStatePlayable.hpp>
 #include <Haruka/IO/HrkSoundBuffer.hpp>
 namespace Hrk {
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(SoundSource)
 /** @brief Playback-state-aware source backed by an in-memory sound buffer. */
 class MH_HARUKA_API SoundSource : public PlaybackStatePlayable
 {

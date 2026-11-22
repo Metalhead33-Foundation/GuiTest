@@ -11,8 +11,15 @@ LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
 LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
 LIBS += -L$$OUT_PWD/../Lotte -lLotte
 LIBS += -L$$OUT_PWD/../Haruka -lHaruka
+LIBS += -lSDL2
 
 INCLUDEPATH += $$PWD/..
 
-SOURCES += main.cpp sandbox.cpp
-HEADERS += sandbox.hpp
+SOURCES += main.cpp sandbox.cpp \
+    AppSystem.cpp \
+    GameSystem.cpp \
+    HarukaContext.cpp
+HEADERS += sandbox.hpp \
+    AppSystem.hpp \
+    GameSystem.hpp \
+    HarukaContext.hpp

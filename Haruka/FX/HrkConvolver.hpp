@@ -38,6 +38,8 @@
 namespace Hrk {
 namespace FX {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(Convolver)
+
 /** @brief Per-channel FFT convolution effect driven by impulse responses. */
 class MH_HARUKA_API Convolver : public Effect
 {

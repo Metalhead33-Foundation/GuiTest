@@ -47,6 +47,8 @@
 
 namespace Hrk {
 
+DEFINE_CLASS_WITH_POLYMORPHIC_ALLOCATOR(EffectSlot)
+
 /**
  * @brief Playable node that pulls its source through a serial dry/wet effect chain.
  *
