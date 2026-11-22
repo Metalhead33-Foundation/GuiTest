@@ -3,11 +3,13 @@
 Direct3D 11 backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 
 **Status: stub, and currently not buildable.** The C ABI is exported and the shared
-translation helpers compile, but no rendering is implemented: `D3D11::Device` declares no
-overrides for `Kld::Device`'s pure virtual functions, so it is abstract and nothing can be
-submitted to it yet. `D3D11Util.cpp` is additionally gated behind `win32` because it needs
-`<d3d11.h>`, and there is no working Windows build of this backend yet - the code is
-written but untested.
+translation helpers compile, but no rendering is implemented. `D3D11::Device` now
+overrides `capabilities()` and `processCommandQueue()` as **provisional** answers:
+the class owns no `ID3D11Device`, so the snapshot is `halCapabilitiesNone()` and every
+submission returns `HalStatusCode::UnsupportedBaseline`. `D3D11Capabilities.cpp`
+(probe), `D3D11Util.cpp` and `D3D11Context.cpp` are additionally gated behind `win32`
+because they need the Direct3D headers, and there is no working Windows build of this
+backend yet - the code is written but untested.
 
 Requires [SPIRV-Cross](https://github.com/khronosgroup/spirv-cross) to be built with `cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSPIRV_CROSS_SHARED=ON`.
 Otherwise, the compiler will complain about linking static SPIRV-Cross
@@ -30,7 +32,7 @@ compiled without Position-Independent Code (`-fPIC`)
 | File | State |
 |---|---|
 | `KldImplLib.h` | Declares the backend C ABI: `kld_create_rendering_device`, `kld_destroy_rendering_device`, `kld_get_renderer_name`, `kld_get_version`, `kld_get_last_error_message` |
-| `KaldiD3D11Device.hpp` | `D3D11::Device : Kld::Device` placeholder class (constructor only) |
+| `KaldiD3D11Device.hpp` | `D3D11::Device : Kld::Device` **provisional**: implements `capabilities()` (always `halCapabilitiesNone()`) and `processCommandQueue()` (always `UnsupportedBaseline`) because it owns no device |
 | `KaldiD3D11Device.cpp` | Stub exports: create returns `nullptr`, destroy is a no-op, renderer name is `"Direct3D11 Renderer"`, version is `"0.0.1"`, last error is `nullptr` |
 | `D3D11Context.hpp` / `.cpp` | `D3D11::Context`: `D3D11CreateDeviceAndSwapChain`, the RTV/DSV pair, `present()` and `resize()`; **Windows only, unverifiable here** |
 | `D3D11Util.hpp` / `D3D11Util.cpp` | `Kld::VertexDescriptor` -> owning `D3D11_INPUT_ELEMENT_DESC` layout, `Kld::BufferMapAccess` -> `D3D11_MAP`, `DecodeTarget` -> `D3D11_SUBRESOURCE_DATA`; **Windows only** |
@@ -51,7 +53,7 @@ Windows SDK, and not something to ship in a binary release.
 ## TODO
 
 - [x] Add `D3D11::probeCapabilities(ID3D11Device*)` reporting `KaldiHalVersion1_0` with probed limits (wire it into `Device::capabilities()` once the backend owns its device).
-- [ ] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set.
+- [x] Add provisional `Device::capabilities()` / `Device::processCommandQueue()` implementations that fail honestly with `UnsupportedBaseline` and document the porting plan in the `.cpp`.
 - [ ] Create the `ID3D11Device`/`ID3D11DeviceContext` and an `IDXGISwapChain` from the `SDL_SysWMinfo` HWND.
 - [ ] Feed `D3D::spirvToHlsl()` output through `D3DCompile` (or `dxc`) and create the shader objects.
 - [ ] Implement descriptors, render targets, the default framebuffer/swapchain path and explicit swapchains.

@@ -12,8 +12,12 @@ only target one GLSL dialect at a time.
 | `GlContextConfig.hpp` / `GlContextConfig.cpp` | `Kld::ConfigProvider` implementation for `ContextConfig`: field descriptors with ranges/defaults, per-purpose common defaults, and the clamping `apply()` |
 | `EglDisplay.hpp` / `EglDisplay.cpp` | Reference-counted `EGLDisplay` owner shared by every EGL context, plus `eglErrorName()` |
 | `EglContext.hpp` / `EglContext.cpp` | EGL implementation of `Context`: window surface, `ContextConfig`-driven config/context attributes, error reporting |
-| `GlUtil.hpp` / `GlUtil.cpp` | Euphemy `Format` -> GL format translation, `DecodeTarget`/`ImageView` uploads, `Kld::VertexDescriptor` -> vertex attribute state, `Kld::BufferMapAccess` -> `GL_MAP_*` bits |
+| `GlUtil.hpp` / `GlUtil.cpp` | Euphemy `Format` -> GL format translation, `DecodeTarget`/`ImageView` uploads, `Kld::VertexDescriptor` -> vertex attribute state (classic and explicit-binding overloads), `Kld::BufferMapAccess` -> `GL_MAP_*` bits |
 | `GlSpirvShader.hpp` / `GlSpirvShader.cpp` | SPIR-V (`Kld::ShaderBinaryDescriptor`) -> GLSL / GLSL ES text through SPIRV-Cross, with optional external cache hooks |
+| `GlDeviceConfig.hpp` / `GlDeviceConfig.cpp` | `DeviceConfig` (context + executor policy) and its `Kld::ConfigProvider`: UT-inspired keys (`bGlDebugLabels`, `bGlForceNearestFiltering`, `bGlForceTrilinear`, `fGlTextureLodBias`, `fGlMaxAnisotropy`, `iGlMaxTextureSize`) composed with the context fields |
+| `GlCommandExecutor.hpp` / `GlCommandExecutor.cpp` | The `Kld::Device::processCommandQueue()` implementation and its dispatch stream, handle registries, tracked state, frame/present path, clears, render passes and debug labels |
+| `GlExecutorResources.cpp` / `GlExecutorPipelines.cpp` / `GlExecutorTransfer.cpp` | Resource creation/updates, SPIR-V pipelines + binding + draw handlers, and copies/readbacks/queries/fences |
+| `GlExecutorMapping.hpp` | Inline Kaldi -> GL enum tables (blend, compare, stencil, filters, wrapping, index type, barriers, formats) shared by the executor translation units |
 | `KaldiGLCommon.pri` | Adds the include path and exposes `$$KALDIGL_COMMON_SOURCES` / `$$KALDIGL_COMMON_HEADERS` |
 
 `GlxContext.hpp` / `GlxContext.cpp` live in [KaldiGL](../KaldiGL/README.md)

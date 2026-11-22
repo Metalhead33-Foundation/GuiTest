@@ -30,6 +30,8 @@ INCLUDEPATH += $$PWD/../KaldiGLCommon
 # The GL config provider is plain translation code (no glad, no context), so the
 # configuration chain can be tested without linking a GL library.
 SOURCES += ../KaldiGLCommon/GlContextConfig.cpp
+# The device provider composes the context provider with the executor policy keys.
+SOURCES += ../KaldiGLCommon/GlDeviceConfig.cpp
 
 # SPIR-V -> GLSL is exactly what the GL backends do with Lotte's output. Compiling it
 # into the test binary proves the "one Vulkan blob for every backend" pipeline end to

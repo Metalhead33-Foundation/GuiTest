@@ -12,22 +12,44 @@
 #else
 #include <glad/gl.h>
 #endif
+#include <atomic>
 #include <stdexcept>
 #include <string>
 
 namespace KALDIGL_NS {
 
+namespace {
+
+/**
+ * @brief Number of live users of the process-wide GL entry points.
+ *
+ * glad's function pointers are global, so unloading them while a second device
+ * still exists would leave that device with null pointers. The counter makes
+ * loadGlFunctions()/unloadGlFunctions() a balanced pair per device.
+ */
+std::atomic<int> glLoadUsers { 0 };
+
+} // namespace
+
 int loadGlFunctions() noexcept
 {
 #if KALDIGL_IS_GLES
-	return gladLoaderLoadGLES2();
+	const int version = gladLoaderLoadGLES2();
 #else
-	return gladLoaderLoadGL();
+	const int version = gladLoaderLoadGL();
 #endif
+	if (version != 0) {
+		glLoadUsers.fetch_add(1, std::memory_order_relaxed);
+	}
+	return version;
 }
 
 void unloadGlFunctions() noexcept
 {
+	if (glLoadUsers.fetch_sub(1, std::memory_order_acq_rel) > 1) {
+		return;
+	}
+	glLoadUsers.store(0, std::memory_order_relaxed);
 #if KALDIGL_IS_GLES
 	gladLoaderUnloadGLES2();
 #else

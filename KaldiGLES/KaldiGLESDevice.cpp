@@ -1,13 +1,19 @@
 #include "KaldiGLESDevice.hpp"
 #include "GlCapabilities.hpp"
 #include <stdexcept>
+#include <string>
+
+namespace {
+/** @brief Last `kld_create_rendering_device` failure on this thread. */
+thread_local std::string glesLastError;
+}
 
 namespace GLES {
 
 Device::Device() = default;
 
-Device::Device(const SDL_SysWMinfo& window, const ContextConfig& config)
-	: context_(createContext(window, config))
+Device::Device(const SDL_SysWMinfo& window, const DeviceConfig& config)
+	: context_(createContext(window, config.context))
 {
 	context_->makeCurrent();
 	if (loadGlFunctions() == 0) {
@@ -16,6 +22,12 @@ Device::Device(const SDL_SysWMinfo& window, const ContextConfig& config)
 	}
 	applyDefaultState();
 	capabilities_ = probeCapabilities();
+	executor_ = std::make_unique<CommandExecutor>(*context_, capabilities_, config.executor);
+}
+
+Device::Device(const SDL_SysWMinfo& window, const ContextConfig& config)
+	: Device(window, DeviceConfig { config, ExecutorConfig {} })
+{
 }
 
 Device::~Device()
@@ -23,9 +35,32 @@ Device::~Device()
 	if (context_ == nullptr) {
 		return;
 	}
-	// The entry points were loaded by the constructor that created the context.
+	// GL objects must be deleted while their context is current. If making it
+	// current fails, leaking the executor is safer than deleting objects in
+	// whatever context happens to be current on this thread.
+	bool current = false;
+	try {
+		context_->makeCurrent();
+		current = true;
+	} catch (...) {
+		current = false;
+	}
+	if (current) {
+		executor_.reset();
+	} else {
+		(void)executor_.release();
+	}
 	context_->releaseCurrent();
 	unloadGlFunctions();
+}
+
+Kld::HalStatus Device::processCommandQueue(std::span<const Kld::GfxOp> commands)
+{
+	if (executor_ == nullptr) {
+		return Kld::HalStatus { Kld::HalStatusCode::InitializationFailed,
+					"the device has no GL context to execute commands on" };
+	}
+	return executor_->process(commands);
 }
 
 const char* Device::apiName() const noexcept
@@ -45,31 +80,31 @@ void Device::swapBuffers()
 
 MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo)
 {
-	// capabilities() exists now, but GLES::Device stays abstract until
-	// processCommandQueue() is implemented, so the C ABI cannot hand out an
-	// instance yet. The context layer remains usable directly through
-	// GLES::createContext() for capabilities probing and smoke tests.
-	(void)window_info;
-	(void)creationInfo;
-	return nullptr;
+	(void)creationInfo; // The drawable is already sized by the windowing layer.
+	if (window_info == nullptr) {
+		glesLastError = "kld_create_rendering_device: window_info is null";
+		return nullptr;
+	}
+	try {
+		return reinterpret_cast<MhRenderingDeviceHandle>(new GLES::Device(*window_info));
+	} catch (const std::exception& error) {
+		glesLastError = error.what();
+		return nullptr;
+	}
 }
 void kld_destroy_rendering_device(MhRenderingDeviceHandle device)
 {
-	// TODO: Actually implement
-	(void)device;
+	delete reinterpret_cast<GLES::Device*>(device);
 }
 const char* kld_get_renderer_name(void)
 {
-	// TODO: Actually implement
 	return "OpenGL ES Renderer";
 }
 const char* kld_get_version(void)
 {
-	// TODO: Actually implement
-	return "0.0.1";
+	return "0.1.0";
 }
 const char* kld_get_last_error_message(void)
 {
-	// TODO: Actually implement
-	return nullptr;
+	return glesLastError.empty() ? nullptr : glesLastError.c_str();
 }

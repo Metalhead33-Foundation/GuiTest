@@ -24,12 +24,17 @@ SOURCES +=  \
     VkPlatform.cpp \
     VkContext.cpp \
     VkCapabilities.cpp \
+    VkCommandExecutor.cpp \
+    VkExecutorFrames.cpp \
+    VkExecutorResources.cpp \
+    VkExecutorUnsupported.cpp \
     VkUtil.cpp \
     KaldiVulkanDevice.cpp
 HEADERS += \
     VkPlatform.hpp \
     VkContext.hpp \
     VkCapabilities.hpp \
+    VkCommandExecutor.hpp \
     VkUtil.hpp \
     KaldiVulkanDevice.hpp \
     KldImplLib.h

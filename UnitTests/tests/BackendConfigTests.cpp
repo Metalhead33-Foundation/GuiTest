@@ -12,8 +12,10 @@
  * `UnitTests.pro`) so the GL provider is exercised without linking a GL library.
  */
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include <Kaldi/KldConfig.hpp>
 #include <KaldiGLCommon/GlContextConfig.hpp>
+#include <KaldiGLCommon/GlDeviceConfig.hpp>
 #include <Lotte/Conf/LteBackendConfig.hpp>
 #include <Euphemy/Config/EuphConfiguration.hpp>
 #include <string>
@@ -162,4 +164,66 @@ TEST_CASE("Config helpers reject values outside the choice list", "[config][back
 	CHECK(Kld::configFieldAllows(Kld::commonConfigFields().front(), "anything"));
 	CHECK(Kld::configValueTypeName(Kld::ConfigValueType::FloatValue) == std::string_view("float"));
 	CHECK(Kld::configKeyPrefix(Kld::ConfigValueType::IntegerValue) == 'i');
+}
+
+TEST_CASE("The GL device provider adds executor keys to the context keys", "[config][backend]")
+{
+	GL::DeviceConfig config = GL::defaultDeviceConfig();
+	GL::DeviceConfigProvider provider(config);
+	const std::span<const Kld::ConfigField> fields = provider.fields(Kld::ContextPurpose::MainWindow);
+	const auto hasKey = [&fields](std::string_view key) {
+		for (const Kld::ConfigField& field : fields) {
+			if (key == field.key) {
+				return true;
+			}
+		}
+		return false;
+	};
+	CHECK(hasKey("sGlApi"));
+	CHECK(hasKey("bGlDebugLabels"));
+	CHECK(hasKey("bGlForceNearestFiltering"));
+	CHECK(hasKey("bGlForceTrilinear"));
+	CHECK(hasKey("fGlTextureLodBias"));
+	CHECK(hasKey("fGlMaxAnisotropy"));
+	CHECK(hasKey("iGlMaxTextureSize"));
+	for (const Kld::ConfigField& field : fields) {
+		REQUIRE(field.key != nullptr);
+		CHECK(field.key[0] == Kld::configKeyPrefix(field.type));
+	}
+}
+
+TEST_CASE("Applying a device configuration sets and clamps the executor policy", "[config][backend]")
+{
+	Euph::Conf::Configuration ini;
+	Euph::Conf::ConfigurationSection& section = ini.getSections()["graphics"];
+	section.setBool("bGlDebugLabels", false);
+	section.setBool("bGlForceNearestFiltering", true);
+	section.setBool("bGlForceTrilinear", true);
+	section.setFloat("fGlTextureLodBias", 0.25F);
+	section.setFloat("fGlMaxAnisotropy", 99.0F); // outside the advertised range
+	section.setUint("iGlMaxTextureSize", 4096);
+
+	GL::DeviceConfig config = GL::defaultDeviceConfig();
+	GL::DeviceConfigProvider provider(config);
+	Lotte::Conf::ConfigurationReader reader(ini, "graphics");
+	REQUIRE(provider.apply(reader));
+	CHECK_FALSE(config.executor.debugLabels);
+	CHECK(config.executor.forceNearestFiltering);
+	CHECK(config.executor.forceTrilinear);
+	CHECK(config.executor.textureLodBias == Catch::Approx(0.25F));
+	CHECK(config.executor.maxAnisotropy == Catch::Approx(16.0F));
+	CHECK(config.executor.maxTextureSize == 4096);
+	// The context half is still applied by the composed provider.
+	CHECK(config.context.versionMajor == 4);
+}
+
+TEST_CASE("The device provider reports the executor anisotropy in its description", "[config][backend]")
+{
+	GL::DeviceConfig config = GL::defaultDeviceConfig();
+	config.executor.maxAnisotropy = 8.0F;
+	GL::DeviceConfigProvider provider(config);
+	const Kld::DeviceConfig description = provider.description(Kld::ContextPurpose::MainWindow);
+	CHECK(description.maxAnisotropy == Catch::Approx(8.0F));
+	CHECK(description.width == 1280);
+	CHECK(description.generateMipmaps);
 }

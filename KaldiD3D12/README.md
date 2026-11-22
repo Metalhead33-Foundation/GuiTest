@@ -3,11 +3,13 @@
 Direct3D 12 backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 
 **Status: stub, and currently not buildable.** The C ABI is exported and the shared
-translation helpers compile, but no rendering is implemented: `D3D12::Device` declares no
-overrides for `Kld::Device`'s pure virtual functions, so it is abstract and nothing can be
-submitted to it yet. `D3D12Util.cpp` is additionally gated behind `win32` because it needs
-`<directx/d3d12.h>`, and there is no working Windows build of this backend yet - the code
-is written but untested.
+translation helpers compile, but no rendering is implemented. `D3D12::Device` now
+overrides `capabilities()` and `processCommandQueue()` as **provisional** answers:
+the class owns no `ID3D12Device`, so the snapshot is `halCapabilitiesNone()` and every
+submission returns `HalStatusCode::UnsupportedBaseline`. `D3D12Capabilities.cpp`,
+`D3D12Util.cpp` and `D3D12Context.cpp` are additionally gated behind `win32` because
+they need the Direct3D headers, and there is no working Windows build of this backend
+yet - the code is written but untested.
 
 Requires [SPIRV-Cross](https://github.com/khronosgroup/spirv-cross) to be built with `cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSPIRV_CROSS_SHARED=ON`.
 Otherwise, the compiler will complain about linking static SPIRV-Cross
@@ -30,7 +32,7 @@ compiled without Position-Independent Code (`-fPIC`)
 | File | State |
 |---|---|
 | `KldImplLib.h` | Declares the backend C ABI: `kld_create_rendering_device`, `kld_destroy_rendering_device`, `kld_get_renderer_name`, `kld_get_version`, `kld_get_last_error_message` |
-| `KaldiD3D12Device.hpp` | `D3D12::Device : Kld::Device` placeholder class (constructor only) |
+| `KaldiD3D12Device.hpp` | `D3D12::Device : Kld::Device` **provisional**: implements `capabilities()` (always `halCapabilitiesNone()`) and `processCommandQueue()` (always `UnsupportedBaseline`) because it owns no device |
 | `KaldiD3D12Device.cpp` | Stub exports: create returns `nullptr`, destroy is a no-op, renderer name is `"Direct3D12 Renderer"`, version is `"0.0.1"`, last error is `nullptr` |
 | `D3D12Context.hpp` / `.cpp` | `D3D12::Context`: factory, adapter pick, device, direct queue, flip-model swap chain, RTV heap, fence-based `waitForGpu()`, `present()` and `resize()`; **Windows only, unverifiable here** |
 | `D3D12Util.hpp` / `D3D12Util.cpp` | `Kld::VertexDescriptor` -> owning `D3D12_INPUT_ELEMENT_DESC` layout, `DecodeTarget` -> `D3D12_SUBRESOURCE_DATA`; **Windows only** |
@@ -46,7 +48,7 @@ it contains an older `d3d12.h`/`dxgiformat.h` and the two header sets cannot be 
 ## TODO
 
 - [x] Add `D3D12::probeCapabilities(ID3D12Device*)` reporting `KaldiHalVersion1_0` with probed limits (wire it into `Device::capabilities()` once the backend owns its device).
-- [ ] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set.
+- [x] Add provisional `Device::capabilities()` / `Device::processCommandQueue()` implementations that fail honestly with `UnsupportedBaseline` and document the porting plan in the `.cpp`.
 - [ ] Create the factory/device/command queue/swapchain and the descriptor heaps needed by the Kaldi resource model.
 - [ ] Translate the Kaldi render-pass and binding-layout descriptors into D3D12 root signatures and pipeline state objects.
 - [ ] Feed `D3D::spirvToHlsl()` output through `dxc` to DXIL (or `D3DCompile` to DXBC) and create the shader objects.

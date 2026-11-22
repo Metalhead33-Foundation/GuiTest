@@ -8,16 +8,16 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 142 test cases / 1879 assertions covering the
+**Status: implemented and passing.** 145 test cases / 1945 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
 snapshots, field deltas, interpolation, prediction, lockstep and the reference
 pipeline), the minimal HTTP parser/client/server, the platform wrappers and a
 localhost UDP smoke test, plus the graphics side: HLSL/GLSL -> SPIR-V shader
 compilation and SPIR-V -> GLSL cross-compilation, the Vulkan/DXGI format tables,
-backend configuration clamping, the SDL window-handle extraction, the Kaldi HAL
-capability fallbacks and the Kaldi command-dispatch layer (both the computed-goto
-and the `switch` structure).
+backend configuration clamping (including the GL executor policy keys), the SDL
+window-handle extraction, the Kaldi HAL capability fallbacks and the Kaldi
+command-dispatch layer (both the computed-goto and the `switch` structure).
 
 ## Build and run
 

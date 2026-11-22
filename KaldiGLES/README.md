@@ -2,16 +2,16 @@
 
 OpenGL ES 3.2 backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 
-**Status: stub.** The library builds and exports the backend C ABI, and `GLES::Device` now
-implements `capabilities()` by probing the context it creates, but `processCommandQueue()`
-is still missing, so the class is abstract and nothing can be submitted to it yet. What
-*does* work is the window-system and capability half: `GLES::createContext()` turns an SDL
-window into a current OpenGL ES 3.2 context through EGL, loads the GL entry points, and
-`GLES::probeCapabilities()` reports the portable limits (`GL_MAX_*`, ES version gates, and
-the S3TC/`GL_KHR_debug` extensions), with the ES-specific answers (`maxTexture1DSize = 0`,
-one vertex buffer before ES 3.2). The translation helpers the implementation needs already
-exist in [`KaldiGLCommon`](../KaldiGLCommon/README.md) and are compiled into this library -
-before the refactor, `GlUtil`/`GlSpirvShader` only existed inside `KaldiGL`.
+**Status: rendering (default framebuffer path).** The library builds and exports the
+backend C ABI, `GLES::Device` owns an EGL context and a command executor, and
+`processCommandQueue()` executes the Kaldi command vocabulary: buffers, textures,
+images, samplers, framebuffers, SPIR-V graphics/compute pipelines, bindings, every
+draw and indirect form, render state, barriers, transfers/readbacks, queries, debug
+labels and the `BeginFrame`/`Present` path. Destroy commands delete GL names
+immediately, which is the HAL's deferred retirement for OpenGL ES. Explicit swapchain
+objects are the one deliberate gap (`UnsupportedBaseline`). The executor has been
+validated with an offscreen triangle plus per-pixel readback on an ES 3.2 context
+(NVIDIA).
 
 Requires [SPIRV-Cross](https://github.com/khronosgroup/spirv-cross) to be built with `cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSPIRV_CROSS_SHARED=ON`.
 Otherwise, the compiler will complain about linking static SPIRV-Cross
@@ -34,11 +34,15 @@ compiled without Position-Independent Code (`-fPIC`)
 | File | State |
 |---|---|
 | `KldImplLib.h` | Declares the backend C ABI: `kld_create_rendering_device`, `kld_destroy_rendering_device`, `kld_get_renderer_name`, `kld_get_version`, `kld_get_last_error_message` |
-| `KaldiGLESDevice.hpp` | `GLES::Device : Kld::Device`; owns the EGL `Context`, implements `capabilities()` from a probed snapshot, exposes `context()`, `apiName()`, `swapBuffers()`; still abstract because the command-queue half is unimplemented |
-| `KaldiGLESDevice.cpp` | EGL context creation/make-current/GL loading and the capability probe in the `Device` constructor, teardown in the destructor; C exports still return `nullptr` until `processCommandQueue()` exists |
+| `KaldiGLESDevice.hpp` | `GLES::Device : Kld::Device`; owns the EGL `Context` and a `CommandExecutor`, implements `capabilities()` and `processCommandQueue()`, exposes `context()`, `executor()`, `apiName()`, `swapBuffers()` |
+| `KaldiGLESDevice.cpp` | EGL context creation/make-current/GL loading, the capability probe, executor construction and teardown; the C ABI creates/destroys a real device and keeps a thread-local error message |
 | `../KaldiGLCommon/GlContext.*`, `EglDisplay.*`, `EglContext.*` | Shared context contract (`Context`, `ContextConfig`, `createContext()`), EGL display refcounting and the EGL implementation |
 | `../KaldiGLCommon/GlContextConfig.*` | `Kld::ConfigProvider` for `ContextConfig` (GLES defaults: 3.2, no profile bits) |
 | `../KaldiGLCommon/GlCapabilities.*` | `GLES::probeCapabilities()`: `GL_MAX_*` limits, ES version gates for compute/indirect draws/storage resources, and `GL_KHR_debug`/S3TC extension detection |
+| `../KaldiGLCommon/GlDeviceConfig.*` | `DeviceConfig` + `DeviceConfigProvider`: context fields composed with the executor policy keys |
+| `../KaldiGLCommon/GlCommandExecutor.*` | The `processCommandQueue()` implementation shared with `KaldiGL`, including the ES-specific `UnsupportedBaseline` answers (1D textures, base-instance draws, polygon mode, depth clamp, sampler LOD bias, timestamp queries without `EXT_disjoint_timer_query`) |
+| `../KaldiGLCommon/GlExecutorResources.*` / `GlExecutorPipelines.*` / `GlExecutorTransfer.*` | Resource creation/update, SPIR-V pipelines + bindings + draws, and copies/readbacks/queries/fences |
+| `../KaldiGLCommon/GlExecutorMapping.*` | Pure Kaldi -> GL enum tables used by the executor |
 | `../Kaldi/KldDispatch.hpp` | Backend-side dispatch layer the command queue will use: `KLD_OPCODE_LIST`, `opcodeName()` diagnostics, and the structure-shifting macros (computed goto on GCC/Clang, `switch` fallback) that keep one handler body per opcode |
 
 ## ES-specific limitations
@@ -58,11 +62,11 @@ A CPU-side conversion in Euphemy is the intended fix.
 
 ## TODO
 
-- [x] Implement `Device::capabilities()` and report `KaldiHalVersion1_0` with probed limits (the C ABI still waits for `processCommandQueue()`).
-- [ ] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set.
+- [x] Implement `Device::capabilities()` and report `KaldiHalVersion1_0` with probed limits.
+- [x] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set (explicit swapchain objects report `UnsupportedBaseline`).
 - [x] Create and own an OpenGL ES 3.2 context from the native window handle (EGL, via `GLES::createContext`).
-- [ ] Implement the backend-owned `DefaultFramebuffer` and the `BeginFrame`/`EndFrame`/`Present` path, plus explicit swapchains.
-- [ ] Implement deferred resource retirement for destroy commands.
-- [ ] Compile the GLSL ES produced by `GLES::spirvToGlsl()` into program objects.
-- [ ] Return real status/error strings instead of `nullptr`.
-- [ ] Add a smoke test that creates a device, uploads a texture and clears the default framebuffer.
+- [ ] Implement the backend-owned `DefaultFramebuffer` and the `BeginFrame`/`EndFrame`/`Present` path, plus explicit swapchains. (The default path works; explicit swapchain objects are still `UnsupportedBaseline`.)
+- [ ] Implement deferred resource retirement for destroy commands. (Immediate `glDelete*` is already deferred by the driver; document or replace with an explicit queue.)
+- [x] Compile the GLSL ES produced by `GLES::spirvToGlsl()` into program objects.
+- [ ] Return real status/error strings instead of `nullptr`. (Devices and executors report messages; `kld_get_last_error_message` is only `nullptr` before the first failure.)
+- [x] Add a smoke test that creates a device, uploads a texture and clears the default framebuffer. (An offscreen triangle + readback covers the pipeline; a window-present smoke test is still useful.)

@@ -16,6 +16,11 @@ include(../KaldiGLCommon/KaldiGLCommon.pri)
 # Shader cross-compilation support (SPIR-V -> GLSL) is a backend concern.
 LIBS += -lspirv-cross-core -lspirv-cross-glsl
 
+# GlxContext calls Xlib directly (XGetWindowAttributes, XVisualIDFromVisual,
+# XFree, ...), so the desktop backend has to link libX11 explicitly. EGL is
+# loaded at runtime through glad.
+unix:!macx: LIBS += -lX11
+
 # Avoid build errors with no files:
 SOURCES +=  \
     ../glad/src/egl.c \

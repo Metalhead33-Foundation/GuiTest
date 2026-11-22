@@ -166,5 +166,27 @@ GLbitfield toGlMapBits(Kld::BufferMapAccess access, bool entireBuffer);
  */
 bool applyVertexDescriptor(const Kld::VertexDescriptor& vertexDescriptor);
 
+/**
+ * @brief Feeds a Kaldi vertex layout into one explicit vertex-buffer binding.
+ *
+ * Unlike the single-argument overload, which uses the classic
+ * `glVertexAttribPointer` path (and therefore captures whatever buffer happens
+ * to be bound to `GL_ARRAY_BUFFER`, with a per-attribute stride), this overload
+ * uses `glVertexAttribFormat` + `glVertexAttribBinding` from GL 4.3 / ES 3.1.
+ * Every attribute is associated with the vertex buffer binding @p binding
+ * (normally 0), so `glBindVertexBuffer(binding, buffer, offset, stride)` can
+ * supply the buffer, base offset, stride and divisor at draw time - which is
+ * exactly what `Kld::OpBindVertexBuffer` describes.
+ *
+ * This is the model the command executor uses. Call it with a VAO bound; no
+ * `GL_ARRAY_BUFFER` binding is required.
+ *
+ * @param vertexDescriptor Vertex layout; attribute locations are vector indices.
+ * @param binding Vertex buffer binding index the attributes are attached to.
+ * @return @c false when an attribute uses a primitive type the current dialect
+ *         cannot express (64-bit components on GLES).
+ */
+bool applyVertexDescriptor(const Kld::VertexDescriptor& vertexDescriptor, GLuint binding);
+
 }
 #endif // KALDIGLUTIL_HPP

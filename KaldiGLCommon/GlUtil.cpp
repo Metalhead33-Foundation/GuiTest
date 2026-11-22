@@ -501,4 +501,55 @@ bool applyVertexDescriptor(const Kld::VertexDescriptor& vertexDescriptor)
 	return supported;
 }
 
+bool applyVertexDescriptor(const Kld::VertexDescriptor& vertexDescriptor, GLuint binding)
+{
+	bool supported = true;
+	for (std::size_t location = 0; location < vertexDescriptor.descriptors.size(); ++location) {
+		const Kld::AttributeDescriptor& attribute = vertexDescriptor.descriptors[location];
+		const GLuint index = static_cast<GLuint>(location);
+		const GLint size = static_cast<GLint>(attribute.type & Kld::PrimitiveType::SIZE_MASK);
+		if (size < 1 || size > 4) {
+			supported = false;
+			continue;
+		}
+		const bool normalized = (attribute.type & Kld::PrimitiveType::IS_NORMALIZED) != 0;
+		const GLuint offset = static_cast<GLuint>(attribute.offset);
+		const unsigned scalar = attribute.type & Kld::PrimitiveType::TYPE_MASK;
+
+		GLenum type = GL_INVALID_ENUM;
+		bool integer = false;
+		bool wide = false;
+		switch (scalar) {
+			case Kld::PrimitiveType::TYPE_HALF_FLOAT: type = GL_HALF_FLOAT; break;
+			case Kld::PrimitiveType::TYPE_FLOAT: type = GL_FLOAT; break;
+			case Kld::PrimitiveType::TYPE_DOUBLE: wide = true; break;
+			case Kld::PrimitiveType::TYPE_UBYTE: type = GL_UNSIGNED_BYTE; integer = true; break;
+			case Kld::PrimitiveType::TYPE_SBYTE: type = GL_BYTE; integer = true; break;
+			case Kld::PrimitiveType::TYPE_USHORT: type = GL_UNSIGNED_SHORT; integer = true; break;
+			case Kld::PrimitiveType::TYPE_SSHORT: type = GL_SHORT; integer = true; break;
+			case Kld::PrimitiveType::TYPE_UINT: type = GL_UNSIGNED_INT; integer = true; break;
+			case Kld::PrimitiveType::TYPE_SINT: type = GL_INT; integer = true; break;
+			default: break;
+		}
+		if (wide) {
+#if KALDIGL_IS_GLES
+			supported = false;
+			continue;
+#else
+			glVertexAttribLFormat(index, size, GL_DOUBLE, offset);
+#endif
+		} else if (type == GL_INVALID_ENUM) {
+			supported = false;
+			continue;
+		} else if (integer && !normalized) {
+			glVertexAttribIFormat(index, size, type, offset);
+		} else {
+			glVertexAttribFormat(index, size, type, normalized ? GL_TRUE : GL_FALSE, offset);
+		}
+		glVertexAttribBinding(index, binding);
+		glEnableVertexAttribArray(index);
+	}
+	return supported;
+}
+
 } // namespace KALDIGL_NS

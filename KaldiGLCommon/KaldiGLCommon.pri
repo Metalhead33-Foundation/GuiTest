@@ -21,19 +21,27 @@ INCLUDEPATH += $$quote($$PWD)
 KALDIGL_COMMON_SOURCES += \
     $$PWD/GlContext.cpp \
     $$PWD/GlContextConfig.cpp \
+    $$PWD/GlDeviceConfig.cpp \
     $$PWD/EglDisplay.cpp \
     $$PWD/EglContext.cpp \
     $$PWD/GlSpirvShader.cpp \
     $$PWD/GlUtil.cpp \
-    $$PWD/GlCapabilities.cpp
+    $$PWD/GlCapabilities.cpp \
+    $$PWD/GlCommandExecutor.cpp \
+    $$PWD/GlExecutorResources.cpp \
+    $$PWD/GlExecutorPipelines.cpp \
+    $$PWD/GlExecutorTransfer.cpp
 
 KALDIGL_COMMON_HEADERS += \
     $$PWD/GlBackend.hpp \
     $$PWD/GlContext.hpp \
     $$PWD/GlContextConfig.hpp \
+    $$PWD/GlDeviceConfig.hpp \
     $$PWD/EglDisplay.hpp \
     $$PWD/EglContext.hpp \
     $$PWD/GlSpirvShader.hpp \
     $$PWD/GlUtil.hpp \
-    $$PWD/GlCapabilities.hpp
+    $$PWD/GlCapabilities.hpp \
+    $$PWD/GlCommandExecutor.hpp \
+    $$PWD/GlExecutorMapping.hpp
 

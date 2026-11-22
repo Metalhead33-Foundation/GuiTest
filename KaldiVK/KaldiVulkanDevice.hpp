@@ -10,17 +10,21 @@
  * `Device` remains abstract until the command-queue implementation lands.
  */
 #include <Kaldi/KldDevice.hpp>
+#include "VkCommandExecutor.hpp"
 #include "VkContext.hpp"
 #include "KldImplLib.h"
 #include <memory>
+#include <span>
 
 namespace Vk {
 /**
  * @brief Vulkan implementation of the Kaldi rendering device contract.
  *
- * `capabilities()` is implemented by probing the physical device the context
- * selected; `processCommandQueue()` is still unimplemented, so `Device` remains
- * abstract until the command queue lands.
+ * The device owns the context and a `CommandExecutor`. `capabilities()` is
+ * probed from the selected physical device; `processCommandQueue()` delegates to
+ * the executor, whose implemented command scope is documented in
+ * `VkCommandExecutor.hpp` (buffers and the frame lifecycle today, with named
+ * `UnsupportedBaseline` answers for the still-pending handlers).
  */
 class MH_KALDI_IMPL_API Device : public Kld::Device
 {
@@ -37,7 +41,7 @@ public:
 	 */
 	explicit Device(const SDL_SysWMinfo& window, const ContextConfig& config = ContextConfig());
 
-	/** @brief Waits for idle and destroys the device, surface and instance. */
+	/** @brief Waits for idle, destroys the executor, device, surface and instance. */
 	~Device() override;
 
 	Device(const Device&) = delete;
@@ -48,10 +52,17 @@ public:
 	/** @brief The capabilities probed from the owned context, or none when detached. */
 	const Kld::HalCapabilities& capabilities() const override { return capabilities_; }
 
+	/** @brief Executes the command queue through the owned Vulkan executor. */
+	Kld::HalStatus processCommandQueue(std::span<const Kld::GfxOp> commands) override;
+
 	/** @brief The owned context, or @c nullptr for a detached device. */
 	Context* context() noexcept { return context_.get(); }
 	/** @brief The owned context, or @c nullptr for a detached device. */
 	const Context* context() const noexcept { return context_.get(); }
+	/** @brief The owned command executor, or @c nullptr for a detached device. */
+	CommandExecutor* executor() noexcept { return executor_.get(); }
+	/** @brief The owned command executor, or @c nullptr for a detached device. */
+	const CommandExecutor* executor() const noexcept { return executor_.get(); }
 	/** @brief True when the device owns a context. */
 	bool hasContext() const noexcept { return context_ != nullptr; }
 
@@ -60,6 +71,7 @@ public:
 
 private:
 	std::unique_ptr<Context> context_;
+	std::unique_ptr<CommandExecutor> executor_;
 	Kld::HalCapabilities capabilities_ = Kld::halCapabilitiesNone();
 };
 }

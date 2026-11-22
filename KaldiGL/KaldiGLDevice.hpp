@@ -17,17 +17,20 @@
  * the context and unloads the entry points again.
  */
 #include <Kaldi/KldDevice.hpp>
+#include "GlCommandExecutor.hpp"
 #include "GlContext.hpp"
 #include "KldImplLib.h"
 #include <memory>
+#include <span>
 
 namespace GL {
 /**
  * @brief OpenGL implementation of the Kaldi rendering device contract.
  *
- * `capabilities()` is implemented by probing the context created in the
- * constructor; `processCommandQueue()` is still unimplemented, so `Device`
- * remains abstract until the command queue lands.
+ * The device owns the context and a `CommandExecutor`; `capabilities()` is probed
+ * from the context in the constructor and `processCommandQueue()` delegates to
+ * the executor. See `GlCommandExecutor.hpp` for the implemented command set and
+ * the deliberate `UnsupportedBaseline` gaps.
  */
 class MH_KALDI_IMPL_API Device : public Kld::Device
 {
@@ -38,13 +41,20 @@ public:
 	/**
 	 * @brief Creates a device and a GL context for @p window.
 	 * @param window SDL window-manager info of the window to render into.
-	 * @param config Requested GL version, profile and buffer sizes.
+	 * @param config Context request plus command-executor policy.
 	 * @throws std::invalid_argument When @p window has no usable native drawable.
 	 * @throws std::runtime_error When context creation or GL loading fails.
 	 */
-	explicit Device(const SDL_SysWMinfo& window, const ContextConfig& config = defaultContextConfig());
+	explicit Device(const SDL_SysWMinfo& window, const DeviceConfig& config = defaultDeviceConfig());
 
-	/** @brief Releases the context and unloads the GL entry points. */
+	/**
+	 * @brief Convenience overload using the default command-executor policy.
+	 * @param window SDL window-manager info of the window to render into.
+	 * @param config Requested context version, profile and buffer sizes.
+	 */
+	explicit Device(const SDL_SysWMinfo& window, const ContextConfig& config);
+
+	/** @brief Releases the executor, the context and the GL entry points. */
 	~Device() override;
 
 	Device(const Device&) = delete;
@@ -55,10 +65,17 @@ public:
 	/** @brief The capabilities probed from the owned context, or none when detached. */
 	const Kld::HalCapabilities& capabilities() const override { return capabilities_; }
 
+	/** @brief Executes the command queue through the owned GL executor. */
+	Kld::HalStatus processCommandQueue(std::span<const Kld::GfxOp> commands) override;
+
 	/** @brief The owned context, or @c nullptr for a detached device. */
 	Context* context() noexcept { return context_.get(); }
 	/** @brief The owned context, or @c nullptr for a detached device. */
 	const Context* context() const noexcept { return context_.get(); }
+	/** @brief The owned command executor, or @c nullptr for a detached device. */
+	CommandExecutor* executor() noexcept { return executor_.get(); }
+	/** @brief The owned command executor, or @c nullptr for a detached device. */
+	const CommandExecutor* executor() const noexcept { return executor_.get(); }
 	/** @brief True when the device owns a context. */
 	bool hasContext() const noexcept { return context_ != nullptr; }
 
@@ -73,6 +90,7 @@ public:
 
 private:
 	std::unique_ptr<Context> context_;
+	std::unique_ptr<CommandExecutor> executor_;
 	Kld::HalCapabilities capabilities_ = Kld::halCapabilitiesNone();
 };
 }
