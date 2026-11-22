@@ -72,5 +72,7 @@ void testTextPipeline();
 void testSignals();
 /** @brief Exercises Lotte mesh and GUI geometry batching against the Kaldi facade. */
 void testGeometryBatches();
+/** @brief Exercises the reference snapshot replication pipeline without sockets. */
+void testNetLoopback();
 
 #endif // SANDBOX_HPP

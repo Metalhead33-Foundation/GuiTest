@@ -37,6 +37,7 @@ required. `main()` calls the scenarios in `sandbox.cpp` one after another; edit 
 | `testTextPipeline()` | Lotte text pipeline: entities, colours, MML, UTF-8, glyph placement, quads |
 | `testSignals()` | Elvavena `Signal`/`Connection`/`ScopedConnection` |
 | `testGeometryBatches()` | Lotte `GuiGeometryBatch` and `Gfx::MeshBuilder` against a Kaldi `CommandBuffer` |
+| `testNetLoopback()` | Elvavena reference replication pipeline: interest-filtered spawn, ack-gated delta, client parse and jitter buffer (no sockets) |
 | `testFontParser()` | Lotte `FontFace` through `FontDataStream`; reads the hardcoded `/home/legacy/vinque.bin`, which must be a FontPacker `WODF` file |
 
 `testFontParser()` is machine-specific on purpose: it prints the metadata of whatever font file the

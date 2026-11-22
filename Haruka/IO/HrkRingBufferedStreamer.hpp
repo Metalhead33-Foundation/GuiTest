@@ -9,6 +9,7 @@
  * and backend implementations that include this module.
  */
 #include <Haruka/IO/HrkPlaybackStatePlayable.hpp>
+#include <Elvavena/Util/ElvContiguousRingBuffer.hpp>
 #include <algorithm>
 #include <cstring>
 #include <memory_resource>
@@ -26,10 +27,10 @@ inline std::pmr::memory_resource* get_default_memory_resource() {
 class MH_HARUKA_API RingBufferedStreamer : public PlaybackStatePlayable
 {
 private:
+	using SampleBuffer = Elv::Util::ContiguousRingBuffer<float, std::pmr::polymorphic_allocator<float>>;
 	FrameCount ringCapacityFrames;
-	std::pmr::vector<float> ringBuffer;
-	FrameCount bufferedFrames;
-	uintptr_t ringReadFrame;
+	std::pmr::memory_resource* memoryResource;
+	SampleBuffer ringBuffer;
 	FrameIndex expectedStateCursor;
 	FrameIndex decoderCursor;
 	bool decoderSynced;
@@ -38,6 +39,7 @@ private:
 	void setCursorInternal(FrameIndex newCursor);
 	void advanceCursorInternal(FrameCount advanceBy);
 	void clearBufferedFrames();
+	FrameCount bufferedFrames() const;
 	void reconfigureIfNeeded(ChannelCount streamChannels, SampleRate streamSampleRate);
 	bool syncDecoderToStateCursor(ChannelCount streamChannels, SampleRate streamSampleRate);
 	FrameCount fillBufferedFrames(FrameCount desiredFrames, ChannelCount streamChannels, SampleRate streamSampleRate);
