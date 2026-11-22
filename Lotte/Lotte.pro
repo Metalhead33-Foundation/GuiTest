@@ -14,6 +14,16 @@ LIBS += -lglslang -lSPIRV -lglslang-default-resource-limits
 # Kaldi is used by Lotte as a header-only dependency. Do not add -lKaldi
 # or libKaldi here; there is no Kaldi library target to link against.
 #
+# CSS support for MML is optional. libcss (NetSurf) is a C library needed by one
+# module only, and `Text/LteCssStyle.cpp` compiles to nothing without the define,
+# so the library keeps building on hosts that do not have it installed.
+packagesExist(libcss) {
+    message("Lotte: libcss found, enabling MML CSS support (LTE_WITH_LIBCSS)")
+    CONFIG += link_pkgconfig
+    PKGCONFIG += libcss
+    DEFINES += LTE_WITH_LIBCSS
+}
+#
 # utfcpp (https://github.com/nemtrif/utfcpp) is likewise header-only and is
 # consumed as <utf8cpp/utf8.h> from the system include path, so no -l or
 # separate INCLUDEPATH is required.
@@ -28,6 +38,7 @@ SOURCES += \
     GFX/LteWriteableTexture2D.cpp \
     Gui/LteCursor.cpp \
     Gui/LteKaldiGuiRenderer.cpp \
+    Text/LteCssStyle.cpp \
     Text/LteHtmlEntities.cpp \
     Text/LteMarkupColour.cpp \
     Text/LteMarkupStack.cpp \
@@ -54,6 +65,7 @@ HEADERS += \
     Text/LteFontAtlas.hpp \
     Text/LteFontFace.hpp \
     Text/LteHtmlEntities.hpp \
+    Text/LteCssStyle.hpp \
     Text/LteMarkupColour.hpp \
     Text/LteMarkupStack.hpp \
     Text/LteMml.hpp \

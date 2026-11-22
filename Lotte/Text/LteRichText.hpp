@@ -88,6 +88,15 @@ public:
 	float getCurrentSize() const { return currentAttributes.size; }
 	/** @brief Sets the pixel size used by subsequent runs. */
 	void setCurrentSize(float size);
+	/**
+	 * @brief Replaces the whole attribute set used by subsequent runs.
+	 * @param attributes New attributes; the pending text is flushed first.
+	 *
+	 * A styling layer that computes a complete set at once (CSS, for example) uses
+	 * this instead of six individual setters, so one attribute change is one run
+	 * boundary rather than six no-op flushes.
+	 */
+	void setCurrentAttributes(const TextAttributes& attributes);
 	/** @brief Returns the current font family name. */
 	const std::string& getCurrentFontName() const { return currentAttributes.familyName; }
 	/** @brief Sets the font family name used by subsequent runs. */

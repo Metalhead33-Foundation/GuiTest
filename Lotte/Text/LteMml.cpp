@@ -5,7 +5,9 @@
 #include <cctype>
 #include <charconv>
 #include <string>
+#include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace Lotte {
 namespace Text {
@@ -103,12 +105,119 @@ const std::unordered_map<std::string_view, TagHandlerWithArgument> TagWithArgume
 	{ "colour", tagColour }
 };
 
-/** @brief Trims ASCII whitespace from both ends of a view. */
-std::string_view trim(std::string_view text)
+/** @brief One tag split into the parts the element observer needs. */
+struct TagParts {
+	/** @brief Element name without the leading `/`. */
+	std::string_view name;
+	/** @brief True for a closing tag. */
+	bool closing = false;
+	/** @brief Space-separated `class` values. */
+	std::string_view classes;
+	/** @brief `id` value. */
+	std::string_view id;
+	/** @brief Positional argument of the legacy `font=`/`size=`/`color=` tags. */
+	std::string_view argument;
+	/** @brief True when the tag carried a parameter list at all. */
+	bool hasParameters = false;
+};
+
+/** @brief True when @p text starts with `class=` or `id=`. */
+bool startsWithAttributeKey(std::string_view text)
 {
-	while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front()))) text.remove_prefix(1);
-	while (!text.empty() && std::isspace(static_cast<unsigned char>(text.back()))) text.remove_suffix(1);
-	return text;
+	return text.rfind("class=", 0) == 0 || text.rfind("id=", 0) == 0;
+}
+
+/**
+ * @brief Splits a compacted tag into name, closing flag, attributes and argument.
+ *
+ * The parameter list is only read as `class=`/`id=` pairs when it contains one of
+ * those keys; otherwise the whole parameter text stays the positional argument, so
+ * the legacy forms (`[font=Arial]`, `[color=1.0,0.332,0.75]`) keep working.
+ */
+TagParts parseTag(std::string_view tag)
+{
+	TagParts parts;
+	if (!tag.empty() && tag.front() == '/') {
+		parts.closing = true;
+		tag.remove_prefix(1);
+	}
+
+	const std::size_t separator = tag.find_first_of("= ");
+	parts.name = tag.substr(0, separator);
+	if (separator == std::string_view::npos) return parts;
+
+	std::string_view parameters = tag.substr(separator + 1);
+	parts.hasParameters = true;
+	if (parameters.find("class=") == std::string_view::npos &&
+	    parameters.find("id=") == std::string_view::npos) {
+		parts.argument = parameters;
+		return parts;
+	}
+
+	while (!parameters.empty()) {
+		const std::size_t cut = parameters.find_first_of(", ");
+		const std::string_view item = parameters.substr(0, cut);
+		parameters = cut == std::string_view::npos ? std::string_view{}
+							   : parameters.substr(cut + 1);
+		if (item.rfind("class=", 0) == 0) parts.classes = item.substr(6);
+		else if (item.rfind("id=", 0) == 0) parts.id = item.substr(3);
+		else if (parts.argument.empty()) parts.argument = item;
+	}
+	return parts;
+}
+
+/** @brief Tags whose text-flow effect always applies, even when an observer styles. */
+bool alwaysRunsHandler(std::string_view key)
+{
+	// `br` and `p` both carry a line break that belongs to the text, not to the look.
+	return key == "br" || key == "/br" || key == "br/" || key == "p" || key == "/p";
+}
+
+/** @brief Tags that are pure text flow and therefore never elements. */
+bool isPureTextTag(std::string_view key)
+{
+	// `p` *is* an element - HTML styles it, so does MML - but `br` is only a break.
+	return key == "br" || key == "/br" || key == "br/";
+}
+
+/**
+ * @brief Lowercases a tag and removes its whitespace, keeping `class=`/`id=` apart.
+ *
+ * MML removes all whitespace inside a tag, which would merge `b class=warn` into
+ * `bclass=warn`. The one exception is whitespace that separates the element name
+ * from a `class=`/`id=` parameter, which is kept as a single space so the readable
+ * `[b class=warn]` spelling works. Everything else behaves as documented.
+ */
+std::string compactTag(std::string_view tag)
+{
+	std::string lowered;
+	lowered.reserve(tag.size());
+	for (char c : tag) lowered.push_back(char(std::tolower(static_cast<unsigned char>(c))));
+
+	std::vector<std::string_view> tokens;
+	std::size_t index = 0;
+	while (index < lowered.size()) {
+		while (index < lowered.size() && std::isspace(static_cast<unsigned char>(lowered[index]))) ++index;
+		const std::size_t begin = index;
+		while (index < lowered.size() && !std::isspace(static_cast<unsigned char>(lowered[index]))) ++index;
+		if (index > begin) tokens.push_back(std::string_view(lowered).substr(begin, index - begin));
+	}
+
+	bool hasAttributeSeparation = false;
+	for (std::size_t i = 1; i < tokens.size(); ++i) {
+		if (startsWithAttributeKey(tokens[i])) {
+			hasAttributeSeparation = true;
+			break;
+		}
+	}
+
+	std::string compacted;
+	compacted.reserve(lowered.size());
+	for (std::size_t i = 0; i < tokens.size(); ++i) {
+		if (i > 0 && hasAttributeSeparation) compacted.push_back(' ');
+		compacted.append(tokens[i]);
+	}
+	return compacted;
 }
 
 } // namespace
@@ -118,6 +227,13 @@ MmlParser::MmlParser(RichTextProcessor* processor)
 {
 }
 
+MmlElementObserver::~MmlElementObserver() = default;
+
+bool MmlElementObserver::ownsElementStyling() const
+{
+	return true;
+}
+
 void MmlParser::reset()
 {
 	commandBuffer.clear();
@@ -125,25 +241,44 @@ void MmlParser::reset()
 	isProcessingEscape = false;
 }
 
-void MmlParser::processTag(std::string_view tag)
+void MmlParser::processTag(std::string_view compactedTag)
 {
-	if (tag.empty()) return;
+	if (compactedTag.empty()) return;
 
-	const std::size_t equals = tag.find('=');
-	if (equals != std::string_view::npos) {
-		const std::string_view name = trim(tag.substr(0, equals));
-		const std::string_view argument = trim(tag.substr(equals + 1));
-		const auto withArgument = TagWithArgumentHandlers.find(name);
-		if (withArgument != TagWithArgumentHandlers.end()) {
-			withArgument->second(*this, argument);
-			return;
+	const TagParts parts = parseTag(compactedTag);
+	if (parts.name.empty()) return;
+
+	std::string key;
+	key.reserve(parts.name.size() + 1);
+	if (parts.closing) key.push_back('/');
+	key.append(parts.name);
+
+	// Structural tags are part of the text, not of the look, so they always run.
+	// The legacy styling handlers only run while no observer owns the styling.
+	const bool fullControl = elementObserver != nullptr && elementObserver->ownsElementStyling();
+	const auto tagKey = std::string_view(key);
+
+	if (alwaysRunsHandler(tagKey) || !fullControl) {
+		const auto plain = TagHandlers.find(tagKey);
+		if (plain != TagHandlers.end()) {
+			plain->second(*this);
+		} else if (!parts.closing && parts.hasParameters) {
+			// A tag that carries an argument may still be a plain tag; `<br/>` only
+			// differs from `<br>` after whitespace removal, so fall through.
+			const auto withArgument = TagWithArgumentHandlers.find(parts.name);
+			if (withArgument != TagWithArgumentHandlers.end()) {
+				withArgument->second(*this, parts.argument);
+			}
 		}
-		// A tag that carries an argument may still be a plain tag; `<br/>` only
-		// differs from `<br>` after whitespace removal, so fall through.
 	}
 
-	const auto plain = TagHandlers.find(tag);
-	if (plain != TagHandlers.end()) plain->second(*this);
+	// The observer sees every element (including `p`, which a stylesheet can style),
+	// and sees it *after* the legacy handler so a stylesheet always wins over an MML
+	// tag attribute. Closing happens in the opposite order, which keeps the
+	// processor's attribute stack balanced.
+	if (elementObserver == nullptr || isPureTextTag(tagKey)) return;
+	if (parts.closing) elementObserver->onElementClose(parts.name);
+	else elementObserver->onElementOpen(parts.name, parts.classes, parts.id);
 }
 
 void MmlParser::onTagEnd()
@@ -153,13 +288,9 @@ void MmlParser::onTagEnd()
 	tag.swap(commandBuffer);
 	isProcessingTag = false;
 
-	// MML treats tags as case-insensitive and ignores all whitespace inside them.
-	std::string compacted;
-	compacted.reserve(tag.size());
-	for (char c : tag) {
-		const auto lowered = char(std::tolower(static_cast<unsigned char>(c)));
-		if (!std::isspace(static_cast<unsigned char>(lowered))) compacted.push_back(lowered);
-	}
+	// MML treats tags as case-insensitive and ignores all whitespace inside them,
+	// except for the `class=`/`id=` separator that `compactTag()` explains.
+	const std::string compacted = compactTag(tag);
 	processTag(compacted);
 }
 

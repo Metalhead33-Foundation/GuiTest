@@ -30,4 +30,30 @@
 |  <span style="color:blue">Font colour</span>  |  color, colour | A colour name, hexadecimal colour or normalized colour values |
 |   <span style="font-size:18px">Font size</span>   |      size      |                          A font size                          |
 
-Currently, CSS is unsupported, and there are no intentions to support it in the foreseeable future.
+### Provisionally: `class=` and `id=` (CSS)
+
+A tag may carry `class=` and `id=` parameters, so a stylesheet can target it. Both
+spellings are accepted, because MML otherwise removes all whitespace inside a tag
+and `<b class=warn>` would collapse into `bclass=warn`:
+
+```
+<b class=warning>careful</b>
+<b=class=warning,id=loud>loud and careful</b>
+[span class=note]
+```
+
+Class and id names are lowercased like everything else inside a tag, so write them
+lowercase in the stylesheet too. They have no effect unless a stylesheet is attached
+(see [`docs/MML_CSS.md`](../../docs/MML_CSS.md)); without one they are ignored and
+the built-in tag behaviour applies.
+
+### CSS
+
+CSS support is **optional and partial**, and the honest scope is documented in
+[`docs/MML_CSS.md`](../../docs/MML_CSS.md). In short: a stylesheet can set `color`,
+`font-family`, `font-size`, `font-weight`, `font-style` and `text-decoration` using
+element, class, id and tree selectors; it cannot do layout, spacing, backgrounds or
+floats, because Lotte has no layout engine and MML runs have no boxes. When a
+stylesheet is attached, the tags below keep their familiar meaning through a
+built-in user-agent stylesheet, so `b { font-weight: normal }` really does undo
+`<b>`.

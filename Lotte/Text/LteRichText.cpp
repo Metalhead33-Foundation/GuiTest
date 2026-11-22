@@ -51,6 +51,12 @@ void RichTextProcessor::setCurrentSize(float size)
 	currentAttributes.size = size;
 }
 
+void RichTextProcessor::setCurrentAttributes(const TextAttributes& attributes)
+{
+	flush();
+	currentAttributes = attributes;
+}
+
 void RichTextProcessor::setCurrentFontName(std::string familyName)
 {
 	flush();
