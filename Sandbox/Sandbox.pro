@@ -18,8 +18,10 @@ INCLUDEPATH += $$PWD/..
 SOURCES += main.cpp sandbox.cpp \
     AppSystem.cpp \
     GameSystem.cpp \
-    HarukaContext.cpp
+    HarukaContext.cpp \
+    KaldiContext.cpp
 HEADERS += sandbox.hpp \
     AppSystem.hpp \
     GameSystem.hpp \
-    HarukaContext.hpp
+    HarukaContext.hpp \
+    KaldiContext.hpp

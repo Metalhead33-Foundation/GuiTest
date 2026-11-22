@@ -3,6 +3,7 @@
 #include "AppSystem.hpp"
 #include <Euphemy/Config/EuphConfiguration.hpp>
 #include "HarukaContext.hpp"
+#include "KaldiContext.hpp"
 #include <Haruka/Core/HrkMixer.hpp>
 #include <Haruka/IO/HrkModuleStreamer.hpp>
 
@@ -13,6 +14,17 @@ private:
 	Hrk::sMixer mixer;
 	Hrk::sModuleStreamer modplayer;
 	std::unique_ptr<Haruka_SDL_Driver> sdlDriver;
+	/**
+	 * @brief The Kaldi rendering context, or null when the backend could not start.
+	 *
+	 * Rendering is optional in the Sandbox: a machine without a usable GPU still
+	 * gets the audio half, and `render()` simply does nothing.
+	 */
+	std::unique_ptr<KaldiContext> kaldi;
+	/** @brief Linear RGBA the window is cleared to every frame (`[Graphics]`). */
+	float clearColor[4] = { 0.05f, 0.06f, 0.09f, 1.0f };
+	/** @brief True once a clear has failed, so the log is not spammed per frame. */
+	bool clearFailureLogged = false;
 public:
 	GameSystem(Euph::Conf::Configuration& config);
 

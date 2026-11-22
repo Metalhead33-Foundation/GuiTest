@@ -17,7 +17,8 @@ private:
 	AppSystem& operator=(const AppSystem& cpy) = delete; // Disable copy assignment operator
 protected:
 	uWindow window;
-	SDL_SysWMinfo windowInfo;
+	/** @brief SDL window-manager info, filled in by the constructor. */
+	SDL_SysWMinfo windowInfo {};
 	virtual void initialize() = 0;
 	virtual void updateLogic() = 0;
 	virtual void render() = 0;

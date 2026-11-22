@@ -1,5 +1,20 @@
 #include "GameSystem.hpp"
 #include <Euphemy/Io/EuphFile.hpp>
+#include <cstdint>
+#include <cstdlib>
+
+namespace {
+
+/** @brief Expands a packed `0xAARRGGBB` colour into four linear RGBA components. */
+void expandColor(std::uint32_t packed, float (&out)[4])
+{
+	out[0] = float((packed >> 16) & 0xFFu) / 255.0f;
+	out[1] = float((packed >> 8) & 0xFFu) / 255.0f;
+	out[2] = float(packed & 0xFFu) / 255.0f;
+	out[3] = float((packed >> 24) & 0xFFu) / 255.0f;
+}
+
+} // namespace
 
 GameSystem::GameSystem(Euph::Conf::Configuration& config)
 	: AppSystem(std::string(config.getString("Game", "sTitle", "GameDemo")),
@@ -21,6 +36,32 @@ GameSystem::GameSystem(Euph::Conf::Configuration& config)
 		Hrk::ChannelCount(channels), Hrk::InterleavingType::INTERLEAVED, Hrk::SampleRate(samplerate), Hrk::FrameCount(bufferSize)
 		);
 	sdlDriver->setPlayable(mixer);
+	// Graphics: the Kaldi backend is a shared library loaded at run time, so the
+	// configuration picks which one and which colour the window is cleared to.
+	KaldiContext::Settings graphicsSettings;
+	graphicsSettings.backendLibrary =
+		std::string(config.getString("Graphics", "sBackendLibrary", "libKaldiVK.so"));
+	// The configuration parses numbers in base 10, so the packed colour travels as a
+	// string: "0xAARRGGBB" or "AARRGGBB", whichever reads better in the ini file.
+	const std::string clearColorText { config.getString("Graphics", "sClearColor", "0xFF102030") };
+	const std::uint32_t packedColor =
+		static_cast<std::uint32_t>(std::strtoul(clearColorText.c_str(), nullptr, 16));
+	expandColor(packedColor, clearColor);
+	graphicsSettings.clearColor[0] = clearColor[0];
+	graphicsSettings.clearColor[1] = clearColor[1];
+	graphicsSettings.clearColor[2] = clearColor[2];
+	graphicsSettings.clearColor[3] = clearColor[3];
+	try {
+		kaldi = std::make_unique<KaldiContext>(windowInfo, width, height, graphicsSettings);
+		SDL_Log("Kaldi HAL %s via %s (%s), clearing to 0x%08X every frame",
+			kaldi->halVersionName().c_str(), kaldi->rendererName().data(),
+			kaldi->backendVersion().data(), static_cast<unsigned>(packedColor));
+	} catch (const std::exception& error) {
+		// Rendering is optional here: without a usable GPU the audio half still runs
+		// and `render()` becomes a no-op, which keeps the playground usable.
+		kaldi.reset();
+		SDL_Log("Graphics disabled: %s", error.what());
+	}
 }
 
 void GameSystem::initialize()
@@ -47,6 +88,16 @@ void GameSystem::updateLogic()
 
 void GameSystem::render()
 {
+	if (kaldi == nullptr) {
+		return;
+	}
+	const Kld::HalStatus status = kaldi->clear(clearColor);
+	if (!status.ok() && !clearFailureLogged) {
+		// `status.message` is backend storage: log it now instead of keeping it.
+		clearFailureLogged = true;
+		SDL_Log("Kaldi clear failed (%d): %s", static_cast<int>(status.code),
+			status.message != nullptr ? status.message : "(no message)");
+	}
 }
 
 void GameSystem::handleAudioDeviceEvent(const SDL_AudioDeviceEvent& event)

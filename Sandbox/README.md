@@ -17,11 +17,44 @@ starting points for manual experiments (graphics work especially).
 cd build/Desktop-Debug
 /usr/bin/qmake6 ../../Project.pro
 env MAKE=/usr/bin/make /usr/bin/make -j16 QMAKE=/usr/bin/qmake6
-LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka ./Sandbox/Sandbox
+LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK:KaldiGL:KaldiGLES ./Sandbox/Sandbox
 ```
 
 The sibling shared libraries are not found through an rpath, so the `LD_LIBRARY_PATH` prefix is
-required. `main()` calls the scenarios in `sandbox.cpp` one after another; edit it freely.
+required - including the Kaldi backend the graphics context loads at run time (`KaldiVK`, and
+`KaldiGL`/`KaldiGLES` when those are selected).
+
+## `GameSystem`: audio and a cleared window
+
+`main()` loads `config.ini` (if present, from the working directory), then hands it to a
+`GameSystem`, which wires up two independent halves and runs `updateLogic()`/`render()` until the
+window is closed or ESC is pressed:
+
+| Half | What it does | Configuration |
+|---|---|---|
+| Audio | `Haruka_SDL_Driver` opens an SDL audio device, a `Hrk::Mixer` feeds it, and a `Hrk::ModuleStreamer` plays a module file | `[Audio] uSamplerate`, `uChannels`, `uBufferSize`; `[Game] sSongPath`, `fModVolume` |
+| Graphics | `KaldiContext` loads a Kaldi backend library, creates its rendering device on the SDL window, and `render()` clears the window to one colour every frame | `[Graphics] sBackendLibrary`, `sClearColor` |
+
+The graphics half is deliberately minimal - one `BeginFrame`/`ClearColorAttachment`/`EndFrame`/
+`Present` batch per frame, no resources - but it exercises the whole "backend is a dynamically
+loaded library" path: `KaldiContext` `dlopen`s the backend, calls
+`kld_create_rendering_device(window, size)`, reinterprets the handle as the `Kld::Device` it wraps,
+and destroys the device before unloading the library. Missing backend, missing GPU or a refused
+device is not fatal: it logs `Graphics disabled: ...` and the audio half keeps running.
+
+```ini
+; build/Desktop-Debug/config.ini
+[Graphics]
+sBackendLibrary=libKaldiVK.so
+sClearColor=0xFF20A030
+```
+
+- `sBackendLibrary` is a soname resolved through `LD_LIBRARY_PATH` or an absolute path.
+  `libKaldiVK.so`, `libKaldiGL.so` and `libKaldiGLES.so` all work.
+- `sClearColor` is a packed `0xAARRGGBB` **string**, not a `u` key: the configuration parses
+  numbers in base 10, so a hex literal in a numeric key would silently read as `0`.
+
+Leave `config.ini` out and the defaults apply (`libKaldiVK.so`, `0xFF102030`, 640x480, 48 kHz).
 
 ## What `main()` currently runs
 

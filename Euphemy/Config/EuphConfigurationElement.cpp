@@ -68,21 +68,23 @@ ConfigurationElement::ConfigurationElement(ConfigurationElementType type, const 
 	switch (type) {
 		case ConfigurationElementType::CONF_FLOAT:
 		{
-			ConfFloat tmp;
+			// Zero-initialised: `from_chars` leaves its output untouched when the text
+			// is not a number, and an uninitialised read here would be undefined.
+			ConfFloat tmp{};
 			std::from_chars(str.data(),str.data() + str.size(),tmp);
 			storage.f = tmp;
 			break;
 		}
 		case ConfigurationElementType::CONF_INT:
 		{
-			ConfInt tmp;
+			ConfInt tmp{};
 			std::from_chars(str.data(),str.data() + str.size(),tmp);
 			storage.i = tmp;
 			break;
 		}
 		case ConfigurationElementType::CONF_UINT:
 		{
-			ConfUint tmp;
+			ConfUint tmp{};
 			std::from_chars(str.data(),str.data() + str.size(),tmp);
 			storage.u = tmp;
 			break;
