@@ -23,8 +23,7 @@ namespace Vk {
  * The device owns the context and a `CommandExecutor`. `capabilities()` is
  * probed from the selected physical device; `processCommandQueue()` delegates to
  * the executor, whose implemented command scope is documented in
- * `VkCommandExecutor.hpp` (buffers and the frame lifecycle today, with named
- * `UnsupportedBaseline` answers for the still-pending handlers).
+ * `VkCommandExecutor.hpp`.
  */
 class MH_KALDI_IMPL_API Device : public Kld::Device
 {

@@ -8,6 +8,12 @@ INCLUDEPATH += $$PWD/../glad/include
 DEFINES += MH_KALDI_IMPL_EXPORT
 include(../Kaldi/Kaldi.pri)
 
+# `CreateTexture2DFromDecodeTarget` consumes a Euphemy `DecodeTarget`, so the
+# backend now has a real link-time dependency on the Euphemy runtime (the GL
+# backends get it through GlUtil the same way).
+LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
+LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
+
 # glad's vulkan.c defines the platform surface entry points (glad_vkCreateXlibSurfaceKHR,
 # ...) only when the matching VK_USE_PLATFORM_* macros are set while *it* is compiled.
 # VkPlatform.hpp sets them for our own units; these defines cover glad's C source.
@@ -27,7 +33,8 @@ SOURCES +=  \
     VkCommandExecutor.cpp \
     VkExecutorFrames.cpp \
     VkExecutorResources.cpp \
-    VkExecutorUnsupported.cpp \
+    VkExecutorPipelines.cpp \
+    VkExecutorTransfer.cpp \
     VkUtil.cpp \
     KaldiVulkanDevice.cpp
 HEADERS += \

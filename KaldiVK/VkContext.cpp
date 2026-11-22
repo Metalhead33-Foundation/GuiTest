@@ -265,12 +265,35 @@ Context::Context(const Kld::NativeWindowHandles& window, const ContextConfig& co
 			deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		}
 
+		// Enable every optional feature the device offers. Vulkan validates
+		// structures (depth clamp, wide lines, anisotropic samplers, BC formats,
+		// independent blend, ...) against the enabled set, and the portable HAL has
+		// no per-feature negotiation step, so requesting the whole supported set is
+		// both correct and the only way to keep those translations valid.
+		VkPhysicalDeviceFeatures supported{};
+		vkGetPhysicalDeviceFeatures(physicalDevice_, &supported);
+		supported.robustBufferAccess = VK_FALSE;
+		supported.sparseBinding = VK_FALSE;
+		supported.sparseResidencyBuffer = VK_FALSE;
+		supported.sparseResidencyImage2D = VK_FALSE;
+		supported.sparseResidencyImage3D = VK_FALSE;
+		supported.sparseResidency2Samples = VK_FALSE;
+		supported.sparseResidency4Samples = VK_FALSE;
+		supported.sparseResidency8Samples = VK_FALSE;
+		supported.sparseResidency16Samples = VK_FALSE;
+		supported.sparseResidencyAliased = VK_FALSE;
+		supported.shaderResourceResidency = VK_FALSE;
+		supported.variableMultisampleRate = VK_FALSE;
+		supported.inheritedQueries = VK_FALSE;
+		features_ = supported;
+
 		VkDeviceCreateInfo deviceInfo{};
 		deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size());
 		deviceInfo.pQueueCreateInfos = queueInfos.data();
 		deviceInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
 		deviceInfo.ppEnabledExtensionNames = deviceExtensions.data();
+		deviceInfo.pEnabledFeatures = &features_;
 
 		result = vkCreateDevice(physicalDevice_, &deviceInfo, nullptr, &device_);
 		if (result != VK_SUCCESS) {

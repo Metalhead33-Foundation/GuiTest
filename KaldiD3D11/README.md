@@ -2,14 +2,20 @@
 
 Direct3D 11 backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 
-**Status: stub, and currently not buildable.** The C ABI is exported and the shared
-translation helpers compile, but no rendering is implemented. `D3D11::Device` now
-overrides `capabilities()` and `processCommandQueue()` as **provisional** answers:
-the class owns no `ID3D11Device`, so the snapshot is `halCapabilitiesNone()` and every
-submission returns `HalStatusCode::UnsupportedBaseline`. `D3D11Capabilities.cpp`
-(probe), `D3D11Util.cpp` and `D3D11Context.cpp` are additionally gated behind `win32`
-because they need the Direct3D headers, and there is no working Windows build of this
-backend yet - the code is written but untested.
+**Status: device ownership complete, no executor.** The C ABI is exported and the
+shared translation helpers compile. `D3D11::Device` now owns a `D3D11::Context`
+(the `ID3D11Device`, its immediate context and the swap chain) and probes real
+capabilities from it through `D3D11::probeCapabilities()`. On non-Windows hosts
+the context cannot exist, so the windowed constructor throws and the device stays
+detached (`hasContext() == false`, no capabilities); the C ABI reports the reason
+through `kld_get_last_error_message()`.
+
+`processCommandQueue()` remains a **documented stub** that returns
+`HalStatusCode::UnsupportedBaseline`, because no command executor exists yet. The
+intended executor structure is spelled out in `KaldiD3D11Device.cpp`. The Direct3D
+translation units (`D3D11Context.cpp`, `D3D11Capabilities.cpp`, `D3D11Util.cpp`)
+are gated behind `win32` in the `.pro`, and there is no Windows host to validate
+them - the code is written against the documented API but untested.
 
 Requires [SPIRV-Cross](https://github.com/khronosgroup/spirv-cross) to be built with `cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSPIRV_CROSS_SHARED=ON`.
 Otherwise, the compiler will complain about linking static SPIRV-Cross
@@ -32,7 +38,7 @@ compiled without Position-Independent Code (`-fPIC`)
 | File | State |
 |---|---|
 | `KldImplLib.h` | Declares the backend C ABI: `kld_create_rendering_device`, `kld_destroy_rendering_device`, `kld_get_renderer_name`, `kld_get_version`, `kld_get_last_error_message` |
-| `KaldiD3D11Device.hpp` | `D3D11::Device : Kld::Device` **provisional**: implements `capabilities()` (always `halCapabilitiesNone()`) and `processCommandQueue()` (always `UnsupportedBaseline`) because it owns no device |
+| `KaldiD3D11Device.hpp` / `.cpp` | `D3D11::Device : Kld::Device`; owns a `D3D11::Context` (Windows only, forward-declared in the header), probes `capabilities()` from the owned device, reports `UnsupportedBaseline` from `processCommandQueue()` until an executor exists, and implements the C ABI with a thread-local error message |
 | `KaldiD3D11Device.cpp` | Stub exports: create returns `nullptr`, destroy is a no-op, renderer name is `"Direct3D11 Renderer"`, version is `"0.0.1"`, last error is `nullptr` |
 | `D3D11Context.hpp` / `.cpp` | `D3D11::Context`: `D3D11CreateDeviceAndSwapChain`, the RTV/DSV pair, `present()` and `resize()`; **Windows only, unverifiable here** |
 | `D3D11Util.hpp` / `D3D11Util.cpp` | `Kld::VertexDescriptor` -> owning `D3D11_INPUT_ELEMENT_DESC` layout, `Kld::BufferMapAccess` -> `D3D11_MAP`, `DecodeTarget` -> `D3D11_SUBRESOURCE_DATA`; **Windows only** |
@@ -52,8 +58,9 @@ Windows SDK, and not something to ship in a binary release.
 
 ## TODO
 
-- [x] Add `D3D11::probeCapabilities(ID3D11Device*)` reporting `KaldiHalVersion1_0` with probed limits (wire it into `Device::capabilities()` once the backend owns its device).
-- [x] Add provisional `Device::capabilities()` / `Device::processCommandQueue()` implementations that fail honestly with `UnsupportedBaseline` and document the porting plan in the `.cpp`.
+- [x] Add `D3D11::probeCapabilities(ID3D11Device*)` reporting `KaldiHalVersion1_0` with probed limits.
+- [x] Give the device ownership of a `D3D11::Context` and wire the probe into `Device::capabilities()`; the C ABI now creates and destroys real devices.
+- [ ] Implement `CommandExecutor` (handle registries, create/bind/draw translation, SPIR-V -> HLSL, deferred destruction) and replace the `UnsupportedBaseline` stub in `Device::processCommandQueue()`.
 - [ ] Create the `ID3D11Device`/`ID3D11DeviceContext` and an `IDXGISwapChain` from the `SDL_SysWMinfo` HWND.
 - [ ] Feed `D3D::spirvToHlsl()` output through `D3DCompile` (or `dxc`) and create the shader objects.
 - [ ] Implement descriptors, render targets, the default framebuffer/swapchain path and explicit swapchains.

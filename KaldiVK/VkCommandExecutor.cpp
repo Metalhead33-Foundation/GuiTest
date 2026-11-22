@@ -27,20 +27,6 @@ namespace {
 	}
 #define KALDI_VK_HANDLER(Name, handler) KALDI_VK_HANDLER_PAYLOAD(Name, op##Name, handler)
 
-/** @brief Vulkan shader stage for a Kaldi stage. */
-VkShaderStageFlagBits shaderStage(Kld::ShaderStage stage) noexcept
-{
-	switch (stage) {
-		case Kld::ShaderStage::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
-		case Kld::ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
-		case Kld::ShaderStage::Geometry: return VK_SHADER_STAGE_GEOMETRY_BIT;
-		case Kld::ShaderStage::TessControl: return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-		case Kld::ShaderStage::TessEvaluation: return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-		case Kld::ShaderStage::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
-	}
-	return VK_SHADER_STAGE_VERTEX_BIT;
-}
-
 } // namespace
 
 CommandExecutor::CommandExecutor(Context& context, const Kld::HalCapabilities& capabilities)
@@ -85,15 +71,39 @@ CommandExecutor::CommandExecutor(Context& context, const Kld::HalCapabilities& c
 	dummyTexture_.format = VK_FORMAT_R8G8B8A8_UNORM;
 	dummyTexture_.width = 1;
 	dummyTexture_.height = 1;
-	// The placeholder exists so the descriptor path has a valid view once it is
-	// ported; uploading texels is unnecessary while draws are still unsupported.
+	// The placeholder exists so the descriptor path always has a valid view; its
+	// single texel is uploaded so sampling it is defined behaviour.
 	const Kld::HalStatus status = createImageStorage(dummyTexture_,
 							 VK_IMAGE_USAGE_SAMPLED_BIT);
 	if (!status.ok()) {
 		throw std::runtime_error("VkCommandExecutor: the placeholder texture could not be created");
 	}
+	const std::uint32_t white = 0xFFFFFFFFu;
 	if (ensureImageLayout(dummyTexture_).ok()) {
+		(void)uploadImage(dummyTexture_, &white, sizeof(white), sizeof(white), 1, 1);
 		(void)submitAndWait();
+	}
+	// Unbound uniform/storage slots point at this buffer so a descriptor set is
+	// always complete; the draw-time validation still rejects genuinely missing
+	// bindings with a precise message.
+	const Kld::HalStatus bufferStatus = createHostBuffer(65536, dummyBuffer_.buffer,
+							     dummyBuffer_.memory,
+							     dummyBuffer_.mapped,
+							     dummyBuffer_.coherent);
+	if (!bufferStatus.ok()) {
+		throw std::runtime_error("VkCommandExecutor: the placeholder buffer could not be created");
+	}
+	dummyBuffer_.size = 65536;
+	const VkPhysicalDeviceFeatures& features = context_.enabledFeatures();
+	wideLines_ = features.wideLines == VK_TRUE;
+	depthClampEnabled_ = features.depthClamp == VK_TRUE;
+	depthBiasClampEnabled_ = features.depthBiasClamp == VK_TRUE;
+	anisotropyEnabled_ = features.samplerAnisotropy == VK_TRUE;
+	depthRangeUnrestricted_ = features.depthBounds == VK_TRUE;
+	occlusionPrecise_ = features.occlusionQueryPrecise == VK_TRUE;
+	maxAnisotropy_ = context_.properties().limits.maxSamplerAnisotropy;
+	if (maxAnisotropy_ < 1.0f) {
+		maxAnisotropy_ = 1.0f;
 	}
 	(void)ensureSwapchain();
 }
@@ -274,6 +284,8 @@ Kld::HalStatus CommandExecutor::submitAndWait()
 	}
 	recording_ = false;
 	(void)vkResetCommandPool(context_.device(), commandPool_, 0);
+	// Every descriptor set written so far belonged to already submitted commands.
+	resetDescriptors();
 	flushDeferred();
 	return Kld::HalOk;
 }
@@ -371,11 +383,13 @@ void CommandExecutor::releaseAll() noexcept
 		if (object.computePipeline != VK_NULL_HANDLE) {
 			vkDestroyPipeline(context_.device(), object.computePipeline, nullptr);
 		}
-		if (object.descriptorPool != VK_NULL_HANDLE) {
-			vkDestroyDescriptorPool(context_.device(), object.descriptorPool, nullptr);
+		for (const VkDescriptorPool pool : object.descriptorPools) {
+			vkDestroyDescriptorPool(context_.device(), pool, nullptr);
 		}
-		if (object.setLayout != VK_NULL_HANDLE) {
-			vkDestroyDescriptorSetLayout(context_.device(), object.setLayout, nullptr);
+		for (VkDescriptorSetLayout setLayout : object.setLayouts) {
+			if (setLayout != VK_NULL_HANDLE) {
+				vkDestroyDescriptorSetLayout(context_.device(), setLayout, nullptr);
+			}
 		}
 		if (object.layout != VK_NULL_HANDLE) {
 			vkDestroyPipelineLayout(context_.device(), object.layout, nullptr);
@@ -405,6 +419,11 @@ void CommandExecutor::releaseAll() noexcept
 		releaseTexture(dummyTexture_);
 		dummyTexture_ = VkTextureObject {};
 	}
+	if (dummyBuffer_.buffer != VK_NULL_HANDLE) {
+		destroyBufferObjects(dummyBuffer_.buffer, dummyBuffer_.memory, dummyBuffer_.mapped);
+		dummyBuffer_ = VkBufferObject {};
+	}
+	passInfos_.clear();
 	if (defaultSampler_ != VK_NULL_HANDLE) {
 		vkDestroySampler(context_.device(), defaultSampler_, nullptr);
 		defaultSampler_ = VK_NULL_HANDLE;

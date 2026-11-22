@@ -5,7 +5,7 @@ SUBDIRS = Elvavena Euphemy Lotte Haruka Kaldi KaldiGL KaldiGLES KaldiVK KaldiD3D
 
 KaldiGL.depends = Kaldi
 KaldiGLES.depends = Kaldi
-KaldiVK.depends = Kaldi
+KaldiVK.depends = Kaldi Euphemy Elvavena
 KaldiD3D11.depends = Kaldi
 KaldiD3D12.depends = Kaldi
 Euphemy.depends = Elvavena

@@ -97,6 +97,18 @@ public:
 	uint32_t presentQueueFamily() const noexcept { return presentQueueFamily_; }
 	/** @brief `VkPhysicalDeviceProperties` of the chosen device. */
 	const VkPhysicalDeviceProperties& properties() const noexcept { return properties_; }
+	/**
+	 * @brief The features the logical device was created with.
+	 *
+	 * The context enables every optional feature the physical device supports
+	 * (robust buffer access, the sparse-residency family, shader resource
+	 * residency and inherited queries excepted), because the executor translates
+	 * portable state - anisotropic filtering, wide lines, depth clamp, independent
+	 * blend, BC compression - into Vulkan structures that are only valid when the
+	 * matching feature is enabled. Backends must still check this snapshot before
+	 * relying on one of those options.
+	 */
+	const VkPhysicalDeviceFeatures& enabledFeatures() const noexcept { return features_; }
 	/** @brief The configuration the context was created with. */
 	const ContextConfig& config() const noexcept { return config_; }
 	/** @brief `VkPhysicalDeviceProperties::deviceName`. */
@@ -121,6 +133,7 @@ private:
 	uint32_t graphicsQueueFamily_ = 0;
 	uint32_t presentQueueFamily_ = 0;
 	VkPhysicalDeviceProperties properties_{};
+	VkPhysicalDeviceFeatures features_{};
 };
 
 }

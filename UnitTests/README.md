@@ -8,7 +8,7 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 145 test cases / 1945 assertions covering the
+**Status: implemented and passing.** 149 test cases / 1969 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
 snapshots, field deltas, interpolation, prediction, lockstep and the reference
@@ -18,6 +18,24 @@ compilation and SPIR-V -> GLSL cross-compilation, the Vulkan/DXGI format tables,
 backend configuration clamping (including the GL executor policy keys), the SDL
 window-handle extraction, the Kaldi HAL capability fallbacks and the Kaldi
 command-dispatch layer (both the computed-goto and the `switch` structure).
+
+## Shader assets
+
+HLSL is the project's primary shading language, so the suite compiles real HLSL
+instead of hand-written SPIR-V words. Two independent paths are covered:
+
+- `tests/ShaderCompileTests.cpp` drives `Lotte::Gfx::compileShaderProgram()` at run
+  time (the same entry point a game or tool uses).
+- `shaders/*.hlsl` are compiled to `.spv` **at build time** by `UnitTests.pro`,
+  using `QMAKE_EXTRA_COMPILERS` exactly like the WasmJit test harness compiles
+  AssemblyScript to `.wasm`. `tests/ShaderAssetTests.cpp` then loads those blobs
+  from the build tree and feeds them to the SPIR-V -> GLSL cross-compiler, so a
+  broken shader file breaks the build/test run rather than a backend later.
+
+The build-time rule needs `glslang` (Khronos). It defaults to `/usr/bin/glslang`
+and can be pointed elsewhere with `qmake UnitTests.pro GLSLANG=/path/to/glslang`;
+if the compiler is missing the rule is disabled with a configure-time warning and
+the asset tests are compiled out.
 
 ## Build and run
 

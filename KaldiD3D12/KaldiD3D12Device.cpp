@@ -1,12 +1,53 @@
 #include "KaldiD3D12Device.hpp"
+#include <stdexcept>
+#include <string>
+#ifdef _WIN32
+#include "D3D12Capabilities.hpp"
+#include "D3D12Context.hpp"
+#endif
+
+namespace {
+/** @brief Last `kld_create_rendering_device` failure on this thread. */
+thread_local std::string d3d12LastError;
+}
+
 namespace D3D12 {
-Device::Device() {}
+
+Device::Device() = default;
+
+Device::Device(const SDL_SysWMinfo& window)
+{
+#ifndef _WIN32
+	(void)window;
+	throw std::runtime_error(
+		"KaldiD3D12: the Direct3D 12 backend is only available on Windows");
+#else
+	if (window.info.win.window == nullptr) {
+		throw std::invalid_argument("KaldiD3D12: the SDL window has no Win32 handle");
+	}
+	context_ = new Context(window.info.win.window);
+	try {
+		capabilities_ = probeCapabilities(context_->device());
+	} catch (...) {
+		delete context_;
+		context_ = nullptr;
+		throw;
+	}
+#endif
+}
+
+Device::~Device()
+{
+#ifdef _WIN32
+	// `Context` is only defined in a Windows translation unit, so the delete has
+	// to live in the platform-specific branch.
+	delete context_;
+#endif
+	context_ = nullptr;
+}
 
 const Kld::HalCapabilities& Device::capabilities() const noexcept
 {
-	// PROVISIONAL. This class owns no ID3D12Device yet, so there is nothing to
-	// probe. D3D12::probeCapabilities() already exists in D3D12Capabilities.cpp
-	// and is meant to fill this member once the device class owns the API device.
 	return capabilities_;
 }
 
@@ -14,54 +55,68 @@ Kld::HalStatus Device::processCommandQueue(std::span<const Kld::GfxOp>)
 {
 	// PROVISIONAL, NON-FUNCTIONAL STUB - read this before implementing anything.
 	//
-	// `Device` owns no ID3D12Device/command queue, so no command can be executed.
-	// `UnsupportedBaseline` is the honest answer and matches `capabilities()`.
+	// The device now owns a real `D3D12::Context`, but no command executor exists
+	// yet. D3D12 is an explicit API, so an executor is not a thin translation
+	// layer: it needs a command-list recorder, a descriptor-heap allocator, root
+	// signature/pipeline-state objects per pipeline variant, and fence-driven
+	// retirement. Returning `UnsupportedBaseline` is the honest answer; the
+	// capabilities above are real.
 	//
-	// The intended structure, once the class owns `D3D12::Context`:
+	// The intended structure, now that the context is available:
 	//
-	//   1. `capabilities_ = D3D12::probeCapabilities(context->device());`
-	//   2. per-kind handle registries (buffers, textures, images, samplers,
-	//      framebuffers, pipelines, queries, fences), like `GlCommandExecutor.hpp`;
-	//   3. the command-buffer model differs from D3D11: record into an allocator/
-	//      command list, translate `Kld::ResourceState` into `D3D12_RESOURCE_STATES`
-	//      barriers (`D3D12_RESOURCE_BARRIER_TYPE_TRANSITION`), and build root
-	//      signatures/pipeline state objects from `Kld::PipelineBindingLayout`;
-	//   4. `OpCreatePipeline` goes through `D3D::spirvToHlsl()` + dxc/D3DCompile;
-	//   5. destroy commands must wait for the fences of every frame that could
-	//      reference the resource (deferred retirement queue keyed by fence value);
-	//   6. dispatch through `KLD_DISPATCH_*` for the shared opcode table.
+	//   1. keep `std::unordered_map<Kld::HandleId, ...>` registries per resource
+	//      kind and translate `Kld::OpCreate*` into committed resources;
+	//   2. record each `processCommandQueue()` batch into one command list, close,
+	//      execute and signal a fence; `Present` waits on that fence and flips;
+	//   3. destroy commands are *retirement requests*: they enter a per-fence-value
+	//      queue and are released once the GPU passes that value
+	//      (`Kld::kDefaultMaxFramesInFlight` frames of slack);
+	//   4. `OpCreatePipeline` goes through `D3D::spirvToHlsl()` + D3DCompile/dxc,
+	//      producing root signatures from `Kld::PipelineBindingLayout`;
+	//   5. use `KLD_DISPATCH_*` from `Kaldi/KldDispatch.hpp` for the opcode table.
 	//
-	// This is unverifiable on the current host and intentionally incomplete.
+	// None of that can be compiled or validated on this Linux host: the D3D12
+	// translation units are behind `win32` in KaldiD3D12.pro.
 	static constexpr char message[] =
-		"the Direct3D 12 backend has no device/command executor yet (provisional stub)";
+		"the Direct3D 12 backend has no command executor yet (provisional stub)";
 	return Kld::HalStatus { Kld::HalStatusCode::UnsupportedBaseline, message };
 }
 
-}
-MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info, const MhRenderingDeviceCreationInfo& creationInfo)
+const char* Device::apiName() const noexcept
 {
-	// TODO: Actually implement (once the device implements capabilities/processCommandQueue)
-	(void)window_info;
-	(void)creationInfo;
-	return nullptr;
+	return context_ != nullptr ? "Direct3D 12" : "none";
+}
+
+}
+
+MhRenderingDeviceHandle kld_create_rendering_device(const SDL_SysWMinfo* window_info,
+						    const MhRenderingDeviceCreationInfo& creationInfo)
+{
+	(void)creationInfo; // The drawable is already sized by the windowing layer.
+	if (window_info == nullptr) {
+		d3d12LastError = "kld_create_rendering_device: window_info is null";
+		return nullptr;
+	}
+	try {
+		return reinterpret_cast<MhRenderingDeviceHandle>(new D3D12::Device(*window_info));
+	} catch (const std::exception& error) {
+		d3d12LastError = error.what();
+		return nullptr;
+	}
 }
 void kld_destroy_rendering_device(MhRenderingDeviceHandle device)
 {
-	// TODO: Actually implement
-	(void)device;
+	delete reinterpret_cast<D3D12::Device*>(device);
 }
 const char* kld_get_renderer_name(void)
 {
-	// TODO: Actually implement
 	return "Direct3D12 Renderer";
 }
 const char* kld_get_version(void)
 {
-	// TODO: Actually implement
 	return "0.0.1";
 }
 const char* kld_get_last_error_message(void)
 {
-	// TODO: Actually implement
-	return nullptr;
+	return d3d12LastError.empty() ? nullptr : d3d12LastError.c_str();
 }

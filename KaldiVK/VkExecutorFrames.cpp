@@ -86,14 +86,15 @@ Kld::HalStatus CommandExecutor::createSwapchainObjects()
 	color.format = swapchainFormat_;
 	color.samples = VK_SAMPLE_COUNT_1_BIT;
 	// Load, not clear: the executor clears explicitly in BeginFrame so a render
-	// pass re-begun after a mid-frame flush preserves the image.
+	// pass re-begun after a mid-frame flush preserves the image. The acquired image
+	// is already in PRESENT_SRC_KHR, so LOAD needs no transition.
 	color.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	color.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	color.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	color.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	color.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	VkAttachmentReference colorRef { 0, VK_IMAGE_LAYOUT_GENERAL };
+	VkAttachmentReference colorRef { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
 	VkSubpassDescription subpass {};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.colorAttachmentCount = 1;
@@ -117,6 +118,9 @@ Kld::HalStatus CommandExecutor::createSwapchainObjects()
 		destroySwapchainObjects();
 		return fail(Kld::HalStatusCode::BackendError, "vkCreateRenderPass failed");
 	}
+	VkPassInfo passRecord;
+	passRecord.colorFormats.push_back(swapchainFormat_);
+	passInfos_[swapchainRenderPass_] = passRecord;
 	swapchainViews_.resize(swapchainImages_.size());
 	swapchainFramebuffers_.resize(swapchainImages_.size());
 	for (std::size_t index = 0; index < swapchainImages_.size(); ++index) {
@@ -160,6 +164,7 @@ void CommandExecutor::destroySwapchainObjects() noexcept
 		vkDestroyImageView(context_.device(), view, nullptr);
 	}
 	if (swapchainRenderPass_ != VK_NULL_HANDLE) {
+		passInfos_.erase(swapchainRenderPass_);
 		vkDestroyRenderPass(context_.device(), swapchainRenderPass_, nullptr);
 	}
 	if (swapchain_ != VK_NULL_HANDLE) {

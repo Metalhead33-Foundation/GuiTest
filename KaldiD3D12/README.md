@@ -2,14 +2,21 @@
 
 Direct3D 12 backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 
-**Status: stub, and currently not buildable.** The C ABI is exported and the shared
-translation helpers compile, but no rendering is implemented. `D3D12::Device` now
-overrides `capabilities()` and `processCommandQueue()` as **provisional** answers:
-the class owns no `ID3D12Device`, so the snapshot is `halCapabilitiesNone()` and every
-submission returns `HalStatusCode::UnsupportedBaseline`. `D3D12Capabilities.cpp`,
-`D3D12Util.cpp` and `D3D12Context.cpp` are additionally gated behind `win32` because
-they need the Direct3D headers, and there is no working Windows build of this backend
-yet - the code is written but untested.
+**Status: device ownership complete, no executor.** The C ABI is exported and the
+shared translation helpers compile. `D3D12::Device` now owns a `D3D12::Context`
+(the `ID3D12Device`, its queue, swap chain, heaps and allocators) and probes real
+capabilities from it through `D3D12::probeCapabilities()`. On non-Windows hosts
+the context cannot exist, so the windowed constructor throws and the device stays
+detached (`hasContext() == false`, no capabilities); the C ABI reports the reason
+through `kld_get_last_error_message()`.
+
+`processCommandQueue()` remains a **documented stub** that returns
+`HalStatusCode::UnsupportedBaseline`, because no command executor exists yet. D3D12
+needs a command-list recorder, descriptor-heap allocator and fence-driven
+retirement queue before a single portable command can be executed correctly; the
+intended structure is spelled out in `KaldiD3D12Device.cpp`. The Direct3D
+translation units are gated behind `win32` in the `.pro`, and there is no Windows
+host to validate them.
 
 Requires [SPIRV-Cross](https://github.com/khronosgroup/spirv-cross) to be built with `cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSPIRV_CROSS_SHARED=ON`.
 Otherwise, the compiler will complain about linking static SPIRV-Cross
@@ -32,7 +39,7 @@ compiled without Position-Independent Code (`-fPIC`)
 | File | State |
 |---|---|
 | `KldImplLib.h` | Declares the backend C ABI: `kld_create_rendering_device`, `kld_destroy_rendering_device`, `kld_get_renderer_name`, `kld_get_version`, `kld_get_last_error_message` |
-| `KaldiD3D12Device.hpp` | `D3D12::Device : Kld::Device` **provisional**: implements `capabilities()` (always `halCapabilitiesNone()`) and `processCommandQueue()` (always `UnsupportedBaseline`) because it owns no device |
+| `KaldiD3D12Device.hpp` / `.cpp` | `D3D12::Device : Kld::Device`; owns a `D3D12::Context` (Windows only, forward-declared in the header), probes `capabilities()` from the owned device, reports `UnsupportedBaseline` from `processCommandQueue()` until an executor exists, and implements the C ABI with a thread-local error message |
 | `KaldiD3D12Device.cpp` | Stub exports: create returns `nullptr`, destroy is a no-op, renderer name is `"Direct3D12 Renderer"`, version is `"0.0.1"`, last error is `nullptr` |
 | `D3D12Context.hpp` / `.cpp` | `D3D12::Context`: factory, adapter pick, device, direct queue, flip-model swap chain, RTV heap, fence-based `waitForGpu()`, `present()` and `resize()`; **Windows only, unverifiable here** |
 | `D3D12Util.hpp` / `D3D12Util.cpp` | `Kld::VertexDescriptor` -> owning `D3D12_INPUT_ELEMENT_DESC` layout, `DecodeTarget` -> `D3D12_SUBRESOURCE_DATA`; **Windows only** |
@@ -47,8 +54,9 @@ it contains an older `d3d12.h`/`dxgiformat.h` and the two header sets cannot be 
 
 ## TODO
 
-- [x] Add `D3D12::probeCapabilities(ID3D12Device*)` reporting `KaldiHalVersion1_0` with probed limits (wire it into `Device::capabilities()` once the backend owns its device).
-- [x] Add provisional `Device::capabilities()` / `Device::processCommandQueue()` implementations that fail honestly with `UnsupportedBaseline` and document the porting plan in the `.cpp`.
+- [x] Add `D3D12::probeCapabilities(ID3D12Device*)` reporting `KaldiHalVersion1_0` with probed limits.
+- [x] Give the device ownership of a `D3D12::Context` and wire the probe into `Device::capabilities()`; the C ABI now creates and destroys real devices.
+- [ ] Implement the `CommandExecutor` (command-list recorder, descriptor heaps, root signatures, fence-driven retirement) and replace the `UnsupportedBaseline` stub in `Device::processCommandQueue()`.
 - [ ] Create the factory/device/command queue/swapchain and the descriptor heaps needed by the Kaldi resource model.
 - [ ] Translate the Kaldi render-pass and binding-layout descriptors into D3D12 root signatures and pipeline state objects.
 - [ ] Feed `D3D::spirvToHlsl()` output through `dxc` to DXIL (or `D3DCompile` to DXBC) and create the shader objects.

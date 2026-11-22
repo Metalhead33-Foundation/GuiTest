@@ -30,28 +30,32 @@
  *
  * @section kaldivk_executor_scope Implemented command scope
  *
- * Implemented: buffers (create/destroy/resize/update/map); 2D textures and
- * images (create/destroy/resize/update/readback, compressed uploads, blit-chain
- * mip generation); samplers; framebuffers; graphics pipelines from SPIR-V with
- * a pipeline-variant cache (topology, blend, depth/stencil, cull, depth bias);
- * compute pipelines and dispatch; texture/sampler/uniform/storage/image
- * bindings; every draw and indirect form (multi-draw becomes a loop); viewport
- * and scissor; clears; barriers/transitions; copies; the default swapchain path
- * (`BeginFrame`/`EndFrame`/`Present`); occlusion and timestamp queries; and the
- * default-swapchain acquire/present callbacks.
+ * Implemented: buffers (create/destroy/resize/update/map); 1D, 2D, 3D, array and
+ * cube textures plus 2D images (create/destroy/resize/update/readback,
+ * compressed uploads, blit-chain mip generation, multisample resolve); samplers;
+ * framebuffers, each with its own render pass; graphics pipelines from SPIR-V
+ * with a pipeline-variant cache and one descriptor set per binding kind; compute
+ * pipelines and dispatch; texture/sampler/uniform/storage-buffer/storage-image
+ * bindings; every draw and indirect form; viewport and scissor; clears;
+ * barriers/transitions; buffer and image copies; occlusion and timestamp queries;
+ * and the default swapchain path (`BeginFrame`/`EndFrame`/`Present`).
  *
  * Deliberately unsupported (`HalStatusCode::UnsupportedBaseline`): explicit
- * swapchain objects, cube/array/3D/multisampled textures, base-instance draws
- * (Vulkan 1.0 has no base-instance draw parameter without
- * `VK_KHR_shader_draw_parameters`), stencil-only readback and debug labels (the
- * context enables no debug-marker extension yet). Limits come from
- * `Vk::probeCapabilities()`.
+ * swapchain objects, base-instance draws (Vulkan 1.0 has no base-instance draw
+ * parameter without `VK_KHR_shader_draw_parameters`), vertex instance divisors
+ * above 1 (`VK_EXT_vertex_attribute_divisor`), per-sampler LOD bias (a Vulkan 1.1
+ * feature), mip generation for depth/stencil and block-compressed images,
+ * blits and readback of depth/stencil images, readback of block-compressed
+ * images, framebuffers with multisampled attachments, block-compressed uploads
+ * whose extents are not multiples of four, and debug labels (the context enables
+ * no debug-marker extension). Limits come from `Vk::probeCapabilities()`.
  */
 #include "VkCapabilities.hpp"
 #include "VkContext.hpp"
 #include "VkUtil.hpp"
 #include <Kaldi/KldHal.hpp>
 #include <Kaldi/KaldiOperation.hpp>
+#include <array>
 #include <cstdint>
 #include <map>
 #include <span>
@@ -70,11 +74,23 @@ struct VkTextureObject {
 	VkImageView view = VK_NULL_HANDLE;
 	VkFormat format = VK_FORMAT_UNDEFINED;
 	Kld::TextureFormat euphemyFormat {};
+	VkImageType imageType = VK_IMAGE_TYPE_2D;
+	VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D;
 	std::uint32_t width = 0;
-	std::uint32_t height = 0;
+	std::uint32_t height = 1;
+	/** @brief Mip-0 depth of a 3D image, or 1. */
+	std::uint32_t depth = 1;
+	/** @brief Array layers, or 6 for a cube map. */
+	std::uint32_t layers = 1;
 	std::uint32_t levels = 1;
+	VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
 	VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 	VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+	VkImageUsageFlags usage = 0;
+	/** @brief True for BC1/BC2/BC3 storage (row pitch is measured in blocks). */
+	bool compressed = false;
+	/** @brief True when the image was created with `CUBE_COMPATIBLE`. */
+	bool cube = false;
 };
 
 /** @brief One host-visible buffer kept mapped for its whole life. */
@@ -83,6 +99,8 @@ struct VkBufferObject {
 	VkDeviceMemory memory = VK_NULL_HANDLE;
 	void* mapped = nullptr;
 	std::uint32_t size = 0;
+	/** @brief True when the memory type is `HOST_COHERENT` (no flush needed). */
+	bool coherent = true;
 };
 
 /** @brief One sampler object. */
@@ -98,6 +116,8 @@ struct VkFramebufferObject {
 	std::uint32_t height = 0;
 	std::vector<VkFormat> colorFormats;
 	VkFormat depthFormat = VK_FORMAT_UNDEFINED;
+	bool hasDepth = false;
+	bool hasStencil = false;
 };
 
 /** @brief A descriptor slot declared by a pipeline's binding layout. */
@@ -151,19 +171,53 @@ struct VkPipelineState {
 	}
 };
 
-/** @brief One graphics or compute pipeline together with its variants. */
+/**
+ * @brief One graphics or compute pipeline together with its variants.
+ *
+ * @section kaldivk_pipeline_sets Descriptor sets
+ *
+ * Vulkan gives a descriptor set one namespace for all binding kinds, while Kaldi
+ * numbers each kind independently (texture unit 0, sampler unit 0, uniform block
+ * 0, ...). The executor therefore maps each kind to its own set index, with the
+ * portable slot number as the binding inside that set:
+ *
+ * | Set | Kaldi binding kind                         |
+ * |-----|--------------------------------------------|
+ * | 0   | sampled textures (`BindTexture`)           |
+ * | 1   | samplers (`BindSampler`)                   |
+ * | 2   | uniform buffers (`BindUniformBuffer`)      |
+ * | 3   | storage buffers (`BindStorageBuffer`)      |
+ * | 4   | storage images (`BindStorageImage`)        |
+ *
+ * That is exactly how compiled HLSL declares them - `[[vk::binding(0, 0)]]` for a
+ * `Texture2D`, `[[vk::binding(0, 1)]]` for its `SamplerState`, `[[vk::binding(0, 2)]]`
+ * for a `cbuffer` - so no renumbering of the shader is needed and two kinds can
+ * never collide on one binding.
+ */
 struct VkPipelineObject {
 	VkPipelineLayout layout = VK_NULL_HANDLE;
-	VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
-	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSlot> slots;
+	std::array<VkDescriptorSetLayout, 5> setLayouts {};
+	/**
+	 * @brief Pools the descriptor sets are allocated from.
+	 *
+	 * Descriptor sets are written immediately before the draw that uses them, so
+	 * every draw needs its own set: two draws in one command buffer must not share
+	 * one, because the second write would retroactively change the first draw's
+	 * bindings. A new pool is created when the last one is exhausted; all of them
+	 * are reset once the queue is idle.
+	 */
+	std::vector<VkDescriptorPool> descriptorPools;
+	std::vector<VkDescriptorSet> descriptorSets;
+	std::vector<VkDescriptorPoolSize> poolSizes;
+	std::array<std::vector<VkDescriptorSlot>, 5> slotsByKind;
 	std::vector<std::vector<std::uint32_t>> spirv;
 	std::vector<VkShaderStageFlagBits> stages;
 	std::vector<Kld::AttributeDescriptor> attributes;
 	std::size_t stride = 0;
 	std::map<VkRenderPass, std::map<VkPipelineState, VkPipeline>> variants;
 	VkPipeline computePipeline = VK_NULL_HANDLE;
+	/** @brief True for a compute pipeline (selects the descriptor bind point). */
+	bool compute = false;
 	std::string name;
 };
 
@@ -172,6 +226,22 @@ struct VkQueryPoolObject {
 	VkQueryPool pool = VK_NULL_HANDLE;
 	Kld::QueryType type = Kld::QueryType::Occlusion;
 	std::uint32_t count = 0;
+};
+
+/**
+ * @brief Attachment formats of one render pass.
+ *
+ * Vulkan bakes attachment formats into both the render pass and every graphics
+ * pipeline variant that draws into it, so the executor keeps a registry keyed by
+ * `VkRenderPass`. The default swapchain pass registers itself when the swapchain
+ * is (re)created; `CreateFramebuffer` registers the pass it builds.
+ */
+struct VkPassInfo {
+	std::vector<VkFormat> colorFormats;
+	VkFormat depthFormat = VK_FORMAT_UNDEFINED;
+	bool hasDepth = false;
+	bool hasStencil = false;
+	std::uint32_t layers = 1;
 };
 
 /**
@@ -320,11 +390,19 @@ private:
 	Kld::HalStatus uploadImage(VkTextureObject& object, const void* data, std::uint32_t byteSize,
 				   std::uint32_t rowPitch, std::uint32_t levelWidth,
 				   std::uint32_t levelHeight);
+	Kld::HalStatus uploadImageLevel(VkTextureObject& object, std::uint8_t level,
+					std::uint16_t x, std::uint16_t y, std::uint16_t layer,
+					std::uint16_t width, std::uint16_t height, const void* data,
+					std::uint32_t rowPitch, std::uint32_t byteSize);
 	Kld::HalStatus generateMips(VkTextureObject& object);
-	Kld::HalStatus blitImages(const VkTextureObject& source, std::uint16_t sourceX,
-				  std::uint16_t sourceY, const VkTextureObject& destination,
+	Kld::HalStatus blitImages(VkTextureObject& source, std::uint16_t sourceX,
+				  std::uint16_t sourceY, VkTextureObject& destination,
 				  std::uint16_t destinationX, std::uint16_t destinationY,
 				  std::uint16_t width, std::uint16_t height);
+	Kld::HalStatus createHostBuffer(std::uint32_t size, VkBuffer& buffer, VkDeviceMemory& memory,
+					void*& mapped, bool& coherent);
+	void destroyBufferObjects(VkBuffer& buffer, VkDeviceMemory& memory, void*& mapped) noexcept;
+	VkCommandBuffer commandBufferForTransfer();
 
 	Kld::HalStatus createPipelineLayout(VkPipelineObject& object,
 					    const Kld::PipelineBindingLayout* layout);
@@ -335,6 +413,10 @@ private:
 	Kld::HalStatus prepareDraw(VkPipelineObject*& object, bool lines);
 	VkStencilOpState toStencilState(const Kld::StencilFaceState& state) const;
 	VkPipelineState currentPipelineState(bool lines) const;
+	Kld::HalStatus bindVertexInputs();
+	const VkPassInfo* currentPassInfo() const;
+	/** @brief Resets every descriptor pool; requires an idle queue. */
+	void resetDescriptors() noexcept;
 
 	Kld::HalStatus ensureSwapchain();
 	Kld::HalStatus createSwapchainObjects();
@@ -383,6 +465,8 @@ private:
 	struct VertexBinding {
 		Kld::HandleId buffer = 0;
 		std::uint64_t offset = 0;
+		std::uint32_t stride = 0;
+		std::uint32_t divisor = 0;
 		bool valid = false;
 	};
 	struct IndexBinding {
@@ -391,13 +475,32 @@ private:
 		VkIndexType type = VK_INDEX_TYPE_UINT16;
 		bool valid = false;
 	};
+	struct BoundTexture {
+		Kld::HandleId texture = 0;
+		Kld::TextureBindingType type = Kld::TextureBindingType::Texture2D;
+		bool valid = false;
+	};
+	struct BoundRange {
+		Kld::HandleId buffer = 0;
+		std::uint32_t offset = 0;
+		std::uint32_t size = 0;
+		Kld::StorageAccess access = Kld::StorageAccess::ReadOnly;
+		bool valid = false;
+	};
+	struct BoundImage {
+		Kld::HandleId image = 0;
+		std::uint8_t mipLevel = 0;
+		std::uint16_t layer = 0;
+		Kld::StorageAccess access = Kld::StorageAccess::ReadOnly;
+		bool valid = false;
+	};
 	std::vector<VertexBinding> vertexBindings_;
 	IndexBinding indexBinding_;
-	Kld::HandleId boundTextures_[64] {};
+	BoundTexture boundTextures_[64] {};
 	Kld::HandleId boundSamplers_[64] {};
-	Kld::HandleId boundUniformBuffers_[32] {};
-	Kld::HandleId boundStorageBuffers_[32] {};
-	Kld::HandleId boundStorageImages_[32] {};
+	BoundRange boundUniformBuffers_[32] {};
+	BoundRange boundStorageBuffers_[32] {};
+	BoundImage boundStorageImages_[32] {};
 	Kld::HandleId boundPipelineId_ = 0;
 	Kld::HandleId boundComputePipelineId_ = 0;
 	bool computeBound_ = false;
@@ -423,9 +526,20 @@ private:
 	VkRenderPass activePass_ = VK_NULL_HANDLE;
 	VkFramebuffer activeFramebuffer_ = VK_NULL_HANDLE;
 
+	std::map<VkRenderPass, VkPassInfo> passInfos_;
+
 	VkTextureObject dummyTexture_;
+	VkBufferObject dummyBuffer_;
 	VkSampler defaultSampler_ = VK_NULL_HANDLE;
 
+	/** @brief Feature gates captured once at construction. */
+	bool wideLines_ = false;
+	bool depthClampEnabled_ = false;
+	bool depthBiasClampEnabled_ = false;
+	bool anisotropyEnabled_ = false;
+	bool depthRangeUnrestricted_ = false;
+	bool occlusionPrecise_ = false;
+	float maxAnisotropy_ = 1.0f;
 };
 
 }
