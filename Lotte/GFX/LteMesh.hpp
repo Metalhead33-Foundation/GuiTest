@@ -88,30 +88,44 @@ inline void recordBind(CommandBuffer& commands, const MeshView& mesh, std::uint3
 }
 
 /**
+ * @brief Width of one index in bytes.
+ * @param type Index type of the bound buffer.
+ */
+inline std::uint32_t indexSizeBytes(Kld::IndexType type)
+{
+	return type == Kld::IndexType::Uint16 ? 2u : 4u;
+}
+
+/**
  * @brief Records one indexed draw of a mesh range.
  * @param commands Dispatcher that receives the command.
  * @param mesh Mesh to draw; must already be bound.
- * @param range Range to draw.
+ * @param range Range to draw, expressed in indices.
+ *
+ * Kaldi's `OpDrawIndexedTriangles::indexOffset` is a byte offset; the range's
+ * index offset is converted here.
  */
 inline void recordDraw(CommandBuffer& commands, const MeshView& mesh, const MeshDrawRange& range)
 {
 	if (!mesh.isValid() || !range.indexCount) return;
-	KldOopDetail::drawIndexedTriangles(commands, range.indexOffset, range.indexCount, range.vertexOffset);
+	KldOopDetail::drawIndexedTriangles(commands, range.indexOffset * indexSizeBytes(mesh.indexType),
+									   range.indexCount, range.vertexOffset);
 }
 
 /**
  * @brief Records one instanced indexed draw of a mesh range.
  * @param commands Dispatcher that receives the command.
  * @param mesh Mesh to draw; must already be bound.
- * @param range Range to draw.
+ * @param range Range to draw, expressed in indices.
  * @param firstInstance Index of the first instance.
  */
 inline void recordDrawInstanced(CommandBuffer& commands, const MeshView& mesh, const MeshDrawRange& range,
 								std::uint32_t firstInstance = 0)
 {
 	if (!mesh.isValid() || !range.indexCount) return;
-	KldOopDetail::drawIndexedTrianglesInstanced(commands, range.indexOffset, range.indexCount,
-												range.vertexOffset, range.instanceCount, firstInstance);
+	KldOopDetail::drawIndexedTrianglesInstanced(commands,
+		range.indexOffset * indexSizeBytes(mesh.indexType), range.indexCount,
+		range.vertexOffset, range.instanceCount, firstInstance);
 }
 
 /**

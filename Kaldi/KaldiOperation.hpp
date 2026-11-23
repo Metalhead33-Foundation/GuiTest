@@ -1291,7 +1291,7 @@ struct OpDrawTriangles {
 
 /** @brief Issues an indexed triangle draw. */
 struct OpDrawIndexedTriangles {
-	/** @brief Documents the indexOffset declaration. */
+	/** @brief Byte offset into the bound index buffer (not an index number). */
 	uint32_t indexOffset;
 	/** @brief Documents the indexCount declaration. */
 	uint32_t indexCount;
@@ -1311,7 +1311,7 @@ struct OpDrawLines {
 
 /** @brief Issues an indexed line draw. */
 struct OpDrawIndexedLines {
-	/** @brief Documents the indexOffset declaration. */
+	/** @brief Byte offset into the bound index buffer (not an index number). */
 	uint32_t indexOffset;
 	/** @brief Documents the indexCount declaration. */
 	uint32_t indexCount;
@@ -1333,7 +1333,7 @@ struct OpDrawTrianglesInstanced {
 };
 /** @brief Issues an instanced indexed triangle draw. */
 struct OpDrawIndexedTrianglesInstanced {
-	/** @brief Documents the indexOffset declaration. */
+	/** @brief Byte offset into the bound index buffer (not an index number). */
 	uint32_t indexOffset;
 	/** @brief Documents the indexCount declaration. */
 	uint32_t indexCount;
@@ -1359,7 +1359,7 @@ struct OpDrawLinesInstanced {
 };
 /** @brief Issues an instanced indexed line draw. */
 struct OpDrawIndexedLinesInstanced {
-	/** @brief Documents the indexOffset declaration. */
+	/** @brief Byte offset into the bound index buffer (not an index number). */
 	uint32_t indexOffset;
 	/** @brief Documents the indexCount declaration. */
 	uint32_t indexCount;

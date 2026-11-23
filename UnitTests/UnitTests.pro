@@ -9,6 +9,12 @@ TARGET = UnitTests
 # way to reach both; it expands to "-lCatch2Main -lCatch2".
 PKGCONFIG += catch2-with-main
 
+# Lotte's CSS-for-MML module is optional and only compiled when libcss is present;
+# the tests for it are guarded by the same define, so they disappear with it.
+packagesExist(libcss) {
+    DEFINES += LTE_WITH_LIBCSS
+}
+
 # Link to our local libraries
 LIBS += -L$$OUT_PWD/../Elvavena -lElvavena
 LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
@@ -116,15 +122,20 @@ SOURCES += \
     tests/BackendConfigTests.cpp \
     tests/BitStreamTests.cpp \
     tests/CompressionTests.cpp \
+    tests/ClipSpaceConventionsTests.cpp \
     tests/ConfigTests.cpp \
+    tests/CssStyleTests.cpp \
+    tests/CursorTests.cpp \
     tests/FontRoundTripTests.cpp \
     tests/FormatTranslationTests.cpp \
+    tests/GuiWidgetTests.cpp \
     tests/HarukaStreamerRingTests.cpp \
     tests/HttpTests.cpp \
     tests/ImageCodecTests.cpp \
     tests/KaldiCommandBufferTests.cpp \
     tests/KaldiDispatchSwitchTests.cpp \
     tests/KaldiDispatchTests.cpp \
+    tests/KaldiGuiRendererTests.cpp \
     tests/KaldiHalTests.cpp \
     tests/NativeWindowTests.cpp \
     tests/NetClockRpcTests.cpp \
@@ -137,7 +148,9 @@ SOURCES += \
     tests/PlatformWrappersTests.cpp \
     tests/ShaderAssetTests.cpp \
     tests/ShaderCompileTests.cpp \
-    tests/UdpTransportTests.cpp
+    tests/TextRenderingTests.cpp \
+    tests/UdpTransportTests.cpp \
+    tests/WriteableTexture2DTests.cpp
 
 HEADERS += \
     support/DispatchProbe.hpp \

@@ -663,7 +663,14 @@ OOP_DETAIL_HEADER struct oop_detail {
 	static inline void presentSwapchain(Dispatcher& d, HandleId swapchain = DefaultSwapchain, uint32_t imageIndex = 0) { d.push({ Opcode::PresentSwapchain, { .opPresentSwapchain = { swapchain, imageIndex } } }); }
 	///@}
 
-	/** @name Default framebuffer, render pass, and draw helpers */
+	/**
+	 * @name Default framebuffer, render pass, and draw helpers
+	 *
+	 * The `indexOffset` of every indexed draw is a **byte offset** into the bound
+	 * index buffer; `indexCount` is a number of indices and `vertexOffset` is in
+	 * vertices. Multiply a caller-facing index number by the index width (2 for
+	 * `IndexType::Uint16`, 4 for `IndexType::Uint32`) when converting.
+	 */
 	///@{
 	static inline void beginFrame(Dispatcher& d, HandleId framebuffer = DefaultFramebuffer)    { d.push({ Opcode::BeginFrame,      { .opBeginFrame      = { framebuffer } } }); }
 	static inline void endFrame(Dispatcher& d, HandleId framebuffer = DefaultFramebuffer)      { d.push({ Opcode::EndFrame,        { .opEndFrame        = { framebuffer } } }); }

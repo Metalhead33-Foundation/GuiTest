@@ -8,7 +8,7 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 157 test cases / 2020 assertions covering the
+**Status: implemented and passing.** 213 test cases / 2722 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
 snapshots, field deltas, interpolation, prediction, lockstep and the reference
@@ -17,8 +17,9 @@ localhost UDP smoke test, plus the graphics side: HLSL/GLSL -> SPIR-V shader
 compilation and SPIR-V -> GLSL cross-compilation, the Vulkan/DXGI format tables,
 backend configuration clamping (including the GL executor policy keys), the SDL
 window-handle extraction, the Kaldi HAL capability fallbacks, the Kaldi
-command-dispatch layer (both the computed-goto and the `switch` structure) and the
-object-oriented recording facade (`Kaldi/KldCommandBuffer.hpp`).
+command-dispatch layer (both the computed-goto and the `switch` structure), the
+object-oriented recording facade (`Kaldi/KldCommandBuffer.hpp`), and the GUI
+render-tree/widget/theme contract.
 
 ## Shader assets
 
@@ -107,10 +108,12 @@ build Catch2 as a single amalgamated header and replace the includes.
 | `tests/CompressionTests.cpp` | zstd and Snappy proxy devices round-trip payloads from 0 bytes to 200 kB; non-default Snappy chunk sizes; empty streams; foreign/truncated input is rejected; zstd checksum/level settings; zstd nested inside Snappy |
 | `tests/ImageCodecTests.cpp` | PNG and TGA encode -> decode reproduce the exact pixels of a 23x17 image; re-encoding a decoded PNG is byte-identical |
 | `tests/FontRoundTripTests.cpp` | Lotte `PreprocessedFontFace` and `StoredVectorImage` through `Elv::Io::DataStream`, comparing every persisted field (metadata, metrics, kerning, SDF payload, mipmaps) |
+| `tests/TextRenderingTests.cpp` | `FontRepository` family/bold resolution, lazy multi-page `FontAtlas` shelf packing and upload recording, and `TextRenderer` vertex output (per-vertex colour, bold dilation, MSDF mode, decoration quads, page runs) |
 | `tests/ConfigTests.cpp` | Configuration text round-trip for every typed value; default caching for missing keys; parsing a hand-written document; rejection of keys without a type prefix |
 | `tests/BackendConfigTests.cpp` | The Kaldi config contract end to end: GL provider defaults written with typed keys, key prefixes matching value types, clamping (`iGlSamples=999` -> 16), unknown enumerations falling back, missing sections keeping defaults, `.ini` serialize -> parse -> apply round-trip, per-purpose common defaults |
 | `tests/BitStreamTests.cpp` | MSB-first bit packing; mixed-width fields; full-range zig-zag signed values; varints; exact float/half bit patterns; quantized float clamping and degenerate ranges; buffer-full/exhausted errors; overlong varint rejection |
 | `tests/FormatTranslationTests.cpp` | Vulkan (`VkUtil`) and DXGI (`D3DUtil`) tables: formats that exist, formats the APIs cannot express, vertex formats, sampler/layout/stage masks, alignment helpers |
+| `tests/GuiWidgetTests.cpp` | GUI base contract: accumulated and stable z-index ordering with min/max tracking, `RootNode` ownership/iteration/removal, widget state-bit signals and hit testing, `TexturedWidget` per-state atlas selection and no-op click/hidden behaviour, and the abstract theme skin/text/metric interface |
 | `tests/KaldiCommandBufferTests.cpp` | The object-oriented facade without a device: one handle namespace across kinds with id recycling, write-buffer-only recording, proxy create/destroy commands, move semantics, `mergeCommandBuffers` ordering, `DeferredDestroyQueue` mapping to the right destroy opcode, `submit()` handing the read buffer to a recording device |
 | `tests/HarukaStreamerRingTests.cpp` | Deterministic `RingBufferedStreamer` through a four-frame ring; interleaved and separate-channel output across repeated wraps |
 | `tests/HttpTests.cpp` | Request/response serialization, incomplete/malformed/oversize parsing, HEAD suppression, TCP POST, TCP HEAD, `EventLoop` async request, UDP request/response, failure-signal emission |

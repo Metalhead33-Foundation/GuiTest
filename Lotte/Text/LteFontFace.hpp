@@ -12,11 +12,15 @@
 #include <glm/glm.hpp>
 #include <algorithm>
 #include <array>
+#include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -66,14 +70,65 @@ namespace Text {
 /** @brief Four-byte magic identifier for FontPacker preprocessed font files. */
 inline constexpr std::array<char, 4> FontFaceMagic = { 'W', 'O', 'D', 'F' };
 
-/** @brief Current supported FontPacker preprocessed font face format version. */
-inline constexpr std::uint32_t FontFaceVersion = 1;
+/**
+ * @brief Format version written by new font faces.
+ *
+ * FontPacker's current version is 3. Version 2 added the nominal distance
+ * ranges, the encoding flags and the midpoint adjustment to the header;
+ * version 3 changed each glyph's `advance_x`/`advance_y` from a raw 26.6
+ * fixed-point integer to a float in pixels. The record sizes and offsets are
+ * identical in versions 2 and 3.
+ */
+inline constexpr std::uint32_t FontFaceVersion = 3;
+
+/** @brief Oldest reader-supported font face version. */
+inline constexpr std::uint32_t FontFaceMinVersion = 1;
+
+/** @brief Scale of the raw 26.6 fixed-point advances stored by versions 1 and 2. */
+inline constexpr float FixedPoint26_6 = 64.0f;
 
 /** @brief Fixed byte count for FontPacker image format tags. */
 inline constexpr std::size_t ImageFormatLength = 8;
 
 /** @brief Null-terminated, zero-padded FontPacker image format tag. */
 using ImageFormatTag = std::array<char, ImageFormatLength>;
+
+/**
+ * @brief Normalizes an image codec name into a FontPacker image format tag.
+ *
+ * Mirrors FontPacker's `setImageFormat()`: the value is trimmed, upper-cased,
+ * truncated to seven characters and zero padded. An empty value becomes `PNG`.
+ * @param tag Tag to overwrite.
+ * @param format Codec name accepted by the image decoder.
+ */
+inline void setImageFormatTag(ImageFormatTag& tag, std::string_view format)
+{
+	tag.fill('\0');
+	std::size_t begin = 0;
+	std::size_t end = format.size();
+	while (begin < end && std::isspace(static_cast<unsigned char>(format[begin]))) ++begin;
+	while (end > begin && std::isspace(static_cast<unsigned char>(format[end - 1]))) --end;
+
+	const std::size_t length = std::min(end - begin, ImageFormatLength - 1);
+	if (length == 0) {
+		tag[0] = 'P';
+		tag[1] = 'N';
+		tag[2] = 'G';
+		return;
+	}
+	for (std::size_t i = 0; i < length; ++i)
+		tag[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(format[begin + i])));
+}
+
+/**
+ * @brief Returns the codec name stored in an image format tag.
+ * @param tag Tag to inspect; reading stops at the first NUL.
+ */
+inline std::string_view imageFormatTagName(const ImageFormatTag& tag)
+{
+	const auto terminator = std::find(tag.begin(), tag.end(), '\0');
+	return std::string_view(tag.data(), static_cast<std::size_t>(terminator - tag.begin()));
+}
 
 /** @brief FontPacker SDF channel layout. */
 enum class SDFType : std::uint8_t {
@@ -86,6 +141,19 @@ enum class SDFType : std::uint8_t {
 enum class DistanceType : std::uint8_t {
 	Manhattan = 0, /**< L1 distance. */
 	Euclidean = 1  /**< L2 distance. */
+};
+
+/**
+ * @brief Transforms that were baked into the encoded SDF payloads.
+ *
+ * Bit values are shared by `.wodf` (version 2+) and `.wodi`, and match
+ * `StoredVectorImage::encodingFlags` in FontPacker's BINARY_FORMAT.md.
+ */
+enum class EncodingFlag : std::uint32_t {
+	Inverted = 0x00000001,            /**< Values were inverted (`1 - x`). */
+	GammaCorrected = 0x00000002,      /**< The cubic gamma adjustment was applied. */
+	MaximumDownsampling = 0x00000004, /**< Downsampling used maximum instead of average. */
+	MidpointAdjusted = 0x00000008     /**< @ref PreprocessedFontFace::midpointAdjustment holds a baked divisor. */
 };
 
 /**
@@ -112,50 +180,59 @@ struct GlyphTOCEntry {
 /**
  * @brief Stored glyph metrics and SDF bitmap payload.
  *
- * FontPacker fills this from FreeType and rewrites the geometry: every glyph's
- * **metric box** (`metricWidth` x `metricHeight`, placed at
- * `horiBearingX`/`horiBearingY`) is stretched onto a square SDF, so the metric
- * fields are the ones that describe the glyph, while `width`/`height`/`bearingX`/
- * `bearingY` are the raw FreeType *bitmap* fields and stay zero when the face was
- * generated from outlines (the usual case). See `LteTextLayout.hpp` for how the
- * two sets are combined and `LteFontAtlas.hpp` for what the payload contains.
+ * FontPacker fills this from FreeType. Two layout boxes are stored:
  *
- * Units: the metric, bearing and advance fields are **pixels at the face's
- * reference size** (FreeType metrics converted with `convert26_6ToDouble`).
- * `advanceX`/`advanceY` are the exception: they are the raw 26.6 fixed-point
- * values, except on the vector-image glyph path, where FontPacker stores pixels.
- * Prefer `horiAdvance` and treat `advanceX` as a fallback.
+ * - `width`/`height`/`bearingX`/`bearingY` come from `FT_GlyphSlot.bitmap.width`,
+ *   `bitmap.rows`, `bitmap_left` and `bitmap_top`. They are the **intended layout
+ *   box** in whole pixels, with the padding excluded. The runtime draws the
+ *   content box at this size and offset and expands it by the padding runway so
+ *   the SDF glow has room (see `LteTextLayout.hpp` and `LteFontAtlas.hpp`).
+ * - `metricWidth`/`metricHeight`/`horiBearingX`/`horiBearingY` are the
+ *   **FreeType metric box** (float pixels). FontPacker stretches exactly this
+ *   box over the square SDF content box, so it describes the box the payload was
+ *   generated from. It is *not* modified by the fit, so the aspect ratio survives
+ *   in `width`/`height`.
+ *
+ * For SVG-backed faces (`familyName == "SVG"`) both boxes are the SVG viewport
+ * and the bearings are 0; the texture holds the whole viewport.
+ *
+ * Units: every field is in **pixels at `em = bitmapLogicalSize - bitmapPadding`**
+ * for font input, and in SVG user units for SVG input. Version 3 stores
+ * `advanceX`/`advanceY` as float pixels. Versions 1 and 2 stored raw 26.6
+ * integers (version 1 SVG faces stored plain pixels); the importer converts them
+ * to float pixels, and the exporter re-encodes them when writing an older
+ * container version.
  */
 struct StoredCharacter {
 	/** @brief Whether this glyph entry contains usable metric and bitmap data. */
 	bool valid = false;
-	/** @brief Raw FreeType bitmap width in pixels; zero for outline-generated faces. */
+	/** @brief Intended glyph box width in whole pixels; excludes padding. */
 	std::uint32_t width = 0;
-	/** @brief Raw FreeType bitmap height in pixels; zero for outline-generated faces. */
+	/** @brief Intended glyph box height in whole pixels; excludes padding. */
 	std::uint32_t height = 0;
-	/** @brief Raw FreeType `bitmap_left`; zero for outline-generated faces. */
+	/** @brief Offset from the pen origin to the left edge of the box, in whole pixels. */
 	std::int32_t bearingX = 0;
-	/** @brief Raw FreeType `bitmap_top`; zero for outline-generated faces. */
+	/** @brief Offset from the baseline up to the top edge of the box, in whole pixels. */
 	std::int32_t bearingY = 0;
-	/** @brief Horizontal advance in 26.6 fixed point (`advance >> 6` is pixels). */
-	std::uint32_t advanceX = 0;
-	/** @brief Vertical advance in 26.6 fixed point. */
-	std::uint32_t advanceY = 0;
-	/** @brief Ink box width in pixels; the box stretched onto the SDF square. */
+	/** @brief Horizontal advance in float pixels (versions 1/2 are decoded from 26.6 on import). */
+	float advanceX = 0.0f;
+	/** @brief Vertical advance in float pixels (usually 0 for horizontal fonts). */
+	float advanceY = 0.0f;
+	/** @brief Metric-box width in float pixels; the box stretched onto the SDF square. */
 	float metricWidth = 0.0f;
-	/** @brief Ink box height in pixels; the box stretched onto the SDF square. */
+	/** @brief Metric-box height in float pixels; the box stretched onto the SDF square. */
 	float metricHeight = 0.0f;
-	/** @brief Horizontal offset of the ink box from the pen position, in pixels. */
+	/** @brief Horizontal offset of the metric box from the pen position, in float pixels. */
 	float horiBearingX = 0.0f;
-	/** @brief Vertical offset of the ink box from the baseline, in pixels (positive = above). */
+	/** @brief Vertical offset of the metric box from the baseline, in float pixels (positive = above). */
 	float horiBearingY = 0.0f;
-	/** @brief Horizontal advance in pixels; preferred over @ref advanceX. */
+	/** @brief Horizontal advance in float pixels; normally equal to @ref advanceX. */
 	float horiAdvance = 0.0f;
-	/** @brief Vertical bearing X in pixels. */
+	/** @brief Vertical bearing X in float pixels; valid only when `hasVert` is true. */
 	float vertBearingX = 0.0f;
-	/** @brief Vertical bearing Y in pixels. */
+	/** @brief Vertical bearing Y in float pixels; valid only when `hasVert` is true. */
 	float vertBearingY = 0.0f;
-	/** @brief Vertical advance in pixels. */
+	/** @brief Vertical advance in float pixels; valid only when `hasVert` is true. */
 	float vertAdvance = 0.0f;
 	/** @brief Raw encoded SDF bitmap bytes using the parent font's imageFormat. */
 	std::vector<std::byte> sdf;
@@ -163,7 +240,14 @@ struct StoredCharacter {
 
 /** @brief Complete FontPacker preprocessed font face payload. */
 struct PreprocessedFontFace {
-	/** @brief FontPacker binary format version written after the WODF magic. */
+	/**
+	 * @brief FontPacker binary format version written after the WODF magic.
+	 *
+	 * New faces are written as version 3. A loaded version 1 or 2 face keeps its
+	 * version. Version 1 is legacy: its four float metric fields hold outline
+	 * bounds for outline/SVG glyphs, its SVG advances are plain pixels and its
+	 * `bitmapSize` may be 0; regenerate the asset to obtain version 3.
+	 */
 	std::uint32_t version = FontFaceVersion;
 	/** @brief UTF-8 font family name. */
 	std::string familyName;
@@ -171,43 +255,95 @@ struct PreprocessedFontFace {
 	SDFType type = SDFType::SDF;
 	/** @brief Distance metric used to generate the SDF. */
 	DistanceType distType = DistanceType::Manhattan;
-	/** @brief Edge length in pixels of the square SDF payload stored for every glyph. */
+	/**
+	 * @brief Stored square size `S` of every glyph payload.
+	 *
+	 * Writers always write the real size. Only a historical version 1 file may
+	 * contain `0`, which means "the stored images are `bitmapLogicalSize` x
+	 * `bitmapLogicalSize`". Use @ref storedBitmapSize() instead of reading this
+	 * field directly.
+	 */
 	std::uint32_t bitmapSize = 0;
 	/**
-	 * @brief Edge length of the square the SDF was generated at, before downsampling.
+	 * @brief Generation square size `L`; the padding is inside it.
 	 *
-	 * FontPacker generates each glyph at `internalProcessSize` and then downsamples to
-	 * @ref bitmapSize (power-of-two halving plus a final resize), so this is the
-	 * resolution the outlined glyph - and its padding - was scaled into.
+	 * FontPacker generates each glyph at `internalProcessSize` and then
+	 * downsamples to @ref bitmapSize (power-of-two halving plus a final resize),
+	 * so this is the resolution the outlined glyph - and its padding - was
+	 * scaled into.
 	 */
 	std::uint32_t bitmapLogicalSize = 0;
 	/**
-	 * @brief Padding in pixels at @ref bitmapLogicalSize.
+	 * @brief Padding `P` on all four sides, in pixels of the `L` grid.
 	 *
-	 * The padding is baked into the SDF: it is applied while the glyph is at
-	 * @ref bitmapLogicalSize and shrinks with the downsample. The effective padding of
-	 * the stored payload is `bitmapPadding * bitmapSize / bitmapLogicalSize`, so an
-	 * atlas must not add padding of its own.
+	 * The padding is inside `L`, so the content box is `(L - 2P)^2`. It is baked
+	 * into the SDF and shrinks with the downsample: the padding of the stored
+	 * payload is `P_final = bitmapPadding * bitmapSize / bitmapLogicalSize`. The
+	 * atlas must not add padding of its own, but the drawing quad must expand by
+	 * `width * P / (L - 2P)` (see `LteTextLayout.hpp`).
 	 */
 	std::uint32_t bitmapPadding = 0;
 	/** @brief Whether vertical layout metrics are available. */
 	bool hasVert = false;
 	/** @brief Null-terminated image format tag used by encoded glyph payloads. */
-	ImageFormatTag imageFormat = { 'P', 'N', 'G', '\0' };
-	/** @brief Scaled face ascender in pixels. */
+	ImageFormatTag imageFormat = { 'P', 'N', 'G', '\0', '\0', '\0', '\0', '\0' };
+	/** @brief Scaled face ascender in pixels (SVG: viewport height in user units). */
 	float ascender = 0.0f;
-	/** @brief Scaled face descender in pixels. */
+	/** @brief Scaled face descender in pixels (usually negative; 0 for SVG). */
 	float descender = 0.0f;
-	/** @brief Scaled baseline-to-baseline distance in pixels. */
+	/** @brief Scaled baseline-to-baseline distance in pixels (SVG: viewport height). */
 	float faceHeight = 0.0f;
-	/** @brief Scaled maximum advance in pixels. */
+	/** @brief Scaled maximum advance in pixels (SVG: viewport width). */
 	float maxAdvance = 0.0f;
-	/** @brief Original font units per EM. */
+	/** @brief Original font design units per EM (SVG: viewport height). */
 	std::uint32_t unitsPerEm = 0;
+	/**
+	 * @brief Version 2+: nominal encoded radius in X, in level-0 texels.
+	 *
+	 * This is `(samplesToCheckX / 2 or bitmapPadding) * S / L`, i.e. the search
+	 * radius expressed in stored texels. Both generators normalise each image by
+	 * its own observed maximum, so this is an upper bound for `screenPxRange`,
+	 * not an exact per-glyph scale. Version 1 files have no such field; the
+	 * importer reconstructs `bitmapPadding * S / L` in memory.
+	 */
+	float distanceRangeX = 0.0f;
+	/** @brief Version 2+: nominal encoded radius in Y, in level-0 texels. */
+	float distanceRangeY = 0.0f;
+	/** @brief Version 2+: bitmask of @ref EncodingFlag values baked into the pixels. */
+	std::uint32_t encodingFlags = 0;
+	/** @brief Version 2+: baked midpoint divisor; only meaningful with @ref EncodingFlag::MidpointAdjusted. */
+	float midpointAdjustment = 1.0f;
 	/** @brief Sparse font kerning table keyed as first code point, second code point, offset. */
 	KerningMap kerning;
 	/** @brief Stored glyph payloads keyed by Unicode code point. */
 	std::unordered_map<std::uint32_t, StoredCharacter> glyphs;
+
+	/** @brief Resolves the stored square size, falling back to `L` for legacy version 1 files. */
+	std::uint32_t storedBitmapSize() const { return bitmapSize ? bitmapSize : bitmapLogicalSize; }
+
+	/** @brief Returns the effective em size the metrics are expressed in, or 0 when unknown. */
+	std::uint32_t referenceEmSize() const
+	{
+		return bitmapLogicalSize > bitmapPadding ? bitmapLogicalSize - bitmapPadding : 0;
+	}
+
+	/** @brief Whether this face was generated from an SVG (FontPacker names those faces "SVG"). */
+	bool isSvgBacked() const { return familyName == "SVG"; }
+
+	/** @brief Whether the non-versioned 26.6 advance interpretation is the version 1 SVG exception. */
+	bool hasLegacySvgAdvances() const { return version == 1 && isSvgBacked(); }
+
+	/** @brief Returns whether a given @ref EncodingFlag bit is set (version 2+ files). */
+	bool hasEncodingFlag(EncodingFlag flag) const
+	{
+		return (encodingFlags & static_cast<std::uint32_t>(flag)) != 0;
+	}
+
+	/** @brief Normalizes and stores an image codec name (trimmed, upper-case, max 7 characters). */
+	void setImageFormat(std::string_view format) { setImageFormatTag(imageFormat, format); }
+
+	/** @brief Returns the stored image codec name, without NUL padding. */
+	std::string_view imageFormatName() const { return imageFormatTagName(imageFormat); }
 };
 
 /** @brief Short public alias for the only top-level record in the format. */
@@ -237,15 +373,16 @@ inline void validateMagic(const std::array<char, 4>& actual, const std::array<ch
 }
 
 /**
- * @brief Verifies a FontPacker container version.
+ * @brief Verifies a FontPacker container version against the supported range.
  * @param version Version read from the stream.
- * @param expected Currently supported version.
+ * @param minVersion Oldest supported version (inclusive).
+ * @param maxVersion Newest supported version (inclusive).
  * @param container Human-readable container name for diagnostics.
  * @throws std::runtime_error if the version is unsupported.
  */
-inline void validateVersion(std::uint32_t version, std::uint32_t expected, const char* container)
+inline void validateVersion(std::uint32_t version, std::uint32_t minVersion, std::uint32_t maxVersion, const char* container)
 {
-	if (version != expected)
+	if (version < minVersion || version > maxVersion)
 		throw std::runtime_error(std::string("Unsupported ") + container + " version");
 }
 
@@ -304,6 +441,44 @@ inline void seekAbsolute(IoType& device, long offset, const char* field)
 {
 	if (offset < 0 || device.seek(offset, Elv::Io::SeekOrigin::SET) != 0)
 		throw std::runtime_error(std::string("Failed to seek to ") + field);
+}
+
+/**
+ * @brief Decodes a version 1/2 raw 26.6 fixed-point advance into float pixels.
+ * @param raw Raw integer stored by the container.
+ * @return Advance in pixels.
+ */
+inline float decodeFixed26_6(std::uint32_t raw)
+{
+	return static_cast<float>(raw) / FixedPoint26_6;
+}
+
+/**
+ * @brief Encodes a float pixel advance as a raw 26.6 fixed-point integer.
+ * @param value Advance in pixels.
+ * @return Rounded integer, matching FontPacker's `std::round(value * 64)`.
+ */
+inline std::uint32_t encodeFixed26_6(float value)
+{
+	if (!(value > 0.0f)) return 0;
+	const double scaled = std::round(static_cast<double>(value) * static_cast<double>(FixedPoint26_6));
+	if (scaled >= static_cast<double>(std::numeric_limits<std::uint32_t>::max()))
+		return std::numeric_limits<std::uint32_t>::max();
+	return static_cast<std::uint32_t>(scaled);
+}
+
+/**
+ * @brief Encodes a float pixel advance as the plain integer used by version 1 SVG faces.
+ * @param value Advance in pixels.
+ * @return Rounded integer.
+ */
+inline std::uint32_t encodePlainAdvance(float value)
+{
+	if (!(value > 0.0f)) return 0;
+	const double rounded = std::round(static_cast<double>(value));
+	if (rounded >= static_cast<double>(std::numeric_limits<std::uint32_t>::max()))
+		return std::numeric_limits<std::uint32_t>::max();
+	return static_cast<std::uint32_t>(rounded);
 }
 
 } // namespace Detail
@@ -393,7 +568,82 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, GlyphTOC
 }
 
 /**
- * @brief Writes a stored glyph payload.
+ * @brief Writes a stored glyph payload in a specific container version.
+ *
+ * The record layout is identical in every supported version; only the
+ * `advanceX`/`advanceY` encoding changes: version 3+ writes float pixels,
+ * versions 1 and 2 write a raw 26.6 integer (a version 1 SVG face writes a
+ * plain pixel integer instead).
+ *
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Glyph payload to write.
+ * @param version Container version that governs the advance encoding.
+ * @param legacySvgAdvances Whether this is a version 1 SVG-backed face.
+ */
+template <Elv::Io::DeviceLike IoType>
+inline void writeStoredCharacter(FontDataStream<IoType>& left, const StoredCharacter& right,
+								 std::uint32_t version, bool legacySvgAdvances = false)
+{
+	left << right.valid;
+	if (!right.valid)
+		return;
+
+	left << right.width << right.height << right.bearingX << right.bearingY;
+	if (version >= FontFaceVersion) {
+		left << right.advanceX << right.advanceY;
+	} else if (legacySvgAdvances) {
+		left << Detail::encodePlainAdvance(right.advanceX) << Detail::encodePlainAdvance(right.advanceY);
+	} else {
+		left << Detail::encodeFixed26_6(right.advanceX) << Detail::encodeFixed26_6(right.advanceY);
+	}
+	left << right.metricWidth << right.metricHeight
+		 << right.horiBearingX << right.horiBearingY << right.horiAdvance
+		 << right.vertBearingX << right.vertBearingY << right.vertAdvance;
+	Detail::checkedUint32Size(right.sdf.size(), "sdf length");
+	left << right.sdf;
+}
+
+/**
+ * @brief Reads a stored glyph payload written in a specific container version.
+ * @tparam IoType Elv device-like type wrapped by the DataStream.
+ * @param left Big-endian FontPacker data stream.
+ * @param right Destination glyph payload.
+ * @param version Container version that governs the advance encoding.
+ * @param legacySvgAdvances Whether this is a version 1 SVG-backed face.
+ */
+template <Elv::Io::DeviceLike IoType>
+inline void readStoredCharacter(FontDataStream<IoType>& left, StoredCharacter& right,
+								std::uint32_t version, bool legacySvgAdvances = false)
+{
+	StoredCharacter decoded;
+	left >> decoded.valid;
+	if (decoded.valid) {
+		left >> decoded.width >> decoded.height >> decoded.bearingX >> decoded.bearingY;
+		if (version >= FontFaceVersion) {
+			left >> decoded.advanceX >> decoded.advanceY;
+		} else {
+			std::uint32_t rawX = 0;
+			std::uint32_t rawY = 0;
+			left >> rawX >> rawY;
+			if (legacySvgAdvances) {
+				decoded.advanceX = static_cast<float>(rawX);
+				decoded.advanceY = static_cast<float>(rawY);
+			} else {
+				decoded.advanceX = Detail::decodeFixed26_6(rawX);
+				decoded.advanceY = Detail::decodeFixed26_6(rawY);
+			}
+		}
+		left >> decoded.metricWidth >> decoded.metricHeight
+			 >> decoded.horiBearingX >> decoded.horiBearingY >> decoded.horiAdvance
+			 >> decoded.vertBearingX >> decoded.vertBearingY >> decoded.vertAdvance
+			 >> decoded.sdf;
+	}
+	right = std::move(decoded);
+}
+
+/**
+ * @brief Writes a stored glyph payload in the current container version.
  * @tparam IoType Elv device-like type wrapped by the DataStream.
  * @param left Big-endian FontPacker data stream.
  * @param right Glyph payload to write.
@@ -402,30 +652,12 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, GlyphTOC
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const StoredCharacter& right)
 {
-	left << right.valid;
-	if (!right.valid)
-		return left;
-
-	return left
-		<< right.width
-		<< right.height
-		<< right.bearingX
-		<< right.bearingY
-		<< right.advanceX
-		<< right.advanceY
-		<< right.metricWidth
-		<< right.metricHeight
-		<< right.horiBearingX
-		<< right.horiBearingY
-		<< right.horiAdvance
-		<< right.vertBearingX
-		<< right.vertBearingY
-		<< right.vertAdvance
-		<< right.sdf;
+	writeStoredCharacter(left, right, FontFaceVersion, false);
+	return left;
 }
 
 /**
- * @brief Reads a stored glyph payload.
+ * @brief Reads a stored glyph payload written in the current container version.
  * @tparam IoType Elv device-like type wrapped by the DataStream.
  * @param left Big-endian FontPacker data stream.
  * @param right Destination glyph payload.
@@ -434,27 +666,7 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const St
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, StoredCharacter& right)
 {
-	StoredCharacter decoded;
-	left >> decoded.valid;
-	if (decoded.valid) {
-		left
-			>> decoded.width
-			>> decoded.height
-			>> decoded.bearingX
-			>> decoded.bearingY
-			>> decoded.advanceX
-			>> decoded.advanceY
-			>> decoded.metricWidth
-			>> decoded.metricHeight
-			>> decoded.horiBearingX
-			>> decoded.horiBearingY
-			>> decoded.horiAdvance
-			>> decoded.vertBearingX
-			>> decoded.vertBearingY
-			>> decoded.vertAdvance
-			>> decoded.sdf;
-	}
-	right = std::move(decoded);
+	readStoredCharacter(left, right, FontFaceVersion, false);
 	return left;
 }
 
@@ -462,32 +674,45 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, StoredCh
  * @brief Writes a complete FontPacker preprocessed font face.
  * @details The exporter writes placeholder TOC entries, writes kerning and
  * glyph payloads, then seeks back to patch absolute glyph offsets into the TOC.
+ * Glyphs and kerning pairs are written in ascending code-point order, so the
+ * output is byte-deterministic and matches FontPacker's `QMap` ordering.
  * @tparam IoType Elv device-like type wrapped by the DataStream.
  * @param left Big-endian FontPacker data stream.
  * @param right Font face to write.
  * @return Reference to the stream.
  * @throws std::overflow_error if a count or offset cannot fit the binary format.
- * @throws std::runtime_error if required seeking fails.
+ * @throws std::runtime_error if the version is unsupported or required seeking fails.
  */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const PreprocessedFontFace& right)
 {
+	Detail::validateVersion(right.version, FontFaceMinVersion, FontFaceVersion, "PreprocessedFontFace");
+
 	left
 		<< FontFaceMagic
 		<< right.version
 		<< right.familyName
 		<< right.type
 		<< right.distType
-		<< right.bitmapSize
+		<< right.storedBitmapSize()
 		<< right.bitmapLogicalSize
 		<< right.bitmapPadding
-		<< right.hasVert
-		<< right.imageFormat
+		<< right.hasVert;
+	// The tag is fixed-width and must be NUL-terminated; the last byte is reserved.
+	ImageFormatTag imageFormat = right.imageFormat;
+	imageFormat.back() = '\0';
+	left << imageFormat
 		<< right.ascender
 		<< right.descender
 		<< right.faceHeight
 		<< right.maxAdvance
 		<< right.unitsPerEm;
+	if (right.version >= 2) {
+		const float midpoint = right.hasEncodingFlag(EncodingFlag::MidpointAdjusted)
+							 ? right.midpointAdjustment : 1.0f;
+		left << right.distanceRangeX << right.distanceRangeY
+			 << right.encodingFlags << midpoint;
+	}
 
 	const std::uint32_t charCount = Detail::checkedUint32Size(right.glyphs.size(), "glyph count");
 	std::vector<GlyphTOCEntry> placeholders(charCount);
@@ -495,13 +720,26 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Pr
 	const long tocPosition = left.device.tell();
 	left << placeholders;
 
-	left << right.kerning;
+	// Order both maps so the file does not depend on hash iteration order.
+	std::map<std::uint32_t, std::map<std::uint32_t, glm::fvec2>> orderedKerning;
+	for (const auto& first : right.kerning) {
+		for (const auto& second : first.second)
+			orderedKerning[first.first][second.first] = second.second;
+	}
+	left << orderedKerning;
 
+	std::vector<std::uint32_t> codePoints;
+	codePoints.reserve(right.glyphs.size());
+	for (const auto& glyph : right.glyphs)
+		codePoints.push_back(glyph.first);
+	std::sort(codePoints.begin(), codePoints.end());
+
+	const bool legacySvgAdvances = right.hasLegacySvgAdvances();
 	std::vector<GlyphTOCEntry> toc;
-	toc.reserve(right.glyphs.size());
-	for (const auto& glyph : right.glyphs) {
-		toc.push_back({ glyph.first, Detail::checkedFileOffset(left.device.tell(), "glyph offset") });
-		left << glyph.second;
+	toc.reserve(codePoints.size());
+	for (const std::uint32_t codePoint : codePoints) {
+		toc.push_back({ codePoint, Detail::checkedFileOffset(left.device.tell(), "glyph offset") });
+		writeStoredCharacter(left, right.glyphs.at(codePoint), right.version, legacySvgAdvances);
 	}
 
 	const long endPosition = left.device.tell();
@@ -514,13 +752,15 @@ inline FontDataStream<IoType>& operator<<(FontDataStream<IoType>& left, const Pr
 /**
  * @brief Reads a complete FontPacker preprocessed font face.
  * @details The importer reads the TOC and kerning block first, then seeks to
- * each absolute glyph offset to import stored glyph payloads.
+ * each absolute glyph offset to import stored glyph payloads. Versions 1, 2 and
+ * 3 are accepted; version 1 files get the nominal distance ranges reconstructed
+ * in memory, and versions 1/2 advances are converted from 26.6 to float pixels.
  * @tparam IoType Elv device-like type wrapped by the DataStream.
  * @param left Big-endian FontPacker data stream.
  * @param right Destination font face.
  * @return Reference to the stream.
  * @throws std::overflow_error if an offset cannot be represented for seeking.
- * @throws std::runtime_error if required seeking fails.
+ * @throws std::runtime_error if the magic/version is unsupported or required seeking fails.
  */
 template <Elv::Io::DeviceLike IoType>
 inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, PreprocessedFontFace& right)
@@ -531,7 +771,7 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, Preproce
 		>> magic
 		>> decoded.version;
 	Detail::validateMagic(magic, FontFaceMagic, "PreprocessedFontFace");
-	Detail::validateVersion(decoded.version, FontFaceVersion, "PreprocessedFontFace");
+	Detail::validateVersion(decoded.version, FontFaceMinVersion, FontFaceVersion, "PreprocessedFontFace");
 
 	left
 		>> decoded.familyName
@@ -547,18 +787,36 @@ inline FontDataStream<IoType>& operator>>(FontDataStream<IoType>& left, Preproce
 		>> decoded.faceHeight
 		>> decoded.maxAdvance
 		>> decoded.unitsPerEm;
+	// FontPacker's reader forces the last byte of the fixed-width tag to NUL.
+	decoded.imageFormat.back() = '\0';
+	if (decoded.version >= 2) {
+		left >> decoded.distanceRangeX >> decoded.distanceRangeY
+			 >> decoded.encodingFlags >> decoded.midpointAdjustment;
+	} else {
+		// Version 1 did not store the ranges or the baked transforms.
+		decoded.encodingFlags = 0;
+		decoded.midpointAdjustment = 1.0f;
+		if (decoded.bitmapLogicalSize > 0) {
+			const float storedSize = static_cast<float>(decoded.storedBitmapSize());
+			const float nominal = static_cast<float>(decoded.bitmapPadding) * storedSize
+								  / static_cast<float>(decoded.bitmapLogicalSize);
+			decoded.distanceRangeX = nominal;
+			decoded.distanceRangeY = nominal;
+		}
+	}
 
 	std::vector<GlyphTOCEntry> toc;
 	left >> toc;
 
 	left >> decoded.kerning;
 
+	const bool legacySvgAdvances = decoded.hasLegacySvgAdvances();
 	decoded.glyphs.reserve(toc.size());
 	long endPosition = left.device.tell();
 	for (const GlyphTOCEntry& entry : toc) {
 		Detail::seekAbsolute(left.device, Detail::checkedSeekOffset(entry.offset, "glyph offset"), "glyph data");
 		StoredCharacter character;
-		left >> character;
+		readStoredCharacter(left, character, decoded.version, legacySvgAdvances);
 		endPosition = std::max(endPosition, left.device.tell());
 		decoded.glyphs.emplace(entry.codePoint, std::move(character));
 	}

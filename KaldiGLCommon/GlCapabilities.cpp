@@ -187,7 +187,10 @@ Kld::HalCapabilities probeCapabilities() noexcept
 	}
 	// Explicit swapchain objects are a validated view of the context drawable.
 	capabilities.supportsExplicitSwapchains = true;
-	capabilities.version = Kld::KaldiHalVersion1_1;
+	// OpenGL clip space has y growing upwards: NDC +1 is the top of the
+	// framebuffer (HAL 1.2).
+	capabilities.clipSpaceYAxis = Kld::ClipSpaceYAxis::Up;
+	capabilities.version = Kld::KaldiHalVersion1_2;
 
 	return capabilities;
 }

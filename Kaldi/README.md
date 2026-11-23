@@ -11,10 +11,11 @@ the raw tagged-union API and the object-oriented facade side by side, with a com
 textured triangle, and explains the retirement, lifetime and threading contracts.
 
 **Status: the contract and the recording facade are implemented; OpenGL, OpenGL ES and
-Vulkan execute it.** The command vocabulary (98 opcodes), the HAL 1.0/1.1 contract, and
+Vulkan execute it.** The command vocabulary (98 opcodes), the HAL 1.0/1.1/1.2 contract, and
 the header-only recording facade are usable today. `KaldiGL`, `KaldiGLES` and `KaldiVK`
-implement `processCommandQueue()` (the Vulkan backend reports HAL 1.1); `KaldiD3D11` and
-`KaldiD3D12` still build stubs that export the C ABI but cannot execute commands yet.
+implement `processCommandQueue()` (the GL family and Vulkan backends report HAL 1.2);
+`KaldiD3D11` and `KaldiD3D12` still build stubs that export the C ABI but cannot execute
+commands yet.
 
 ## Key files
 
@@ -107,6 +108,18 @@ Backends that own their presentable images report a *usable* framebuffer handle 
 Render-pass metadata is available through `RenderPassDescriptor`, `RenderPassColorAttachment`, and `RenderPassDepthStencilAttachment`. `BeginRenderPass` implicitly establishes its framebuffer for following draw commands and describes each attachment's load, clear, store, or don't-care policy. `EndRenderPass` closes that scope. The older `BindFramebuffer` plus explicit clear commands remain valid for immediate-style backends and simple command streams.
 
 Parallel recording support is deliberately conservative. A shared `HandleAllocator` gives worker command buffers disjoint handle IDs, but it does not make a single `CommandBuffer` thread-safe. `CommandBuffer::append` and `mergeCommandBuffers` concatenate already-recorded command spans in caller-specified order, which is the execution order. Cross-thread resource ownership uses `release()` plus a coordinator-owned `DeferredDestroyQueue`; flushing that queue records typed destroy commands into the coordinator command buffer.
+
+## Kaldi HAL 1.2 contract additions
+
+`HalCapabilities::clipSpaceYAxis` names the direction of the positive y axis in normalized device coordinates, and `KaldiHalVersion1_2` tags a backend that reports it. `OpSetViewport` already uses the OpenGL convention for the viewport *rectangle* (origin bottom-left) and every backend translates that to its own window-space origin; the clip-space **direction** is a separate question that the APIs answer differently:
+
+| API | NDC `y = +1` is | `clipSpaceYAxis` |
+|---|---|---|
+| OpenGL / OpenGL ES | the top of the framebuffer | `ClipSpaceYAxis::Up` |
+| Direct3D 11 / 12 | the top of the framebuffer | `ClipSpaceYAxis::Up` |
+| Vulkan | the bottom of the framebuffer | `ClipSpaceYAxis::Down` |
+
+Any renderer that builds clip-space positions itself - a 2D UI whose vertices are pixels, or a 3D projection matrix - must consult this value. Assuming one convention makes the same vertex data render vertically flipped on the other backend; that is exactly what happened to Lotte's first cursor draw on Vulkan while the OpenGL path was already correct. The field is zero-initialised to `Up`, so a consumer that never sees a probed device keeps the pre-1.2 assumption.
 
 ## Facade model
 

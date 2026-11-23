@@ -199,12 +199,17 @@ public:
 	 * @brief Records an indexed triangle draw.
 	 * @param commands Dispatcher that receives the command.
 	 * @param range Index range to draw; defaults to everything that was uploaded.
+	 *
+	 * Kaldi's `OpDrawIndexedTriangles::indexOffset` is a **byte** offset, while
+	 * @ref Range is expressed in indices, so the conversion happens here.
 	 */
 	void recordDraw(CommandBuffer& commands, Range range = Range{}) const
 	{
 		const Range effective = (range.indexCount || range.vertexOffset) ? range : resident;
 		if (!vertexBuffer || !indexBuffer || !effective.indexCount) return;
-		KldOopDetail::drawIndexedTriangles(commands, effective.indexOffset, effective.indexCount, effective.vertexOffset);
+		KldOopDetail::drawIndexedTriangles(commands,
+			effective.indexOffset * std::uint32_t(sizeof(std::uint32_t)),
+			effective.indexCount, effective.vertexOffset);
 	}
 
 	/**
@@ -217,7 +222,9 @@ public:
 	{
 		const Range effective = (range.indexCount || range.vertexOffset) ? range : resident;
 		if (!vertexBuffer || !indexBuffer || !effective.indexCount) return;
-		KldOopDetail::drawIndexedLines(commands, effective.indexOffset, effective.indexCount, effective.vertexOffset, thickness);
+		KldOopDetail::drawIndexedLines(commands,
+			effective.indexOffset * std::uint32_t(sizeof(std::uint32_t)),
+			effective.indexCount, effective.vertexOffset, thickness);
 	}
 
 	/** @brief Returns the range that is currently resident on the GPU. */

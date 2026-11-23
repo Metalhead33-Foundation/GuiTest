@@ -64,7 +64,7 @@ A CPU-side conversion in Euphemy is the intended fix.
 
 ## TODO
 
-- [x] Implement `Device::capabilities()` and report `KaldiHalVersion1_1` with probed limits.
+- [x] Implement `Device::capabilities()` and report `KaldiHalVersion1_2` with probed limits.
 - [x] Implement `Device::processCommandQueue(std::span<const GfxOp>)` for the Kaldi opcode set, including explicit swapchain objects (a validated view of the default drawable).
 - [x] Create and own an OpenGL ES 3.2 context from the native window handle (EGL, via `GLES::createContext`).
 - [x] Implement the backend-owned `DefaultFramebuffer` and the `BeginFrame`/`EndFrame`/`Present` path, plus explicit swapchain objects. (A GL swapchain is a validated view of the context drawable: one backend-owned image at index 0, and `PresentSwapchain` swaps the window buffers.)

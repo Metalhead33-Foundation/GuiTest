@@ -14,6 +14,16 @@ LIBS += -lglslang -lSPIRV -lglslang-default-resource-limits
 # Kaldi is used by Lotte as a header-only dependency. Do not add -lKaldi
 # or libKaldi here; there is no Kaldi library target to link against.
 #
+# CSS support for MML is optional. libcss (NetSurf) is a C library needed by one
+# module only, and `Text/LteCssStyle.cpp` compiles to nothing without the define,
+# so the library keeps building on hosts that do not have it installed.
+packagesExist(libcss) {
+    message("Lotte: libcss found, enabling MML CSS support (LTE_WITH_LIBCSS)")
+    CONFIG += link_pkgconfig
+    PKGCONFIG += libcss
+    DEFINES += LTE_WITH_LIBCSS
+}
+#
 # utfcpp (https://github.com/nemtrif/utfcpp) is likewise header-only and is
 # consumed as <utf8cpp/utf8.h> from the system include path, so no -l or
 # separate INCLUDEPATH is required.
@@ -21,32 +31,61 @@ LIBS += -lglslang -lSPIRV -lglslang-default-resource-limits
 SOURCES += \
     Asset/LteGpuAssetStreamer.cpp \
     Conf/LteBackendConfig.cpp \
+    GFX/LteClipSpaceConventions.cpp \
+    GFX/LteKaldiContext.cpp \
     GFX/LtePipeline.cpp \
+    GFX/LteResourceFactory.cpp \
+    GFX/LteWriteableTexture2D.cpp \
+    Gui/LteCursor.cpp \
+    Gui/LteGuiRenderable.cpp \
+    Gui/LteGuiRootNode.cpp \
+    Gui/LteTexturedWidget.cpp \
+    Gui/LteWidget.cpp \
+    Gui/LteKaldiGuiRenderer.cpp \
+    Text/LteCssStyle.cpp \
+    Text/LteFontAtlas.cpp \
+    Text/LteFontRepository.cpp \
     Text/LteHtmlEntities.cpp \
     Text/LteMarkupColour.cpp \
     Text/LteMarkupStack.cpp \
     Text/LteMml.cpp \
     Text/LteRichText.cpp \
-    Text/LteTextLayout.cpp
+    Text/LteTextLayout.cpp \
+    Text/LteTextRenderer.cpp
 
 HEADERS += \
     Asset/LteGpuAssetStreamer.hpp \
     Conf/LteBackendConfig.hpp \
+    GFX/LteClipSpaceConventions.hpp \
+    GFX/LteImageConvert.hpp \
+    GFX/LteKaldiContext.hpp \
     GFX/LteMesh.hpp \
     GFX/LtePipeline.hpp \
+    GFX/LteResourceFactory.hpp \
+    GFX/LteWriteableTexture2D.hpp \
+    Gui/LteCursor.hpp \
+    Gui/LteGuiRenderable.hpp \
+    Gui/LteGuiRootNode.hpp \
+    Gui/LteTexturedWidget.hpp \
+    Gui/LteTheme.hpp \
+    Gui/LteWidget.hpp \
     Gui/LteGuiRenderCache.hpp \
     Gui/LteGuiRenderer.hpp \
     Gui/LteGuiVertex.hpp \
+    Gui/LteKaldiGuiRenderer.hpp \
     LteKld.hpp \
     Text/LteFontAtlas.hpp \
     Text/LteFontFace.hpp \
+    Text/LteFontRepository.hpp \
     Text/LteHtmlEntities.hpp \
+    Text/LteCssStyle.hpp \
     Text/LteMarkupColour.hpp \
     Text/LteMarkupStack.hpp \
     Text/LteMml.hpp \
     Text/LteRichText.hpp \
     Text/LteTextAttributes.hpp \
     Text/LteTextLayout.hpp \
+    Text/LteTextRenderer.hpp \
     Text/LteUtf.hpp \
     VectorGraphic/LteStoredVectorImage.hpp \
     LotteLib.hpp

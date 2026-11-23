@@ -114,7 +114,11 @@ Kld::HalCapabilities probeCapabilities(const Context& context)
 	capabilities.supportsTextureCompression = supportsBcFormats(context.physicalDevice());
 	// Explicit swapchain objects are implemented on top of the context surface.
 	capabilities.supportsExplicitSwapchains = true;
-	capabilities.version = Kld::KaldiHalVersion1_1;
+	// Vulkan's clip space has y growing downwards: NDC -1 is the top of the
+	// framebuffer, unlike OpenGL/Direct3D. Renderers need this to orient their
+	// projections (HAL 1.2).
+	capabilities.clipSpaceYAxis = Kld::ClipSpaceYAxis::Down;
+	capabilities.version = Kld::KaldiHalVersion1_2;
 
 	return capabilities;
 }
