@@ -9,7 +9,9 @@ scheduler, the FontPacker-compatible font/vector-image formats, the rich-text
 pipeline (MML parsing, text layout, glyph quads), the mesh/GUI geometry batches, a
 run-time-loaded Kaldi rendering context with a resource factory, a dirty-rectangle
 writable texture and a working GUI renderer with anchored (2D and 3D) cursors.
-There is no GUI widget system yet; see the TODO list.
+The GUI base hierarchy (render tree, widget state machine, textured widget, root
+node) and an abstract theme contract now exist; concrete controls, layout and
+input routing are still on the TODO list.
 
 ## Build and consumption
 
@@ -22,9 +24,11 @@ There is no GUI widget system yet; see the TODO list.
 
 Compiled units: `Asset/LteGpuAssetStreamer.cpp`, `Conf/LteBackendConfig.cpp`,
 `GFX/LteKaldiContext.cpp`, `GFX/LtePipeline.cpp`, `GFX/LteResourceFactory.cpp`,
-`GFX/LteWriteableTexture2D.cpp`, `Gui/LteCursor.cpp`, `Gui/LteKaldiGuiRenderer.cpp` and
-the ten `Text/*.cpp` files. The remaining `Gui/` and `GFX/` headers are header-only
-(templates plus inline recording helpers).
+`GFX/LteWriteableTexture2D.cpp`, `Gui/LteCursor.cpp`, `Gui/LteGuiRenderable.cpp`,
+`Gui/LteGuiRootNode.cpp`, `Gui/LteKaldiGuiRenderer.cpp`,
+`Gui/LteTexturedWidget.cpp`, `Gui/LteWidget.cpp` and the ten `Text/*.cpp` files. The
+remaining `Gui/` and `GFX/` headers are header-only (templates plus inline recording
+helpers).
 
 Kaldi is consumed header-only through `Kaldi.pri`. Do not add `-lKaldi` or `libKaldi`
 to Lotte; use the top-level include path.
@@ -143,6 +147,11 @@ context.endFrame();
 | `Gui/LteGuiVertex.hpp` | `ColouredGuiVertex`, `TexturedGuiVertex`, `ColouredTexturedGuiVertex` with Kaldi `VertexDescriptor`s, and `appendGlyphVertices()` |
 | `Gui/LteGuiRenderCache.hpp` | `GuiGeometryBatch<Vertex>` - CPU vertex/index cache that records create/resize/upload, bind and indexed draw commands, with an explicit sub-range |
 | `Gui/LteGuiRenderer.hpp` | GUI primitive vocabulary (`ColouredQuad`, `GradientQuad`, `TexturedQuad`, ...) and the abstract `GuiRenderer` with its bulk-submission helpers |
+| `Gui/LteGuiRenderable.hpp` / `.cpp` | Abstract `Renderable` node: local/accumulated z-index, two `updateRenderList()` overloads (optional min/max tracking), stable painting-order sort and child-iteration callbacks |
+| `Gui/LteWidget.hpp` / `.cpp` | Abstract `Widget` base: `WidgetStateFlag` bitmask (`Enabled`, `Clicked`, `InMouseFocus`), state index for per-state assets, normalized rectangle/hit test, hidden flag, `Elv::Util::Signal` state/position notifications and the backend-neutral `onClick()` / `timedUpdate()` hooks |
+| `Gui/LteTexturedWidget.hpp` / `.cpp` | Concrete display-only `TexturedWidget`: `GuiTextureBinding` plus an 8-entry `TextureCoordDuo` atlas table indexed by `Widget::stateIndex()`, rendered through `TexturedQuad`; click/animation/child hooks are no-ops for subclasses to override |
+| `Gui/LteGuiRootNode.hpp` / `.cpp` | Owning `RootNode`: shared-child vector, duplicate/null rejection, add/remove/clear APIs, insertion-order iteration and a no-op own render |
+| `Gui/LteTheme.hpp` | Abstract `Theme` contract only: `ThemeElement`/`ThemeTextRole` enums, `ThemeSkin` with UV/tint/nine-slice source rectangle, `ThemeMetrics` and pure `skin()`/`textStyle()`/`metrics()` queries. No concrete theme yet |
 | `GFX/LteMesh.hpp` | `MeshView` (buffer handles + layout + counts + index width + `MeshDrawRange` groups) with inline `recordBind`/`recordDraw`/`recordDrawInstanced`, and `MeshBuilder<Vertex>` that owns the buffers and records uploads |
 
 ### FontPacker binary formats
@@ -191,9 +200,14 @@ the contract. The CBOR map variants described by the specification are not imple
       projection builders (y-up `[0,1]` depth, adapted per backend), the winding
       compensation and the top-left pixel rectangle conversion, so a 3D renderer can
       be written without a single backend check.
-- [ ] No GUI widget system. No widgets, layout, input routing or focus handling. The old
-      `Widget`/`RootNode`/`TickboxWidget` classes were not carried over; `ElvSignal.hpp`
-      provides the signals they used.
+- [x] A GUI base hierarchy exists: `Renderable`, `Widget`, `TexturedWidget` and
+      `RootNode`, plus the abstract `Theme`/`ThemeSkin`/`ThemeMetrics` contract.
+      `TexturedWidget` selects its atlas rectangle from the state bitmask and is
+      deliberately the only concrete widget for now.
+- [ ] No concrete controls, layout engine, input routing, focus handling or theme
+      implementation yet. Checkbox/button/textbox/slider/scroll/tab/table widgets,
+      window frames and nine-slice rendering are deferred; `ElvSignal.hpp` provides
+      the state/position notifications the controls will use.
 - [ ] Cursor metadata is a C++ aggregate (`Lotte::Gui::CursorMetadata`); there is no JSON
       loader yet, and only the 2D image visual is drawn. The 3D model visual produces a
       placement matrix (`Cursor::modelPlacement`) that a 3D renderer must consume.

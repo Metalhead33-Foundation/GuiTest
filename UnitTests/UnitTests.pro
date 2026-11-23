@@ -128,6 +128,7 @@ SOURCES += \
     tests/CursorTests.cpp \
     tests/FontRoundTripTests.cpp \
     tests/FormatTranslationTests.cpp \
+    tests/GuiWidgetTests.cpp \
     tests/HarukaStreamerRingTests.cpp \
     tests/HttpTests.cpp \
     tests/ImageCodecTests.cpp \
