@@ -54,7 +54,7 @@ what each flag does, and the acceptance gate for the switch.
 | `LotteLib.hpp` | `MH_LOTTE_API` export macro |
 | `LteKld.hpp` | Lotte aliases over the Kaldi facade: `CommandBuffer`, `Buffer`, `Framebuffer`, `Fence`, `Image`, `Pipeline`, `ComputePipeline`, `QueryPool`, `Sampler`, `Texture`, plus `OpAllocator`/`HandleAllocator` |
 | `Asset/LteGpuAssetStreamer.hpp` / `.cpp` | `GpuAssetStreamer` - bridges Euphemy's CPU `ResourceRegistry` to Kaldi command buffers. Queues buffer/texture uploads and evictions, accounts GPU bytes against a budget, supports priority/pinning/strong references, and records work into move-only `GpuCommandBatch` objects that keep payload memory alive until commit or fail |
-| `Text/LteFontFace.hpp` | FontPacker-compatible `WODF` font-face format: SDF/MSDF/MSDFA channel types, distance metrics, glyph metrics, kerning tables, absolute-offset TOC, and both importer (`operator>>`) and exporter (`operator<<`) over `Elv::Io::DataStream` |
+| `Text/LteFontFace.hpp` | FontPacker-compatible `WODF` font-face format (versions 1-3): SDF/MSDF/MSDFA channel types, distance metrics, glyph metrics, kerning tables, v2+ distance ranges/encoding flags/midpoint, float advances (26.6 decoded on import), deterministic absolute-offset TOC, and both importer (`operator>>`) and exporter (`operator<<`) over `Elv::Io::DataStream` |
 | `VectorGraphic/LteStoredVectorImage.hpp` | FontPacker-compatible `WODI` stored-vector-image format with mip levels, encoding flags and stream import/export |
 | `Conf/LteBackendConfig.hpp` / `.cpp` | Bridge between `Kld::ConfigProvider` and `Euph::Conf::Configuration`: writes a backend's field defaults into an `.ini`, serializes/parses the text, loads/saves through `Elv::Io::System`, and applies the file back through a `Kld::ConfigReader` (which clamps every value) |
 | `GFX/LtePipeline.hpp` / `.cpp` | `compileShaderProgram()` (glslang's HLSL front-end, see [`docs/SHADERS.md`](../docs/SHADERS.md); HLSL or GLSL input, always emits **Vulkan** SPIR-V 1.0 so one blob serves every backend, pluggable `ShaderIncludeResolver`), the owning `ShaderBinary` (SPIR-V words + stage, convertible to `Kld::ShaderBinaryDescriptor`) and `Pipeline` (owns stages + vertex attributes and exposes Kaldi views) |
@@ -153,7 +153,19 @@ upstream specification:
 
 <https://github.com/Metalhead33-Foundation/FontPacker/blob/master/BINARY_FORMAT.md>
 
-The CBOR map variants described by that specification are not implemented.
+`WODF` versions 1, 2 and 3 are readable and writable. New faces are written as
+version 3; a loaded older face keeps its version. Version 2 added `distanceRangeX`/`Y`,
+`encodingFlags` and `midpointAdjustment` to the header; version 3 stores each glyph's
+advances as float pixels instead of raw 26.6 (version 1 SVG faces stored plain pixels).
+The importer always exposes float pixels in `StoredCharacter`, and the exporter
+re-encodes the advances for the container version it is writing. Glyphs and kerning
+pairs are written in ascending code-point order, so the output is deterministic.
+
+Both containers keep the padding inside the logical size (`(L - 2P)` content box).
+Drawing a glyph therefore means mapping the whole `S x S` tile onto the intended
+`width x height` box expanded by `width * P / (L - 2P)` and `height * P / (L - 2P)`;
+`LteTextLayout` applies that expansion, and `LteFontAtlas` documents the atlas side of
+the contract. The CBOR map variants described by the specification are not implemented.
 
 ### Typical asset flow
 
@@ -184,15 +196,16 @@ The CBOR map variants described by that specification are not implemented.
       loader yet, and only the 2D image visual is drawn. The 3D model visual produces a
       placement matrix (`Cursor::modelPlacement`) that a 3D renderer must consume.
 - [ ] No glyph atlas. `Text/LteFontAtlas.hpp` documents what is missing (decode
-      `StoredCharacter::sdf`, pack it into a texture, expose UV rectangles through
-      `GlyphAtlasMapping`) and implements the quad emission. `GFX/LteWriteableTexture2D`
-      now provides the atlas page (CPU pixels + dirty-rectangle upload) and
-      `CursorImageVisual::uv` shows the sub-rectangle convention, but the glyph packer
-      itself does not exist. Confirmed constraints from FontPacker: every payload is a
-      square `bitmapSize` × `bitmapSize` image because each glyph's metric box is
-      stretched onto a square before downsampling, the padding is already baked into the
-      payload (`bitmapPadding * bitmapSize / bitmapLogicalSize`), and MSDF payloads are
-      stored as RGB888.
+      `StoredCharacter::sdf`, pack it into a texture, expose whole-tile UV rectangles
+      through `GlyphAtlasMapping`) and implements the quad emission.
+      `GFX/LteWriteableTexture2D` now provides the atlas page (CPU pixels + dirty-rectangle
+      upload) and `CursorImageVisual::uv` shows the sub-rectangle convention, but the
+      glyph packer itself does not exist. Confirmed constraints from FontPacker: every
+      payload is a square `bitmapSize` x `bitmapSize` image because each glyph's metric
+      box is stretched onto a square before downsampling, the padding is already baked
+      into the payload (`bitmapPadding * bitmapSize / bitmapLogicalSize`), MSDF payloads
+      are stored as RGB888, and the drawing quad must be the intended box expanded by
+      the padding runway (`width * P / (L - 2P)` per axis).
 - [ ] No text shaping beyond glyph placement: kerning is applied per pair within a run
       (offsets are pixels at the face's reference size, as FontPacker stores them), but
       pairs that straddle a run boundary are not kerned, and there is no bidi, no line
@@ -209,15 +222,17 @@ The CBOR map variants described by that specification are not implemented.
 - [ ] The GPU command sequences recorded by `MeshBuilder`, `GuiGeometryBatch` and
       `KaldiGuiRenderer` are only smoke-tested: the Sandbox renders a cursor every frame
       through the Vulkan backend, but nothing asserts the resulting pixels yet.
-- [ ] Text and geometry are covered by `testTextPipeline()` and `testGeometryBatches()` in
+- [x] Text and geometry are covered by `testTextPipeline()` and `testGeometryBatches()` in
       `Sandbox`; the font and vector-image formats by `testFontParser()` and
-      `testFontRoundTrip()`. The CPU half of the new cursor/texture code is covered by
-      `CursorTests` and `WriteableTexture2DTests` in `UnitTests`; the renderer itself has
-      no automated frame-level test.
+      `testFontRoundTrip()`. `UnitTests/tests/FontRoundTripTests.cpp` additionally checks
+      the version 1/2/3 advance encodings, the raw version 3 header offsets, the padded
+      glyph quad and the `WODI` geometry helpers. The CPU half of the new cursor/texture
+      code is covered by `CursorTests` and `WriteableTexture2DTests` in `UnitTests`; the
+      renderer itself has no automated frame-level test.
 - [ ] The CBOR map variants of the FontPacker specification are not implemented.
-- [ ] `KerningMap` and the glyph map are `std::unordered_map`s, so exported font files
-      are not byte-deterministic. Switch to ordered maps (or sort before writing) if
-      reproducible binaries are required.
+- [x] `KerningMap` and the glyph map stay `std::unordered_map`s in memory, but the
+      exporter sorts both by code point, so exported font files are byte-deterministic
+      and match FontPacker's `QMap` ordering.
 - [ ] Font/vector-image formats are read/written through `Elv::Io::DataStream`; there is
       no standalone file loader/saver wrapper in Lotte.
 

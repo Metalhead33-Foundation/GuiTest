@@ -1282,8 +1282,8 @@ void testFontRoundTrip()
 	glyph.height = 9;
 	glyph.bearingX = -1;
 	glyph.bearingY = 2;
-	glyph.advanceX = 7;
-	glyph.advanceY = 10;
+	glyph.advanceX = 7.0f;
+	glyph.advanceY = 10.0f;
 	glyph.metricWidth = 8.0f;
 	glyph.metricHeight = 9.0f;
 	glyph.horiBearingX = -1.0f;
@@ -1336,7 +1336,8 @@ void testFontRoundTrip()
 	image.maxY = 2.0f;
 	image.distanceRangeX = 4.0f;
 	image.distanceRangeY = 8.0f;
-	image.encodingFlags = static_cast<std::uint32_t>(Lotte::VectorGraphic::EncodingFlag::Inverted);
+	image.encodingFlags = static_cast<std::uint32_t>(Lotte::VectorGraphic::EncodingFlag::Inverted)
+						| static_cast<std::uint32_t>(Lotte::VectorGraphic::EncodingFlag::MidpointAdjusted);
 	image.midpointAdjustment = 0.5f;
 	image.type = SDFType::SDF;
 	image.distType = DistanceType::Manhattan;
@@ -1441,14 +1442,15 @@ Lotte::Text::PreprocessedFontFace makeTestFontFace()
 	for (char32_t codePoint : { U'A', U'B' }) {
 		StoredCharacter character;
 		character.valid = true;
-		// Model FontPacker's outline path: the SDF is generated from the *metric* box,
-		// so the raw FreeType bitmap fields are never filled in.
+		// Model a hand-built face that carries only the float metric box. Real
+		// FontPacker faces also fill width/height/bearingX/bearingY; layout prefers
+		// those and falls back to the metric box when they are zero.
 		character.metricWidth = 8.0f;
 		character.metricHeight = 10.0f;
 		character.horiBearingX = 1.0f;
 		character.horiBearingY = 8.0f;
 		character.horiAdvance = 9.0f;
-		character.advanceX = 9 * 64;
+		character.advanceX = 9.0f;
 		face.glyphs.emplace(std::uint32_t(codePoint), std::move(character));
 	}
 	return face;
@@ -1723,9 +1725,10 @@ void testTextPipeline()
 	const PreprocessedFontFace face = makeTestFontFace();
 	TextLayoutOptions options;
 	options.origin = glm::fvec2(10.0f, 20.0f);
-	// The face metrics are expressed at 10 px, so ask for 10 px to get a scale of 1.
+	// Font metrics are expressed at em = L - P; this face has L = 64, P = 0, so
+	// asking for 64 px gives a scale of 1.
 	TextAttributes baseAttributes;
-	baseAttributes.size = 10.0f;
+	baseAttributes.size = 64.0f;
 	const TextRunList sample = { TextRun{ U"AB\nA", baseAttributes } };
 	const TextLayout layout = layoutRuns(sample, [&face](const std::string&, bool) { return &face; }, options);
 
@@ -1738,13 +1741,13 @@ void testTextPipeline()
 			&& std::abs(layout.glyphs[2].position.y - 22.0f) < 1e-5f,
 		"A newline must return the pen to the line start and advance by the face line height");
 	requireCondition(std::abs(layout.endOffset.x - 19.0f) < 1e-5f,
-		"The end offset must follow the 26.6 advance converted to pixels");
+		"The end offset must follow the glyph advance");
 	requireCondition(std::abs(layout.height - 32.0f) < 1e-5f,
 		"The layout height must be the last baseline plus the descender");
 
 	{
 		// Kerning offsets are pixels at the face's reference size, so they scale with
-		// the run but are not divided by 64 like the advance is.
+		// the run exactly like the advances.
 		PreprocessedFontFace kernedFace = makeTestFontFace();
 		kernedFace.kerning[U'A'].emplace(std::uint32_t(U'B'), glm::fvec2(-1.0f, 0.0f));
 		const TextRunList kernedRuns = { TextRun{ U"AB", baseAttributes } };
@@ -1792,7 +1795,7 @@ void testTextPipeline()
 
 	{
 		// Faces assembled from pre-rendered bitmaps have no metric box; the raw bitmap
-		// fields must then be used instead, and the 26.6 advance is the only one present.
+		// fields must then be used instead, and the float advance is the only one present.
 		PreprocessedFontFace bitmapFace = makeTestFontFace();
 		for (auto& entry : bitmapFace.glyphs) {
 			StoredCharacter& character = entry.second;

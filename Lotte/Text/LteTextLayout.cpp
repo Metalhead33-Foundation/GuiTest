@@ -7,55 +7,54 @@ namespace Text {
 
 namespace {
 
-/** @brief Geometry of one glyph, expressed in face pixels (the reference size). */
+/** @brief Geometry of one glyph, expressed in face pixels (the reference em size). */
 struct GlyphBox {
-	/** @brief Ink width. */
+	/** @brief Intended layout-box width. */
 	float width = 0.0f;
-	/** @brief Ink height. */
+	/** @brief Intended layout-box height. */
 	float height = 0.0f;
-	/** @brief Horizontal offset of the ink box from the pen position. */
+	/** @brief Horizontal offset of the box from the pen position. */
 	float bearingX = 0.0f;
-	/** @brief Vertical offset of the ink box from the baseline (positive = above). */
+	/** @brief Vertical offset of the box from the baseline (positive = above). */
 	float bearingY = 0.0f;
 	/** @brief Horizontal advance, including side bearings. */
 	float advance = 0.0f;
-	/** @brief Whether the glyph has a drawable ink box. */
+	/** @brief Whether the glyph has a drawable box. */
 	bool drawable = false;
 };
 
 /**
- * @brief Extracts the geometry of one glyph from a stored character.
+ * @brief Extracts the intended layout box and advance of one stored glyph.
  * @param glyph Stored glyph data.
  * @return Geometry in face pixels.
  *
- * FontPacker normalizes every glyph by its **metric box** - `metricWidth`,
- * `metricHeight`, `horiBearingX`, `horiBearingY` - stretching that box onto a square
- * SDF, so those are the fields that describe the quad. `width`, `height`, `bearingX`
- * and `bearingY` are the *raw FreeType bitmap* fields (and `bitmap_left`/`bitmap_top`
- * are only filled once FreeType has rendered a bitmap), which means they are zero for
- * fonts produced from outlines. They are still honoured as a fallback so that faces
- * assembled from pre-rendered bitmaps keep working.
+ * FontPacker stores the **intended layout box** in `width`/`height`/`bearingX`/
+ * `bearingY` (FreeType's bitmap dimensions, `bitmap_left` and `bitmap_top`), and
+ * the box the SDF was stretched from in `metricWidth`/`metricHeight`/
+ * `horiBearingX`/`horiBearingY`. The runtime draws the glyph at the intended box
+ * (plus the padding runway), so those whole-pixel fields are preferred. Faces
+ * assembled by hand may leave them zero and carry only the float metric box;
+ * that is the fallback.
  *
- * The advance uses `horiAdvance` when present because it is already in pixels, while
- * `advanceX` is 26.6 fixed point - except on the vector-image glyph path, where
- * FontPacker stores a pixel value there too. Preferring the float field avoids that
- * inconsistency entirely.
+ * The advance prefers `horiAdvance`, a float pixel value in every format version.
+ * `advanceX` is float pixels in version 3 and is decoded from raw 26.6 on import
+ * for versions 1/2, so both are comparable here.
  */
 GlyphBox glyphBox(const StoredCharacter& glyph)
 {
 	GlyphBox box;
-	if (glyph.metricWidth > 0.0f && glyph.metricHeight > 0.0f) {
-		box.width = glyph.metricWidth;
-		box.height = glyph.metricHeight;
-		box.bearingX = glyph.horiBearingX;
-		box.bearingY = glyph.horiBearingY;
-	} else {
+	if (glyph.width > 0 && glyph.height > 0) {
 		box.width = float(glyph.width);
 		box.height = float(glyph.height);
 		box.bearingX = float(glyph.bearingX);
 		box.bearingY = float(glyph.bearingY);
+	} else {
+		box.width = glyph.metricWidth;
+		box.height = glyph.metricHeight;
+		box.bearingX = glyph.horiBearingX;
+		box.bearingY = glyph.horiBearingY;
 	}
-	box.advance = glyph.horiAdvance > 0.0f ? glyph.horiAdvance : float(glyph.advanceX) / FixedPoint26_6;
+	box.advance = glyph.horiAdvance > 0.0f ? glyph.horiAdvance : glyph.advanceX;
 	box.drawable = box.width > 0.0f && box.height > 0.0f;
 	return box;
 }
@@ -127,6 +126,7 @@ void layoutRun(const PreprocessedFontFace& face, std::u32string_view text, const
 	const float referenceSize = getReferencePixelSize(face);
 	const float requestedSize = attributes.size > 0.0f ? attributes.size : referenceSize;
 	const float runScale = state.scale * (requestedSize / referenceSize);
+	const float paddingRatio = getGlyphPaddingRatio(face);
 	const std::uint32_t styleIndex = findOrAddStyle(layout, attributes);
 
 	const float lineStartX = state.origin.x;
@@ -159,16 +159,25 @@ void layoutRun(const PreprocessedFontFace& face, std::u32string_view text, const
 
 		const GlyphBox box = glyphBox(glyph);
 		if (box.drawable) {
+			const float glyphWidth = box.width * runScale;
+			const float glyphHeight = box.height * runScale;
+			// The stored tile contains the padding runway, so the quad must be larger
+			// than the intended box. See lte_text_layout_padding.
+			const float padX = glyphWidth * paddingRatio;
+			const float padY = glyphHeight * paddingRatio;
 			PlacedGlyph placed;
 			placed.codePoint = codePoint;
-			// `bearingY` is the height of the ink box above the baseline, and `y` grows
-			// downwards, so the box starts above the pen.
-			placed.position = glm::fvec2(penX + box.bearingX * runScale, penY - box.bearingY * runScale);
-			placed.size = glm::fvec2(box.width * runScale, box.height * runScale);
-			placed.shear = attributes.italic ? placed.size.y * ItalicShear : 0.0f;
+			// `bearingY` is the height of the box above the baseline, and `y` grows
+			// downwards, so the padded quad starts above and left of the pen.
+			placed.position = glm::fvec2(penX + box.bearingX * runScale - padX,
+										 penY - box.bearingY * runScale - padY);
+			placed.size = glm::fvec2(glyphWidth + 2.0f * padX, glyphHeight + 2.0f * padY);
+			placed.contentSize = glm::fvec2(glyphWidth, glyphHeight);
+			placed.shear = attributes.italic ? glyphHeight * ItalicShear : 0.0f;
 			placed.styleIndex = styleIndex;
 			layout.glyphs.push_back(placed);
-			state.lineHeight = std::max(state.lineHeight, placed.size.y);
+			// Line metrics use the unpadded silhouette, not the glow runway.
+			state.lineHeight = std::max(state.lineHeight, glyphHeight);
 		}
 
 		// Bitmap-less glyphs (spaces, combining marks) still advance the pen.

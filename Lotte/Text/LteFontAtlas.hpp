@@ -38,22 +38,30 @@
  *
  * - **Every payload is a square.** Each glyph's outline is scaled to fill
  *   `internalProcessSize - 2 * padding` and then downsampled, so the decoded image is
- *   `PreprocessedFontFace::bitmapSize` x `bitmapSize` for *all* glyphs, whatever their
- *   shape. Pack cells are therefore uniform squares, and the quads produced by
- *   `appendGlyphQuads()` (`metricWidth` x `metricHeight`) are what un-stretch the
- *   image back to the right aspect. Do not size a cell from the glyph's metrics.
+ *   `bitmapSize` x `bitmapSize` for *all* glyphs, whatever their shape. Pack cells
+ *   are therefore uniform squares. The quad that un-stretches the image is the
+ *   **intended layout box plus the padding runway** (see below), not the payload
+ *   size and not the metric box alone.
  * - **The padding is already inside the payload.** It is added at
  *   `bitmapLogicalSize` and shrinks with the downsample, so the effective padding is
  *   `bitmapPadding * bitmapSize / bitmapLogicalSize`. Pack cells must not add another
  *   `bitmapPadding` border; the cells themselves need whatever gutter the packer wants.
+ * - **Draw the whole tile on the expanded quad.** `PlacedGlyph::position`/`size`
+ *   already contain the expansion: `padX = width * P / (L - 2P)` and
+ *   `padY = height * P / (L - 2P)` on each side, with the silhouette at
+ *   `width x height`. `GlyphAtlasMapping` must therefore return the rectangle of
+ *   the **whole tile, including its padding**, not the content-box sub-rectangle:
+ *   `appendGlyphQuads()` maps `uv0` to the top-left and `uv1` to the bottom-right of
+ *   the padded quad. The whole tile is the SDF; cropping to the content box would
+ *   clip the glow runway and rescale the silhouette.
  * - **SDF/MSDFA stay single/multi-channel; MSDF is stored as RGB.** FontPacker converts
  *   MSDF images to `Format_RGB888` before encoding, so an MSDF payload decodes to three
  *   channels and must not be uploaded as a single-channel distance texture.
- * - **The distance range shrinks with the downsample.** The generator computes the
- *   effective range as `padding * (bitmapSize / bitmapLogicalSize)` (or the
- *   `samples_to_check` half-width scaled the same way). `PreprocessedFontFace` does not
- *   store it per glyph, so a shader that needs the spread must derive it from those
- *   three fields.
+ * - **Distance ranges are stored in version 2+.** `distanceRangeX`/`Y` are the nominal
+ *   search radius in level-0 texels (`(samples / 2 or padding) * S / L`). Use them as
+ *   an upper bound for `screenPxRange`; each image is normalised by its own observed
+ *   maximum. Only a version 1 face needs the value derived from `bitmapPadding`,
+ *   `bitmapSize` and `bitmapLogicalSize` (the importer reconstructs it in memory).
  * - **Padding is applied to the high-resolution image.** A packer that re-scales
  *   payloads must use a filter that does not smear the distance values; the generator
  *   itself averages power-of-two steps and finishes with a smooth resize.
@@ -82,10 +90,16 @@ public:
 	virtual ~GlyphAtlasMapping() = default;
 
 	/**
-	 * @brief Looks up the normalized texture rectangle of one glyph.
+	 * @brief Looks up the normalized texture rectangle of one glyph tile.
+	 *
+	 * The rectangle must cover the **whole stored tile**, including the padding
+	 * baked into it - not the inner content box. `appendGlyphQuads()` maps the
+	 * whole rectangle onto the padded drawing quad, so the padding runway stays
+	 * available to the shader.
+	 *
 	 * @param codePoint Code point to look up.
-	 * @param uv0 Receives the top-left texture coordinate.
-	 * @param uv1 Receives the bottom-right texture coordinate.
+	 * @param uv0 Receives the top-left texture coordinate of the tile.
+	 * @param uv1 Receives the bottom-right texture coordinate of the tile.
 	 * @return `true` when the glyph is present in the atlas.
 	 */
 	virtual bool mapGlyph(char32_t codePoint, glm::fvec2& uv0, glm::fvec2& uv1) const = 0;
@@ -116,6 +130,11 @@ struct GlyphQuad {
 
 /**
  * @brief Converts a layout into textured glyph quads.
+ *
+ * Each emitted quad is `PlacedGlyph::position`/`size`, i.e. the intended box
+ * expanded by the SDF padding runway. The atlas rectangle returned by @a mapping
+ * is mapped onto that whole quad, so it must be the whole tile including padding.
+ *
  * @tparam Mapping Concrete @ref GlyphAtlasMapping type (kept a template so the
  *         common case inlines and no virtual call happens per glyph).
  * @param layout Source layout.
