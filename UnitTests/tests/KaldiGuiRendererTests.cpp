@@ -14,6 +14,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <Lotte/Gui/LteKaldiGuiRenderer.hpp>
+#include <Lotte/GFX/LteMesh.hpp>
 #include <optional>
 #include <span>
 #include <vector>
@@ -118,3 +119,65 @@ TEST_CASE("The settings switch wins over the device axis", "[gui][clip-space]")
 	CHECK(overridden.position.x == Catch::Approx(deviceAxis.position.x));
 }
 
+TEST_CASE("Mesh draw ranges convert index offsets to byte offsets", "[gfx][mesh]")
+{
+	Lotte::CommandBuffer dispatcher;
+	Lotte::Gfx::MeshView mesh;
+	mesh.vertexBuffer = 1;
+	mesh.indexBuffer = 2;
+	mesh.layout = &Lotte::Gui::ColouredGuiVertex::getVertexDescriptor();
+	mesh.vertexCount = 16;
+	mesh.indexCount = 18;
+	mesh.indexType = Kld::IndexType::Uint32;
+
+	Lotte::Gfx::MeshDrawRange range;
+	range.indexOffset = 10;
+	range.indexCount = 6;
+	range.vertexOffset = 2;
+	Lotte::Gfx::recordDraw(dispatcher, mesh, range);
+
+	std::vector<Kld::GfxOp> ops = writeOps(dispatcher);
+	REQUIRE(ops.size() == 1);
+	REQUIRE(ops[0].opcode == Kld::Opcode::DrawIndexedTriangles);
+	CHECK(ops[0].opt.opDrawIndexedTriangles.indexOffset == 40); // 10 * 4
+	CHECK(ops[0].opt.opDrawIndexedTriangles.indexCount == 6);
+	CHECK(ops[0].opt.opDrawIndexedTriangles.vertexOffset == 2);
+
+	mesh.indexType = Kld::IndexType::Uint16;
+	Lotte::Gfx::recordDraw(dispatcher, mesh, range);
+	ops = writeOps(dispatcher);
+	REQUIRE(ops.size() == 2);
+	CHECK(ops[1].opt.opDrawIndexedTriangles.indexOffset == 20); // 10 * 2
+
+	Lotte::Gfx::recordDrawInstanced(dispatcher, mesh, range);
+	ops = writeOps(dispatcher);
+	REQUIRE(ops.size() == 3);
+	REQUIRE(ops[2].opcode == Kld::Opcode::DrawIndexedTrianglesInstanced);
+	CHECK(ops[2].opt.opDrawIndexedTrianglesInstanced.indexOffset == 20);
+	CHECK(ops[2].opt.opDrawIndexedTrianglesInstanced.instanceCount == 1);
+}
+
+TEST_CASE("GuiGeometryBatch converts its index ranges to byte offsets", "[gui][batch]")
+{
+	Lotte::CommandBuffer dispatcher;
+	Lotte::Gui::GuiGeometryBatch<Lotte::Gui::ColouredGuiVertex> batch;
+	const Lotte::Gui::ColouredGuiVertex vertex;
+	batch.appendLine(vertex, vertex);
+	batch.appendLine(vertex, vertex);
+	batch.recordUpload(dispatcher);
+	batch.recordBind(dispatcher);
+	batch.recordDrawLines(dispatcher, 1.0f,
+						  Lotte::Gui::GuiGeometryBatch<Lotte::Gui::ColouredGuiVertex>::Range{
+							  2, 2, 0 });
+
+	bool sawDraw = false;
+	for (const Kld::GfxOp& op : writeOps(dispatcher)) {
+		if (op.opcode != Kld::Opcode::DrawIndexedLines) {
+			continue;
+		}
+		sawDraw = true;
+		CHECK(op.opt.opDrawIndexedLines.indexOffset == 8); // 2 * 4
+		CHECK(op.opt.opDrawIndexedLines.indexCount == 2);
+	}
+	CHECK(sawDraw);
+}

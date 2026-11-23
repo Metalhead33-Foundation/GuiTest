@@ -239,5 +239,10 @@ Kld::HandleId FontAtlas::pageTexture(std::uint32_t page) const
 	return pages_[page].texture.handle();
 }
 
+const Gfx::WriteableTexture2D* FontAtlas::pageSurface(std::uint32_t page) const
+{
+	return page < pages_.size() ? &pages_[page].texture : nullptr;
+}
+
 } // namespace Text
 } // namespace Lotte

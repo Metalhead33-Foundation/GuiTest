@@ -43,6 +43,18 @@ std::vector<Kld::GfxOp> writeOps(Lotte::CommandBuffer& dispatcher)
 	return ops;
 }
 
+/** @brief Collects the index offsets of recorded indexed triangle draws (in bytes). */
+std::vector<std::uint32_t> drawIndexOffsets(Lotte::CommandBuffer& dispatcher)
+{
+	std::vector<std::uint32_t> offsets;
+	for (const Kld::GfxOp& op : writeOps(dispatcher)) {
+		if (op.opcode == Kld::Opcode::DrawIndexedTriangles) {
+			offsets.push_back(op.opt.opDrawIndexedTriangles.indexOffset);
+		}
+	}
+	return offsets;
+}
+
 /** @brief Counts how many recorded commands use @p opcode. */
 std::size_t countOps(Lotte::CommandBuffer& dispatcher, Kld::Opcode opcode)
 {
@@ -257,6 +269,12 @@ TEST_CASE("The atlas shelf-packs pages, maps UVs and records uploads", "[text][a
 	CHECK(atlas.pageTexture(0) != 0);
 	CHECK(atlas.pageTexture(1) != 0);
 	CHECK(atlas.pageTexture(0) != atlas.pageTexture(1));
+	const Lotte::Gfx::WriteableTexture2D* surface = atlas.pageSurface(0);
+	REQUIRE(surface != nullptr);
+	CHECK(surface->width() == 32);
+	CHECK(surface->height() == 32);
+	CHECK(surface->pixels() != nullptr);
+	CHECK(atlas.pageSurface(2) == nullptr);
 	REQUIRE(atlas.mapGlyph(U'A', uv0, uv1));
 	CHECK(atlas.pageForGlyph(U'A') == 0);
 	const Lotte::Text::FontAtlasGlyph* spill = atlas.findGlyph(char32_t(U'A' + 9));
@@ -372,6 +390,11 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 
 	CHECK(countOps(dispatcher, Kld::Opcode::BindTexture) == 2);
 	CHECK(countOps(dispatcher, Kld::Opcode::DrawIndexedTriangles) == 2);
+	const std::vector<std::uint32_t> offsets = drawIndexOffsets(dispatcher);
+	REQUIRE(offsets.size() == 2);
+	// Two glyph quads * 6 indices, converted to a byte offset for Kaldi.
+	CHECK(offsets[0] == 0);
+	CHECK(offsets[1] == 2u * 6u * std::uint32_t(sizeof(std::uint32_t)));
 
 	// Bold is a per-vertex dilation of 4% of the em size.
 	Lotte::Text::TextAttributes boldAttributes = attributes;
@@ -448,6 +471,11 @@ TEST_CASE("An MSDF face selects the median mode and pages split the draw runs", 
 	renderer.flush();
 	CHECK(countOps(dispatcher, Kld::Opcode::BindTexture) == 2);
 	CHECK(countOps(dispatcher, Kld::Opcode::DrawIndexedTriangles) == 2);
+	const std::vector<std::uint32_t> offsets = drawIndexOffsets(dispatcher);
+	REQUIRE(offsets.size() == 2);
+	// Nine glyphs on the first page => 54 indices before the second run.
+	CHECK(offsets[0] == 0);
+	CHECK(offsets[1] == 9u * 6u * std::uint32_t(sizeof(std::uint32_t)));
 
 	std::size_t vertexCount = 0;
 	const Lotte::Text::TextGuiVertex* vertices = uploadedTextVertices(dispatcher, vertexCount);
@@ -503,6 +531,10 @@ TEST_CASE("One layout can mix faces and atlas pages", "[text][renderer]")
 	renderer.flush();
 	CHECK(countOps(dispatcher, Kld::Opcode::BindTexture) == 2);
 	CHECK(countOps(dispatcher, Kld::Opcode::DrawIndexedTriangles) == 2);
+	const std::vector<std::uint32_t> offsets = drawIndexOffsets(dispatcher);
+	REQUIRE(offsets.size() == 2);
+	CHECK(offsets[0] == 0);
+	CHECK(offsets[1] == 6u * std::uint32_t(sizeof(std::uint32_t))); // one glyph per face
 
 	std::size_t vertexCount = 0;
 	const Lotte::Text::TextGuiVertex* vertices = uploadedTextVertices(dispatcher, vertexCount);

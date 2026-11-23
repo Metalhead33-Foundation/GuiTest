@@ -230,6 +230,11 @@ public:
 
 	/** @brief Kaldi texture handle of a page, or 0 when out of range. */
 	Kld::HandleId pageTexture(std::uint32_t page) const;
+	/**
+	 * @brief CPU surface of a page for inspection, or null when out of range.
+	 * @note The pointer is invalidated when another page is allocated.
+	 */
+	const Gfx::WriteableTexture2D* pageSurface(std::uint32_t page) const;
 	/** @brief Number of allocated pages. */
 	std::size_t pageCount() const noexcept { return pages_.size(); }
 	/** @brief Number of mapped glyphs. */
