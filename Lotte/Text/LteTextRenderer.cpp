@@ -64,8 +64,13 @@ float median3(float r, float g, float b) {
 
 float4 main(VsOutput input) : SV_Target {
     if (input.params.x > 2.5) {
-        // Solid mode: underline and strikethrough quads.
-        return input.color;
+        // Solid mode: underline and strikethrough quads. The quad is expanded by
+        // one pixel around the intended line, so fwidth() gives its pixel size and
+        // the distance to the intended edge can fade the extra margin out.
+        float2 uvWidth = max(fwidth(input.uv), float2(1.0e-5, 1.0e-5));
+        float2 edgeDistance = min(input.uv, 1.0 - input.uv) / uvWidth - 1.0;
+        float coverage = saturate(min(edgeDistance.x, edgeDistance.y) + 0.5);
+        return float4(input.color.rgb, input.color.a * coverage);
     }
     float4 raw = textTexture.Sample(textSampler, input.uv);
     float distance = (input.params.x < 0.5) ? raw.r : median3(raw.r, raw.g, raw.b);
@@ -247,18 +252,21 @@ void TextRenderer::appendDecorationQuad(glm::fvec2 from, glm::fvec2 to, float th
 	if (to.x <= from.x) {
 		return;
 	}
-	const float half = std::max(0.5f, thickness) * 0.5f;
-	const glm::fvec2 topLeft(from.x, from.y - half);
-	const glm::fvec2 topRight(to.x, from.y - half);
-	const glm::fvec2 bottomLeft(from.x, from.y + half);
-	const glm::fvec2 bottomRight(to.x, from.y + half);
+	// Expand the quad by one pixel on every side so the shader has samples in the
+	// neighbouring pixels to anti-alias the intended edge (a 1px quad alone only
+	// covers one pixel centre and cannot produce coverage).
+	constexpr float aaMargin = 1.0f;
+	const float half = std::max(0.5f, thickness) * 0.5f + aaMargin;
+	const glm::fvec2 topLeft(from.x - aaMargin, from.y - half);
+	const glm::fvec2 topRight(to.x + aaMargin, from.y - half);
+	const glm::fvec2 bottomLeft(from.x - aaMargin, from.y + half);
+	const glm::fvec2 bottomRight(to.x + aaMargin, from.y + half);
 	const glm::fvec4 params{ 3.0f, 0.0f, 0.0f, 0.0f };
-	const glm::fvec2 uv(0.0f);
 	batch_.appendQuad(
-		TextGuiVertex{ toNdc(topLeft), uv, colour, params },
-		TextGuiVertex{ toNdc(topRight), uv, colour, params },
-		TextGuiVertex{ toNdc(bottomLeft), uv, colour, params },
-		TextGuiVertex{ toNdc(bottomRight), uv, colour, params });
+		TextGuiVertex{ toNdc(topLeft), glm::fvec2(0.0f, 0.0f), colour, params },
+		TextGuiVertex{ toNdc(topRight), glm::fvec2(1.0f, 0.0f), colour, params },
+		TextGuiVertex{ toNdc(bottomLeft), glm::fvec2(0.0f, 1.0f), colour, params },
+		TextGuiVertex{ toNdc(bottomRight), glm::fvec2(1.0f, 1.0f), colour, params });
 	runs_.back().indexCount += 6;
 }
 

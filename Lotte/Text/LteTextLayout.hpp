@@ -43,13 +43,14 @@
  * - Bold is a style flag, not a separate atlas. The repository may resolve it to a
  *   real bold face; otherwise the text shader dilates the SDF contour, which keeps
  *   one atlas and one pipeline for both weights.
- * - Underline and strikethrough are emitted once per line, spanning from the line
- *   start to the current pen, as signed offsets from the baseline.
+ * - Underline and strikethrough are emitted as one segment per styled run, spanning
+ *   only that run's text (not the whole line). This keeps mixed styles from
+ *   painting a decoration under unrelated words.
  * - The pen then advances by `horiAdvance` (float pixels) and falls back to
  *   `advanceX` when the float field is absent. Version 3 stores both in pixels;
  *   versions 1/2 are decoded from raw 26.6 while importing, so no division
- *   happens here. Kerning of the *next* pair is applied when that glyph is
- *   placed.
+ *   happens here. `TextLayoutOptions::wordSpacing` adds an extra gap after each
+ *   space. Kerning of the *next* pair is applied when that glyph is placed.
  *
  * @section lte_text_layout_padding Padding runway and the drawing quad
  *
@@ -265,6 +266,8 @@ struct TextLayoutState {
 	float lineHeight = 0.0f;
 	/** @brief Extra gap inserted between lines, in layout units. */
 	float spacing = 0.0f;
+	/** @brief Extra gap inserted after every space character, in layout units. */
+	float wordSpacing = 0.0f;
 	/** @brief Global scale applied on top of each run's size. */
 	float scale = 1.0f;
 };
@@ -275,6 +278,8 @@ struct TextLayoutOptions {
 	glm::fvec2 origin = glm::fvec2(0.0f);
 	/** @brief Extra gap inserted between lines, in layout units. */
 	float spacing = 0.0f;
+	/** @brief Extra gap inserted after every space character, in layout units. */
+	float wordSpacing = 0.0f;
 	/** @brief Global scale applied on top of each run's size. */
 	float scale = 1.0f;
 };
@@ -344,6 +349,7 @@ TextLayout layoutRuns(const TextRunList& runs, FaceLookup&& faceLookup, const Te
 	state.origin = options.origin;
 	state.cursor = options.origin;
 	state.spacing = options.spacing;
+	state.wordSpacing = options.wordSpacing;
 	state.scale = options.scale;
 	for (const TextRun& run : runs) {
 		const PreprocessedFontFace* face = faceLookup(run.attributes.familyName, run.attributes.bold);

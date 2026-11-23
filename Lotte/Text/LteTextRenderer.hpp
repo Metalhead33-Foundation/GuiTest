@@ -16,7 +16,8 @@
  * A glyph is a quad with a texture coordinate, a fill colour and a `params`
  * vector. `params.x` selects how the sampled texture is decoded
  * (`0` = SDF `.r`, `1` = MSDF median of `.rgb`, `2` = MSDFA median of `.rgb`,
- * `3` = solid colour, used for underline/strikethrough). `params.y`/`z` are the
+ * `3` = solid colour, used for underline/strikethrough; its quad uses UV 0..1 and
+ * a one-pixel AA margin so the shader anti-aliases the intended edges). `params.y`/`z` are the
  * on-screen distance range in pixels for each axis, and `params.w` is the bold
  * dilation in pixels. Because all four values travel with the vertex:
  *
@@ -70,7 +71,8 @@ namespace Text {
  * @brief Vertex layout shared by glyphs and solid decoration quads.
  *
  * `params` carries `(mode, onScreenPxRangeX, onScreenPxRangeY, boldPixels)`;
- * see the file documentation.
+ * mode `3` is a solid anti-aliased rectangle used by underline/strikethrough.
+ * See the file documentation.
  */
 struct TextGuiVertex {
 	/** @brief Position in pixels (converted to clip space before upload). */
@@ -204,7 +206,7 @@ private:
 	/** @brief Appends one glyph quad and its six indices. */
 	void appendGlyphQuad(const GlyphQuad& quad, float mode, glm::fvec2 pxRange,
 						 float boldPixels, const glm::fvec4& colour);
-	/** @brief Appends one solid quad for a decoration line. */
+	/** @brief Appends one solid, anti-aliased quad for a decoration line. */
 	void appendDecorationQuad(glm::fvec2 from, glm::fvec2 to, float thickness,
 							  const glm::fvec4& colour);
 	/** @brief Records viewport, scissor and blend state. */

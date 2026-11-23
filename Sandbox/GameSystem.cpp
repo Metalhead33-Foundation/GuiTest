@@ -164,6 +164,7 @@ void GameSystem::loadFont()
 		Lotte::Text::TextLayoutOptions options;
 		options.origin = glm::fvec2(32.0f, 80.0f);
 		options.spacing = 4.0f;
+		options.wordSpacing = 2.0f;
 		sampleLayout = Lotte::Text::layoutRuns(
 			processor.getRuns(),
 			[this](const std::string& family, bool bold) {

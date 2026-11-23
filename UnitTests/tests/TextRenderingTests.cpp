@@ -383,9 +383,13 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 	CHECK(vertices[0].position.x == Catch::Approx(expectedPosition.x));
 	CHECK(vertices[0].position.y == Catch::Approx(expectedPosition.y));
 
-	// The decoration quad follows the two glyph quads.
+	// The decoration quad follows the two glyph quads and carries 0..1 UVs so the
+	// shader can anti-alias its edges from screen-space derivatives.
 	CHECK(vertices[8].params.x == Catch::Approx(3.0f));
-	CHECK(vertices[8].uv == glm::fvec2(0.0f));
+	CHECK(vertices[8].uv == glm::fvec2(0.0f, 0.0f));
+	CHECK(vertices[9].uv == glm::fvec2(1.0f, 0.0f));
+	CHECK(vertices[10].uv == glm::fvec2(0.0f, 1.0f));
+	CHECK(vertices[11].uv == glm::fvec2(1.0f, 1.0f));
 	CHECK(vertices[8].colour == attributes.colour);
 
 	CHECK(countOps(dispatcher, Kld::Opcode::BindTexture) == 2);
@@ -485,8 +489,64 @@ TEST_CASE("An MSDF face selects the median mode and pages split the draw runs", 
 	CHECK(vertices[4].params.x == Catch::Approx(1.0f));
 }
 
+TEST_CASE("Decorations cover only their own run", "[text][layout]")
+{
+	using namespace Lotte::Text;
+
+	auto face = makeFace("DecorationFace");
+	const std::vector<std::byte> empty;
+	addGlyph(*face, U'A', empty);
+	addGlyph(*face, U'B', empty);
+	addGlyph(*face, U'C', empty);
+	StoredCharacter space;
+	space.valid = true;
+	space.horiAdvance = 9.0f;
+	space.advanceX = 9.0f;
+	face->glyphs[static_cast<std::uint32_t>(U' ')] = space;
+
+	TextAttributes regular;
+	regular.size = 14.0f;
+	TextAttributes underline = regular;
+	underline.underline = true;
+	TextAttributes strike = regular;
+	strike.strikethrough = true;
+
+	const TextRunList runs = {
+		TextRun{ U"A", regular },
+		TextRun{ U"B", underline },
+		TextRun{ U"C", strike }
+	};
+	TextLayoutOptions options;
+	options.origin = glm::fvec2(10.0f, 20.0f);
+	auto lookup = [&face](const std::string&, bool) { return face.get(); };
+	const TextLayout layout = layoutRuns(runs, lookup, options);
+
+	REQUIRE(layout.glyphs.size() == 3);
+	REQUIRE(layout.lines.size() == 2);
+	// The underline starts after "A" (10 + 9) and ends after "B"; the strike
+	// starts after "B" and ends after "C".
+	CHECK(layout.lines[0].from.x == Catch::Approx(19.0f));
+	CHECK(layout.lines[0].to.x == Catch::Approx(28.0f));
+	CHECK(layout.lines[1].from.x == Catch::Approx(28.0f));
+	CHECK(layout.lines[1].to.x == Catch::Approx(37.0f));
+	REQUIRE(layout.lines[0].styleIndex < layout.styles.size());
+	REQUIRE(layout.lines[1].styleIndex < layout.styles.size());
+	CHECK(layout.styles[layout.lines[0].styleIndex].underline);
+	CHECK_FALSE(layout.styles[layout.lines[0].styleIndex].strikethrough);
+	CHECK(layout.styles[layout.lines[1].styleIndex].strikethrough);
+	CHECK_FALSE(layout.styles[layout.lines[1].styleIndex].underline);
+
+	// Extra word spacing is applied after the space advance, not as a glyph tweak.
+	TextLayoutOptions spacedOptions = options;
+	spacedOptions.wordSpacing = 3.0f;
+	const TextLayout spaced = layoutRuns({ TextRun{ U"A B", regular } }, lookup, spacedOptions);
+	CHECK(spaced.endOffset.x == Catch::Approx(10.0f + 9.0f + 9.0f + 3.0f + 9.0f));
+}
+
 TEST_CASE("One layout can mix faces and atlas pages", "[text][renderer]")
 {
+	using namespace Lotte::Text;
+
 	const std::vector<std::byte> payloadA = makeSdfPayload(8, 200, 200, 200);
 	const std::vector<std::byte> payloadB = makeSdfPayload(8, 50, 120, 200);
 	auto faceA = makeFace("Family A");

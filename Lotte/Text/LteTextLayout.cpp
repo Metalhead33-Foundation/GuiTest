@@ -106,28 +106,28 @@ float kerningOffset(const PreprocessedFontFace& face, char32_t first, char32_t s
 }
 
 /**
- * @brief Emits the decoration segments of the line that just ended.
- * @param lineStartX Left edge the line started at.
- * @param penX Current pen position; the segment spans `lineStartX..penX`.
+ * @brief Emits the decoration segments of one run segment.
+ * @param segmentStartX Left edge of the segment that just ended.
+ * @param penX Current pen position; the segment spans `segmentStartX..penX`.
  * @param baselineY Baseline of the line, in layout space.
  * @param lineHeight Measured height of the line.
  * @param styleIndex Style referenced by the emitted segments.
- * @param attributes Styling of the run that ended the line.
+ * @param attributes Styling of the run that ended the segment.
  * @param layout Destination layout.
  */
-void emitDecorations(float lineStartX, float penX, float baselineY, float lineHeight,
+void emitDecorations(float segmentStartX, float penX, float baselineY, float lineHeight,
 					 std::uint32_t styleIndex, const TextAttributes& attributes, TextLayout& layout)
 {
-	if (penX <= lineStartX) return;
+	if (penX <= segmentStartX) return;
 	const float thickness = std::max(1.0f, lineHeight * 0.05f);
 	if (attributes.strikethrough) {
 		const float y = baselineY + lineHeight * StrikethroughOffset;
-		layout.lines.push_back(DecorationLine{ glm::fvec2(lineStartX, y), glm::fvec2(penX, y),
+		layout.lines.push_back(DecorationLine{ glm::fvec2(segmentStartX, y), glm::fvec2(penX, y),
 											   thickness, styleIndex });
 	}
 	if (attributes.underline) {
 		const float y = baselineY + lineHeight * UnderlineOffset;
-		layout.lines.push_back(DecorationLine{ glm::fvec2(lineStartX, y), glm::fvec2(penX, y),
+		layout.lines.push_back(DecorationLine{ glm::fvec2(segmentStartX, y), glm::fvec2(penX, y),
 											   thickness, styleIndex });
 	}
 }
@@ -146,6 +146,7 @@ void layoutRun(const PreprocessedFontFace& face, std::u32string_view text, const
 	const float emSize = requestedSize * state.scale;
 
 	const float lineStartX = state.origin.x;
+	float segmentStartX = state.cursor.x;
 	float penX = state.cursor.x;
 	float penY = state.cursor.y;
 	char32_t previousCodePoint = 0;
@@ -153,13 +154,14 @@ void layoutRun(const PreprocessedFontFace& face, std::u32string_view text, const
 	for (char32_t codePoint : text) {
 		if (codePoint == U'\f') continue;
 		if (codePoint == U'\n') {
-			emitDecorations(lineStartX, penX, penY, state.lineHeight, styleIndex, attributes, layout);
+			emitDecorations(segmentStartX, penX, penY, state.lineHeight, styleIndex, attributes, layout);
 			// The face's nominal line height is a better baseline-to-baseline distance
 			// than the tallest bitmap alone: a line of flat glyphs would otherwise
 			// collapse onto the next one.
 			const float nominalHeight = face.faceHeight > 0.0f ? face.faceHeight * runScale : 0.0f;
 			penY += std::max(state.lineHeight, nominalHeight) + state.spacing;
 			penX = lineStartX;
+			segmentStartX = lineStartX;
 			state.lineHeight = 0.0f;
 			previousCodePoint = 0;
 			continue;
@@ -200,9 +202,10 @@ void layoutRun(const PreprocessedFontFace& face, std::u32string_view text, const
 
 		// Bitmap-less glyphs (spaces, combining marks) still advance the pen.
 		penX += box.advance * runScale;
+		if (codePoint == U' ') penX += state.wordSpacing;
 	}
 
-	emitDecorations(lineStartX, penX, penY, state.lineHeight, styleIndex, attributes, layout);
+	emitDecorations(segmentStartX, penX, penY, state.lineHeight, styleIndex, attributes, layout);
 
 	state.cursor = glm::fvec2(penX, penY);
 	const float descent = face.descender < 0.0f ? -face.descender * runScale : 0.0f;
