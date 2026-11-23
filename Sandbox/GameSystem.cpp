@@ -1,6 +1,8 @@
 #include "GameSystem.hpp"
 #include <Euphemy/Io/EuphFile.hpp>
 #include <Euphemy/Media/Image/EuphPNG.hpp>
+#include <Lotte/Text/LteMml.hpp>
+#include <Lotte/Text/LteRichText.hpp>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -98,6 +100,7 @@ void GameSystem::startGraphics()
 		guiRenderer = std::make_unique<Lotte::Gui::KaldiGuiRenderer>(kaldi->resources(),
 			Lotte::Gui::KaldiGuiRendererSettings{ std::uint16_t(width),
 							      std::uint16_t(height) });
+		loadFont();
 		loadCursors();
 		// Pipeline creation, texture creation and the initial texture uploads are
 		// all recorded; hand them to the backend before the first frame.
@@ -113,6 +116,9 @@ void GameSystem::startGraphics()
 	} catch (const std::exception& error) {
 		// Rendering is optional here: without a usable GPU the audio half still runs
 		// and `render()` becomes a no-op, which keeps the playground usable.
+		textRenderer.reset();
+		fontRepository.reset();
+		fontReady = false;
 		cursors.clear();
 		guiRenderer.reset();
 		kaldi.reset();
@@ -125,13 +131,70 @@ GameSystem::~GameSystem()
 	SDL_ShowCursor(SDL_ENABLE);
 }
 
+void GameSystem::loadFont()
+{
+	try {
+		const std::string path {
+			config.getString("Graphics", "sFont", "/home/legacy/blenda/vinque.wodf")
+		};
+		Lotte::Text::FontAtlasSettings atlasSettings;
+		atlasSettings.pageWidth = 1024;
+		atlasSettings.pageHeight = 1024;
+		atlasSettings.gutter = 1;
+
+		fontRepository = std::make_unique<Lotte::Text::FontRepository>(kaldi->resources(),
+																	  atlasSettings);
+		const auto face = fontRepository->addFaceFromFile("Vinque", path);
+		fontRepository->setDefaultFaceId("Vinque");
+
+		Lotte::Text::TextRendererSettings rendererSettings;
+		rendererSettings.viewportWidth = std::uint16_t(width);
+		rendererSettings.viewportHeight = std::uint16_t(height);
+		textRenderer = std::make_unique<Lotte::Text::TextRenderer>(kaldi->resources(),
+																   *fontRepository,
+																   rendererSettings);
+
+		Lotte::Text::RichTextProcessor processor;
+		Lotte::Text::MmlParser parser(&processor);
+		parser.parse("[font=Vinque][color=#ffffff][size=52]Vinque SDF text[/size]\n"
+					 "[size=30][b]bold[/b] [i]italic[/i] [u]underline[/u] "
+					 "[s]strike[/s] [color=#ffd166]colour[/color][/size][/font]");
+		processor.flush();
+
+		Lotte::Text::TextLayoutOptions options;
+		options.origin = glm::fvec2(32.0f, 80.0f);
+		options.spacing = 4.0f;
+		sampleLayout = Lotte::Text::layoutRuns(
+			processor.getRuns(),
+			[this](const std::string& family, bool bold) {
+				return fontRepository->faceFor(family, bold);
+			},
+			options);
+		fontReady = true;
+		SDL_Log("Font '%s': %zu stored glyphs, %u px tiles, %zu laid-out glyphs",
+				face->familyName.c_str(), face->glyphs.size(), face->storedBitmapSize(),
+				sampleLayout.glyphs.size());
+	} catch (const std::exception& error) {
+		textRenderer.reset();
+		fontRepository.reset();
+		fontReady = false;
+		SDL_Log("Text disabled: %s", error.what());
+	}
+}
+
 void GameSystem::loadCursors()
 {
 	const std::string primary { config.getString("Graphics", "sCursor", "cursors/wodmouse.png") };
 	const std::vector<std::string> paths = { primary, "cursors/hourglass2.png" };
 	for (const std::string& path : paths) {
-		Euph::Io::uFile file = Elv::Util::pmr_make_unique<Euph::Io::File>(
-			std::pmr::get_default_resource(), path.c_str(), Elv::Io::Mode::READ);
+		Euph::Io::uFile file;
+		try {
+			file = Elv::Util::pmr_make_unique<Euph::Io::File>(
+				std::pmr::get_default_resource(), path.c_str(), Elv::Io::Mode::READ);
+		} catch (const std::exception& error) {
+			SDL_Log("Could not open cursor image '%s': %s", path.c_str(), error.what());
+			continue;
+		}
 		if (!file->isValid()) {
 			SDL_Log("Could not open cursor image: %s", path.c_str());
 			continue;
@@ -211,6 +274,30 @@ void GameSystem::render()
 	if (!kaldi || !guiRenderer) {
 		return;
 	}
+	// New glyphs create/upload atlas pages. On a backend with render passes that
+	// has to happen before beginFrame(), so prepare() and submit() are separate.
+	if (textRenderer && fontReady) {
+		try {
+			if (textRenderer->prepare(sampleLayout)) {
+				const Kld::HalStatus upload = kaldi->submit();
+				if (!upload.ok()) {
+					if (!frameFailureLogged) {
+						frameFailureLogged = true;
+						SDL_Log("Text upload failed (%d): %s", static_cast<int>(upload.code),
+								upload.message != nullptr ? upload.message : "(no message)");
+					}
+					textRenderer.reset();
+					fontRepository.reset();
+					fontReady = false;
+				}
+			}
+		} catch (const std::exception& error) {
+			SDL_Log("Text disabled: %s", error.what());
+			textRenderer.reset();
+			fontRepository.reset();
+			fontReady = false;
+		}
+	}
 	const Kld::HalStatus beginStatus = kaldi->beginFrame();
 	if (!beginStatus.ok()) {
 		if (!frameFailureLogged) {
@@ -221,6 +308,27 @@ void GameSystem::render()
 		return;
 	}
 	guiRenderer->beginFrame();
+	if (textRenderer && fontReady) {
+		try {
+			textRenderer->setViewportSize(std::uint16_t(width), std::uint16_t(height));
+			textRenderer->beginFrame();
+			const std::size_t glyphs = textRenderer->render(sampleLayout);
+			const std::size_t runs = textRenderer->queuedRunCount();
+			textRenderer->flush();
+			if (!textRendered && glyphs > 0) {
+				textRendered = true;
+				Lotte::Text::FontAtlas* atlas = fontRepository->atlasFor("Vinque");
+				SDL_Log("Text: %zu glyphs, %zu atlas glyphs in %zu pages, %zu draw runs",
+						glyphs, atlas != nullptr ? atlas->glyphCount() : 0,
+						atlas != nullptr ? atlas->pageCount() : 0, runs);
+			}
+		} catch (const std::exception& error) {
+			SDL_Log("Text disabled: %s", error.what());
+			textRenderer.reset();
+			fontRepository.reset();
+			fontReady = false;
+		}
+	}
 	if (!cursors.empty()) {
 		cursors[activeCursor].cursor.render(*guiRenderer, cursorPosition);
 	}

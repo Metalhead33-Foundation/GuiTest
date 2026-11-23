@@ -33,7 +33,7 @@ window is closed or ESC is pressed:
 | Half | What it does | Configuration |
 |---|---|---|
 | Audio | `Haruka_SDL_Driver` opens an SDL audio device, a `Hrk::Mixer` feeds it, and a `Hrk::ModuleStreamer` plays a module file | `[Audio] uSamplerate`, `uChannels`, `uBufferSize`; `[Game] sSongPath`, `fModVolume` |
-| Graphics | `Lotte::Gfx::KaldiContext` loads a Kaldi backend library, creates its rendering device on the SDL window, and `render()` clears the window and draws a cursor through `Lotte::Gui::KaldiGuiRenderer` | `[Graphics] sBackendLibrary`, `sClearColor`, `sCursor` |
+| Graphics | `Lotte::Gfx::KaldiContext` loads a Kaldi backend library, creates its rendering device on the SDL window, and `render()` clears the window, draws the sample SDF text through `Lotte::Text::TextRenderer`, then draws a cursor through `Lotte::Gui::KaldiGuiRenderer` | `[Graphics] sBackendLibrary`, `sClearColor`, `sCursor`, `sFont` |
 
 The graphics half is the project's first end-to-end texture path. `KaldiContext` `dlopen`s the
 backend, calls `kld_create_rendering_device(window, size)` and reinterprets the handle as the
@@ -44,16 +44,27 @@ everything else. Startup compiles two HLSL programs with
 texture upload and submits that batch. Each frame is:
 
 ```text
+prepare text -> FontRepository::addFaceFromFile / TextRenderer::prepare (lazy atlas
+                uploads, submitted before the frame when new glyphs appeared)
 beginFrame   -> BeginFrame + ClearColorAttachment
 KaldiGuiRenderer::beginFrame -> reset the CPU caches
+TextRenderer::beginFrame/render -> per-page glyph runs + decoration quads
 Cursor::render -> one tinted textured quad at the mouse position
-flush        -> viewport/scissor/blend, BindPipeline, BindTexture, BindSampler,
-                buffer upload, BindVertex/IndexBuffer, DrawIndexed
+flush        -> text draws first, then the cursor (viewport/scissor/blend,
+                BindPipeline, BindTexture, BindSampler, buffer upload,
+                BindVertex/IndexBuffer, DrawIndexed)
 endFrame     -> EndFrame + Present, swapBuffers, processCommandQueue
 ```
 
+The sample text is loaded from `[Graphics] sFont` (default
+`/home/legacy/blenda/vinque.wodf`) and laid out from MML, so it exercises the family
+lookup, bold/italic/underline/strike/colour tags and the SDF atlas at once. A missing
+font logs `Text disabled: ...` and leaves the cursor path working.
+
 Missing backend, missing GPU or a refused device is not fatal: it logs
-`Graphics disabled: ...` and the audio half keeps running.
+`Graphics disabled: ...` and the audio half keeps running. Cursor images are resolved
+relative to the working directory; a missing file is logged and skipped, so the SDF text
+path still runs when the binary is started from the build directory.
 
 | Input | Effect |
 |---|---|
@@ -82,6 +93,7 @@ hard-codes a vertically mirrored UI on the other backend.
 sBackendLibrary=libKaldiVK.so
 sClearColor=0xFF20A030
 sCursor=cursors/wodmouse.png
+sFont=/home/legacy/blenda/vinque.wodf
 ```
 
 - `sBackendLibrary` is a soname resolved through `LD_LIBRARY_PATH` or an absolute path.

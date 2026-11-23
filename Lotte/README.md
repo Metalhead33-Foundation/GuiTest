@@ -23,7 +23,7 @@ There is no GUI widget system yet; see the TODO list.
 Compiled units: `Asset/LteGpuAssetStreamer.cpp`, `Conf/LteBackendConfig.cpp`,
 `GFX/LteKaldiContext.cpp`, `GFX/LtePipeline.cpp`, `GFX/LteResourceFactory.cpp`,
 `GFX/LteWriteableTexture2D.cpp`, `Gui/LteCursor.cpp`, `Gui/LteKaldiGuiRenderer.cpp` and
-the six `Text/*.cpp` files. The remaining `Gui/` and `GFX/` headers are header-only
+the ten `Text/*.cpp` files. The remaining `Gui/` and `GFX/` headers are header-only
 (templates plus inline recording helpers).
 
 Kaldi is consumed header-only through `Kaldi.pri`. Do not add `-lKaldi` or `libKaldi`
@@ -130,8 +130,10 @@ context.endFrame();
 | `LteCssStyle.hpp` / `.cpp` | **Optional, needs `libcss`.** `CssStylesheet` (markup defaults + author sheet, `css_select_ctx`), `CssStyleResolver` (MML element stack -> libcss node tree -> `TextAttributes`, with inheritance via `css_computed_style_compose`, unit conversion and decoration propagation) and the one-call `styleMarkup()`. Scope, limits and the libcss 0.9.2 landmines are documented in [`docs/MML_CSS.md`](../docs/MML_CSS.md) |
 | `LteHtmlEntities.hpp` / `.cpp` | Named/decimal/hexadecimal HTML character references; the 2,124-entry table is carried over verbatim from the old tree |
 | `LteMarkupColour.hpp` / `.cpp` | `parseMarkupColour()` - web colour names, `#RGB(A)` / `#RRGGBB(AA)` hex, and normalized or byte component lists |
-| `LteTextLayout.hpp` / `.cpp` | `layoutRun()` / `layoutRuns()` - glyph placement from a `PreprocessedFontFace` (bearings, measured line height, newline handling, italic shear, underline/strikethrough segments) producing `PlacedGlyph`/`DecorationLine`/`TextStyle` |
-| `LteFontAtlas.hpp` | The glyph atlas contract that does not exist yet (`GlyphAtlasMapping`), plus `appendGlyphQuads()` which turns a layout into textured quads |
+| `LteTextLayout.hpp` / `.cpp` | `layoutRun()` / `layoutRuns()` - glyph placement from a `PreprocessedFontFace` (intended box, bearings, measured line height, newline handling, italic shear, underline/strikethrough segments) producing `PlacedGlyph`/`DecorationLine`/`TextStyle`. Each glyph records its face (`TextLayout::faces` + `faceIndex`), its effective em size and whether the style asks for bold, so a renderer can pick the right atlas and synthesize weight |
+| `LteFontAtlas.hpp` / `.cpp` | `FontAtlas` - lazy, multi-page glyph atlas for one face: decodes `StoredCharacter::sdf` through Euphemy (PNG/TGA/JPEG/WebP), shelf-packs `S x S` tiles into `WriteableTexture2D` RGBA8 pages with a gutter, records uploads, and implements `GlyphAtlasMapping` including `pageForGlyph()`; `appendGlyphQuads()` turns a layout into textured quads |
+| `LteFontRepository.hpp` / `.cpp` | `FontRepository` - resolves a family name and bold request to a registered `PreprocessedFontFace` (real bold variants or regular for shader-synthesized bold) and owns one lazily created `FontAtlas` per face. `loadFontFace()` parses a `.wodf` through `FontDataStream` |
+| `LteTextRenderer.hpp` / `.cpp` | `TextRenderer` - one SDF/MSDF/MSDFA pipeline and one vertex format for glyphs and decoration quads. `prepare()` ensures/records atlas uploads outside the frame, `render()` batches quads per atlas page, and `flush()` records the indexed draws. Colour is per vertex, bold is a per-vertex threshold dilation, and `3` in `params.x` draws solid underline/strikethrough geometry |
 | `MML.md` | The MML language specification |
 
 ### `Gui/` and `GFX/` - geometry and draw vocabulary
@@ -195,23 +197,29 @@ the contract. The CBOR map variants described by the specification are not imple
 - [ ] Cursor metadata is a C++ aggregate (`Lotte::Gui::CursorMetadata`); there is no JSON
       loader yet, and only the 2D image visual is drawn. The 3D model visual produces a
       placement matrix (`Cursor::modelPlacement`) that a 3D renderer must consume.
-- [ ] No glyph atlas. `Text/LteFontAtlas.hpp` documents what is missing (decode
-      `StoredCharacter::sdf`, pack it into a texture, expose whole-tile UV rectangles
-      through `GlyphAtlasMapping`) and implements the quad emission.
-      `GFX/LteWriteableTexture2D` now provides the atlas page (CPU pixels + dirty-rectangle
-      upload) and `CursorImageVisual::uv` shows the sub-rectangle convention, but the
-      glyph packer itself does not exist. Confirmed constraints from FontPacker: every
-      payload is a square `bitmapSize` x `bitmapSize` image because each glyph's metric
-      box is stretched onto a square before downsampling, the padding is already baked
-      into the payload (`bitmapPadding * bitmapSize / bitmapLogicalSize`), MSDF payloads
-      are stored as RGB888, and the drawing quad must be the intended box expanded by
-      the padding runway (`width * P / (L - 2P)` per axis).
+- [x] Glyph atlases exist. `Text/LteFontAtlas` decodes each `StoredCharacter::sdf`
+      on first use, shelf-packs the square tiles into RGBA8 `WriteableTexture2D`
+      pages (with a one-texel gutter), records dirty-rectangle uploads and exposes
+      whole-tile UVs plus a page index through `GlyphAtlasMapping`. Pages are 2D,
+      not array layers: `maxImageArrayLayers` (2048) cannot hold a CJK set, so a
+      face spills into additional pages (`FontAtlasSettings::maxPages`, default 128;
+      at 64 px tiles a 1024 page holds 225 glyphs, so the default covers ~28k).
+      The payload facts are unchanged: every tile is a square `bitmapSize` image
+      because the metric box is stretched before downsampling, the padding is baked
+      in, MSDF is stored as RGB888, and the quad is the intended box expanded by the
+      padding runway (`width * P / (L - 2P)` per axis).
 - [ ] No text shaping beyond glyph placement: kerning is applied per pair within a run
       (offsets are pixels at the face's reference size, as FontPacker stores them), but
       pairs that straddle a run boundary are not kerned, and there is no bidi, no line
       breaking by width, and no ligature substitution.
-- [ ] `TextAttribute::bold` is only a request: there is no bold/italic face selection
-      policy yet, because the atlas/font registry that would resolve it does not exist.
+- [x] Bold and italic are supported without another atlas. `TextAttributes::bold`
+      first asks `FontRepository` for a registered bold face; when none exists the
+      renderer synthesizes weight as a per-vertex SDF threshold dilation (`4%` of the
+      em by default). Italic remains a layout shear. Colour is per vertex, so a colour
+      change does not split a draw run.
+- [x] `FontRepository` resolves MML/CSS family names case-insensitively to a face and
+      owns one lazily created atlas per face. `loadFontFace()` is the standalone
+      `.wodf` loader.
 - [ ] No 3D rendering features (scene graph, lighting, shadows, post-processing). `GFX/LteMesh.hpp`
       only covers vertex/index storage and draw recording.
 - [ ] `MhPipeline`-style wrappers are intentionally absent: Kaldi's `Pipeline`, binding
@@ -226,15 +234,18 @@ the contract. The CBOR map variants described by the specification are not imple
       `Sandbox`; the font and vector-image formats by `testFontParser()` and
       `testFontRoundTrip()`. `UnitTests/tests/FontRoundTripTests.cpp` additionally checks
       the version 1/2/3 advance encodings, the raw version 3 header offsets, the padded
-      glyph quad and the `WODI` geometry helpers. The CPU half of the new cursor/texture
-      code is covered by `CursorTests` and `WriteableTexture2DTests` in `UnitTests`; the
-      renderer itself has no automated frame-level test.
+      glyph quad and the `WODI` geometry helpers; `TextRenderingTests.cpp` covers the
+      repository, atlas packing/upload recording, per-vertex colour/bold, decoration
+      quads and multi-page draw runs. The CPU half of the cursor/texture code is covered
+      by `CursorTests` and `WriteableTexture2DTests`; the renderer itself has no
+      automated frame-level/pixel test.
 - [ ] The CBOR map variants of the FontPacker specification are not implemented.
 - [x] `KerningMap` and the glyph map stay `std::unordered_map`s in memory, but the
       exporter sorts both by code point, so exported font files are byte-deterministic
       and match FontPacker's `QMap` ordering.
-- [ ] Font/vector-image formats are read/written through `Elv::Io::DataStream`; there is
-      no standalone file loader/saver wrapper in Lotte.
+- [x] Font/vector-image formats are read/written through `Elv::Io::DataStream`;
+      `loadFontFace()` wraps the font importer in a file loader. There is no saver
+      wrapper for either container yet.
 
 ## Build notes
 

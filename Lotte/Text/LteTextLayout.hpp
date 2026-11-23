@@ -40,6 +40,9 @@
  * - Italic runs are sheared by shifting the bottom edge right by half the glyph
  *   height (`italicMagicNumber = 0.5` in the original). The shear is stored per
  *   glyph so the vertex stage can apply it.
+ * - Bold is a style flag, not a separate atlas. The repository may resolve it to a
+ *   real bold face; otherwise the text shader dilates the SDF contour, which keeps
+ *   one atlas and one pipeline for both weights.
  * - Underline and strikethrough are emitted once per line, spanning from the line
  *   start to the current pen, as signed offsets from the baseline.
  * - The pen then advances by `horiAdvance` (float pixels) and falls back to
@@ -127,8 +130,9 @@
  *   `TextRenderState::reciprocalSize` and its `colour` field are gone for that
  *   reason: colour is per run, and the viewport is not a layout concern.
  * - **No atlas, no draw calls.** `PlacedGlyph` carries the code point and the quad,
- *   not a texture coordinate. `LteFontAtlas.hpp` documents what the missing atlas
- *   has to supply to turn these into textured vertices.
+ *   not a texture coordinate. `LteFontAtlas.hpp` supplies the texture coordinates
+ *   and page number through `FontAtlas`, and `LteTextRenderer.hpp` turns that into
+ *   vertex/index data and draw commands.
  * - **Advances are float pixels.** FontPacker version 3 stores `advance_x` as a
  *   float; versions 1 and 2 are decoded from raw 26.6 by the font-face importer
  *   (with the version 1 SVG plain-pixel exception). `horiAdvance` is a float pixel
@@ -174,6 +178,8 @@ struct TextStyle {
 	Colour colour = Colour(0.0f, 0.0f, 0.0f, 1.0f);
 	/** @brief Whether the run is italic. */
 	bool italic = false;
+	/** @brief Whether the run is bold. */
+	bool bold = false;
 	/** @brief Whether the run is underlined. */
 	bool underline = false;
 	/** @brief Whether the run is struck through. */
@@ -195,8 +201,12 @@ struct PlacedGlyph {
 	glm::fvec2 contentSize = glm::fvec2(0.0f);
 	/** @brief Horizontal shear applied to the bottom edge; `0` for upright text. */
 	float shear = 0.0f;
+	/** @brief Effective em size of the run in layout pixels. */
+	float emSize = 0.0f;
 	/** @brief Index into @ref TextLayout::styles. */
 	std::uint32_t styleIndex = 0;
+	/** @brief Index into @ref TextLayout::faces. */
+	std::uint32_t faceIndex = 0;
 };
 
 /** @brief A single underline or strikethrough segment. */
@@ -205,6 +215,8 @@ struct DecorationLine {
 	glm::fvec2 from = glm::fvec2(0.0f);
 	/** @brief End point. */
 	glm::fvec2 to = glm::fvec2(0.0f);
+	/** @brief Line thickness in layout pixels. */
+	float thickness = 1.0f;
 	/** @brief Index into @ref TextLayout::styles. */
 	std::uint32_t styleIndex = 0;
 };
@@ -217,17 +229,27 @@ struct TextLayout {
 	std::vector<DecorationLine> lines;
 	/** @brief Deduplicated styles referenced by glyphs and lines. */
 	std::vector<TextStyle> styles;
+	/**
+	 * @brief Non-owning faces referenced by @ref PlacedGlyph::faceIndex.
+	 *
+	 * The owner (a `FontRepository`, or the caller that supplied the lookup) must
+	 * keep the faces alive for as long as the layout is used. Keeping the face in
+	 * the layout is what lets a renderer pick the right atlas for each glyph when
+	 * MML mixes families in one text block.
+	 */
+	std::vector<const PreprocessedFontFace*> faces;
 	/** @brief Pen position after the last character: (advance end, last baseline). */
 	glm::fvec2 endOffset = glm::fvec2(0.0f);
 	/** @brief Layout-space `y` of the bottom of the last line (baseline + descender). */
 	float height = 0.0f;
 
-	/** @brief Drops all glyphs, lines and styles while keeping the capacity. */
+	/** @brief Drops all glyphs, lines, styles and face references while keeping the capacity. */
 	void clear()
 	{
 		glyphs.clear();
 		lines.clear();
 		styles.clear();
+		faces.clear();
 		endOffset = glm::fvec2(0.0f);
 		height = 0.0f;
 	}

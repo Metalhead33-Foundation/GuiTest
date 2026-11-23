@@ -39,12 +39,15 @@ SOURCES += \
     Gui/LteCursor.cpp \
     Gui/LteKaldiGuiRenderer.cpp \
     Text/LteCssStyle.cpp \
+    Text/LteFontAtlas.cpp \
+    Text/LteFontRepository.cpp \
     Text/LteHtmlEntities.cpp \
     Text/LteMarkupColour.cpp \
     Text/LteMarkupStack.cpp \
     Text/LteMml.cpp \
     Text/LteRichText.cpp \
-    Text/LteTextLayout.cpp
+    Text/LteTextLayout.cpp \
+    Text/LteTextRenderer.cpp
 
 HEADERS += \
     Asset/LteGpuAssetStreamer.hpp \
@@ -64,6 +67,7 @@ HEADERS += \
     LteKld.hpp \
     Text/LteFontAtlas.hpp \
     Text/LteFontFace.hpp \
+    Text/LteFontRepository.hpp \
     Text/LteHtmlEntities.hpp \
     Text/LteCssStyle.hpp \
     Text/LteMarkupColour.hpp \
@@ -72,6 +76,7 @@ HEADERS += \
     Text/LteRichText.hpp \
     Text/LteTextAttributes.hpp \
     Text/LteTextLayout.hpp \
+    Text/LteTextRenderer.hpp \
     Text/LteUtf.hpp \
     VectorGraphic/LteStoredVectorImage.hpp \
     LotteLib.hpp

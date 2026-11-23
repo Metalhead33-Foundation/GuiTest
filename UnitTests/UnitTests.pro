@@ -147,6 +147,7 @@ SOURCES += \
     tests/PlatformWrappersTests.cpp \
     tests/ShaderAssetTests.cpp \
     tests/ShaderCompileTests.cpp \
+    tests/TextRenderingTests.cpp \
     tests/UdpTransportTests.cpp \
     tests/WriteableTexture2DTests.cpp
 

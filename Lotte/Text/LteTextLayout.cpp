@@ -65,6 +65,7 @@ std::uint32_t findOrAddStyle(TextLayout& layout, const TextAttributes& attribute
 	TextStyle style;
 	style.colour = attributes.colour;
 	style.italic = attributes.italic;
+	style.bold = attributes.bold;
 	style.underline = attributes.underline;
 	style.strikethrough = attributes.strikethrough;
 	for (std::size_t i = 0; i < layout.styles.size(); ++i) {
@@ -72,6 +73,16 @@ std::uint32_t findOrAddStyle(TextLayout& layout, const TextAttributes& attribute
 	}
 	layout.styles.push_back(style);
 	return std::uint32_t(layout.styles.size() - 1);
+}
+
+/** @brief Returns the face index for a face, adding it when new. */
+std::uint32_t findOrAddFace(TextLayout& layout, const PreprocessedFontFace& face)
+{
+	for (std::size_t i = 0; i < layout.faces.size(); ++i) {
+		if (layout.faces[i] == &face) return std::uint32_t(i);
+	}
+	layout.faces.push_back(&face);
+	return std::uint32_t(layout.faces.size() - 1);
 }
 
 /**
@@ -108,13 +119,16 @@ void emitDecorations(float lineStartX, float penX, float baselineY, float lineHe
 					 std::uint32_t styleIndex, const TextAttributes& attributes, TextLayout& layout)
 {
 	if (penX <= lineStartX) return;
+	const float thickness = std::max(1.0f, lineHeight * 0.05f);
 	if (attributes.strikethrough) {
 		const float y = baselineY + lineHeight * StrikethroughOffset;
-		layout.lines.push_back(DecorationLine{ glm::fvec2(lineStartX, y), glm::fvec2(penX, y), styleIndex });
+		layout.lines.push_back(DecorationLine{ glm::fvec2(lineStartX, y), glm::fvec2(penX, y),
+											   thickness, styleIndex });
 	}
 	if (attributes.underline) {
 		const float y = baselineY + lineHeight * UnderlineOffset;
-		layout.lines.push_back(DecorationLine{ glm::fvec2(lineStartX, y), glm::fvec2(penX, y), styleIndex });
+		layout.lines.push_back(DecorationLine{ glm::fvec2(lineStartX, y), glm::fvec2(penX, y),
+											   thickness, styleIndex });
 	}
 }
 
@@ -128,6 +142,8 @@ void layoutRun(const PreprocessedFontFace& face, std::u32string_view text, const
 	const float runScale = state.scale * (requestedSize / referenceSize);
 	const float paddingRatio = getGlyphPaddingRatio(face);
 	const std::uint32_t styleIndex = findOrAddStyle(layout, attributes);
+	const std::uint32_t faceIndex = findOrAddFace(layout, face);
+	const float emSize = requestedSize * state.scale;
 
 	const float lineStartX = state.origin.x;
 	float penX = state.cursor.x;
@@ -174,7 +190,9 @@ void layoutRun(const PreprocessedFontFace& face, std::u32string_view text, const
 			placed.size = glm::fvec2(glyphWidth + 2.0f * padX, glyphHeight + 2.0f * padY);
 			placed.contentSize = glm::fvec2(glyphWidth, glyphHeight);
 			placed.shear = attributes.italic ? glyphHeight * ItalicShear : 0.0f;
+			placed.emSize = emSize;
 			placed.styleIndex = styleIndex;
+			placed.faceIndex = faceIndex;
 			layout.glyphs.push_back(placed);
 			// Line metrics use the unpadded silhouette, not the glow runway.
 			state.lineHeight = std::max(state.lineHeight, glyphHeight);

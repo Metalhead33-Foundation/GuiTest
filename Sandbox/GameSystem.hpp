@@ -9,6 +9,9 @@
 #include <Lotte/GFX/LteWriteableTexture2D.hpp>
 #include <Lotte/Gui/LteCursor.hpp>
 #include <Lotte/Gui/LteKaldiGuiRenderer.hpp>
+#include <Lotte/Text/LteFontRepository.hpp>
+#include <Lotte/Text/LteTextLayout.hpp>
+#include <Lotte/Text/LteTextRenderer.hpp>
 #include <memory>
 #include <string>
 #include <vector>
@@ -42,6 +45,16 @@ private:
 	std::unique_ptr<Lotte::Gfx::KaldiContext> kaldi;
 	/** @brief Records GUI geometry into the context's dispatcher. */
 	std::unique_ptr<Lotte::Gui::KaldiGuiRenderer> guiRenderer;
+	/** @brief Owns the loaded faces and their lazy glyph atlases. */
+	std::unique_ptr<Lotte::Text::FontRepository> fontRepository;
+	/** @brief Records SDF text into the context's dispatcher. */
+	std::unique_ptr<Lotte::Text::TextRenderer> textRenderer;
+	/** @brief Layout of the sandbox's sample text. */
+	Lotte::Text::TextLayout sampleLayout;
+	/** @brief True once the sample font has been loaded and laid out. */
+	bool fontReady = false;
+	/** @brief True once the first text frame has been rendered, for the one-shot log. */
+	bool textRendered = false;
 	/** @brief The cursors loaded from `cursors/`; Tab cycles, 1-9 set the anchor. */
 	std::vector<CursorEntry> cursors;
 	/** @brief Index into @ref cursors of the cursor being drawn. */
@@ -55,6 +68,8 @@ private:
 
 	/** @brief Loads the backend, the GUI renderer and the cursor textures. */
 	void startGraphics();
+	/** @brief Loads the sample `.wodf` and lays out the demo text. */
+	void loadFont();
 	/** @brief Decodes the cursor PNGs and builds their @ref Lotte::Gui::Cursor objects. */
 	void loadCursors();
 	/** @brief Replaces the active cursor's anchor and re-resolves its origin. */
