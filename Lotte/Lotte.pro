@@ -37,6 +37,10 @@ SOURCES += \
     GFX/LteResourceFactory.cpp \
     GFX/LteWriteableTexture2D.cpp \
     Gui/LteCursor.cpp \
+    Gui/LteGuiRenderable.cpp \
+    Gui/LteGuiRootNode.cpp \
+    Gui/LteTexturedWidget.cpp \
+    Gui/LteWidget.cpp \
     Gui/LteKaldiGuiRenderer.cpp \
     Text/LteCssStyle.cpp \
     Text/LteFontAtlas.cpp \
@@ -60,6 +64,11 @@ HEADERS += \
     GFX/LteResourceFactory.hpp \
     GFX/LteWriteableTexture2D.hpp \
     Gui/LteCursor.hpp \
+    Gui/LteGuiRenderable.hpp \
+    Gui/LteGuiRootNode.hpp \
+    Gui/LteTexturedWidget.hpp \
+    Gui/LteTheme.hpp \
+    Gui/LteWidget.hpp \
     Gui/LteGuiRenderCache.hpp \
     Gui/LteGuiRenderer.hpp \
     Gui/LteGuiVertex.hpp \
