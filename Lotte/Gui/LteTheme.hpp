@@ -11,16 +11,16 @@
  *
  * The contract is intentionally descriptor-based:
  *
- * - @ref ThemeSkin identifies a texture region, a tint and optional nine-slice
+ * - `ThemeSkin` identifies a texture region, a tint and optional nine-slice
  *   margins. A window background, a window corner, a button face and a check mark
  *   are all just skins; the widget decides how to compose them.
- * - @ref ThemeSlice plus @ref ThemeSkin::sourceSize describe the source rectangle
+ * - `ThemeSlice` plus `ThemeSkin::sourceSize` describe the source rectangle
  *   needed for nine-slice scaling, which is how fixed-size window corners survive
  *   a resized window.
- * - @ref ThemeMetrics carries padding, spacing, minimum size, border width and
+ * - `ThemeMetrics` carries padding, spacing, minimum size, border width and
  *   corner radius. Layout algorithms and widgets can consume these without knowing
  *   whether the theme is bitmap-based, vector-based or procedural.
- * - @ref Theme::textStyle gives the rich-text attributes a label/heading should use.
+ * - `Theme::textStyle` gives the rich-text attributes a label/heading should use.
  *
  * No concrete theme is supplied yet. A missing skin is represented by
  * `std::nullopt`, which lets a widget fall back to its own default or to a

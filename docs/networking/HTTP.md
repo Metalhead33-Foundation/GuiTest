@@ -1,4 +1,4 @@
-# Minimal HTTP over the GuiTest sockets
+# Minimal HTTP over the GuiTest sockets {#doc_http}
 
 This page documents the deliberately small HTTP layer added on top of
 `Euph::Io::Socket`. It is a wire-format and connection scaffold, not a web
@@ -109,3 +109,16 @@ LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK ./UnitTests/UnitTests "[ht
 `[http]` covers serialization, incomplete/malformed/oversize parsing and HEAD
 suppression. `[http][socket]` covers TCP POST, TCP HEAD, `EventLoop` async,
 UDP request/response and failure-signal emission.
+
+## References
+
+- [`../index.md`](../index.md) — the networking folder this note belongs to.
+- [`../../Elvavena/Net/ElvHttp.hpp`](../../Elvavena/Net/ElvHttp.hpp) — the wire types,
+  parser and serializer.
+- [`../../Euphemy/Net/EuphHttpClient.hpp`](../../Euphemy/Net/EuphHttpClient.hpp) and
+  [`../../Euphemy/Net/EuphHttpServer.hpp`](../../Euphemy/Net/EuphHttpServer.hpp) — the
+  connection halves.
+- [`../../UnitTests/tests/HttpTests.cpp`](../../UnitTests/tests/HttpTests.cpp) — the
+  parser and socket paths as executable spec.
+- \ref doc_netcode — the session layer this HTTP scaffold deliberately does not use.
+

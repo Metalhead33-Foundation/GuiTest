@@ -1,4 +1,4 @@
-# CSS for MML - a study, and what was wired in
+# CSS for MML - a study, and what was wired in {#doc_mml_css}
 
 > Status: **feasible, implemented as an optional module, deliberately narrow.** This
 > document records what NetSurf's `libcss` can and cannot do for MML, what the
@@ -211,3 +211,15 @@ packagesExist(libcss) {
 Without libcss the header is inert, `LteCssStyle.cpp` compiles to an empty
 translation unit and `UnitTests/tests/CssStyleTests.cpp` disappears from the suite -
 verified by configuring with `PKG_CONFIG_LIBDIR=/nonexistent`.
+
+## References
+
+- [`../index.md`](../index.md) — the text folder this note belongs to.
+- \ref doc_mml — the MML specification whose tags the stylesheet decorates.
+- [`../../Lotte/Text/LteCssStyle.hpp`](../../Lotte/Text/LteCssStyle.hpp) — the optional
+  module, documented in place.
+- [`../../Lotte/Text/LteMml.hpp`](../../Lotte/Text/LteMml.hpp) — the parser and the
+  `MmlElementObserver` hook the resolver attaches to.
+- [`../../UnitTests/tests/CssStyleTests.cpp`](../../UnitTests/tests/CssStyleTests.cpp)
+  — the selectors, inheritance and conversion rules as executable spec.
+

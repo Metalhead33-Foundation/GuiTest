@@ -24,17 +24,17 @@
  * backend needs for an identical picture:
  *
  * - **2D** - pixels, origin at the target's top-left, `+y` pointing down, `z = 0`.
- *   Pass positions through @ref ClipSpaceConventions::pixelToClip.
+ *   Pass positions through `ClipSpaceConventions::pixelToClip`.
  * - **3D** - right-handed camera looking down `-z`, `+y` up, depth in `[0, 1]`
  *   (the `_ZO` convention). Build the matrix with
- *   @ref ClipSpaceConventions::perspective or
- *   @ref ClipSpaceConventions::orthographic, or hand an existing y-up `[0, 1]`
- *   projection to @ref ClipSpaceConventions::projection.
+ *   `ClipSpaceConventions::perspective` or
+ *   `ClipSpaceConventions::orthographic`, or hand an existing y-up `[0, 1]`
+ *   projection to `ClipSpaceConventions::projection`.
  * - **Winding** - declare front faces the way the projection places them on screen
  *   (`CounterClockwise` for the usual case) and pass the value through
- *   @ref ClipSpaceConventions::frontFace.
+ *   `ClipSpaceConventions::frontFace`.
  * - **Rectangles** - give viewport and scissor rectangles in top-left pixels and
- *   pass them through @ref ClipSpaceConventions::halRect.
+ *   pass them through `ClipSpaceConventions::halRect`.
  *
  * A `[-1, 1]` depth projection (for example `glm::perspectiveRH`) is *not* part of
  * the contract: Vulkan clips it away and the GL backend's `z` rewrite mangles it.

@@ -1,4 +1,8 @@
+\page mod_kaldivk KaldiVK
+
 # KaldiVK
+
+![Mascot](KaldiVK.jpg)
 
 Vulkan backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 
@@ -32,7 +36,7 @@ That is exactly what glslang's HLSL front-end emits for explicitly bound resourc
 so the shader author's slot numbers need no renumbering. DXC honours the same
 explicit decorations (`-fvk-auto-shift-bindings` only renumbers *register-derived*
 bindings), so the mapping survives a compiler switch; see
-[`docs/SHADERS.md`](../docs/SHADERS.md) for the current compiler, its deprecation
+[`docs/graphics/SHADERS.md`](../docs/graphics/SHADERS.md) for the current compiler, its deprecation
 and the deferred DXC migration. A pipeline that declares a
 binding slot requires a matching bound resource before it draws; otherwise the
 draw fails with `InvalidResourceState` (a Vulkan draw with an unwritten

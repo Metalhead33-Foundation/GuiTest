@@ -1,4 +1,4 @@
-# Shader pipeline: HLSL → SPIR-V → every backend
+# Shader pipeline: HLSL → SPIR-V → every backend {#doc_shaders}
 
 This page records the shading-language policy: what the engine authors shaders in,
 which compiler turns them into SPIR-V, how each backend consumes that SPIR-V, and
@@ -27,7 +27,7 @@ The consequences that matter when authoring a shader:
   — regardless of which compiler produced the blob.
 - Resources are bound explicitly, `[[vk::binding(slot, set)]]`, with one
   descriptor set per Kaldi binding kind. The mapping is documented in
-  [`KaldiVK/README.md`](../KaldiVK/README.md#descriptor-sets).
+  \ref mod_kaldivk.
 
 ## Compiler status
 
@@ -65,7 +65,7 @@ SM 5-era language rules, and `-T ps_6_0` is merely the lowest profile DXC accept
 | `-HV 2016` | HLSL language version: SM 5-era parsing (`in`/`out`, `cbuffer`, `Texture2D`/`SamplerState`, no SM 6 template resources) |
 | `-flegacy-macro-expansion` | pre-SM 6 macro expansion |
 | `-flegacy-resource-reservation` | reserve slots for declared-but-unused resources, keeping register numbering stable between stages |
-| `-fvk-auto-shift-bindings` | shift bindings per resource class so `t0` and `s0` do not both land on binding 0; only *register-derived* bindings are shifted, an explicit `[[vk::binding(slot, set)]]` is honoured verbatim (see the set table in [`KaldiVK/README.md`](../KaldiVK/README.md#descriptor-sets)) |
+| `-fvk-auto-shift-bindings` | shift bindings per resource class so `t0` and `s0` do not both land on binding 0; only *register-derived* bindings are shifted, an explicit `[[vk::binding(slot, set)]]` is honoured verbatim (see the set table in \ref mod_kaldivk) |
 | `-fvk-use-gl-layout` | GL-style layout rules for constant/structured buffers, matching what SPIRV-Cross and the GL backends expect |
 
 Reference invocation, one stage at a time (repeat with the matching `-T`):
@@ -112,3 +112,18 @@ When the migration happens, the work is mechanical and bounded:
 
 Nothing else in the backend matrix moves: the Vulkan backend consumes the blob
 as-is, and the GL/GLES/D3D backends only ever see SPIR-V through SPIRV-Cross.
+
+## References
+
+- [`../index.md`](../index.md) — the graphics folder this note belongs to.
+- [`../../Lotte/GFX/LtePipeline.cpp`](../../Lotte/GFX/LtePipeline.cpp) — the runtime
+  compiler this note's policy is implemented in.
+- [`../../UnitTests/UnitTests.pro`](../../UnitTests/UnitTests.pro) — the build-time
+  HLSL -> SPIR-V rule and its `GLSLANG=` override.
+- \ref mod_lotte — the module that owns the compiler.
+- \ref mod_kaldivk — the backend that consumes SPIR-V directly.
+- \ref mod_kaldiglcommon — the GL family's SPIR-V -> GLSL step.
+- \ref mod_kaldid3dcommon — the D3D family's SPIR-V -> HLSL step.
+- [KhronosGroup/glslang issue 4210](https://github.com/KhronosGroup/glslang/issues/4210)
+  — the HLSL front-end deprecation this note plans around.
+

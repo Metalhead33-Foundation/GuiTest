@@ -1,8 +1,8 @@
 # Doxygen configuration for MhLib.
 #
 # The headers are the API and the design reference. Their comments are written in
-# Doxygen's Qt dialect (`/**`, `///`, `//!`, `/*!`, `\brief`, `\param`, …), so this
-# file is the one place that renders them. See docs/DOCUMENTATION.md for the
+# Doxygen's Qt/Javadoc dialect (`/**`, `///`, `//!`, `/*!`, `@brief`, `@param`, …),
+# so this file is the one place that renders them. See docs/DOCUMENTATION.md for the
 # conventions and for the checks that keep them usable.
 #
 # Generate into the shadow build tree, never into the source tree:
@@ -22,21 +22,35 @@ BUILTIN_STL_SUPPORT    = YES
 CPP_CLI_SUPPORT        = NO
 IDL_PROPERTY_SUPPORT   = YES
 USE_MDFILE_AS_MAINPAGE = README.md
-BUILTIN_STL_SUPPORT    = YES
 
 # The project's own headers and its Markdown notes. `extern/` is a submodule, and
 # every generated or third-party file is out of scope.
 #
-# The Markdown files under docs/ describe policy and cross-cutting design notes;
-# the per-module READMEs describe what each module currently implements. Doxygen
-# nests a page only when another page names it with `\subpage`, so keep the note
-# tree shallow (docs/DOCUMENTATION.md §9).
-INPUT                  = README.md AGENTS.md Elvavena Test Kaldi KaldiGL KaldiGLCommon KaldiVK KaldiD3D11 KaldiD3D12 KaldiD3DCommon KaldiGLES Haruka Lotte Euphemy docs
+# The Markdown files are pages, not appendices: `README.md` is the main page and
+# `docs/` is the note tree, nested by five index pages (`docs/index.md` plus the
+# `graphics/`, `text/`, `networking/` and `modules/` ones). Doxygen nests a page only
+# when another page names it with `\subpage`, so a note missing from its folder index
+# is a *sibling* of the whole sub-tree — which is why UnitTests '[docs]' checks it
+# (docs/DOCUMENTATION.md §11).
+#
+# Every module `README.md` carries one `\page mod_<module> <Title>` line at the top.
+# Without it Doxygen 1.18 renders a subdirectory README as *directory documentation*,
+# which cannot be a `\subpage` target; with it the same file is a page with a stable
+# id and is rendered exactly once.
+#
+# `AGENTS.md` is deliberately absent: it is contributor tooling, not documentation,
+# and notes refer to it as inline code for that reason (§7).
+INPUT                  = README.md \
+                         Elvavena Euphemy Haruka Kaldi \
+                         KaldiGL KaldiGLCommon KaldiGLES KaldiVK \
+                         KaldiD3D11 KaldiD3D12 KaldiD3DCommon \
+                         Lotte Sandbox UnitTests docs
 FILE_PATTERNS          = *.h *.hpp *.md
 RECURSIVE              = YES
 EXCLUDE                = extern build Elvavena/Util/half.hpp Euphemy/Media/Audio/FFTConvolver
 EXCLUDE_PATTERNS       = */build/* */node_modules/* *.inc
 INPUT_ENCODING         = UTF-8
+
 
 # A header is a documentation artifact here: show every declaration, including
 # the internal ones, so the reference renders the header as it reads.

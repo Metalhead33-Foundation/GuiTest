@@ -1,3 +1,5 @@
+\page mod_kaldid3dcommon KaldiD3DCommon
+
 # KaldiD3DCommon
 
 Shared implementation details of the [KaldiD3D11](../KaldiD3D11/README.md) and
@@ -20,7 +22,7 @@ The input is HLSL authored at Shader Model 4/5 level and compiled to SPIR-V 1.0 
 Lotte; this cross-compiler's Shader Model 5.0/5.1 output is what bounds which
 shader constructs the engine may use (no Shader Model 6 features). The compiler
 choice and its `glslang` deprecation are documented in
-[`docs/SHADERS.md`](../docs/SHADERS.md).
+[`docs/graphics/SHADERS.md`](../docs/graphics/SHADERS.md).
 
 ## Header provenance
 

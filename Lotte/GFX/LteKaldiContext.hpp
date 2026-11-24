@@ -29,7 +29,7 @@
  * object and its virtual table live inside it, so `kld_destroy_rendering_device()`
  * runs first, `dlclose` second.
  *
- * Every `Lotte::Texture`/`Buffer`/`Pipeline` proxy created through @ref resources()
+ * Every `Lotte::Texture`/`Buffer`/`Pipeline` proxy created through `resources()`
  * records its destroy command into this context's dispatcher when the proxy dies,
  * so proxies must be destroyed **before** the context. Declare the context first
  * among the graphics members of a host class and the member order guarantees it.

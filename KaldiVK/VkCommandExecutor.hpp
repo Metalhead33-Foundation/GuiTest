@@ -269,7 +269,7 @@ struct VkPipelineObject {
 	 * @brief Descriptor types/counts this pipeline needs from a pool.
 	 *
 	 * Sets themselves come from the frame slot's descriptor ring (see
-	 * @ref FrameSlot), because a set must not be reset while the submission that
+	 * `FrameSlot`), because a set must not be reset while the submission that
 	 * reads it is still running. This vector only describes how large a pool has
 	 * to be, so the first allocation for a pipeline can size one correctly.
 	 */

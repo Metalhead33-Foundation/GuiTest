@@ -61,4 +61,11 @@
    LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK:Kaldi ./UnitTests/UnitTests
    ```
 
+**Documentation is checked, not remembered.** A header, a note or a module README is part of
+   the generated reference: `doxygen Doxyfile` writes `build/doxygen/html/` and must report
+   nothing, and `UnitTests "[docs]"` checks the Markdown tree (note ids, folder indexes,
+   module pages, "References is last"). Run both after touching a header or a `.md` file;
+   `docs/DOCUMENTATION.md` is the policy they enforce. The render never writes into the
+   source tree.
+
 Whenever calling `git`, always use `--no-pager`.

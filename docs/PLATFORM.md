@@ -1,4 +1,4 @@
-# Platform I/O wrappers and streaming buffers
+# Platform I/O wrappers and streaming buffers {#doc_platform}
 
 This note records the OS-facing sidequest that sits beside the netcode milestones:
 portable readiness pollers, completion wrappers, and the contiguous ring buffer
@@ -108,3 +108,20 @@ LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK ./UnitTests/UnitTests "[kq
 LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK ./UnitTests/UnitTests "[uring]"
 LD_LIBRARY_PATH=Elvavena:Euphemy:Lotte:Haruka:KaldiVK ./UnitTests/UnitTests "[iocp]"
 ```
+
+## References
+
+- [`index.md`](index.md) — the documentation tree this note is a child of.
+- [`../Elvavena/Io/ElvEventPoller.hpp`](../Elvavena/Io/ElvEventPoller.hpp),
+  [`../Elvavena/Io/ElvEventLoopWakeup.hpp`](../Elvavena/Io/ElvEventLoopWakeup.hpp) and
+  [`../Elvavena/Io/ElvAsyncCompletion.hpp`](../Elvavena/Io/ElvAsyncCompletion.hpp) — the
+  three portable seams.
+- [`../Euphemy/Platform/EuphEventPollerFactory.hpp`](../Euphemy/Platform/EuphEventPollerFactory.hpp)
+  — the factory that selects the concrete poller and wakeup.
+- [`../Elvavena/Util/ElvRingBuffer.hpp`](../Elvavena/Util/ElvRingBuffer.hpp) and
+  [`../Elvavena/Util/ElvContiguousRingBuffer.hpp`](../Elvavena/Util/ElvContiguousRingBuffer.hpp)
+  — the two buffer contracts compared in this note.
+- [`../UnitTests/tests/PlatformWrappersTests.cpp`](../UnitTests/tests/PlatformWrappersTests.cpp)
+  — the pollers, pollers-vs-completion split and ring buffers as executable spec.
+- \ref mod_elvavena and \ref mod_euphemy — the module pages for the two halves.
+

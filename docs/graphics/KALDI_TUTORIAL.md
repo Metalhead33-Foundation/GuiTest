@@ -1,9 +1,9 @@
-# Using Kaldi
+# Using Kaldi {#doc_kaldi_tutorial}
 
-This is a hands-on guide to the [Kaldi](../Kaldi/README.md) graphics HAL: how to
+This is a hands-on guide to the \ref mod_kaldi graphics HAL: how to
 submit work to a backend, what the contracts are, and which of the two client APIs
 to pick. It assumes you already know what a framebuffer and a vertex buffer are and
-that the project renders through [Lotte](../Lotte/README.md); it does not assume any
+that the project renders through \ref mod_lotte; it does not assume any
 Vulkan, OpenGL or Direct3D experience.
 
 Kaldi has **two ways to say the same thing**:
@@ -503,12 +503,10 @@ Practical consequences:
 
 ---
 
-## See also
+## References
 
-- [Kaldi README](../Kaldi/README.md) - the HAL contract, opcode list and capability table
-- [Shaders](../docs/SHADERS.md) - HLSL -> SPIR-V, and how each backend consumes it
-- [Lotte](../Lotte/README.md) - the renderer built on this API
+- \ref mod_kaldi - the HAL contract, opcode list and capability table
+- [Shaders](SHADERS.md) - HLSL -> SPIR-V, and how each backend consumes it
+- \ref mod_lotte - the renderer built on this API
 - `Kaldi/KldCommandBuffer.hpp` - every helper, documented in place
 - `UnitTests/tests/KaldiCommandBufferTests.cpp` - the facade's behaviour as executable spec
-
-```

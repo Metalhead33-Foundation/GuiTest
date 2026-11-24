@@ -10,7 +10,7 @@
  * sample*, which defeats inlining and vectorization. Here the per-sample
  * operation is a template parameter instead, so the loop below is a plain
  * inlinable functor application: the only virtual dispatch left happens once
- * per chunk, when @ref Hrk::EffectSlot calls @ref process().
+ * per chunk, when @ref Hrk::EffectSlot calls `process()`.
  *
  * @note Functors must be cheap to copy (they are stored by value) and must not
  * throw.

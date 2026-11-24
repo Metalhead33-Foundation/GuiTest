@@ -2,12 +2,12 @@
 #define LTETEXTRENDERER_HPP
 /**
  * @file LteTextRenderer.hpp
- * @brief SDF/MSDF/MSDFA text rendering over a @ref FontRepository's atlases.
+ * @brief SDF/MSDF/MSDFA text rendering over a `FontRepository`'s atlases.
  *
  * This is the rendering half of the text pipeline:
  *
  * - `TextLayout` positions glyphs and decorations (@ref LteTextLayout.hpp);
- * - @ref FontRepository owns faces and their lazy @ref FontAtlas pages;
+ * - `FontRepository` owns faces and their lazy `FontAtlas` pages;
  * - `TextRenderer` ensures the glyphs a layout needs, groups the quads by atlas
  *   page, and records one indexed draw per page run.
  *
