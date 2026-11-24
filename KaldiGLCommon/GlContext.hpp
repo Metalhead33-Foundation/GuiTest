@@ -8,8 +8,8 @@
  * execute a single command: an initialized display, a context with a drawable,
  * and loaded GL entry points. This header is the portable half of that:
  *
- *  - @ref Context - the abstract context a backend owns and makes current;
- *  - @ref ContextConfig - what the caller may tune (version, profile, buffer
+ *  - `Context` - the abstract context a backend owns and makes current;
+ *  - `ContextConfig` - what the caller may tune (version, profile, buffer
  *    sizes, MSAA, ...);
  *  - `Kld::NativeWindowHandles` (see `Kaldi/KldNativeWindow.hpp`) - the
  *    backend-neutral window handles this layer consumes;
@@ -20,7 +20,7 @@
  *
  * | Class | Header | Built into |
  * |---|---|---|
- * | @ref EglContext | `EglContext.hpp` | `KaldiGL` and `KaldiGLES` |
+ * | `EglContext` | `EglContext.hpp` | `KaldiGL` and `KaldiGLES` |
  * | `GlxContext` | `GlxContext.hpp` (desktop only) | `KaldiGL` |
  *
  * @section kaldigl_context_configuration Configuration
@@ -120,7 +120,7 @@ struct ContextConfig {
 	int screen = -1;
 };
 
-/** @brief True when @ref ContextConfig::sampleCount requests multisampling. */
+/** @brief True when `ContextConfig::sampleCount` requests multisampling. */
 constexpr bool wantsMultisampling(const ContextConfig& config) noexcept
 {
 	return config.sampleCount > 1;

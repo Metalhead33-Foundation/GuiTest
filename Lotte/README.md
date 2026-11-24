@@ -1,4 +1,8 @@
+\page mod_lotte Lotte
+
 # Lotte
+
+![Mascot](Lotte.jpg)
 
 Lotte is the higher-level graphics and GUI library of MhLib. It sits on top of Kaldi
 (the graphics HAL) and Euphemy (assets, images, text-adjacent I/O), and is where
@@ -48,7 +52,7 @@ major version; see [issue #4210](https://github.com/KhronosGroup/glslang/issues/
 The intended replacement is [DXC](https://github.com/microsoft/DirectXShaderCompiler),
 whose only notable flaw here is that it targets Shader Model 6.x while this engine
 authors HLSL at Shader Model 4/5 level. The migration is **deferred indefinitely**;
-[`docs/SHADERS.md`](../docs/SHADERS.md) records the reference `dxc` invocation,
+[`docs/graphics/SHADERS.md`](../docs/graphics/SHADERS.md) records the reference `dxc` invocation,
 what each flag does, and the acceptance gate for the switch.
 
 ## Implemented
@@ -61,7 +65,7 @@ what each flag does, and the acceptance gate for the switch.
 | `Text/LteFontFace.hpp` | FontPacker-compatible `WODF` font-face format (versions 1-3): SDF/MSDF/MSDFA channel types, distance metrics, glyph metrics, kerning tables, v2+ distance ranges/encoding flags/midpoint, float advances (26.6 decoded on import), deterministic absolute-offset TOC, and both importer (`operator>>`) and exporter (`operator<<`) over `Elv::Io::DataStream` |
 | `VectorGraphic/LteStoredVectorImage.hpp` | FontPacker-compatible `WODI` stored-vector-image format with mip levels, encoding flags and stream import/export |
 | `Conf/LteBackendConfig.hpp` / `.cpp` | Bridge between `Kld::ConfigProvider` and `Euph::Conf::Configuration`: writes a backend's field defaults into an `.ini`, serializes/parses the text, loads/saves through `Elv::Io::System`, and applies the file back through a `Kld::ConfigReader` (which clamps every value) |
-| `GFX/LtePipeline.hpp` / `.cpp` | `compileShaderProgram()` (glslang's HLSL front-end, see [`docs/SHADERS.md`](../docs/SHADERS.md); HLSL or GLSL input, always emits **Vulkan** SPIR-V 1.0 so one blob serves every backend, pluggable `ShaderIncludeResolver`), the owning `ShaderBinary` (SPIR-V words + stage, convertible to `Kld::ShaderBinaryDescriptor`) and `Pipeline` (owns stages + vertex attributes and exposes Kaldi views) |
+| `GFX/LtePipeline.hpp` / `.cpp` | `compileShaderProgram()` (glslang's HLSL front-end, see [`docs/graphics/SHADERS.md`](../docs/graphics/SHADERS.md); HLSL or GLSL input, always emits **Vulkan** SPIR-V 1.0 so one blob serves every backend, pluggable `ShaderIncludeResolver`), the owning `ShaderBinary` (SPIR-V words + stage, convertible to `Kld::ShaderBinaryDescriptor`) and `Pipeline` (owns stages + vertex attributes and exposes Kaldi views) |
 
 ### `GFX/` and `Gui/` - context, resources, cursor
 
@@ -131,7 +135,7 @@ context.endFrame();
 | `LteRichText.hpp` / `.cpp` | `RichTextProcessor` - buffers UTF-8, emits `TextRun`s on attribute changes, merges adjacent runs with equal attributes, and keeps the original `enable*`/`disable*`/`Manipulator`/`operator<<` surface |
 | `LteMarkupStack.hpp` / `.cpp` | `MarkupStack` - per-attribute nesting depths (colour, family, size, bold, italic, underline, strikethrough) driving a processor |
 | `LteMml.hpp` / `.cpp` | `MmlParser` - the MML state machine and tag tables (`b`, `strong`, `i`, `em`, `u`, `s`, `del`, `strike`, `br`, `p`, `font=`, `size=`, `color=`/`colour=`), the provisional `class=`/`id=` parameter grammar, and the optional `MmlElementObserver` hook that lets a stylesheet drive the processor |
-| `LteCssStyle.hpp` / `.cpp` | **Optional, needs `libcss`.** `CssStylesheet` (markup defaults + author sheet, `css_select_ctx`), `CssStyleResolver` (MML element stack -> libcss node tree -> `TextAttributes`, with inheritance via `css_computed_style_compose`, unit conversion and decoration propagation) and the one-call `styleMarkup()`. Scope, limits and the libcss 0.9.2 landmines are documented in [`docs/MML_CSS.md`](../docs/MML_CSS.md) |
+| `LteCssStyle.hpp` / `.cpp` | **Optional, needs `libcss`.** `CssStylesheet` (markup defaults + author sheet, `css_select_ctx`), `CssStyleResolver` (MML element stack -> libcss node tree -> `TextAttributes`, with inheritance via `css_computed_style_compose`, unit conversion and decoration propagation) and the one-call `styleMarkup()`. Scope, limits and the libcss 0.9.2 landmines are documented in [`docs/text/MML_CSS.md`](../docs/text/MML_CSS.md) |
 | `LteHtmlEntities.hpp` / `.cpp` | Named/decimal/hexadecimal HTML character references; the 2,124-entry table is carried over verbatim from the old tree |
 | `LteMarkupColour.hpp` / `.cpp` | `parseMarkupColour()` - web colour names, `#RGB(A)` / `#RRGGBB(AA)` hex, and normalized or byte component lists |
 | `LteTextLayout.hpp` / `.cpp` | `layoutRun()` / `layoutRuns()` - glyph placement from a `PreprocessedFontFace` (intended box, bearings, measured line height, newline handling, italic shear, per-run underline/strikethrough segments, optional word spacing) producing `PlacedGlyph`/`DecorationLine`/`TextStyle`. Each glyph records its face (`TextLayout::faces` + `faceIndex`), its effective em size and whether the style asks for bold, so a renderer can pick the right atlas and synthesize weight |

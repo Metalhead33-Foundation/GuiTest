@@ -9,7 +9,7 @@
  * it records the face it used per glyph (`TextLayout::faces` /
  * `PlacedGlyph::faceIndex`). This repository is the other half of that contract:
  * it resolves a family (and a bold request) to a face and hands out one
- * @ref FontAtlas per face, creating the atlas on first use.
+ * `FontAtlas` per face, creating the atlas on first use.
  *
  * @section lte_font_repository_styles Styles
  *

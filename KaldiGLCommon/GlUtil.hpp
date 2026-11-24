@@ -123,7 +123,10 @@ TextureUploadInfo uploadTexture2D(GLuint texture, const Euph::Media::Image::Imag
 
 /**
  * @brief Uploads every frame of a decode target as a slice of a 3D/2D-array texture.
+ * @param texture Name of an existing texture object (the caller need not bind it).
+ * @param source Decoded image whose frames become slices 0..N-1.
  * @param asArray @c true targets `GL_TEXTURE_2D_ARRAY`, @c false targets `GL_TEXTURE_3D`.
+ * @param wantedMipmaps Mip levels the caller wants; missing ones are generated.
  */
 TextureUploadInfo uploadTexture3D(GLuint texture, const Euph::Media::Image::DecodeTarget& source, bool asArray, uint8_t wantedMipmaps = 0);
 

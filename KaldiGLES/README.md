@@ -1,4 +1,8 @@
+\page mod_kaldigles KaldiGLES
+
 # KaldiGLES
+
+![Mascot](KaldiGLES.jpg)
 
 OpenGL ES 3.2 backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 

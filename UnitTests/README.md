@@ -1,3 +1,5 @@
+\page mod_unittests UnitTests
+
 # UnitTests
 
 `UnitTests` is the project's automated test suite (`TARGET = UnitTests`), built on **Catch2**. It
@@ -8,7 +10,7 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 213 test cases / 2722 assertions covering the
+**Status: implemented and passing.** 220 test cases / 2870 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
 snapshots, field deltas, interpolation, prediction, lockstep and the reference
@@ -18,8 +20,8 @@ compilation and SPIR-V -> GLSL cross-compilation, the Vulkan/DXGI format tables,
 backend configuration clamping (including the GL executor policy keys), the SDL
 window-handle extraction, the Kaldi HAL capability fallbacks, the Kaldi
 command-dispatch layer (both the computed-goto and the `switch` structure), the
-object-oriented recording facade (`Kaldi/KldCommandBuffer.hpp`), and the GUI
-render-tree/widget/theme contract.
+object-oriented recording facade (`Kaldi/KldCommandBuffer.hpp`), the GUI
+render-tree/widget/theme contract, and the documentation tree itself (`[docs]`).
 
 ## Shader assets
 
@@ -45,7 +47,7 @@ kept because it is the only build-time proof that the shader assets compile at
 all; the intended replacement is DXC with `-HV 2016` plus its legacy flags, which
 keeps the accepted language at Shader Model 4/5 level even though DXC only emits
 Shader Model 6 profiles. The migration is **deferred indefinitely**, and
-[`docs/SHADERS.md`](../docs/SHADERS.md) records the reference `dxc` invocation,
+[`docs/graphics/SHADERS.md`](../docs/graphics/SHADERS.md) records the reference `dxc` invocation,
 what every flag does, and the acceptance gate for the switch.
 
 ## Build and run
@@ -87,6 +89,7 @@ The suite exits non-zero when a check fails, so it can be used as a gate. Useful
 ./UnitTests/UnitTests "[nativewindow]"     # SDL -> native window handles
 ./UnitTests/UnitTests "[dispatch]"         # Kaldi dispatch (computed goto + switch)
 ./UnitTests/UnitTests "[capabilities]"     # HAL fallbacks + status helpers
+./UnitTests/UnitTests "[docs]"             # the Markdown note tree and the module pages
 ./UnitTests/UnitTests "Snappy*" -s         # one group, showing passing assertions
 ```
 
@@ -128,6 +131,9 @@ build Catch2 as a single amalgamated header and replace the includes.
 | `tests/PlatformWrappersTests.cpp` | Contiguous ring-buffer spans/wrap/bulk copy/resize; event-poller factory; epoll pipe readiness with modify/remove; polling loop commands/readiness/wakeup; kqueue stub; io_uring NOP when available; IOCP unavailable stub |
 | `tests/ShaderCompileTests.cpp` | Lotte's HLSL/GLSL -> SPIR-V compiler: one blob per stage, `Kld::ShaderBinaryDescriptor` views consistent with the stored words, empty/duplicate/diagnostic/include failure paths, `Pipeline` ownership |
 | `tests/UdpTransportTests.cpp` | Localhost non-blocking UDP request/reply through `Euph::Net::UdpTransport` and `Euph::Io::Socket`, including ephemeral-port binding and source-endpoint capture |
+| `tests/DocumentationTests.cpp` | The note tree: every note declares a `{#doc_...}` id and is listed in its folder index, every `\subpage` row resolves, every module README is a `\page mod_<folder>` page listed in `docs/modules/index.md`, page ids are unique, and `## References` is the last section of every note |
+
+`DocumentationTests.cpp` reads the repository through the `UNITTESTS_SOURCE_ROOT` define that `UnitTests.pro` injects, so it never depends on the working directory and never looks at `extern/` or `build/`. It checks structure, not prose quality: the other half of the documentation gate is the `doxygen Doxyfile` render in `docs/DOCUMENTATION.md` §8.
 
 `support/TestSupport.hpp` holds the shared helpers: deterministic payload generators and
 `readToEnd()`, which drains a decompressing proxy device (its `size()` reports the *compressed* size,

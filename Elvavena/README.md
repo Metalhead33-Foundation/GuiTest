@@ -1,4 +1,8 @@
+\page mod_elvavena Elvavena
+
 # Elvavena
+
+![Mascot](Elvavena.jpg)
 
 Elvavena is the foundational utility library of MhLib. Every other module builds on
 it: it owns the shared I/O device abstraction, the generic containers and allocators,
@@ -69,7 +73,7 @@ protocol and the interfaces; the OS socket implementation lives in Euphemy.
 | `ElvNetFieldDelta.hpp` | Schema-driven fixed-field delta codec for `FieldDeltaOps`; changed-field mask plus raw changed bytes |
 | `ElvHttp.hpp` / `.cpp` | Minimal HTTP/1.1 method/header/request/response types, parser and serializer; `Content-Length` framing, limits, HEAD body suppression and explicit incomplete/error status |
 
-`docs/NETCODE.md` records the layer boundaries, the wire contract and the remaining
+`docs/networking/NETCODE.md` records the layer boundaries, the wire contract and the remaining
 milestones. `docs/PLATFORM.md` records the event-poller/completion-wrapper split and
 the two ring-buffer contracts.
 

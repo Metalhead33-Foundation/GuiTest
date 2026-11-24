@@ -34,19 +34,19 @@
  *
  * libcss resolves `em` against the composed parent style and keeps `pt`/`pc`/`in`/
  * `cm`/`mm` as-is; this bridge converts absolute units to pixels at
- * @ref CssMetrics::deviceDpi and resolves `%`/`ex`/`ch` against the parent's size.
+ * `CssMetrics::deviceDpi` and resolves `%`/`ex`/`ch` against the parent's size.
  * `font-size` keywords (`large`, `smaller`, ...) use the CSS scaling table.
  *
  * @section lte_css_threading Threading and lifetime
  *
  * libcss has process-global state (string internment, property strings) and is not
  * documented as thread-safe: use these classes from one thread. A
- * @ref CssStylesheet must outlive every resolver using it; the resolver borrows the
+ * `CssStylesheet` must outlive every resolver using it; the resolver borrows the
  * processor and must die before it.
  *
  * @note Availability is a build-time question: the whole header is inert unless
  * `LTE_WITH_LIBCSS` is defined, which `Lotte.pro` does when `pkg-config` finds
- * libcss. See `docs/MML_CSS.md` for the study behind this module.
+ * libcss. See `docs/text/MML_CSS.md` for the study behind this module.
  */
 #include <Lotte/LotteLib.hpp>
 

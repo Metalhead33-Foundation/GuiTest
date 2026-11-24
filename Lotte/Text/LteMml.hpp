@@ -12,7 +12,7 @@
  * `Lotte/Text/MML.md`; `LteHtmlEntities.hpp` supplies the reference table.
  *
  * The parser is a byte-at-a-time state machine that feeds a
- * @ref Lotte::Text::RichTextProcessor through its @ref MarkupStack base, so the
+ * @ref Lotte::Text::RichTextProcessor through its `MarkupStack` base, so the
  * output is a @ref Lotte::Text::TextRunList.
  *
  * @section lte_mml_changes Changes from the original implementation
@@ -54,7 +54,7 @@ namespace Text {
  * a tree. Attaching an observer turns the parser into an element stream - every
  * non-structural tag becomes an open/close event carrying its name and its optional
  * `class`/`id` parameters - and the observer decides which attributes the processor
- * sees. That is what `Text/CssStyle.hpp` does with libcss; see `docs/MML_CSS.md`.
+ * sees. That is what `Text/CssStyle.hpp` does with libcss; see `docs/text/MML_CSS.md`.
  *
  * @section lte_mml_element_observer_syntax Parameter syntax
  *

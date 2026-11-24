@@ -1,3 +1,5 @@
+\page mod_sandbox Sandbox
+
 # Sandbox
 
 `Sandbox` is the project's **manual playground**: a plain console application (`TARGET = Sandbox`)

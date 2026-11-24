@@ -17,21 +17,21 @@
  * - the GPU side is a `Lotte::Texture` proxy created through
  *   @ref Lotte::Gfx::ResourceFactory, so the destroy command is recorded
  *   automatically;
- * - @ref recordUpdate() appends one `UpdateTexture2D` per dirty row, or a single
+ * - `recordUpdate()` appends one `UpdateTexture2D` per dirty row, or a single
  *   command when the dirty rectangle spans the full width, exactly like the
  *   legacy implementation did for `glTexSubImage2D()`.
  *
  * @section lte_writeable_texture_atlas Texture atlases
  *
  * Glyph atlases pack many small surfaces into one page: every new glyph touches
- * a small rectangle. Writing it into @ref pixels() and calling
- * @ref markDirty() before @ref recordUpdate() makes the upload proportional to
- * the new glyph, not to the page. @ref blitRgba8() is the CPU-side "stamp a
+ * a small rectangle. Writing it into `pixels()` and calling
+ * `markDirty()` before `recordUpdate()` makes the upload proportional to
+ * the new glyph, not to the page. `blitRgba8()` is the CPU-side "stamp a
  * decoded image into the page" operation.
  *
  * @warning The pixel buffer must stay alive until the recorded commands have
  *          been submitted. The owning `WriteableTexture2D` is normally enough;
- *          when it can be destroyed earlier, hand @ref pixelStorage() to
+ *          when it can be destroyed earlier, hand `pixelStorage()` to
  *          `ResourceFactory::retain()`.
  */
 #include <Lotte/LotteLib.hpp>
@@ -148,6 +148,10 @@ public:
 	 * @brief Writes one pixel and marks it dirty.
 	 * @param x Column; out-of-range coordinates are ignored.
 	 * @param y Row; out-of-range coordinates are ignored.
+	 * @param red Red byte.
+	 * @param green Green byte.
+	 * @param blue Blue byte.
+	 * @param alpha Alpha byte; 0 makes the pixel transparent.
 	 */
 	void setPixel(std::uint16_t x, std::uint16_t y, std::uint8_t red, std::uint8_t green,
 		      std::uint8_t blue, std::uint8_t alpha);

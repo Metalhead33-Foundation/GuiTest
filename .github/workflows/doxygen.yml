@@ -1,11 +1,11 @@
 # The header reference, rendered and published.
 #
 # `Doxyfile` is the one place that renders the headers and the Markdown notes;
-# `docs/DOCUMENTATION.md` is the policy behind it (Qt-style comments, the note
-# tree, the checks). The render is cheap: it needs no compiler and no Qt, only
-# Doxygen and the `extern/doxygen-awesome-css` submodule used for the theme. It
-# renders into `build/doxygen/html` (the shadow build tree, as `AGENTS.md`
-# requires) and publishes that folder:
+# `docs/DOCUMENTATION.md` is the policy behind it (the comment rules, the note tree,
+# the checks). The render is cheap: it needs no compiler and no Qt, only Doxygen and
+# the `extern/doxygen-awesome-css` submodule used for the theme. It renders into
+# `build/doxygen/html` (the shadow build tree, as `AGENTS.md` requires) and publishes
+# that folder:
 #
 #   * every run on `master` uploads the rendered site as the `doxygen-html`
 #     workflow artifact, downloadable from the run page;
@@ -91,7 +91,7 @@ jobs:
           fi
           if [ -s "$LOG" ]; then
             # `WARN_AS_ERROR = NO` in `Doxyfile` is deliberate: the strict pass
-            # of docs/DOCUMENTATION.md §6 is a work list, not a gate, and the
+            # of docs/DOCUMENTATION.md §8 is a work list, not a gate, and the
             # committed config is what decides whether a run fails. So a
             # warning becomes an annotation on the run, not a red build.
             sed "s|$GITHUB_WORKSPACE/||g" "$LOG" | while IFS= read -r line; do

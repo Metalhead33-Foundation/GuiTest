@@ -829,7 +829,7 @@ public:
  * const Kld::HalStatus status = dispatcher.submit(device);
  * ```
  *
- * See `docs/KALDI_TUTORIAL.md` for a complete walk-through.
+ * See `docs/graphics/KALDI_TUTORIAL.md` for a complete walk-through.
  */
 using OopFacade = oop_detail<>;
 

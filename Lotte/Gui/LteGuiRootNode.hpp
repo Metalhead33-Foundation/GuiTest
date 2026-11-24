@@ -15,7 +15,7 @@
  * - `addChild()` ignores null and duplicate pointers, and `removeChild()` accepts
  *   either a `shared_ptr` or a raw pointer.
  * - `render()` is still a no-op: the root only establishes the tree. The caller
- *   creates the flat @ref RenderList with `updateRenderList()` and invokes
+ *   creates the flat `RenderList` with `updateRenderList()` and invokes
  *   `render()` on each entry. A future GUI loop can wrap that in one call.
  *
  * The root does not store parent pointers, so there is no ownership cycle and a

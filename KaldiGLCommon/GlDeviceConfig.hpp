@@ -12,12 +12,12 @@
  *
  * The split is deliberate:
  *
- *  - @ref ContextConfig (unchanged) describes what the platform must create -
+ *  - `ContextConfig` (unchanged) describes what the platform must create -
  *    version, profile, MSAA, buffer sizes. It is consumed by `createContext()`.
- *  - @ref ExecutorConfig describes how the command executor interprets commands -
+ *  - `ExecutorConfig` describes how the command executor interprets commands -
  *    debug labels, filtering policy, LOD bias, texture size limit. It is consumed
  *    by `CommandExecutor`.
- *  - @ref DeviceConfig bundles both, and @ref DeviceConfigProvider exposes them
+ *  - `DeviceConfig` bundles both, and `DeviceConfigProvider` exposes them
  *    through the same `Kld::ConfigProvider` contract the engine already uses
  *    (`Lotte/Conf/LteBackendConfig.hpp` persists it as `.ini`).
  *

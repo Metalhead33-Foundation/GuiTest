@@ -14,7 +14,7 @@
  *    page; 2D pages are used instead of array textures because
  *    `maxImageArrayLayers` is far too small for a full CJK set.
  * 3. **Map** a code point to a normalized rectangle on a page and expose the page
- *    handle to the renderer (`GlyphAtlasMapping` / @ref FontAtlas).
+ *    handle to the renderer (`GlyphAtlasMapping` / `FontAtlas`).
  *
  * Loading is lazy: `ensureGlyph()` decodes and stamps a tile on first use, and
  * `recordUpdates()` turns the accumulated dirty rectangles into `UpdateTexture2D`
@@ -42,7 +42,7 @@
  * - **The padding is already inside the payload.** It is added at
  *   `bitmapLogicalSize` and shrinks with the downsample, so the effective padding is
  *   `bitmapPadding * bitmapSize / bitmapLogicalSize`. Pack cells must not add another
- *   `bitmapPadding` border; @ref FontAtlasSettings::gutter is only there to stop
+ *   `bitmapPadding` border; `FontAtlasSettings::gutter` is only there to stop
  *   bilinear taps from reaching a neighbouring tile.
  * - **Draw the whole tile on the expanded quad.** `PlacedGlyph::position`/`size`
  *   already contain the expansion: `padX = width * P / (L - 2P)` and
@@ -62,7 +62,7 @@
  *
  * `appendGlyphQuads()` converts a @ref Lotte::Text::TextLayout into textured quads,
  * applying the italic shear and the four-corner winding that `Font::renderText`
- * emitted directly. @ref FontAtlas supplies the mapping (including the page number),
+ * emitted directly. `FontAtlas` supplies the mapping (including the page number),
  * so a renderer only has to group runs by page and bind the page texture.
  */
 
@@ -112,7 +112,7 @@ public:
 	 * Callers should only consult this after @ref mapGlyph succeeded.
 	 * @param codePoint Code point to look up.
 	 */
-	virtual std::uint32_t pageForGlyph(char32_t) const { return 0; }
+	virtual std::uint32_t pageForGlyph(char32_t codePoint) const { return 0; }
 };
 
 /** @brief Page index that means "this glyph is not in the atlas". */

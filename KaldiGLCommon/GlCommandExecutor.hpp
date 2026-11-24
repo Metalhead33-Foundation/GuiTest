@@ -96,7 +96,7 @@ struct GlBufferObject {
 	std::uint32_t size = 0;
 	/** @brief `Kld::BufferUsage` bitmask the object was created with. */
 	std::uint32_t policy = 0;
-	/** @brief Preferred binding target derived from @ref policy. */
+	/** @brief Preferred binding target derived from `policy`. */
 	GLenum target = GL_ARRAY_BUFFER;
 };
 
@@ -170,8 +170,8 @@ struct GlFramebufferObject {
  * protocol (`create`, `acquire`, draw into the reported framebuffer, `present`)
  * across GL and Vulkan without pretending GL owns multiple images.
  *
- * The drawable's real size belongs to the window system, so @ref width /
- * @ref height are advisory: `ResizeSwapchain` records them and the backend keeps
+ * The drawable's real size belongs to the window system, so `width` /
+ * `height` are advisory: `ResizeSwapchain` records them and the backend keeps
  * rendering into whatever the platform gave the context.
  */
 struct GlSwapchainObject {

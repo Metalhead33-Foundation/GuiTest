@@ -1,4 +1,8 @@
+\page mod_kaldi Kaldi
+
 # Kaldi
+
+![Mascot](Kaldi.jpg)
 
 Kaldi is the graphics abstraction layer (RHI/HAL) that Lotte is built on. It defines a
 backend-agnostic, VM-like command vocabulary and the object-oriented facade that records
@@ -6,7 +10,7 @@ it. The rendering backends are separate shared libraries: [KaldiGL](../KaldiGL/R
 [KaldiGLES](../KaldiGLES/README.md), [KaldiVK](../KaldiVK/README.md),
 [KaldiD3D11](../KaldiD3D11/README.md) and [KaldiD3D12](../KaldiD3D12/README.md).
 
-**New here? Read [docs/KALDI_TUTORIAL.md](../docs/KALDI_TUTORIAL.md).** It walks through
+**New here? Read [docs/graphics/KALDI_TUTORIAL.md](../docs/graphics/KALDI_TUTORIAL.md).** It walks through
 the raw tagged-union API and the object-oriented facade side by side, with a complete
 textured triangle, and explains the retirement, lifetime and threading contracts.
 
@@ -24,7 +28,7 @@ commands yet.
 | `KaldiOperation.hpp` | The command vocabulary: 98 `Opcode` values, their POD payload structs, and the `GfxOp` tagged union |
 | `KldHal.hpp` | `HalVersion`/`KaldiHalVersion1_0`, `HalCapabilities`, `HalStatusCode`, `HalStatus` |
 | `KldDevice.hpp` | The abstract backend submission interface `Device` |
-| `KldCommandBuffer.hpp` | Header-only recording facade: `HandleStorage` (one id pool for every kind), `CommandDispatcher`, `OopFacade` proxies, `mergeCommandBuffers`, `DeferredDestroyQueue`; documented in [docs/KALDI_TUTORIAL.md](../docs/KALDI_TUTORIAL.md) |
+| `KldCommandBuffer.hpp` | Header-only recording facade: `HandleStorage` (one id pool for every kind), `CommandDispatcher`, `OopFacade` proxies, `mergeCommandBuffers`, `DeferredDestroyQueue`; documented in [docs/graphics/KALDI_TUTORIAL.md](../docs/graphics/KALDI_TUTORIAL.md) |
 | `KldVertexFormat.hpp` | `PrimitiveType`, `AttributeDescriptor`, `VertexDescriptor` |
 | `KldNativeWindow.hpp` | `WindowSystem`, `NativeWindowHandles`, `nativeWindowHandlesFrom(SDL_SysWMinfo)` - the backend-neutral window-handle extraction shared by EGL/GLX/WGL/D3D/Vulkan |
 | `KldConfig.hpp` | Configuration contract: `ContextPurpose`, `DeviceConfig`, `ConfigField`, `ConfigReader`, `ConfigProvider`, and the field-reading helpers that clamp values |

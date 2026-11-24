@@ -2,10 +2,10 @@
 #define KALDIGLWCONTEXT_HPP
 /**
  * @file WglContext.hpp
- * @brief WGL implementation of the portable @ref Context contract (desktop OpenGL, Win32).
+ * @brief WGL implementation of the portable `Context` contract (desktop OpenGL, Win32).
  *
  * WGL is the native Win32 binding for desktop OpenGL and is what
- * @ref createContext() picks for `Kld::WindowSystem::Windows` in the desktop
+ * `createContext()` picks for `Kld::WindowSystem::Windows` in the desktop
  * build. It is only compiled into `KaldiGL`, and only on Windows hosts (`win32`
  * scope of `KaldiGL.pro`), so it cannot be verified on the Linux CI host - it is
  * written against the documented WGL/WGL_ARB_create_context API.

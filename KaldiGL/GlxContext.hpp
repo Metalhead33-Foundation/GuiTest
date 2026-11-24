@@ -2,10 +2,10 @@
 #define KALDIGLXCONTEXT_HPP
 /**
  * @file GlxContext.hpp
- * @brief GLX implementation of the portable @ref Context contract (desktop OpenGL, X11).
+ * @brief GLX implementation of the portable `Context` contract (desktop OpenGL, X11).
  *
  * GLX is the native X11 binding for desktop OpenGL and is what
- * @ref NativeWindowHandles suggests for `SDL_SYSWM_X11` windows in the desktop
+ * `NativeWindowHandles` suggests for `SDL_SYSWM_X11` windows in the desktop
  * build. It is only compiled into `KaldiGL`; the OpenGL ES backend has no GLX
  * path at all, and Wayland/Windows/Android must use the EGL implementation.
  *
@@ -17,7 +17,7 @@
  *
  * @note GLX cannot override the framebuffer layout of an existing window: the
  * window's visual fixes the color/depth/stencil buffers, so
- * @ref ContextConfig::redBits, `depthBits`, `stencilBits`, `doubleBuffered` and
+ * `ContextConfig::redBits`, `depthBits`, `stencilBits`, `doubleBuffered` and
  * friends only act as preferences. Use EGL, or create the window with the
  * desired visual, if those must be exact.
  *
@@ -54,7 +54,7 @@ public:
 	 * @brief Creates a GLX context for @p window.
 	 * @param display X11 display owning the window.
 	 * @param window X11 window the drawable is bound to.
-	 * @param config Requested version, profile, buffer sizes; @ref ContextConfig::screen
+	 * @param config Requested version, profile, buffer sizes; `ContextConfig::screen`
 	 *        selects the X11 screen (-1 means the display's default screen).
 	 * @throws std::invalid_argument When @p display or @p window is null.
 	 * @throws std::runtime_error When libGL/GLX, the framebuffer configuration or

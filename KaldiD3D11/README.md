@@ -1,4 +1,8 @@
+\page mod_kaldid3d11 KaldiD3D11
+
 # KaldiD3D11
+
+![Mascot](KaldiD3D11.jpg)
 
 Direct3D 11 backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 

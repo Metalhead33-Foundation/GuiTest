@@ -2,7 +2,7 @@
 #define LTEKALDIGUIRENDERER_HPP
 /**
  * @file LteKaldiGuiRenderer.hpp
- * @brief The first concrete @ref Lotte::Gui::GuiRenderer: records into Kaldi.
+ * @brief The first concrete `Lotte::Gui::GuiRenderer:` records into Kaldi.
  *
  * `LteGuiRenderer.hpp` defined the primitive vocabulary and the batching policy but
  * shipped no implementation. This is that implementation, kept deliberately small:
@@ -17,7 +17,7 @@
  *   device, which is what keeps the same pixel-space UI upright on Vulkan (y-down
  *   clip space) and on OpenGL/Direct3D (y-up);
  * - geometry accumulates in @ref Lotte::Gui::GuiGeometryBatch objects and is
- *   recorded by one end-of-frame @ref flush(). A texture change closes the current
+ *   recorded by one end-of-frame `flush()`. A texture change closes the current
  *   textured *run* (a texture+sampler state plus its index range) and starts a new
  *   one, so draws are still grouped by state without recording anything mid-frame.
  *

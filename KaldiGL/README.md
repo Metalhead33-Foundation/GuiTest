@@ -1,4 +1,8 @@
+\page mod_kaldigl KaldiGL
+
 # KaldiGL
+
+![Mascot](KaldiGL.jpg)
 
 OpenGL 4.3 core backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 

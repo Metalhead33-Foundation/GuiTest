@@ -19,14 +19,14 @@
  * factory therefore cannot copy anything it cannot own:
  *
  * - every `create*` overload that takes a pointer documents that the caller keeps
- *   the data alive until @ref submit();
- * - the `std::shared_ptr` overloads (and @ref retain()) let the factory hold that
+ *   the data alive until `submit()`;
+ * - the `std::shared_ptr` overloads (and `retain()`) let the factory hold that
  *   promise instead, by keeping the payload alive until the next submission.
  *
  * @section lte_resource_factory_submit Submission
  *
  * Recording and submitting are one cycle: `createXxx()` appends to the write
- * buffer, @ref submit() swaps it into the read buffer and hands it to the device.
+ * buffer, `submit()` swaps it into the read buffer and hands it to the device.
  * Call `submit()` after building a frame, not after every individual resource.
  */
 #include <Lotte/LotteLib.hpp>

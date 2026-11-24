@@ -2,13 +2,13 @@
 #define KALDIGLEGLCONTEXT_HPP
 /**
  * @file EglContext.hpp
- * @brief EGL implementation of the portable @ref Context contract.
+ * @brief EGL implementation of the portable `Context` contract.
  *
  * Used by both GL-family backends: it is the only option for OpenGL ES, and it is
  * the portable option for desktop OpenGL (Wayland, Windows via ANGLE, Android,
  * embedded targets). Desktop-only X11 users may prefer `GlxContext`.
  *
- * The display is shared through @ref EglDisplay, so several windows of the same
+ * The display is shared through `EglDisplay`, so several windows of the same
  * process reuse one `EGLDisplay` instead of initializing it twice.
  */
 #include "EglDisplay.hpp"
