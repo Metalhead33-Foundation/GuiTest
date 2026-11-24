@@ -30,6 +30,7 @@ namespace {
 
 using Lotte::Text::DistanceType;
 using Lotte::Text::FontStyle;
+using Lotte::Text::FontWeight;
 using Lotte::Text::PreprocessedFontFace;
 using Lotte::Text::SDFType;
 using Lotte::Text::StoredCharacter;
@@ -186,6 +187,15 @@ TEST_CASE("The font repository resolves families, styles and lazily created atla
 	CHECK(repository.faceCount() == 3);
 	CHECK(repository.faceFor("alpha", false) == regular.get());
 	CHECK(repository.faceFor("ALPHA", true) == bold.get());
+	CHECK(repository.faceFor("alpha", FontWeight::Normal) == regular.get());
+	CHECK(repository.faceFor("alpha", FontWeight::Bold) == bold.get());
+	CHECK(repository.faceFor("alpha", FontWeight::SemiBold) == bold.get());
+	CHECK(repository.faceFor("alpha", FontWeight::Medium) == regular.get());
+	CHECK(repository.weightForFace(regular.get()) == FontWeight::Normal);
+	CHECK(repository.weightForFace(bold.get()) == FontWeight::Bold);
+	CHECK(FontStyle{}.effectiveWeight() == FontWeight::Normal);
+	CHECK(FontStyle{ true, false }.effectiveWeight() == FontWeight::Bold);
+	CHECK(FontStyle{ false, false, FontWeight::Light }.effectiveWeight() == FontWeight::Light);
 	// MML strips whitespace inside a tag; the repository matches that.
 	CHECK(repository.faceFor("spaceface") == spaced.get());
 	CHECK(repository.faceFor(" SPACE  FACE ") == spaced.get());
@@ -348,8 +358,8 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 
 	Lotte::Text::TextLayoutOptions options;
 	options.origin = glm::fvec2(10.0f, 20.0f);
-	auto lookup = [&repository](const std::string& family, bool bold) {
-		return repository.faceFor(family, bold);
+	auto lookup = [&repository](const std::string& family, Lotte::Text::FontWeight weight) {
+		return repository.faceFor(family, weight);
 	};
 	const Lotte::Text::TextLayout layout =
 		Lotte::Text::layoutRuns({ Lotte::Text::TextRun{ U"AB", attributes } }, lookup, options);
@@ -400,7 +410,8 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 	CHECK(offsets[0] == 0);
 	CHECK(offsets[1] == 2u * 6u * std::uint32_t(sizeof(std::uint32_t)));
 
-	// Bold is a per-vertex dilation of 4% of the em size.
+	// Bold is a per-vertex weight shift. The historical boolean bold request still
+	// maps to 700, i.e. exactly 4% of the em on a regular 400 face.
 	Lotte::Text::TextAttributes boldAttributes = attributes;
 	boldAttributes.bold = true;
 	boldAttributes.underline = false;
@@ -414,6 +425,40 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 	REQUIRE(boldVertices != nullptr);
 	REQUIRE(vertexCount == 4);
 	CHECK(boldVertices[0].params.w == Catch::Approx(14.0f * 0.04f));
+
+	// A weight between normal and bold scales that dilation proportionally.
+	Lotte::Text::TextAttributes semiBoldAttributes = attributes;
+	semiBoldAttributes.bold = false;
+	semiBoldAttributes.underline = false;
+	semiBoldAttributes.weight = Lotte::Text::FontWeight::SemiBold;
+	const Lotte::Text::TextLayout semiBoldLayout = Lotte::Text::layoutRuns(
+		{ Lotte::Text::TextRun{ U"A", semiBoldAttributes } }, lookup, options);
+	CHECK_FALSE(renderer.prepare(semiBoldLayout));
+	renderer.beginFrame();
+	REQUIRE(renderer.render(semiBoldLayout) == 1);
+	renderer.flush();
+	const Lotte::Text::TextGuiVertex* semiBoldVertices =
+		uploadedTextVertices(dispatcher, vertexCount);
+	REQUIRE(semiBoldVertices != nullptr);
+	REQUIRE(vertexCount == 4);
+	CHECK(semiBoldVertices[0].params.w == Catch::Approx(14.0f * 0.04f * (200.0f / 300.0f)));
+
+	// Lighter weights shift the threshold the other way.
+	Lotte::Text::TextAttributes lightAttributes = attributes;
+	lightAttributes.bold = false;
+	lightAttributes.underline = false;
+	lightAttributes.weight = Lotte::Text::FontWeight::Light;
+	const Lotte::Text::TextLayout lightLayout = Lotte::Text::layoutRuns(
+		{ Lotte::Text::TextRun{ U"A", lightAttributes } }, lookup, options);
+	CHECK_FALSE(renderer.prepare(lightLayout));
+	renderer.beginFrame();
+	REQUIRE(renderer.render(lightLayout) == 1);
+	renderer.flush();
+	const Lotte::Text::TextGuiVertex* lightVertices =
+		uploadedTextVertices(dispatcher, vertexCount);
+	REQUIRE(lightVertices != nullptr);
+	REQUIRE(vertexCount == 4);
+	CHECK(lightVertices[0].params.w == Catch::Approx(14.0f * 0.04f * (-100.0f / 300.0f)));
 
 	// A real bold face must not be dilated a second time by the shader.
 	auto boldFace = makeFace("RenderFace Bold");
@@ -460,8 +505,8 @@ TEST_CASE("An MSDF face selects the median mode and pages split the draw runs", 
 	Lotte::Text::TextAttributes attributes;
 	attributes.familyName = "MsdfFace";
 	attributes.size = 14.0f;
-	auto lookup = [&repository](const std::string& family, bool bold) {
-		return repository.faceFor(family, bold);
+	auto lookup = [&repository](const std::string& family, Lotte::Text::FontWeight weight) {
+		return repository.faceFor(family, weight);
 	};
 	const Lotte::Text::TextLayout layout = Lotte::Text::layoutRuns(
 		{ Lotte::Text::TextRun{ U"ABCDEFGHIJ", attributes } }, lookup);
@@ -573,8 +618,8 @@ TEST_CASE("One layout can mix faces and atlas pages", "[text][renderer]")
 	attributesB.familyName = "Family B";
 	attributesB.colour = glm::fvec4(0.25f, 0.5f, 1.0f, 1.0f);
 
-	auto lookup = [&repository](const std::string& family, bool bold) {
-		return repository.faceFor(family, bold);
+	auto lookup = [&repository](const std::string& family, Lotte::Text::FontWeight weight) {
+		return repository.faceFor(family, weight);
 	};
 	const Lotte::Text::TextLayout layout = Lotte::Text::layoutRuns(
 		{ Lotte::Text::TextRun{ U"A", attributesA },

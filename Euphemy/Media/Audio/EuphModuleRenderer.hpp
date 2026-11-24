@@ -62,6 +62,12 @@ public:
 	 */
 	ModuleRenderer(Elv::Io::uDevice&& fileDev);
 
+	/**
+	 * @brief Reports whether OpenMPT successfully created a module.
+	 * @return True when the file parsed and playback calls are safe.
+	 */
+	bool isValid() const;
+
 	// Playback control
 
 	/**

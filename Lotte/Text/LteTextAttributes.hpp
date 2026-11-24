@@ -24,6 +24,7 @@
  */
 
 #include <Lotte/LotteLib.hpp>
+#include <Lotte/Text/LteFontWeight.hpp>
 #include <glm/glm.hpp>
 #include <string>
 #include <string_view>
@@ -43,14 +44,38 @@ struct TextAttributes {
 	std::string familyName;
 	/** @brief Requested pixel size of the face. */
 	float size = 16.0f;
-	/** @brief Bold weight request. */
+	/** @brief Bold weight request; retained as a compatibility alias for @ref weight. */
 	bool bold = false;
+	/**
+	 * @brief Numeric font weight request.
+	 *
+	 * The default is CSS `normal` (400). `[b]`/`<strong>` and
+	 * `font-weight: bold` resolve to 700 through @ref effectiveWeight(). A face's
+	 * own weight comes from its repository registration, because WODF has no weight
+	 * metadata.
+	 */
+	FontWeight weight = DefaultFontWeight;
 	/** @brief Italic (oblique shear) request. */
 	bool italic = false;
 	/** @brief Draw an underline below the run. */
 	bool underline = false;
 	/** @brief Strikethrough: draw a line through the run. */
 	bool strikethrough = false;
+
+	/**
+	 * @brief Resolves @ref weight with the legacy @ref bold flag.
+	 *
+	 * A true `bold` raises a weight below 600 to @ref FontWeight::Bold, so callers
+	 * that only set the old boolean keep the historical appearance. An explicit
+	 * weight of 600 or more is left untouched.
+	 */
+	FontWeight effectiveWeight() const noexcept
+	{
+		return bold && !fontWeightIsBold(weight) ? FontWeight::Bold : weight;
+	}
+
+	/** @brief True when the effective weight is conventionally bold. */
+	bool isBold() const noexcept { return fontWeightIsBold(effectiveWeight()); }
 
 	/** @brief Compares every styling field. */
 	bool operator==(const TextAttributes&) const = default;

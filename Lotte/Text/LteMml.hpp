@@ -54,7 +54,7 @@ namespace Text {
  * a tree. Attaching an observer turns the parser into an element stream - every
  * non-structural tag becomes an open/close event carrying its name and its optional
  * `class`/`id` parameters - and the observer decides which attributes the processor
- * sees. That is what `Text/CssStyle.hpp` does with libcss; see `docs/text/MML_CSS.md`.
+ * sees. That is what `Text/CssStyle.hpp` does with libcss; see `Lotte/Text/MML.md`.
  *
  * @section lte_mml_element_observer_syntax Parameter syntax
  *

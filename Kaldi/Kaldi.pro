@@ -19,6 +19,9 @@ HEADERS += \
     KldVertexFormat.hpp
 
 DISTFILES += \
+    ../docs/graphics/KALDI_TUTORIAL.md \
+    ../docs/graphics/SHADERS.md \
+    ../docs/graphics/index.md \
     Kaldi.pri \
     README.md
 

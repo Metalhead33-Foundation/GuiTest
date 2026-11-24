@@ -25,6 +25,8 @@ private:
 public:
 	/** @brief Opens a module stream from an I/O device. */
 	ModuleStreamer(Elv::Io::uDevice&& fileDev, FrameCount ringCapacityFrames = FrameCount(8192), std::pmr::memory_resource* memRes = get_default_memory_resource());
+	/** @brief Reports whether the underlying module parsed successfully. */
+	bool isValid() const;
 	/** @brief Returns immutable access to the module renderer. */
 	const Euph::Media::Audio::ModuleRenderer& getModuleRenderer() const;
 	/** @brief Returns mutable access to the module renderer. */

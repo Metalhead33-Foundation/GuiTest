@@ -17,6 +17,11 @@ ModuleStreamer::ModuleStreamer(Elv::Io::uDevice&& fileDev, FrameCount ringCapaci
 	: RingBufferedStreamer(ringCapacityFrames, memRes), moduleRenderer(std::move(fileDev))
 {}
 
+bool ModuleStreamer::isValid() const
+{
+	return moduleRenderer.isValid();
+}
+
 void ModuleStreamer::resolveOutputFormat(Output& output, ChannelCount& streamChannels, SampleRate& streamSampleRate)
 {
 	// Holy shit... openmpt has no way to retrieve the current frame position. So we can't even seek at all? Wtf.

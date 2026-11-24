@@ -18,11 +18,11 @@
  * (`0` = SDF `.r`, `1` = MSDF median of `.rgb`, `2` = MSDFA median of `.rgb`,
  * `3` = solid colour, used for underline/strikethrough; its quad uses UV 0..1 and
  * a one-pixel AA margin so the shader anti-aliases the intended edges). `params.y`/`z` are the
- * on-screen distance range in pixels for each axis, and `params.w` is the bold
- * dilation in pixels. Because all four values travel with the vertex:
+ * on-screen distance range in pixels for each axis, and `params.w` is the weight
+ * threshold offset in pixels. Because all four values travel with the vertex:
  *
  * - colour changes do not split a draw call (per-vertex colour);
- * - bold is a shader threshold shift, not another face or atlas;
+ * - weight is a shader threshold shift, not another face or atlas;
  * - different SDF modes can share one pipeline and one batch;
  * - no uniform buffer or push constant has to be updated between runs.
  *
@@ -44,7 +44,7 @@
  *   shader, without touching `TextLayout`, `FontAtlas` or `FontRepository`.
  *
  * The per-vertex parameter block is deliberately small and explicit so a future
- * style layer can replace the bold/range values with a material or style index.
+ * style layer can replace the weight/range values with a material or style index.
  *
  * @warning `flush()` must be the last call of the frame. The upload and vertex
  *          commands point into CPU caches owned by the renderer and its atlases.
@@ -70,7 +70,7 @@ namespace Text {
 /**
  * @brief Vertex layout shared by glyphs and solid decoration quads.
  *
- * `params` carries `(mode, onScreenPxRangeX, onScreenPxRangeY, boldPixels)`;
+ * `params` carries `(mode, onScreenPxRangeX, onScreenPxRangeY, weightPixels)`;
  * mode `3` is a solid anti-aliased rectangle used by underline/strikethrough.
  * See the file documentation.
  */
@@ -81,7 +81,7 @@ struct TextGuiVertex {
 	glm::fvec2 uv = glm::fvec2(0.0f);
 	/** @brief Fill colour; alpha multiplies the SDF coverage. */
 	glm::fvec4 colour = glm::fvec4(1.0f);
-	/** @brief Mode, distance range and bold dilation (see the file docs). */
+	/** @brief Mode, distance range and weight threshold offset (see the file docs). */
 	glm::fvec4 params = glm::fvec4(0.0f);
 
 	/** @brief Returns the Kaldi layout for this vertex type. */
@@ -110,7 +110,7 @@ struct TextRendererSettings {
 	 * Empty uses the factory's device conventions, exactly like the GUI renderer.
 	 */
 	std::optional<Kld::ClipSpaceYAxis> clipSpaceYAxis;
-	/** @brief Bold dilation as a fraction of the run's em size. */
+	/** @brief Dilation for a 300-unit weight increase (normal -> bold), as a fraction of the em size. */
 	float boldStrength = 0.04f;
 };
 
@@ -205,7 +205,7 @@ private:
 	void useTexture(Kld::HandleId texture);
 	/** @brief Appends one glyph quad and its six indices. */
 	void appendGlyphQuad(const GlyphQuad& quad, float mode, glm::fvec2 pxRange,
-						 float boldPixels, const glm::fvec4& colour);
+						 float weightPixels, const glm::fvec4& colour);
 	/** @brief Appends one solid, anti-aliased quad for a decoration line. */
 	void appendDecorationQuad(glm::fvec2 from, glm::fvec2 to, float thickness,
 							  const glm::fvec4& colour);

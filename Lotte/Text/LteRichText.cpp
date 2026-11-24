@@ -51,6 +51,13 @@ void RichTextProcessor::setCurrentSize(float size)
 	currentAttributes.size = size;
 }
 
+void RichTextProcessor::setCurrentWeight(FontWeight weight)
+{
+	flush();
+	currentAttributes.weight = weight;
+	currentAttributes.bold = fontWeightIsBold(weight);
+}
+
 void RichTextProcessor::setCurrentAttributes(const TextAttributes& attributes)
 {
 	flush();

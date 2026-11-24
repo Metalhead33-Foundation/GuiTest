@@ -40,9 +40,10 @@
  * - Italic runs are sheared by shifting the bottom edge right by half the glyph
  *   height (`italicMagicNumber = 0.5` in the original). The shear is stored per
  *   glyph so the vertex stage can apply it.
- * - Bold is a style flag, not a separate atlas. The repository may resolve it to a
- *   real bold face; otherwise the text shader dilates the SDF contour, which keeps
- *   one atlas and one pipeline for both weights.
+ * - Bold is a weight request, not a separate atlas. The repository may resolve it
+ *   to a real face registered with a matching @ref Lotte::Text::FontWeight; otherwise the
+ *   regular face is kept and the text shader dilates the SDF contour, which keeps
+ *   one atlas and one pipeline for every weight.
  * - Underline and strikethrough are emitted as one segment per styled run, spanning
  *   only that run's text (not the whole line). This keeps mixed styles from
  *   painting a decoration under unrelated words.
@@ -159,6 +160,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace Lotte {
@@ -181,10 +183,18 @@ struct TextStyle {
 	bool italic = false;
 	/** @brief Whether the run is bold. */
 	bool bold = false;
+	/** @brief Effective numeric weight of the run. */
+	FontWeight weight = DefaultFontWeight;
 	/** @brief Whether the run is underlined. */
 	bool underline = false;
 	/** @brief Whether the run is struck through. */
 	bool strikethrough = false;
+
+	/** @brief Weight with the compatibility @ref bold flag applied. */
+	FontWeight effectiveWeight() const noexcept
+	{
+		return bold && !fontWeightIsBold(weight) ? FontWeight::Bold : weight;
+	}
 
 	/** @brief Compares every field. */
 	bool operator==(const TextStyle&) const = default;
@@ -335,14 +345,18 @@ MH_LOTTE_API void layoutRun(const PreprocessedFontFace& face, std::u32string_vie
 
 /**
  * @brief Lays out a whole run list.
- * @tparam FaceLookup Callable `(const std::string&, bool) -> const PreprocessedFontFace*`.
+ * @tparam FaceLookup Callable `(const std::string&, FontWeight) -> const PreprocessedFontFace*`
+ *         or the legacy `(const std::string&, bool)` form.
  * @param runs Styled runs in draw order.
- * @param faceLookup Resolves a family name and bold flag to a face; may return null.
+ * @param faceLookup Resolves a family name and weight to a face; may return null.
+ *        Legacy bool lookups receive `attributes.bold`; weight-aware lookups receive
+ *        `attributes.effectiveWeight()`.
  * @param options Layout parameters.
  * @return The composed layout. Runs whose face cannot be resolved are skipped.
  */
 template <typename FaceLookup>
-TextLayout layoutRuns(const TextRunList& runs, FaceLookup&& faceLookup, const TextLayoutOptions& options = TextLayoutOptions{})
+TextLayout layoutRuns(const TextRunList& runs, FaceLookup&& faceLookup,
+					const TextLayoutOptions& options = TextLayoutOptions{})
 {
 	TextLayout layout;
 	TextLayoutState state;
@@ -352,7 +366,12 @@ TextLayout layoutRuns(const TextRunList& runs, FaceLookup&& faceLookup, const Te
 	state.wordSpacing = options.wordSpacing;
 	state.scale = options.scale;
 	for (const TextRun& run : runs) {
-		const PreprocessedFontFace* face = faceLookup(run.attributes.familyName, run.attributes.bold);
+		const PreprocessedFontFace* face = nullptr;
+		if constexpr (std::is_invocable_v<FaceLookup&, const std::string&, FontWeight>) {
+			face = faceLookup(run.attributes.familyName, run.attributes.effectiveWeight());
+		} else {
+			face = faceLookup(run.attributes.familyName, run.attributes.bold);
+		}
 		if (!face) continue;
 		layoutRun(*face, run.text, run.attributes, state, layout);
 	}

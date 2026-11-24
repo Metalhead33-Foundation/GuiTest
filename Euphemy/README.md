@@ -98,7 +98,7 @@ readiness or `Elv::Io::Async<ThreadPool>` for blocking file work.
 |---|---|
 | `EuphAudioIterator.hpp` | `ChannelCount`, `FrameCount`, `FrameIndex`, `SampleCount`, `SampleRate` and frame/sample conversion helpers |
 | `EuphSoundFile.hpp` / `.cpp` | `SoundFile` - libsndfile wrapper with typed `read`/`write`, `readf`/`writef`, seeking, format query and metadata setters, plus the large `SoundFormat` enum |
-| `EuphModuleRenderer.hpp` / `.cpp` | `ModuleRenderer` - libopenmpt-backed tracker/module rendering (MOD, S3M, XM, IT, ...) |
+| `EuphModuleRenderer.hpp` / `.cpp` | `ModuleRenderer` - libopenmpt-backed tracker/module rendering (MOD, S3M, XM, IT, ...); `isValid()` reports whether the stream parsed before playback calls |
 | `EuphResampler.hpp` / `.cpp` | libsamplerate wrappers: `SimpleResampler`, `FullResampler`, `CallbackResampler`/`CallbackInterface`, `ResampleType` |
 | `EuphConvolver.hpp` / `.cpp` | RAII wrappers over the vendored FFTConvolver: `AudioFFT`, `FFTConvolver`, `TwoStageFFTConvolver` |
 | `FFTConvolver/` | Vendored third-party FFT convolution library (see its own README and COPYING) |

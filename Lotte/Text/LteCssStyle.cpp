@@ -173,17 +173,25 @@ float fontSizeKeywordScale(uint8_t status)
 	}
 }
 
-/** @brief True when a CSS font weight counts as bold for MML's boolean attribute. */
-bool weightIsBold(uint8_t weight)
+/** @brief Converts a computed CSS font weight to MML's numeric weight. */
+FontWeight fontWeightFromCss(uint8_t weight, FontWeight parent)
 {
 	switch (weight) {
-		case CSS_FONT_WEIGHT_BOLD:
-		case CSS_FONT_WEIGHT_BOLDER:
-		case CSS_FONT_WEIGHT_600:
-		case CSS_FONT_WEIGHT_700:
-		case CSS_FONT_WEIGHT_800:
-		case CSS_FONT_WEIGHT_900: return true;
-		default: return false;
+		case CSS_FONT_WEIGHT_NORMAL: return FontWeight::Normal;
+		case CSS_FONT_WEIGHT_BOLD: return FontWeight::Bold;
+		case CSS_FONT_WEIGHT_BOLDER: return fontWeightBolder(parent);
+		case CSS_FONT_WEIGHT_LIGHTER: return fontWeightLighter(parent);
+		case CSS_FONT_WEIGHT_100: return FontWeight::Thin;
+		case CSS_FONT_WEIGHT_200: return FontWeight::ExtraLight;
+		case CSS_FONT_WEIGHT_300: return FontWeight::Light;
+		case CSS_FONT_WEIGHT_400: return FontWeight::Normal;
+		case CSS_FONT_WEIGHT_500: return FontWeight::Medium;
+		case CSS_FONT_WEIGHT_600: return FontWeight::SemiBold;
+		case CSS_FONT_WEIGHT_700: return FontWeight::Bold;
+		case CSS_FONT_WEIGHT_800: return FontWeight::ExtraBold;
+		case CSS_FONT_WEIGHT_900: return FontWeight::Black;
+		case CSS_FONT_WEIGHT_INHERIT:
+		default: return parent;
 	}
 }
 
@@ -211,7 +219,8 @@ TextAttributes composeAttributes(const css_computed_style* style, const TextAttr
 	}
 
 	const uint8_t weight = css_computed_font_weight(style);
-	if (weight != CSS_FONT_WEIGHT_INHERIT) result.bold = weightIsBold(weight);
+	result.weight = fontWeightFromCss(weight, parent.effectiveWeight());
+	result.bold = fontWeightIsBold(result.weight);
 
 	const uint8_t slant = css_computed_font_style(style);
 	if (slant == CSS_FONT_STYLE_ITALIC || slant == CSS_FONT_STYLE_OBLIQUE) result.italic = true;

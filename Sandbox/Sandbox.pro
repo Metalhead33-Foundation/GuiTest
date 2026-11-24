@@ -13,16 +13,36 @@ LIBS += -L$$OUT_PWD/../Lotte -lLotte
 LIBS += -L$$OUT_PWD/../Haruka -lHaruka
 LIBS += -lSDL2
 
+# mozjs / SpiderMonkey is a temporary dependency!
+# pkg-config --libs --cflags mozjs-153
+QMAKE_CXXFLAGS += -isystem /usr/include/mozjs-153
+LIBS += -lmozjs-153
+INCLUDEPATH += -I/usr/include/nspr
+
 INCLUDEPATH += $$PWD/..
 
 SOURCES += main.cpp sandbox.cpp \
     AppSystem.cpp \
     GameSystem.cpp \
-    HarukaContext.cpp
+    HarukaContext.cpp \
+    JS/JsCore.cpp \
+    JS/JsException.cpp \
+    JS/JsUtil.cpp \
+    JS/Wrappers/Audio/JsAudioPlayer.cpp \
+    JS/Wrappers/GUI/JsGuiWrappers.cpp \
+    JS/Wrappers/Io/JsIO.cpp \
+    JS/Wrappers/Util/JsRandom.cpp
 HEADERS += sandbox.hpp \
     AppSystem.hpp \
     GameSystem.hpp \
-    HarukaContext.hpp
+    HarukaContext.hpp \
+    JS/JsCore.hpp \
+    JS/JsException.hpp \
+    JS/JsUtil.hpp \
+    JS/Wrappers/Audio/JsAudioPlayer.hpp \
+    JS/Wrappers/GUI/JsGuiWrappers.hpp \
+    JS/Wrappers/Io/JsIO.hpp \
+    JS/Wrappers/Util/JsRandom.hpp
 
 # The Sandbox renders its cursor images from `cursors/`; qmake's file_copies
 # feature mirrors them into the build directory next to the executable, so the
@@ -31,3 +51,6 @@ CONFIG += file_copies
 cursorImages.files = $$files($$PWD/cursors/*.png)
 cursorImages.path = $$OUT_PWD/cursors
 COPIES += cursorImages
+
+DISTFILES += \
+    README.md

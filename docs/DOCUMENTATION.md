@@ -337,7 +337,7 @@ what a flat tree is. The hierarchy is therefore built by five index pages:
 |---|---|---|
 | [`index.md`](index.md) | `docs_index` | The three notes in `docs/` (`DOCUMENTATION.md`, `PLATFORM.md`, `SALVAGE.md`) plus the four folder nodes |
 | [`graphics/index.md`](graphics/index.md) | `docs_graphics_index` | The Kaldi tutorial and the shader pipeline note |
-| [`text/index.md`](text/index.md) | `docs_text_index` | The MML specification (which lives in `Lotte/Text/`) and the CSS study |
+| [`text/index.md`](text/index.md) | `docs_text_index` | The combined MML specification and CSS integration study (which lives in `Lotte/Text/`) |
 | [`networking/index.md`](networking/index.md) | `docs_networking_index` | The netcode note, the HTTP note, and the platform I/O note (which lives in `docs/`) |
 | [`modules/index.md`](modules/index.md) | `docs_modules_index` | One page per module: the fourteen `<Module>/README.md` files |
 
@@ -367,8 +367,7 @@ MhLib                     (README.md, the main page)
     │   ├── Minimal HTTP
     │   └── Platform I/O wrappers
     └── text               (docs/text/index.md)
-        ├── MML
-        └── CSS for MML
+        └── MML (specification + CSS study)
 ```
 
 **Adding a note** takes two steps: create the file with `{#doc_what_it_is}` appended to
@@ -420,7 +419,8 @@ Doxygen site reaches the same page through the `modules` node.
   post-mortem goes **before** it — never after — and the note's §1 map says so.
 - **A note owns one question.** If two notes answer the same question for different
   slices, the older slice is *history* and belongs in a historical record, not in a new
-  file.
+  file. The MML page is the deliberate exception: its CSS integration study is part of
+  the same language contract, not a second claim about a different question.
 - **The folder index is part of the note.** A note that is not listed in its folder's
   index is invisible in the tree; that is why the check below exists.
 
