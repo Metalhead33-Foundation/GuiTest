@@ -1,4 +1,4 @@
-# Branches and the salvage from them
+# Branches and the salvage from them {#doc_salvage}
 
 `AssetStreamingMkII` (this branch) is a rewrite. Two older trees hold work that is
 still worth keeping:
@@ -81,3 +81,13 @@ was copied verbatim.
 - Anything marked `@warning` in a header is a contract without a backend: the Kaldi
   draw paths in `LteMesh.hpp` and `LteGuiRenderCache.hpp` are recorded but cannot be
   validated until a backend exists.
+
+## References
+
+- [`index.md`](index.md) — the documentation tree this note is a child of.
+- \ref mod_elvavena, \ref mod_euphemy, \ref mod_haruka and \ref mod_lotte — the module
+  pages that record the current state of each salvaged concept.
+- \ref doc_mml — the MML specification, which was carried over verbatim.
+- Git history of the `AssetStreamingMkII` branch — the commits that performed each
+  salvage, which is where the per-file detail lives.
+

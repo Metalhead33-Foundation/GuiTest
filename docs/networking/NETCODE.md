@@ -1,4 +1,4 @@
-# Netcode foundation
+# Netcode foundation {#doc_netcode}
 
 This note records the layer boundaries and the current state of the networking
 foundation. The headers are the API reference; this page explains where the
@@ -149,4 +149,15 @@ interpolation/jitter buffers, prediction input/checksum rollback, lockstep
 input/checksum exchange and the per-peer replication pipeline. The current suite
 has 132 cases and 1393 assertions; `[net][socket]` adds the localhost UDP path and
 `[http][socket]` adds the HTTP TCP/UDP path.
+
+## References
+
+- [`../index.md`](../index.md) — the networking folder this note belongs to.
+- [`../../Elvavena/Net`](../../Elvavena/Net) — the protocol headers this note
+  describes.
+- [`../../Euphemy/Net/EuphUdpTransport.hpp`](../../Euphemy/Net/EuphUdpTransport.hpp)
+  — the concrete transport the session layer is driven by.
+- [`../../UnitTests/tests/NetSessionTests.cpp`](../../UnitTests/tests/NetSessionTests.cpp)
+  and its siblings — the executable contract for every milestone row above.
+- \ref mod_elvavena and \ref mod_euphemy — the module pages that own the two halves.
 

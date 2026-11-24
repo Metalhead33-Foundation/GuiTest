@@ -1,3 +1,5 @@
+\page mod_haruka Haruka
+
 # Haruka
 
 Haruka is the audio engine of MhLib. It provides a pull-based audio graph: `Playable`

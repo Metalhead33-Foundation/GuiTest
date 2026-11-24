@@ -7,10 +7,10 @@
  * A Kaldi backend needs two very different kinds of configuration:
  *
  *  - **Common settings** every backend understands: resolution, frames in flight,
- *    present mode/vsync, sRGB, texture quality. These live in @ref DeviceConfig.
+ *    present mode/vsync, sRGB, texture quality. These live in `DeviceConfig`.
  *  - **Backend-specific settings** that only make sense for one API: EGL vs GLX on
  *    Linux, the Vulkan device name, the Direct3D feature level, ... Those are
- *    described as @ref ConfigField entries and applied by the backend itself.
+ *    described as `ConfigField` entries and applied by the backend itself.
  *
  * The engine drives the conversation in both directions:
  *
@@ -20,7 +20,7 @@
  * 3. it persists the merged result (for example as an `.ini` file through
  *    `Euph::Conf::Configuration`, which is what
  *    `Lotte/Conf/LteBackendConfig.hpp` does),
- * 4. on the next start it parses the file into a @ref ConfigReader and calls
+ * 4. on the next start it parses the file into a `ConfigReader` and calls
  *    `apply()`, which clamps every value to the range from step 2.
  *
  * Key names follow Euphemy's typed-key convention so the same strings can be

@@ -1,4 +1,4 @@
-# **MML** - *Metalhead33's Markup Language*
+# **MML** - *Metalhead33's Markup Language* {#doc_mml}
 
 > Salvaged verbatim from `Text/MML.md` on the `NewBeginning` branch. This is the
 > language specification; `LteMml.hpp` is the parser, `LteHtmlEntities.hpp` the
@@ -44,16 +44,28 @@ and `<b class=warn>` would collapse into `bclass=warn`:
 
 Class and id names are lowercased like everything else inside a tag, so write them
 lowercase in the stylesheet too. They have no effect unless a stylesheet is attached
-(see [`docs/MML_CSS.md`](../../docs/MML_CSS.md)); without one they are ignored and
+(see [`docs/text/MML_CSS.md`](../../docs/text/MML_CSS.md)); without one they are ignored and
 the built-in tag behaviour applies.
 
 ### CSS
 
 CSS support is **optional and partial**, and the honest scope is documented in
-[`docs/MML_CSS.md`](../../docs/MML_CSS.md). In short: a stylesheet can set `color`,
+[`docs/text/MML_CSS.md`](../../docs/text/MML_CSS.md). In short: a stylesheet can set `color`,
 `font-family`, `font-size`, `font-weight`, `font-style` and `text-decoration` using
 element, class, id and tree selectors; it cannot do layout, spacing, backgrounds or
 floats, because Lotte has no layout engine and MML runs have no boxes. When a
 stylesheet is attached, the tags below keep their familiar meaning through a
 built-in user-agent stylesheet, so `b { font-weight: normal }` really does undo
 `<b>`.
+
+## References
+
+- [`../../Lotte/Text/LteMml.hpp`](../../Lotte/Text/LteMml.hpp) — the parser that
+  implements this grammar, including its tag tables.
+- [`../../Lotte/Text/LteHtmlEntities.hpp`](../../Lotte/Text/LteHtmlEntities.hpp) — the
+  character-reference table.
+- [`../../Lotte/Text/LteMarkupColour.hpp`](../../Lotte/Text/LteMarkupColour.hpp) — the
+  colour grammar.
+- \ref doc_mml_css — the stylesheet study and the optional libcss module.
+- \ref mod_lotte — the module page for the rich-text pipeline as a whole.
+

@@ -1,3 +1,5 @@
+\page mod_kaldid3d12 KaldiD3D12
+
 # KaldiD3D12
 
 Direct3D 12 backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).

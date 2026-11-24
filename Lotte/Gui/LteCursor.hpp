@@ -12,7 +12,7 @@
  *
  * This version separates the two concerns the old class conflated:
  *
- * - **Where the origin is** (@ref AlphaCoverage + @ref CursorMetadata): nine
+ * - **Where the origin is** (`AlphaCoverage` + `CursorMetadata`): nine
  *   anchors (four corners, four edge midpoints, center) and five crawl modes that
  *   walk from the anchor towards the image interior until a pixel passes the
  *   alpha threshold. Corners crawl diagonally, edges perpendicularly, and the
@@ -25,14 +25,14 @@
  *
  * @section lte_cursor_metadata Cursor metadata
  *
- * @ref CursorMetadata is deliberately a plain aggregate: it is the object a JSON
+ * `CursorMetadata` is deliberately a plain aggregate: it is the object a JSON
  * cursor descriptor will deserialize into. Nothing here parses JSON yet, so the
  * struct is the contract, not a serialization format.
  *
  * @section lte_cursor_coordinates Coordinates
  *
  * Everything is in **image pixels**: the hotspot is a position inside the source
- * image, and @ref Cursor::render() places the quad so that the hotspot lands on
+ * image, and `Cursor::render()` places the quad so that the hotspot lands on
  * the requested screen position. Continuous pixel coordinates are used (the
  * top-left corner of the image is `(0, 0)`, the bottom-right corner is
  * `(width, height)`), and a crawled origin is the *center* of the pixel it found
@@ -180,7 +180,7 @@ private:
 struct CursorMetadata {
 	/** @brief Anchor used when no explicit hotspot is given. */
 	CursorAnchor anchor = CursorAnchor::TopLeft;
-	/** @brief Crawl mode override; empty means @ref defaultCrawlFor(anchor). */
+	/** @brief Crawl mode override; empty means `defaultCrawlFor(anchor)`. */
 	std::optional<CursorCrawlMode> crawl;
 	/** @brief Enables the alpha crawl; when false the anchor point wins. */
 	bool alphaCrawl = false;

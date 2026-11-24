@@ -1,3 +1,5 @@
+\page mod_euphemy Euphemy
+
 # Euphemy
 
 Euphemy is the media and platform layer of MhLib. It builds on Elvavena and provides

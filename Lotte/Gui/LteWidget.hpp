@@ -21,13 +21,13 @@
  *
  * The state is a bitmask, not an enum: `Enabled | Clicked | InMouseFocus` is a
  * valid combination and is what `TexturedWidget` uses to index its per-state
- * texture coordinates. @ref WidgetStateCount is the number of possible
+ * texture coordinates. `WidgetStateCount` is the number of possible
  * combinations (8), the replacement for the legacy `FULL_STATE` enumerator.
  *
  * Input is intentionally backend-neutral. The `onClick()` signature keeps the
  * legacy `(offset, button, state, clicks)` shape, but Lotte does not include SDL;
  * a future input router will fill those bytes from the active backend and call
- * @ref Widget::contains() first. Hit testing and event routing are not in this
+ * `Widget::contains()` first. Hit testing and event routing are not in this
  * class.
  */
 #include <Lotte/LotteLib.hpp>

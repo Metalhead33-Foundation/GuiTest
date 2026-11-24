@@ -17,7 +17,7 @@
  * @section kaldivk_context_device_selection Device selection
  *
  * Standard practice is "pick the best device", which is what happens when
- * @ref ContextConfig::preferredDeviceName and @ref ContextConfig::preferredDeviceIndex
+ * `ContextConfig::preferredDeviceName` and `ContextConfig::preferredDeviceIndex`
  * are left at their defaults: discrete GPUs win over integrated ones, and a device
  * without a graphics queue or without `VK_KHR_swapchain` is skipped entirely.
  * A configuration file can override either field.

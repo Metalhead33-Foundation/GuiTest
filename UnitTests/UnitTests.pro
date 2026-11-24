@@ -70,7 +70,7 @@ LIBS += -lspirv-cross-core -lspirv-cross-glsl
 # because it is the only build-time proof that the shader assets compile at all.
 # The intended replacement is DXC with `-HV 2016` plus its legacy flags, which keeps
 # the accepted language at Shader Model 4/5 level even though DXC only emits Shader
-# Model 6 profiles. The migration is deferred indefinitely; `docs/SHADERS.md` has the
+# Model 6 profiles. The migration is deferred indefinitely; `docs/graphics/SHADERS.md` has the
 # reference `dxc` invocation, the flag-by-flag rationale and the acceptance gate.
 # ─────────────────────────────────────────────────────────────────────────────
 isEmpty(GLSLANG) {
@@ -117,6 +117,11 @@ exists($$GLSLANG) {
 INCLUDEPATH += $$PWD/..
 INCLUDEPATH += $$PWD
 
+# The documentation checks (tests/DocumentationTests.cpp) read the Markdown note tree
+# from the source directory, so they need its absolute path: a path resolved from the
+# working directory would depend on where the test binary is started from.
+DEFINES += UNITTESTS_SOURCE_ROOT=\\\"$$PWD/..\\\"
+
 SOURCES += \
     tests/AssetRuntimeTests.cpp \
     tests/BackendConfigTests.cpp \
@@ -126,6 +131,7 @@ SOURCES += \
     tests/ConfigTests.cpp \
     tests/CssStyleTests.cpp \
     tests/CursorTests.cpp \
+    tests/DocumentationTests.cpp \
     tests/FontRoundTripTests.cpp \
     tests/FormatTranslationTests.cpp \
     tests/GuiWidgetTests.cpp \

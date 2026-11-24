@@ -82,7 +82,7 @@ struct StoredVectorImage {
 	float distanceRangeY = 0.0f;
 	/** @brief Bitmask of @ref EncodingFlag values baked into the pixels. */
 	std::uint32_t encodingFlags = 0;
-	/** @brief Baked midpoint divisor; meaningful only with @ref EncodingFlag::MidpointAdjusted. */
+	/** @brief Baked midpoint divisor; meaningful only with `EncodingFlag::MidpointAdjusted`. */
 	float midpointAdjustment = 1.0f;
 	/** @brief SDF channel layout. */
 	SDFType type = SDFType::SDF;

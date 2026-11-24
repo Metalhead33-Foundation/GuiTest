@@ -27,7 +27,7 @@
  * KhronosGroup/glslang issue #4210) and the intended replacement is DXC, whose
  * only notable flaw for this engine is that it targets Shader Model 6.x while
  * shaders here are authored at Shader Model 4/5 level. The migration is deferred
- * indefinitely; `docs/SHADERS.md` records the rationale, the reference `dxc`
+ * indefinitely; `docs/graphics/SHADERS.md` records the rationale, the reference `dxc`
  * invocation and the acceptance gate. Nothing in this header changes either way:
  * the contract is SPIR-V 1.0 words plus a stage, not a compiler.
  *
