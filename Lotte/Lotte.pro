@@ -87,6 +87,7 @@ HEADERS += \
     Text/LteFontAtlas.hpp \
     Text/LteFontFace.hpp \
     Text/LteFontRepository.hpp \
+    Text/LteFontWeight.hpp \
     Text/LteHtmlEntities.hpp \
     Text/LteCssStyle.hpp \
     Text/LteMarkupColour.hpp \

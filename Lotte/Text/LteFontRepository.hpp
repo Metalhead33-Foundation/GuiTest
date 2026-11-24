@@ -8,16 +8,18 @@
  * same text block may mix families. A layout therefore cannot own a single face;
  * it records the face it used per glyph (`TextLayout::faces` /
  * `PlacedGlyph::faceIndex`). This repository is the other half of that contract:
- * it resolves a family (and a bold request) to a face and hands out one
+ * it resolves a family (and a weight request) to a face and hands out one
  * `FontAtlas` per face, creating the atlas on first use.
  *
  * @section lte_font_repository_styles Styles
  *
  * `FontStyle` separates *face selection* from *synthesis*. A family may ship a
- * real bold face; when it does, `faceFor(family, true)` returns it. When it does
- * not, the regular face is returned and `TextLayout` marks the run bold so the
- * SDF shader dilates the contour. Italic is always synthetic (a shear in
- * `LteTextLayout`), so it does not affect face selection.
+ * real bold face; when it does, `faceFor(family, FontWeight::Bold)` returns it.
+ * When it does not, the regular face is returned and `TextLayout` records the
+ * requested weight so the SDF shader dilates the contour. Italic is always
+ * synthesized (a shear in `LteTextLayout`), so it does not affect face selection.
+ * WODF has no weight metadata, so the repository registration supplies each face's
+ * weight; an unannotated face is treated as @ref Lotte::Text::FontWeight::Normal (400).
  *
  * @section lte_font_repository_atlas Atlas association
  *
@@ -35,6 +37,7 @@
 #include <Lotte/LotteLib.hpp>
 #include <Lotte/Text/LteFontAtlas.hpp>
 #include <Lotte/Text/LteFontFace.hpp>
+#include <Lotte/Text/LteFontWeight.hpp>
 #include <Elvavena/Io/ElvIoSystem.hpp>
 #include <cstddef>
 #include <memory>
@@ -48,7 +51,7 @@ namespace Text {
 
 /** @brief Selector for a family variant. */
 struct FontStyle {
-	/** @brief Prefer a bold face when the family provides one. */
+	/** @brief Prefer a bold face when the family provides one (compatibility alias). */
 	bool bold = false;
 	/** @brief Prefer an italic face when the family provides one.
 	 *
@@ -56,6 +59,20 @@ struct FontStyle {
 	 * selection does not consult this flag yet.
 	 */
 	bool italic = false;
+	/**
+	 * @brief Weight of the registered face.
+	 *
+	 * WODF has no weight metadata, so this registration value is the source of
+	 * truth for face selection. The default is @ref FontWeight::Normal; the legacy
+	 * `bold` flag raises it to @ref FontWeight::Bold through @ref effectiveWeight().
+	 */
+	FontWeight weight = DefaultFontWeight;
+
+	/** @brief Weight of this face, with the legacy bold flag applied. */
+	FontWeight effectiveWeight() const noexcept
+	{
+		return bold && !fontWeightIsBold(weight) ? FontWeight::Bold : weight;
+	}
 
 	/** @brief Compares every field. */
 	bool operator==(const FontStyle&) const = default;
@@ -159,18 +176,36 @@ public:
 	/**
 	 * @brief Returns whether @p face is registered as a real bold variant.
 	 *
-	 * A synthetic bold pass must not be applied on top of a real bold face, so the
-	 * renderer asks this before using `TextStyle::bold` as a dilation.
+	 * A face with effective weight 600 or heavier already carries the weight; the
+	 * renderer should only synthesize the difference between the requested and
+	 * registered weights.
 	 * @param face Face to test; null yields `false`.
 	 */
 	bool isBoldVariant(const PreprocessedFontFace* face) const;
 
 	/**
+	 * @brief Returns the registered weight of a face.
+	 *
+	 * Faces are registered with @ref FontStyle, because WODF carries no weight
+	 * metadata. An unregistered face is treated as @ref FontWeight::Normal.
+	 */
+	FontWeight weightForFace(const PreprocessedFontFace* face) const;
+
+	/**
+	 * @brief Resolves a family and weight request to a face.
+	 *
+	 * Returns the registered face whose weight is closest to @p weight, preferring
+	 * an exact match. Falls back to the default face when the family is unknown.
+	 * @param family Family name from the text attributes.
+	 * @param weight Requested numeric weight.
+	 */
+	const PreprocessedFontFace* faceFor(std::string_view family, FontWeight weight) const;
+
+	/**
 	 * @brief Resolves a family and bold request to a face.
 	 *
-	 * Returns a matching bold variant when one exists, otherwise the regular
-	 * variant (the caller synthesizes bold). Falls back to the default face when
-	 * the family is unknown.
+	 * Compatibility overload: `true` requests @ref FontWeight::Bold and `false`
+	 * requests @ref FontWeight::Normal.
 	 * @param family Family name from the text attributes.
 	 * @param bold Whether the run asks for bold.
 	 */
@@ -185,7 +220,9 @@ public:
 	FontAtlas* atlasFor(const PreprocessedFontFace* face);
 	/** @brief Atlas of an identifier, or null. */
 	FontAtlas* atlasFor(std::string_view id);
-	/** @brief Atlas of a family/style pair, or null. */
+	/** @brief Atlas of a family/weight pair, or null. */
+	FontAtlas* atlasForFamily(std::string_view family, FontWeight weight);
+	/** @brief Atlas of a family/bold pair, or null. */
 	FontAtlas* atlasForFamily(std::string_view family, bool bold = false);
 
 	/**

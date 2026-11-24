@@ -1,6 +1,7 @@
 #include "LteFontRepository.hpp"
 #include <algorithm>
 #include <cctype>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
@@ -127,24 +128,23 @@ std::shared_ptr<const PreprocessedFontFace> FontRepository::sharedFace(std::stri
 	return entry == nullptr ? nullptr : entry->face;
 }
 
-const PreprocessedFontFace* FontRepository::faceFor(std::string_view family, bool bold) const
+const PreprocessedFontFace* FontRepository::faceFor(std::string_view family, FontWeight weight) const
 {
 	const auto found = byFamily_.find(normalize(family));
 	if (found != byFamily_.end() && !found->second.empty()) {
-		const Entry* regular = nullptr;
+		const std::uint16_t requested = fontWeightValue(weight);
+		const Entry* best = nullptr;
+		std::uint16_t bestDistance = std::numeric_limits<std::uint16_t>::max();
 		for (const std::size_t index : found->second) {
 			const Entry& entry = entries_[index];
-			if (entry.style.bold == bold) {
-				return entry.face.get();
-			}
-			if (!entry.style.bold && regular == nullptr) {
-				regular = &entry;
+			const std::uint16_t candidate = fontWeightValue(entry.style.effectiveWeight());
+			const std::uint16_t distance = candidate > requested ? candidate - requested : requested - candidate;
+			if (best == nullptr || distance < bestDistance) {
+				best = &entry;
+				bestDistance = distance;
 			}
 		}
-		if (regular != nullptr) {
-			return regular->face.get();
-		}
-		return entries_[found->second.front()].face.get();
+		return best == nullptr ? nullptr : best->face.get();
 	}
 	if (!defaultFaceId_.empty()) {
 		if (const PreprocessedFontFace* fallback = face(defaultFaceId_)) {
@@ -154,17 +154,27 @@ const PreprocessedFontFace* FontRepository::faceFor(std::string_view family, boo
 	return entries_.empty() ? nullptr : entries_.front().face.get();
 }
 
-bool FontRepository::isBoldVariant(const PreprocessedFontFace* face) const
+const PreprocessedFontFace* FontRepository::faceFor(std::string_view family, bool bold) const
+{
+	return faceFor(family, bold ? FontWeight::Bold : FontWeight::Normal);
+}
+
+FontWeight FontRepository::weightForFace(const PreprocessedFontFace* face) const
 {
 	if (face == nullptr) {
-		return false;
+		return DefaultFontWeight;
 	}
 	for (const Entry& entry : entries_) {
-		if (entry.face.get() == face && entry.style.bold) {
-			return true;
+		if (entry.face.get() == face) {
+			return entry.style.effectiveWeight();
 		}
 	}
-	return false;
+	return DefaultFontWeight;
+}
+
+bool FontRepository::isBoldVariant(const PreprocessedFontFace* face) const
+{
+	return fontWeightIsBold(weightForFace(face));
 }
 
 FontAtlas* FontRepository::atlasFor(const PreprocessedFontFace* face)
@@ -195,6 +205,11 @@ FontAtlas* FontRepository::atlasFor(const PreprocessedFontFace* face)
 FontAtlas* FontRepository::atlasFor(std::string_view id)
 {
 	return atlasFor(face(id));
+}
+
+FontAtlas* FontRepository::atlasForFamily(std::string_view family, FontWeight weight)
+{
+	return atlasFor(faceFor(family, weight));
 }
 
 FontAtlas* FontRepository::atlasForFamily(std::string_view family, bool bold)

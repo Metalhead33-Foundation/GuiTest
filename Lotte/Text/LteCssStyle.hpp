@@ -21,7 +21,7 @@
  *   and the other tree-structural pseudo-classes. `:hover`/`:focus`/`:active`
  *   always report false, because rich text has no interaction state.
  * - **Properties that map to `TextAttributes`**: `color`, `font-family`,
- *   `font-size`, `font-weight`, `font-style`, `text-decoration`.
+ *   `font-size`, `font-weight` (numeric 100-900), `font-style`, `text-decoration`.
  *
  * Parsed but **without effect**, because Lotte has no layout engine and no other
  * text attributes: `margin`, `padding`, `border`, `background`, `width`/`height`,
@@ -46,7 +46,7 @@
  *
  * @note Availability is a build-time question: the whole header is inert unless
  * `LTE_WITH_LIBCSS` is defined, which `Lotte.pro` does when `pkg-config` finds
- * libcss. See `docs/text/MML_CSS.md` for the study behind this module.
+ * libcss. See `Lotte/Text/MML.md` for the study behind this module.
  */
 #include <Lotte/LotteLib.hpp>
 

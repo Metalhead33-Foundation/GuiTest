@@ -42,10 +42,11 @@ VsOutput main(VsInput input) {
  * @brief Fragment stage for SDF, MSDF, MSDFA and solid quads.
  *
  * `params.x` selects the channel interpretation, `params.y`/`z` are the distance
- * range in screen pixels and `params.w` is the bold dilation in pixels. The
- * median is what reconstructs the contour from an MSDF; averaging would blur it.
- * MSDFA's alpha channel is preserved by the RGBA8 atlas and is available for a
- * glow/bevel pass; the default fill uses the RGB median for the contour.
+ * range in screen pixels and `params.w` is the weight threshold offset in pixels
+ * (positive dilates, negative thins). The median is what reconstructs the contour
+ * from an MSDF; averaging would blur it. MSDFA's alpha channel is preserved by the
+ * RGBA8 atlas and is available for a glow/bevel pass; the default fill uses the
+ * RGB median for the contour.
  */
 constexpr std::string_view textFragmentSource = R"hlsl(
 [[vk::binding(0, 0)]] Texture2D<float4> textTexture : register(t0);
@@ -75,7 +76,9 @@ float4 main(VsOutput input) : SV_Target {
     float4 raw = textTexture.Sample(textSampler, input.uv);
     float distance = (input.params.x < 0.5) ? raw.r : median3(raw.r, raw.g, raw.b);
     float pxRange = max(max(input.params.y, input.params.z), 1.0);
-    float alpha = saturate((distance - 0.5) * pxRange + 0.5 + input.params.w);
+    // params.w is the weight threshold offset: positive dilates, negative thins.
+    float weightOffset = input.params.w;
+    float alpha = saturate((distance - 0.5) * pxRange + 0.5 + weightOffset);
     return float4(input.color.rgb, input.color.a * alpha);
 }
 )hlsl";
@@ -231,9 +234,9 @@ void TextRenderer::useTexture(Kld::HandleId texture)
 }
 
 void TextRenderer::appendGlyphQuad(const GlyphQuad& quad, float mode, glm::fvec2 pxRange,
-								   float boldPixels, const glm::fvec4& colour)
+								   float weightPixels, const glm::fvec4& colour)
 {
-	const glm::fvec4 params{ mode, pxRange.x, pxRange.y, boldPixels };
+	const glm::fvec4 params{ mode, pxRange.x, pxRange.y, weightPixels };
 	const glm::fvec2 topLeft = toNdc(quad.position[0]);
 	const glm::fvec2 topRight = toNdc(quad.position[1]);
 	const glm::fvec2 bottomLeft = toNdc(quad.position[2]);
@@ -295,13 +298,21 @@ std::size_t TextRenderer::render(const TextLayout& layout)
 		const float tileSize = float(atlas->tileSize());
 		const glm::fvec2 pxRange(effectiveDistanceRange(*face, true) * glyph.size.x / tileSize,
 								 effectiveDistanceRange(*face, false) * glyph.size.y / tileSize);
-		const bool synthesizeBold = style.bold && !repository_->isBoldVariant(face);
-		const float bold = synthesizeBold ? glyph.emSize * settings_.boldStrength : 0.0f;
+		// WODF has no weight metadata, so the repository registration supplies the
+		// face weight. A 300-unit increase (normal -> bold) reproduces the historical
+		// 4%-of-em dilation; a regular face at its regular weight stays at exactly 0.
+		const FontWeight faceWeight = repository_->weightForFace(face);
+		const float weightDelta = float(fontWeightValue(style.effectiveWeight()))
+			- float(fontWeightValue(faceWeight));
+		const float weightStep = float(fontWeightValue(FontWeight::Bold)
+			- fontWeightValue(FontWeight::Normal));
+		const float weightPixels = glyph.emSize * settings_.boldStrength
+			* (weightDelta / weightStep);
 		const int modeValue = static_cast<int>(face->type);
 		const float mode = static_cast<float>(modeValue >= 0 && modeValue <= 2 ? modeValue : 0);
 
 		useTexture(atlas->pageTexture(quad.page));
-		appendGlyphQuad(quad, mode, pxRange, bold, style.colour);
+		appendGlyphQuad(quad, mode, pxRange, weightPixels, style.colour);
 		++queuedGlyphs_;
 	}
 

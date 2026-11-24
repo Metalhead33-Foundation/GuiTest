@@ -24,8 +24,7 @@ folder's index. A note missing from its index builds as a *sibling* and fails
 |---|---|---|
 | draw anything through Kaldi, or choose between the raw and the object-oriented API | \subpage doc_kaldi_tutorial | the command stream, the facade, a complete textured triangle, retirement/lifetime/threading, the per-backend differences |
 | author, compile or port a shader | \subpage doc_shaders | HLSL → SPIR-V 1.0, how each backend consumes it, the glslang deprecation and the deferred DXC migration |
-| write, parse or style MML text | \subpage doc_mml | the MML language specification (the grammar the parser implements) |
-| ask what CSS may promise for MML, or integrate a stylesheet | \subpage doc_mml_css | the libcss study, the resolved attributes, the landmines, what may not be promised |
+| write, parse or style MML text, or ask what CSS may promise | \subpage doc_mml | the MML language specification, the CSS integration study, resolved attributes, landmines and what may not be promised |
 | touch the networking layer (session, snapshots, RPC, prediction) | \subpage doc_netcode | the Elvavena/Euphemy split, the wire contract, the milestones |
 | change the HTTP parser, client or server | \subpage doc_http | the deliberately minimal HTTP layer and its extension points |
 | add a poller, a completion wrapper or a streaming buffer | \subpage doc_platform | readiness vs completion, the wakeup seam, the two ring-buffer contracts |
@@ -33,7 +32,7 @@ folder's index. A note missing from its index builds as a *sibling* and fails
 | find out what a module implements | \subpage docs_modules_index | one page per module: status, implemented surface, TODOs |
 | ask where a salvaged concept came from | \subpage doc_salvage | the decision log for the older trees and what was deliberately dropped |
 | find a graphics note | \subpage docs_graphics_index | the Kaldi tutorial and the shader pipeline |
-| find a text note | \subpage docs_text_index | the MML specification and CSS for MML |
+| find a text note | \subpage docs_text_index | the combined MML specification and CSS integration study |
 | find a networking or platform note | \subpage docs_networking_index | netcode, HTTP and the platform I/O wrappers |
 
 ## 2. What each document is allowed to claim
@@ -46,7 +45,7 @@ contract all read alike.
 |---|---|---|
 | **Contract / reference** | a statement about shipped behaviour; changing it needs a decision, not a commit | [`DOCUMENTATION.md`](DOCUMENTATION.md), the headers, the "Implemented" halves of the module pages |
 | **Guide** | how to use the shipped thing, with worked examples | \subpage doc_kaldi_tutorial, \subpage doc_shaders |
-| **Study** | a question answered with evidence; it opens no work, and its verdict may be "boundary" | \subpage doc_mml_css |
+| **Study** | a question answered with evidence; it opens no work, and its verdict may be "boundary" | the CSS section of \subpage doc_mml |
 | **Status report** | a dated snapshot of implemented vs TODO for one module | every `<Module>/README.md` (\subpage docs_modules_index) |
 | **History** | what happened and why, not what is true today | \subpage doc_salvage |
 

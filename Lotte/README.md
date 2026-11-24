@@ -130,19 +130,20 @@ context.endFrame();
 
 | Header | Contents |
 |---|---|
-| `LteTextAttributes.hpp` | `Colour`, `TextAttributes` (colour, family, size, bold/italic/underline/strikethrough) and `TextRun` (one `std::u32string` plus its attributes) |
+| `LteFontWeight.hpp` | `FontWeight` - CSS-style 100-900 weight ladder, normal 400, bold 700; value/clamping helpers, CSS `bolder`/`lighter` steps, and `effectiveWeight()` compatibility with the legacy boolean `bold` flag |
+| `LteTextAttributes.hpp` | `Colour`, `FontWeight` (CSS 100-900; normal 400, bold 700), `TextAttributes` (colour, family, size, weight/bold/italic/underline/strikethrough) and `TextRun` (one `std::u32string` plus its attributes) |
 | `LteUtf.hpp` | UTF-8 ↔ UTF-32 conversion over [utfcpp](https://github.com/nemtrif/utfcpp) (replaces the deprecated `std::codecvt` usage); invalid input decodes to U+FFFD instead of throwing |
 | `LteRichText.hpp` / `.cpp` | `RichTextProcessor` - buffers UTF-8, emits `TextRun`s on attribute changes, merges adjacent runs with equal attributes, and keeps the original `enable*`/`disable*`/`Manipulator`/`operator<<` surface |
 | `LteMarkupStack.hpp` / `.cpp` | `MarkupStack` - per-attribute nesting depths (colour, family, size, bold, italic, underline, strikethrough) driving a processor |
 | `LteMml.hpp` / `.cpp` | `MmlParser` - the MML state machine and tag tables (`b`, `strong`, `i`, `em`, `u`, `s`, `del`, `strike`, `br`, `p`, `font=`, `size=`, `color=`/`colour=`), the provisional `class=`/`id=` parameter grammar, and the optional `MmlElementObserver` hook that lets a stylesheet drive the processor |
-| `LteCssStyle.hpp` / `.cpp` | **Optional, needs `libcss`.** `CssStylesheet` (markup defaults + author sheet, `css_select_ctx`), `CssStyleResolver` (MML element stack -> libcss node tree -> `TextAttributes`, with inheritance via `css_computed_style_compose`, unit conversion and decoration propagation) and the one-call `styleMarkup()`. Scope, limits and the libcss 0.9.2 landmines are documented in [`docs/text/MML_CSS.md`](../docs/text/MML_CSS.md) |
+| `LteCssStyle.hpp` / `.cpp` | **Optional, needs `libcss`.** `CssStylesheet` (markup defaults + author sheet, `css_select_ctx`), `CssStyleResolver` (MML element stack -> libcss node tree -> `TextAttributes`, with inheritance via `css_computed_style_compose`, unit conversion and decoration propagation) and the one-call `styleMarkup()`. Scope, limits and the libcss 0.9.2 landmines are documented in [`Text/MML.md`](Text/MML.md) |
 | `LteHtmlEntities.hpp` / `.cpp` | Named/decimal/hexadecimal HTML character references; the 2,124-entry table is carried over verbatim from the old tree |
 | `LteMarkupColour.hpp` / `.cpp` | `parseMarkupColour()` - web colour names, `#RGB(A)` / `#RRGGBB(AA)` hex, and normalized or byte component lists |
-| `LteTextLayout.hpp` / `.cpp` | `layoutRun()` / `layoutRuns()` - glyph placement from a `PreprocessedFontFace` (intended box, bearings, measured line height, newline handling, italic shear, per-run underline/strikethrough segments, optional word spacing) producing `PlacedGlyph`/`DecorationLine`/`TextStyle`. Each glyph records its face (`TextLayout::faces` + `faceIndex`), its effective em size and whether the style asks for bold, so a renderer can pick the right atlas and synthesize weight |
+| `LteTextLayout.hpp` / `.cpp` | `layoutRun()` / `layoutRuns()` - glyph placement from a `PreprocessedFontFace` (intended box, bearings, measured line height, newline handling, italic shear, per-run underline/strikethrough segments, optional word spacing) producing `PlacedGlyph`/`DecorationLine`/`TextStyle`. Each glyph records its face (`TextLayout::faces` + `faceIndex`), effective em size and effective numeric weight, so a renderer can pick the right atlas and synthesize the remaining weight delta |
 | `LteFontAtlas.hpp` / `.cpp` | `FontAtlas` - lazy, multi-page glyph atlas for one face: decodes `StoredCharacter::sdf` through Euphemy (PNG/TGA/JPEG/WebP), shelf-packs `S x S` tiles into `WriteableTexture2D` RGBA8 pages with a gutter, records uploads, and implements `GlyphAtlasMapping` including `pageForGlyph()`; `appendGlyphQuads()` turns a layout into textured quads |
-| `LteFontRepository.hpp` / `.cpp` | `FontRepository` - resolves a family name and bold request to a registered `PreprocessedFontFace` (real bold variants or regular for shader-synthesized bold) and owns one lazily created `FontAtlas` per face. `addFaceFromFile()` opens through an `Elv::Io::System`; `addFaceFromDevice()` consumes an already-open `Elv::Io::Device`. `loadFontFace()` accepts the same two forms and parses a `.wodf` through `FontDataStream` |
-| `LteTextRenderer.hpp` / `.cpp` | `TextRenderer` - one SDF/MSDF/MSDFA pipeline and one vertex format for glyphs and decoration quads. `prepare()` ensures/records atlas uploads outside the frame, `render()` batches quads per atlas page, and `flush()` records the indexed draws. Colour is per vertex, bold is a per-vertex threshold dilation, and `3` in `params.x` draws solid underline/strikethrough quads that use `fwidth()` on their UVs for SDF-style edge anti-aliasing |
-| `MML.md` | The MML language specification |
+| `LteFontRepository.hpp` / `.cpp` | `FontRepository` - resolves a family name and numeric `FontWeight` request to the nearest registered `PreprocessedFontFace` (real weight variants or regular for shader-synthesized weight) and owns one lazily created `FontAtlas` per face. WODF has no weight metadata, so `FontStyle` registration supplies it (default 400; bold alias 700). `addFaceFromFile()` opens through an `Elv::Io::System`; `addFaceFromDevice()` consumes an already-open `Elv::Io::Device`. `loadFontFace()` accepts the same two forms and parses a `.wodf` through `FontDataStream` |
+| `LteTextRenderer.hpp` / `.cpp` | `TextRenderer` - one SDF/MSDF/MSDFA pipeline and one vertex format for glyphs and decoration quads. `prepare()` ensures/records atlas uploads outside the frame, `render()` batches quads per atlas page, and `flush()` records the indexed draws. Colour is per vertex, weight is a per-vertex SDF threshold offset derived from the requested-vs-face weight delta (400 -> 700 reproduces the historical 4%-of-em dilation), and `3` in `params.x` draws solid underline/strikethrough quads that use `fwidth()` on their UVs for SDF-style edge anti-aliasing |
+| `MML.md` | The MML language specification and the CSS integration study |
 
 ### `Gui/` and `GFX/` - geometry and draw vocabulary
 
@@ -236,11 +237,12 @@ However, this decision is to be revisited in the future - just like [the potenti
       (offsets are pixels at the face's reference size, as FontPacker stores them), but
       pairs that straddle a run boundary are not kerned, and there is no bidi, no line
       breaking by width, and no ligature substitution.
-- [x] Bold and italic are supported without another atlas. `TextAttributes::bold`
-      first asks `FontRepository` for a registered bold face; when none exists the
-      renderer synthesizes weight as a per-vertex SDF threshold dilation (`4%` of the
-      em by default). Italic remains a layout shear. Colour is per vertex, so a colour
-      change does not split a draw run.
+- [x] Bold and italic are supported without another atlas. `TextAttributes` carries a
+      numeric `FontWeight` (normal 400, bold 700); `FontRepository` selects the
+      nearest registered face, and the renderer turns the remaining weight delta into
+      a per-vertex SDF threshold offset (`4%` of the em for 400 -> 700). The legacy
+      `bold` flag remains an alias for weight 700. Italic remains a layout shear.
+      Colour is per vertex, so a colour change does not split a draw run.
 - [x] `FontRepository` resolves MML/CSS family names case-insensitively to a face and
       owns one lazily created atlas per face. `loadFontFace()` / `addFaceFromFile()`
       are the standalone `.wodf` loaders and use an `Elv::Io::System` (or an existing
@@ -260,7 +262,7 @@ However, this decision is to be revisited in the future - just like [the potenti
       `testFontRoundTrip()`. `UnitTests/tests/FontRoundTripTests.cpp` additionally checks
       the version 1/2/3 advance encodings, the raw version 3 header offsets, the padded
       glyph quad and the `WODI` geometry helpers; `TextRenderingTests.cpp` covers the
-      repository, atlas packing/upload recording, per-vertex colour/bold, decoration
+      repository, atlas packing/upload recording, per-vertex colour/weight, decoration
       quads and multi-page draw runs. The CPU half of the cursor/texture code is covered
       by `CursorTests` and `WriteableTexture2DTests`; the renderer itself has no
       automated frame-level/pixel test.

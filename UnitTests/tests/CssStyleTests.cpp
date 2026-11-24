@@ -48,9 +48,29 @@ TEST_CASE("MML tags are elements for CSS, with their usual defaults", "[text][cs
 	// which is what the built-in (user-agent) stylesheet is for.
 	const Lotte::Text::TextRunList runs = render("<b>bold</b> plain <u>under</u>", "");
 	CHECK(attributesOf(runs, U"bold").bold);
+	CHECK(attributesOf(runs, U"bold").weight == Lotte::Text::FontWeight::Bold);
 	CHECK_FALSE(attributesOf(runs, U"plain").bold);
 	CHECK(attributesOf(runs, U"under").underline);
 	CHECK_FALSE(attributesOf(runs, U"under").bold);
+}
+
+TEST_CASE("CSS font weights survive as numeric weights", "[text][css]")
+{
+	const Lotte::Text::TextRunList runs = render(
+		"<b>bold</b><b class=light>light</b><b class=semi>semi</b>",
+		".light { font-weight: 300 } .semi { font-weight: 600 }");
+	CHECK(attributesOf(runs, U"bold").weight == Lotte::Text::FontWeight::Bold);
+	CHECK(attributesOf(runs, U"light").weight == Lotte::Text::FontWeight::Light);
+	CHECK_FALSE(attributesOf(runs, U"light").bold);
+	CHECK(attributesOf(runs, U"semi").weight == Lotte::Text::FontWeight::SemiBold);
+	CHECK(attributesOf(runs, U"semi").bold);
+
+	const Lotte::Text::TextRunList relative = render(
+		"<b><b class=up>up</b></b><b><b class=down>down</b></b>",
+		".up { font-weight: bolder } .down { font-weight: lighter }");
+	// The parent is the built-in bold 700: bolder -> 900, lighter -> 400.
+	CHECK(attributesOf(relative, U"up").weight == Lotte::Text::FontWeight::Black);
+	CHECK(attributesOf(relative, U"down").weight == Lotte::Text::FontWeight::Normal);
 }
 
 TEST_CASE("Author rules override the element defaults", "[text][css]")

@@ -65,7 +65,8 @@ std::uint32_t findOrAddStyle(TextLayout& layout, const TextAttributes& attribute
 	TextStyle style;
 	style.colour = attributes.colour;
 	style.italic = attributes.italic;
-	style.bold = attributes.bold;
+	style.bold = attributes.isBold();
+	style.weight = attributes.effectiveWeight();
 	style.underline = attributes.underline;
 	style.strikethrough = attributes.strikethrough;
 	for (std::size_t i = 0; i < layout.styles.size(); ++i) {

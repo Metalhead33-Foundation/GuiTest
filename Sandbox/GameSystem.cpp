@@ -166,8 +166,8 @@ void GameSystem::loadFont()
 		options.wordSpacing = 2.0f;
 		sampleLayout = Lotte::Text::layoutRuns(
 			processor.getRuns(),
-			[this](const std::string& family, bool bold) {
-				return fontRepository->faceFor(family, bold);
+			[this](const std::string& family, Lotte::Text::FontWeight weight) {
+				return fontRepository->faceFor(family, weight);
 			},
 			options);
 		fontReady = true;

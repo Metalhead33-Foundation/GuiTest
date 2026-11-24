@@ -66,7 +66,7 @@ endFrame     -> EndFrame + Present, swapBuffers, processCommandQueue
 
 The sample text is loaded from `[Graphics] sFont` through the PhysFS
 `Elv::Io::System` (mount its directory, or point `sFont` at a virtual path) and laid
-out from MML, so it exercises the family lookup, bold/italic/underline/strike/colour
+out from MML, so it exercises the family/weight lookup, bold/italic/underline/strike/colour
 tags and the SDF atlas at once. A missing font logs `Text disabled: ...` and leaves
 the cursor path working.
 

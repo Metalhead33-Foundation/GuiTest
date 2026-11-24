@@ -88,6 +88,10 @@ public:
 	float getCurrentSize() const { return currentAttributes.size; }
 	/** @brief Sets the pixel size used by subsequent runs. */
 	void setCurrentSize(float size);
+	/** @brief Returns the effective current font weight. */
+	FontWeight getCurrentWeight() const { return currentAttributes.effectiveWeight(); }
+	/** @brief Sets the numeric weight used by subsequent runs. */
+	void setCurrentWeight(FontWeight weight);
 	/**
 	 * @brief Replaces the whole attribute set used by subsequent runs.
 	 * @param attributes New attributes; the pending text is flushed first.
@@ -111,7 +115,7 @@ public:
 	void setCurrentColour(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a = 0xFF);
 
 	/** @brief Returns whether bold is currently requested. */
-	bool getIsBold() const { return currentAttributes.bold; }
+	bool getIsBold() const { return currentAttributes.isBold(); }
 	/** @brief Returns whether italic is currently requested. */
 	bool getIsItalic() const { return currentAttributes.italic; }
 	/** @brief Returns whether underline is currently requested. */
