@@ -46,7 +46,7 @@ halves of shader work:
 - build time: `UnitTests/UnitTests.pro`, which compiles `UnitTests/shaders/` to
   `.spv` with the `GLSLANG=` knob (default `/usr/bin/glslang`).
 
-It emits SPIR-V 1.0 for Vulkan 1.0, which is exactly the contract above.
+It emits SPIR-V 1.0 for Vulkan 1.0, which is exactly the contract above. It's also very lean *(footprint of only ~2.1MB)*, which makes the deprecation rather regrettable.
 
 ### DXC — the intended replacement
 
@@ -77,6 +77,8 @@ dxc -spirv -fspv-target-env=vulkan1.0 -T ps_6_0 -E main \
     shader.hlsl -Fo shader.spv
 ```
 
+A major flaw of DXC is that it's not lean at all, having an approximate footprint of ~19.7MB. Which is a bummer that warrants giving a serious look to potential alternatives.
+
 ### Slang — worth examining
 
 [Slang](https://github.com/shader-slang/slang) is worth examining as a third
@@ -85,6 +87,28 @@ evaluation has been done and no dependency is planned.
 
 SPIRV-Cross, the other half of the pipeline, is unaffected by this choice: it
 consumes SPIR-V, so it does not care which compiler emitted it.
+
+A major flaw of Slang is that it's not lean at all, having an approximate footprint of ~32.3MB.
+
+### Tinyshader
+
+[Tinyshader](https://github.com/felipeagc/tinyshader) is a rather lean *(footprint of approximately 200 KB, making it smaller than even Glslang!)* HLSL-to-SPIRV compiler written in C99. However, it has a major flaw: [it's incomplete](https://github.com/felipeagc/tinyshader/issues/1).
+
+### Naga & Tint
+
+[Naga](https://github.com/gfx-rs/wgpu/tree/trunk/naga) is a WGSL-to-SPIRV compiler written in Rust, supposedly rather lean *(~2.2MB stripped)*. It has one a half major flaws:
+- **It's written in Rust.** I'd prefer to keep this project C++ only. Multi-language interoperability is always a major headache. Additionally, as the creator of this library, I have major political objections to Rust itself, the Rust communtiy and the Rust foundation, and their partisan political activism. Plus, [Branimir Karadžić's himself pointed out its non-viability for a C++ project](https://bkaradzic.github.io/posts/ideal-shader-compiler/).
+- Its langauge of input is WGSL... **which isn't really a flaw, because this project isn't married to the HLSL language.** HLSL merely happens to be the closest equivalent to a universal shader language that can be *"made to sing in"* Direct3D, Vulkan *(when compiled to SPIRV)* and OpenGL *(when compiled to SPIRV, which is then decompiled into GLSL via spirv-cross)*. **Replacing HLSL with WGSL is a decision I am not inherently against.** As long as it produces valid SPIRV that can be decompiled to GLSL and HLSL via spirv-cross, pivoting from HLSL to WGSL is **not** a dealbreaker for me.
+
+Since Rust is a dealbreaker, [Tint](https://dawn.googlesource.com/dawn/+/refs/heads/main/src/tint/) might be explored as a viable alternative, which is Google's WGSL-to-SPIRV compiler, and part of the Chromium browser, though it is less lean *(~5.3MB large)* and slower than Naga according to Karadžić's survey.
+
+### The Nuclear Option — No Runtime Compilation
+
+This document would be incomplete if we did not mention the possibiltiy of not having any sort of runtime HLSL-to-SPIRV compilation capability at all in the first place in Lotte.
+
+You read that right. Instead of fighting over Glslang vs Slang vs DXC, we could just not have any sort of HLSL-to-SPIRV compiler in Lotte, using DXC, Slang or Glslang to compile HLSL to SPIRV strictly offline. Why? Because removing any runtime dependency on Glslang, Slang or DXC would make the library more lean, which is crucial on some platforms *(critical on Android, among others)*. Plus, **we already have a precedent for it** in the form of [FontPacker](https://github.com/Metalhead33-Foundation/FontPacker/), which takes the various font formats that [FreeType](https://freetype.org/) supports and compiles them into [our own bespoke font package format](https://github.com/Metalhead33-Foundation/FontPacker/blob/master/BINARY_FORMAT.md).
+
+Or, if online, runtime SPIRV shader generation turns out to be a non-negotiable, we might the possibility of using a SPIRV **assembler** rather than a compiler, or writing our own bespoke SPIRV generator that takes some kind of a node graph as an input rather than written code. Hardcoded SPIRV is, in general going to be things that don't need to change, e.g. basic GUI rendering shaders or text rendering shaders. The precedent is all the [AI-written WebAssembly WAT assembly in WasmJIT's unit tests](https://github.com/Metalhead33-Foundation/Wasmjit/tree/master/Test/wasm_wat).
 
 ## Migration status: deferred indefinitely
 
@@ -126,4 +150,5 @@ as-is, and the GL/GLES/D3D backends only ever see SPIR-V through SPIRV-Cross.
 - \ref mod_kaldid3dcommon — the D3D family's SPIR-V -> HLSL step.
 - [KhronosGroup/glslang issue 4210](https://github.com/KhronosGroup/glslang/issues/4210)
   — the HLSL front-end deprecation this note plans around.
+- [Branimir Karadžić's Shader compiler survey](https://bkaradzic.github.io/posts/ideal-shader-compiler/)
 

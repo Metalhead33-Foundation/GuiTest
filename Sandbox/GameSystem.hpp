@@ -1,6 +1,7 @@
 #ifndef GAMESYSTEM_HPP
 #define GAMESYSTEM_HPP
 #include "AppSystem.hpp"
+#include <Elvavena/Io/ElvIoSystem.hpp>
 #include <Euphemy/Config/EuphConfiguration.hpp>
 #include "HarukaContext.hpp"
 #include <Haruka/Core/HrkMixer.hpp>
@@ -31,6 +32,7 @@ private:
 		Lotte::Gui::Cursor cursor;
 	};
 
+	Elv::Io::System& iosys;
 	Euph::Conf::Configuration& config;
 	Hrk::sMixer mixer;
 	Hrk::sModuleStreamer modplayer;
@@ -75,7 +77,7 @@ private:
 	/** @brief Replaces the active cursor's anchor and re-resolves its origin. */
 	void setActiveCursorAnchor(Lotte::Gui::CursorAnchor anchor);
 public:
-	GameSystem(Euph::Conf::Configuration& config);
+	GameSystem(Euph::Conf::Configuration& config, Elv::Io::System& iosys);
 	/** @brief Shows the system pointer again before the window goes away. */
 	~GameSystem() override;
 

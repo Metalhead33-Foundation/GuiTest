@@ -52,13 +52,13 @@ const char* clipSpaceAxisName(Kld::ClipSpaceYAxis axis) noexcept
 } // namespace
 
 
-GameSystem::GameSystem(Euph::Conf::Configuration& config)
+GameSystem::GameSystem(Euph::Conf::Configuration& config, Elv::Io::System& iosys)
 	: AppSystem(std::string(config.getString("Game", "sTitle", "GameDemo")),
 				0,
 				0,
 				config.getUInteger("Video","uWidth", 640),
 				config.getUInteger("Video","uHeight", 480),
-				0), config(config)
+				0), config(config), iosys(iosys)
 {
 	auto samplerate = config.getUInteger("Audio","uSamplerate",48000);
 	auto channels = config.getUInteger("Audio","uChannels",2);

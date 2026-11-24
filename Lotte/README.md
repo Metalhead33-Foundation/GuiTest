@@ -182,6 +182,12 @@ Drawing a glyph therefore means mapping the whole `S x S` tile onto the intended
 `LteTextLayout` applies that expansion, and `LteFontAtlas` documents the atlas side of
 the contract. The CBOR map variants described by the specification are not implemented.
 
+### Assimp 
+
+The project currently links [the Asset-Importer Library, also known as Assimp](https://www.assimp.org/) for loading 3D models.
+
+However, this decision is to be revisited in the future - just like [the potential for going offline-only for HLSL-to-SPIRV compilation](../docs/graphics/SHADERS.md) and [the FontPacker precedent](https://github.com/Metalhead33-Foundation/FontPacker/), we **might** opt to use Assimp in tooling only *(converting the various mesh formats Assimp supports to our own bespoke binary format)*
+
 ### Typical asset flow
 
 1. Euphemy's `AssetCatalog`/`ResourceRegistry`/`StreamingScheduler` load and decode an

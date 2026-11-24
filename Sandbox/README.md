@@ -26,6 +26,12 @@ The sibling shared libraries are not found through an rpath, so the `LD_LIBRARY_
 required - including the Kaldi backend the graphics context loads at run time (`KaldiVK`, and
 `KaldiGL`/`KaldiGLES` when those are selected).
 
+## JavaScript
+
+The inclusion of MozJS / SpiderMonkey is **temporary**. It is **not** intended to be embedded into any of the libraries in our project *(or even in the Sandbox for the long term)*. It is in there for demonstration purposes - our intended long-term trajectory is swapping it for a combination of [WasmJIT](https://github.com/Metalhead33-Foundation/Wasmjit/tree/master) and either [quickjs](https://github.com/bellard/quickjs) or [mquickjs](https://github.com/bellard/mquickjs) *(plus, WasmJIT itself is slated for integration into this project - MhLib - in the long term)*.
+
+The included SpiderMonkey code is for demonstration purposes, plus for ease of integration into the windowing system.
+
 ## `GameSystem`: audio, a window and a cursor
 
 `main()` loads `config.ini` (if present, from the working directory), then hands it to a

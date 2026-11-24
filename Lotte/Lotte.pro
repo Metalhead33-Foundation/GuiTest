@@ -10,10 +10,21 @@ LIBS += -L$$OUT_PWD/../Euphemy -lEuphemy
 # glslang compiles HLSL/GLSL to SPIR-V. `glslang-default-resource-limits` provides
 # the upstream default TBuiltInResource that compileShaderProgram() hands to
 # TShader::parse(); linking it avoids maintaining our own copy of the limits table.
+# Also, glslang's HLSL part is deprecated and will be removed in the future.
+# We might replace it with DXC or make HLSL-to-SPIRV compilations offline-only in the future.
 LIBS += -lglslang -lSPIRV -lglslang-default-resource-limits
 # Kaldi is used by Lotte as a header-only dependency. Do not add -lKaldi
 # or libKaldi here; there is no Kaldi library target to link against.
 #
+# utfcpp (https://github.com/nemtrif/utfcpp) is likewise header-only and is
+# consumed as <utf8cpp/utf8.h> from the system include path, so no -l or
+# separate INCLUDEPATH is required.
+
+# The Assimp dependency is to be reconsidered in the future.
+# We MIGHT create tooling that converts assimp-importable assets into our own bespoke format.
+# Might. No guarantees. Still, to be considered, to keep the library lean.
+LIBS += -lassimp
+
 # CSS support for MML is optional. libcss (NetSurf) is a C library needed by one
 # module only, and `Text/LteCssStyle.cpp` compiles to nothing without the define,
 # so the library keeps building on hosts that do not have it installed.
@@ -23,12 +34,10 @@ packagesExist(libcss) {
     PKGCONFIG += libcss
     DEFINES += LTE_WITH_LIBCSS
 }
-#
-# utfcpp (https://github.com/nemtrif/utfcpp) is likewise header-only and is
-# consumed as <utf8cpp/utf8.h> from the system include path, so no -l or
-# separate INCLUDEPATH is required.
+
 
 SOURCES += \
+    Asset/LteAssimpIO.cpp \
     Asset/LteGpuAssetStreamer.cpp \
     Conf/LteBackendConfig.cpp \
     GFX/LteClipSpaceConventions.cpp \
@@ -54,6 +63,7 @@ SOURCES += \
     Text/LteTextRenderer.cpp
 
 HEADERS += \
+    Asset/LteAssimpIO.hpp \
     Asset/LteGpuAssetStreamer.hpp \
     Conf/LteBackendConfig.hpp \
     GFX/LteClipSpaceConventions.hpp \
@@ -91,6 +101,8 @@ HEADERS += \
     LotteLib.hpp
 
 DISTFILES += \
+    ../docs/text/MML_CSS.md \
+    ../docs/text/index.md \
     Lotte.pri \
     README.md \
     Text/MML.md

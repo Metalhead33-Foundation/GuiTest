@@ -127,6 +127,9 @@ HEADERS += \
  Platform/EuphWSAPollPoller.hpp
 
 DISTFILES += \
+    ../docs/networking/HTTP.md \
+    ../docs/networking/NETCODE.md \
+    ../docs/networking/index.md \
     Euphemy.pri \
     Media/Audio/FFTConvolver/FFTConvolver_COPYING.txt \
     Media/Audio/FFTConvolver/FFTConvolver_README.md \
