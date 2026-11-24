@@ -2,6 +2,8 @@
 
 # Kaldi
 
+![Mascot](Kaldi.jpg)
+
 Kaldi is the graphics abstraction layer (RHI/HAL) that Lotte is built on. It defines a
 backend-agnostic, VM-like command vocabulary and the object-oriented facade that records
 it. The rendering backends are separate shared libraries: [KaldiGL](../KaldiGL/README.md),

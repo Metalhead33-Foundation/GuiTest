@@ -2,6 +2,8 @@
 
 # Haruka
 
+![Mascot](Haruka.jpg)
+
 Haruka is the audio engine of MhLib. It provides a pull-based audio graph: `Playable`
 nodes write frames into an output packet, and mixers, panners, resamplers and streamers
 compose those nodes. Decoding is delegated to Euphemy (libsndfile, libopenmpt,

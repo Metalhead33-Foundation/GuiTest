@@ -1,6 +1,16 @@
 # MhLib
 
-An experimental C++ library (hobby project) intended to have the following features:
+![Elvavena Mascot](Elvavena/Elvavena.jpg)
+![Euphemy Mascot](Euphemy/Euphemy.jpg)
+![Lotte Mascot](Lotte/Lotte.jpg)
+![Haruka Mascot](Haruka/Haruka.jpg)
+![Kaldi Mascot](Kaldi/Kaldi.jpg)
+
+**All mascot art made by [Lori Hagami](https://www.deviantart.com/lorihagami)!**
+
+--
+
+**MhLib** is an experimental C++ library (hobby project) intended to have the following features:
 - 3D rendering engine, abstracting around OpenGL 4.x (4.x, but with optional 4.6 things), OpenGL ES 3.2, Direct3D 11, Vulkan and Direct3D 12.
 - Audio engine
 - I/O abstractions

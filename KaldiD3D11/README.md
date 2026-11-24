@@ -2,6 +2,8 @@
 
 # KaldiD3D11
 
+![Mascot](KaldiD3D11.jpg)
+
 Direct3D 11 backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 
 **Status: device ownership complete, no executor.** The C ABI is exported and the

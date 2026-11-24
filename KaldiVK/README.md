@@ -2,6 +2,8 @@
 
 # KaldiVK
 
+![Mascot](KaldiVK.jpg)
+
 Vulkan backend for the Kaldi graphics HAL (see [Kaldi](../Kaldi/README.md)).
 
 **Status: complete executor, HAL 1.2.** The library builds and exports the backend C ABI,

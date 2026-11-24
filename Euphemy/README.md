@@ -2,6 +2,8 @@
 
 # Euphemy
 
+![Mascot](Euphemy.jpg)
+
 Euphemy is the media and platform layer of MhLib. It builds on Elvavena and provides
 concrete I/O devices, image and audio codecs, the INI-style configuration format, an
 optional set of PMR arenas, and the CPU-side asset streaming runtime.

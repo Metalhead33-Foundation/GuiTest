@@ -2,6 +2,8 @@
 
 # Lotte
 
+![Mascot](Lotte.jpg)
+
 Lotte is the higher-level graphics and GUI library of MhLib. It sits on top of Kaldi
 (the graphics HAL) and Euphemy (assets, images, text-adjacent I/O), and is where
 renderer-facing integration belongs so that Euphemy can stay independent of Kaldi.

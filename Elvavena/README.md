@@ -2,6 +2,8 @@
 
 # Elvavena
 
+![Mascot](Elvavena.jpg)
+
 Elvavena is the foundational utility library of MhLib. Every other module builds on
 it: it owns the shared I/O device abstraction, the generic containers and allocators,
 the dynamic-library and event-loop helpers, and the serialization primitives that the
