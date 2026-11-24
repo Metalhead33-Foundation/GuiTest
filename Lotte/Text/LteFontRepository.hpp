@@ -35,6 +35,7 @@
 #include <Lotte/LotteLib.hpp>
 #include <Lotte/Text/LteFontAtlas.hpp>
 #include <Lotte/Text/LteFontFace.hpp>
+#include <Elvavena/Io/ElvIoSystem.hpp>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -120,15 +121,35 @@ public:
 				 std::shared_ptr<const PreprocessedFontFace> face, FontStyle style = {});
 
 	/**
-	 * @brief Loads a `.wodf` file and registers it.
+	 * @brief Loads a `.wodf` file through an @ref Elv::Io::System and registers it.
 	 * @param id Identifier to register under; empty uses the family name.
-	 * @param path Path to the container.
+	 * @param iosys I/O system that opens @p path (for example PhysFS, a filesystem,
+	 *        or a test memory system).
+	 * @param path Virtual path resolved by @p iosys.
 	 * @param style Variant marker.
 	 * @return The loaded face.
-	 * @throws std::runtime_error When the file cannot be opened or parsed.
+	 * @throws std::runtime_error When the system cannot open the file or the
+	 *         container cannot be parsed.
 	 */
-	std::shared_ptr<const PreprocessedFontFace> addFaceFromFile(std::string id, const std::string& path,
-																 FontStyle style = {});
+	std::shared_ptr<const PreprocessedFontFace> addFaceFromFile(
+		std::string id, Elv::Io::System& iosys, const std::string& path,
+		FontStyle style = {});
+
+	/**
+	 * @brief Loads a `.wodf` face from an already-open device and registers it.
+	 *
+	 * The device is read from its current position and is **not** closed or
+	 * repositioned by this call. Use this overload when the caller already owns a
+	 * mounted/streaming device and does not want a second `open()`.
+	 * @param id Identifier to register under; empty uses the family name.
+	 * @param device Open readable device.
+	 * @param style Variant marker.
+	 * @return The loaded face.
+	 * @throws std::runtime_error When @p device is invalid or the container cannot
+	 *         be parsed.
+	 */
+	std::shared_ptr<const PreprocessedFontFace> addFaceFromDevice(
+		std::string id, Elv::Io::Device& device, FontStyle style = {});
 
 	/** @brief Resolves an identifier, or null. */
 	const PreprocessedFontFace* face(std::string_view id) const;
@@ -220,12 +241,26 @@ private:
 };
 
 /**
- * @brief Loads one `.wodf` font face from disk.
- * @param path Container path.
+ * @brief Loads one `.wodf` font face through an @ref Elv::Io::System.
+ * @param iosys I/O system that opens @p path.
+ * @param path Virtual path resolved by @p iosys.
  * @return The parsed face.
- * @throws std::runtime_error When the file cannot be opened or parsed.
+ * @throws std::runtime_error When the system cannot open the file or the container
+ *         cannot be parsed.
  */
-std::shared_ptr<PreprocessedFontFace> MH_LOTTE_API loadFontFace(const std::string& path);
+std::shared_ptr<PreprocessedFontFace> MH_LOTTE_API loadFontFace(
+	Elv::Io::System& iosys, const std::string& path);
+
+/**
+ * @brief Loads one `.wodf` font face from an already-open device.
+ *
+ * The device is read from its current position and remains owned by the caller.
+ * @param device Open readable device.
+ * @return The parsed face.
+ * @throws std::runtime_error When @p device is invalid or the container cannot be
+ *         parsed.
+ */
+std::shared_ptr<PreprocessedFontFace> MH_LOTTE_API loadFontFace(Elv::Io::Device& device);
 
 } // namespace Text
 } // namespace Lotte

@@ -52,8 +52,8 @@ everything else. Startup compiles two HLSL programs with
 texture upload and submits that batch. Each frame is:
 
 ```text
-prepare text -> FontRepository::addFaceFromFile / TextRenderer::prepare (lazy atlas
-                uploads, submitted before the frame when new glyphs appeared)
+prepare text -> FontRepository::addFaceFromFile(iosys, path) / TextRenderer::prepare
+                (lazy atlas uploads, submitted before the frame when new glyphs appeared)
 beginFrame   -> BeginFrame + ClearColorAttachment
 KaldiGuiRenderer::beginFrame -> reset the CPU caches
 TextRenderer::beginFrame/render -> per-page glyph runs + decoration quads
@@ -64,10 +64,11 @@ flush        -> text draws first, then the cursor (viewport/scissor/blend,
 endFrame     -> EndFrame + Present, swapBuffers, processCommandQueue
 ```
 
-The sample text is loaded from `[Graphics] sFont` (default
-`/home/legacy/blenda/vinque.wodf`) and laid out from MML, so it exercises the family
-lookup, bold/italic/underline/strike/colour tags and the SDF atlas at once. A missing
-font logs `Text disabled: ...` and leaves the cursor path working.
+The sample text is loaded from `[Graphics] sFont` through the PhysFS
+`Elv::Io::System` (mount its directory, or point `sFont` at a virtual path) and laid
+out from MML, so it exercises the family lookup, bold/italic/underline/strike/colour
+tags and the SDF atlas at once. A missing font logs `Text disabled: ...` and leaves
+the cursor path working.
 
 Missing backend, missing GPU or a refused device is not fatal: it logs
 `Graphics disabled: ...` and the audio half keeps running. Cursor images are resolved
@@ -101,8 +102,13 @@ hard-codes a vertically mirrored UI on the other backend.
 sBackendLibrary=libKaldiVK.so
 sClearColor=0xFF20A030
 sCursor=cursors/wodmouse.png
-sFont=/home/legacy/blenda/vinque.wodf
+sFont=vinque.wodf
 ```
+
+`sFont`, `sCursor` and `sSongPath` are resolved by the Sandbox's PhysFS
+`Elv::Io::System`. Mount the physical directories through `[Game] ModPaths` (or put
+the files under the base directory) before startup; absolute host paths are not
+opened directly by the font loader.
 
 - `sBackendLibrary` is a soname resolved through `LD_LIBRARY_PATH` or an absolute path.
   `libKaldiVK.so`, `libKaldiGL.so` and `libKaldiGLES.so` all work.

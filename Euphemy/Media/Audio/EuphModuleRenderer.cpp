@@ -1,21 +1,23 @@
 #include "EuphModuleRenderer.hpp"
 
 size_t vfio_openmpt_read( void *stream, void *dst, size_t bytes ) {
+	if(bytes == 0) return 0;
 	return size_t( reinterpret_cast< Elv::Io::Device* >( stream )->read(
 		dst, 1, int64_t( bytes ) ) );
 }
 int vfio_openmpt_seek( void *stream, int64_t offset, int whence ) {
 	Elv::Io::Device* chandle = reinterpret_cast< Elv::Io::Device* >( stream );
+	Elv::Io::SeekOrigin origin;
 	switch ( whence ) {
-		case OPENMPT_STREAM_SEEK_SET:
-			chandle->seek( offset, Elv::Io::SeekOrigin::SET ); return chandle->tell() ? 0 : -1;
-		case OPENMPT_STREAM_SEEK_CUR:
-			chandle->seek( offset, Elv::Io::SeekOrigin::CUR ); return chandle->tell() ? 0 : -1;
-		case OPENMPT_STREAM_SEEK_END:
-			chandle->seek( offset, Elv::Io::SeekOrigin::END ); return chandle->tell() ? 0 : -1;
+		case OPENMPT_STREAM_SEEK_SET: origin = Elv::Io::SeekOrigin::SET; break;
+		case OPENMPT_STREAM_SEEK_CUR: origin = Elv::Io::SeekOrigin::CUR; break;
+		case OPENMPT_STREAM_SEEK_END: origin = Elv::Io::SeekOrigin::END; break;
 		default:
 			return -1;
 	}
+	// Elv::Io::Device::seek() returns zero on success. Do not derive success from
+	// tell(): seeking to offset zero is valid and tell() is zero there too.
+	return chandle->seek( static_cast<long>( offset ), origin ) == 0 ? 0 : -1;
 }
 int64_t vfio_openmpt_tell( void *stream ) {
 	return int64_t( reinterpret_cast< Elv::Io::Device* >( stream )->tell( ) );
@@ -52,11 +54,16 @@ ModuleRenderer::~ModuleRenderer()
 ModuleRenderer::ModuleRenderer(Elv::Io::uDevice&& fileDev)
 	: fileDevice(std::move(fileDev)), module(nullptr, openmpt_module_destroy)
 {
-	if(this->fileDevice) {
+	if(this->fileDevice && this->fileDevice->isValid()) {
 		module = OpenmptModulePtr(openmpt_module_create2(OpenmptIO,this->fileDevice.get(),nullptr,
 										nullptr, nullptr, nullptr, nullptr,
 										nullptr, cts),openmpt_module_destroy);
 	}
+}
+
+bool ModuleRenderer::isValid() const
+{
+	return module != nullptr;
 }
 
 void ModuleRenderer::setSubsong(int32_t subsong)

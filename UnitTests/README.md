@@ -10,7 +10,7 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 221 test cases / 2891 assertions covering the
+**Status: implemented and passing.** 222 test cases / 2900 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
 snapshots, field deltas, interpolation, prediction, lockstep and the reference
@@ -110,7 +110,7 @@ build Catch2 as a single amalgamated header and replace the includes.
 | `tests/AssetRuntimeTests.cpp` | Residency state machine and its legal/illegal transitions; generation-checked handles; kind validation; strong references blocking destruction; eviction-request bookkeeping; budget measurement, pinning and victim selection; dependency-ordered loading; dependency-failure propagation (`DependencyFailed`); cancellation reported as `Canceled` with no payload installed; budget stalls (`budgetBlocked()`); queued-request admission control (`BudgetExceeded`) |
 | `tests/CompressionTests.cpp` | zstd and Snappy proxy devices round-trip payloads from 0 bytes to 200 kB; non-default Snappy chunk sizes; empty streams; foreign/truncated input is rejected; zstd checksum/level settings; zstd nested inside Snappy |
 | `tests/ImageCodecTests.cpp` | PNG and TGA encode -> decode reproduce the exact pixels of a 23x17 image; re-encoding a decoded PNG is byte-identical |
-| `tests/FontRoundTripTests.cpp` | Lotte `PreprocessedFontFace` and `StoredVectorImage` through `Elv::Io::DataStream`, comparing every persisted field (metadata, metrics, kerning, SDF payload, mipmaps) |
+| `tests/FontRoundTripTests.cpp` | Lotte `PreprocessedFontFace` and `StoredVectorImage` through `Elv::Io::DataStream`, comparing every persisted field (metadata, metrics, kerning, SDF payload, mipmaps); `loadFontFace()` through both an `Elv::Io::System` double and an already-open `Elv::Io::Device`, plus `FontRepository::addFaceFrom{File,Device}()` |
 | `tests/TextRenderingTests.cpp` | `FontRepository` family/bold resolution, lazy multi-page `FontAtlas` shelf packing and upload recording, and `TextRenderer` vertex output (per-vertex colour, bold dilation, MSDF mode, decoration quads, page runs) |
 | `tests/ConfigTests.cpp` | Configuration text round-trip for every typed value; default caching for missing keys; parsing a hand-written document; rejection of keys without a type prefix |
 | `tests/BackendConfigTests.cpp` | The Kaldi config contract end to end: GL provider defaults written with typed keys, key prefixes matching value types, clamping (`iGlSamples=999` -> 16), unknown enumerations falling back, missing sections keeping defaults, `.ini` serialize -> parse -> apply round-trip, per-purpose common defaults |

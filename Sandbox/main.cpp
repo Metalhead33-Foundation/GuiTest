@@ -18,8 +18,8 @@ int main(int argc, char *argv[])
 	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS,"1");
 	PhysFS::System physfsSystem;
 	std::string writepath = std::string(physfsSystem.getBaseDir()) + physfsSystem.separator() + "overwrite";
-	physfsSystem.mount(physfsSystem.getBaseDir(),"");
-	physfsSystem.mount(writepath.c_str(),"");
+	physfsSystem.mount(physfsSystem.getBaseDir(),"/");
+	physfsSystem.mount(writepath.c_str(),"/");
 	{
 		std::string paths = std::string(config.getString("Game","ModPaths"));
 		std::string token;
@@ -30,6 +30,8 @@ int main(int argc, char *argv[])
 		}
 
 	}
+	physfsSystem.mount("/home/legacy/blenda","/");
+	physfsSystem.mount("/home/legacy/zene/GameMusic/Unreal Tournament/mod","/music");
 	//testConfiguration();
 	//testCustomAllocator();
 	/*testAssetRuntime();
@@ -45,8 +47,12 @@ int main(int argc, char *argv[])
 	testGeometryBatches();
 	testNetLoopback();
 	testFontParser();*/
-	GameSystem gamesys(config, physfsSystem);
-	gamesys.run();
+	{
+		GameSystem gamesys(config, physfsSystem);
+		gamesys.run();
+	}
+	// The game's module streamer owns a PhysFS device. It must be destroyed while
+	// PhysicsFS is still initialized, otherwise PHYSFS_close() runs on freed state.
 	PhysFS::System::deinit();
 	return 0;
 }

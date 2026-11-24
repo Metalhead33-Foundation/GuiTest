@@ -1,5 +1,4 @@
 #include "GameSystem.hpp"
-#include <Euphemy/Io/EuphFile.hpp>
 #include <Euphemy/Media/Image/EuphPNG.hpp>
 #include <Lotte/Text/LteMml.hpp>
 #include <Lotte/Text/LteRichText.hpp>
@@ -135,7 +134,7 @@ void GameSystem::loadFont()
 {
 	try {
 		const std::string path {
-			config.getString("Graphics", "sFont", "/home/legacy/blenda/vinque.wodf")
+			config.getString("Graphics", "sFont", "vinque.wodf")
 		};
 		Lotte::Text::FontAtlasSettings atlasSettings;
 		atlasSettings.pageWidth = 1024;
@@ -144,7 +143,7 @@ void GameSystem::loadFont()
 
 		fontRepository = std::make_unique<Lotte::Text::FontRepository>(kaldi->resources(),
 																	  atlasSettings);
-		const auto face = fontRepository->addFaceFromFile("Vinque", path);
+		const auto face = fontRepository->addFaceFromFile("Vinque", iosys, path);
 		fontRepository->setDefaultFaceId("Vinque");
 
 		Lotte::Text::TextRendererSettings rendererSettings;
@@ -185,18 +184,17 @@ void GameSystem::loadFont()
 
 void GameSystem::loadCursors()
 {
-	const std::string primary { config.getString("Graphics", "sCursor", "cursors/wodmouse.png") };
-	const std::vector<std::string> paths = { primary, "cursors/hourglass2.png" };
+	const std::string primary { config.getString("Graphics", "sCursor", "/cursors/wodmouse.png") };
+	const std::vector<std::string> paths = { primary, "/cursors/hourglass2.png" };
 	for (const std::string& path : paths) {
-		Euph::Io::uFile file;
+		Elv::Io::uDevice file;
 		try {
-			file = Elv::Util::pmr_make_unique<Euph::Io::File>(
-				std::pmr::get_default_resource(), path.c_str(), Elv::Io::Mode::READ);
+			file = iosys.openUnique(path.c_str(), Elv::Io::Mode::READ);
 		} catch (const std::exception& error) {
 			SDL_Log("Could not open cursor image '%s': %s", path.c_str(), error.what());
 			continue;
 		}
-		if (!file->isValid()) {
+		if (!file || !file->isValid()) {
 			SDL_Log("Could not open cursor image: %s", path.c_str());
 			continue;
 		}
@@ -250,14 +248,21 @@ void GameSystem::setActiveCursorAnchor(Lotte::Gui::CursorAnchor anchor)
 
 void GameSystem::initialize()
 {
-	std::string modpath = std::string(config.getString("Game", "sSongPath", "/home/legacy/zene/GameMusic/Unreal Tournament/mod/Magnus.it"));
-	Euph::Io::uFile file = Elv::Util::pmr_make_unique<Euph::Io::File>(std::pmr::get_default_resource(), modpath.c_str(), Elv::Io::Mode::READ);
-	if(file->isValid()) {
+	std::string modpath = std::string(config.getString(
+		"Game", "sSongPath",
+		"/music/Magnus.it"));
+	Elv::Io::uDevice file = iosys.openUnique(modpath.c_str(), Elv::Io::Mode::READ);
+	if(file && file->isValid()) {
 		modplayer = Elv::Util::pmr_make_shared<Hrk::ModuleStreamer>(std::pmr::get_default_resource(),
 																	std::move(file));
-		mixer->getChildren().emplace(modplayer.get(), config.getFloat("Game","fModVolume",0.10F));
-		modplayer->getState().setCursor(Hrk::FrameIndex(0));
-		modplayer->getState().setPlayStatus(Hrk::PlayStatus::PLAYING);
+		if(modplayer->isValid()) {
+			mixer->getChildren().emplace(modplayer.get(), config.getFloat("Game","fModVolume",0.10F));
+			modplayer->getState().setCursor(Hrk::FrameIndex(0));
+			modplayer->getState().setPlayStatus(Hrk::PlayStatus::PLAYING);
+		} else {
+			SDL_Log("Could not parse module file: %s", modpath.c_str());
+			modplayer.reset();
+		}
 	} else {
 		SDL_Log("Could not open module file: %s", modpath.c_str());
 	}

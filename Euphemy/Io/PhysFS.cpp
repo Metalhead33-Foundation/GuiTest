@@ -49,14 +49,16 @@ Device::~Device()
 
 size_t Device::read(void* buffer, size_t size, size_t count)
 {
-	assert(handle);
-	return PHYSFS_readBytes(static_cast<PHYSFS_File*>(handle),buffer,size * count) / count;
+	if(handle == nullptr || size == 0 || count == 0) return 0;
+	const PHYSFS_sint64 bytes = PHYSFS_readBytes(static_cast<PHYSFS_File*>(handle), buffer, size * count);
+	return bytes < 0 ? 0 : size_t(bytes) / size;
 }
 
 size_t Device::write(const void* buffer, size_t size, size_t count)
 {
-	assert(handle);
-	return PHYSFS_writeBytes(static_cast<PHYSFS_File*>(handle),buffer,size * count) / count;
+	if(handle == nullptr || size == 0 || count == 0) return 0;
+	const PHYSFS_sint64 bytes = PHYSFS_writeBytes(static_cast<PHYSFS_File*>(handle), buffer, size * count);
+	return bytes < 0 ? 0 : size_t(bytes) / size;
 }
 
 int Device::seek(long offset, Elv::Io::SeekOrigin whence)

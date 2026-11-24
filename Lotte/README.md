@@ -140,7 +140,7 @@ context.endFrame();
 | `LteMarkupColour.hpp` / `.cpp` | `parseMarkupColour()` - web colour names, `#RGB(A)` / `#RRGGBB(AA)` hex, and normalized or byte component lists |
 | `LteTextLayout.hpp` / `.cpp` | `layoutRun()` / `layoutRuns()` - glyph placement from a `PreprocessedFontFace` (intended box, bearings, measured line height, newline handling, italic shear, per-run underline/strikethrough segments, optional word spacing) producing `PlacedGlyph`/`DecorationLine`/`TextStyle`. Each glyph records its face (`TextLayout::faces` + `faceIndex`), its effective em size and whether the style asks for bold, so a renderer can pick the right atlas and synthesize weight |
 | `LteFontAtlas.hpp` / `.cpp` | `FontAtlas` - lazy, multi-page glyph atlas for one face: decodes `StoredCharacter::sdf` through Euphemy (PNG/TGA/JPEG/WebP), shelf-packs `S x S` tiles into `WriteableTexture2D` RGBA8 pages with a gutter, records uploads, and implements `GlyphAtlasMapping` including `pageForGlyph()`; `appendGlyphQuads()` turns a layout into textured quads |
-| `LteFontRepository.hpp` / `.cpp` | `FontRepository` - resolves a family name and bold request to a registered `PreprocessedFontFace` (real bold variants or regular for shader-synthesized bold) and owns one lazily created `FontAtlas` per face. `loadFontFace()` parses a `.wodf` through `FontDataStream` |
+| `LteFontRepository.hpp` / `.cpp` | `FontRepository` - resolves a family name and bold request to a registered `PreprocessedFontFace` (real bold variants or regular for shader-synthesized bold) and owns one lazily created `FontAtlas` per face. `addFaceFromFile()` opens through an `Elv::Io::System`; `addFaceFromDevice()` consumes an already-open `Elv::Io::Device`. `loadFontFace()` accepts the same two forms and parses a `.wodf` through `FontDataStream` |
 | `LteTextRenderer.hpp` / `.cpp` | `TextRenderer` - one SDF/MSDF/MSDFA pipeline and one vertex format for glyphs and decoration quads. `prepare()` ensures/records atlas uploads outside the frame, `render()` batches quads per atlas page, and `flush()` records the indexed draws. Colour is per vertex, bold is a per-vertex threshold dilation, and `3` in `params.x` draws solid underline/strikethrough quads that use `fwidth()` on their UVs for SDF-style edge anti-aliasing |
 | `MML.md` | The MML language specification |
 
@@ -242,8 +242,9 @@ However, this decision is to be revisited in the future - just like [the potenti
       em by default). Italic remains a layout shear. Colour is per vertex, so a colour
       change does not split a draw run.
 - [x] `FontRepository` resolves MML/CSS family names case-insensitively to a face and
-      owns one lazily created atlas per face. `loadFontFace()` is the standalone
-      `.wodf` loader.
+      owns one lazily created atlas per face. `loadFontFace()` / `addFaceFromFile()`
+      are the standalone `.wodf` loaders and use an `Elv::Io::System` (or an existing
+      `Elv::Io::Device`), never a host path directly.
 - [ ] No 3D rendering features (scene graph, lighting, shadows, post-processing). `GFX/LteMesh.hpp`
       only covers vertex/index storage and draw recording.
 - [ ] `MhPipeline`-style wrappers are intentionally absent: Kaldi's `Pipeline`, binding
@@ -268,8 +269,9 @@ However, this decision is to be revisited in the future - just like [the potenti
       exporter sorts both by code point, so exported font files are byte-deterministic
       and match FontPacker's `QMap` ordering.
 - [x] Font/vector-image formats are read/written through `Elv::Io::DataStream`;
-      `loadFontFace()` wraps the font importer in a file loader. There is no saver
-      wrapper for either container yet.
+      `loadFontFace()` opens its bytes through `Elv::Io::System` or consumes an
+      already-open `Elv::Io::Device`. There is no saver wrapper for either container
+      yet.
 
 ## Build notes
 

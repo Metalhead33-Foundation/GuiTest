@@ -11,13 +11,20 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <Euphemy/Io/EuphMemoryDevice.hpp>
+#include <Lotte/GFX/LteResourceFactory.hpp>
+#include <Lotte/LteKld.hpp>
 #include <Lotte/Text/LteFontAtlas.hpp>
 #include <Lotte/Text/LteFontFace.hpp>
+#include <Lotte/Text/LteFontRepository.hpp>
 #include <Lotte/Text/LteTextLayout.hpp>
 #include <Lotte/VectorGraphic/LteStoredVectorImage.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <glm/vec2.hpp>
+#include <memory>
+#include <memory_resource>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -77,6 +84,68 @@ Lotte::Text::PreprocessedFontFace makeFace()
 	face.glyphs[65] = glyph;
 	return face;
 }
+
+/** @brief Serializes @p face into a complete FontPacker byte stream. */
+std::vector<std::byte> serializeFace(const Lotte::Text::PreprocessedFontFace& face)
+{
+	Euph::Io::MemoryDevice device(Elv::Io::Mode::READ_WRITE);
+	Lotte::Text::FontDataStream<Euph::Io::MemoryDevice> stream(device);
+	stream << face;
+	return device.getBuffer();
+}
+
+/**
+ * @brief Minimal Elv::Io::System that serves one in-memory font to every open.
+ *
+ * The tests must exercise the System-based overload without touching the host
+ * filesystem or requiring a PhysFS mount. PhysFS itself lives in Euphemy; this test
+ * double shows that Lotte only depends on the abstract seam.
+ */
+class MemorySystem final : public Elv::Io::System {
+public:
+	explicit MemorySystem(std::vector<std::byte> bytes)
+		: bytes_(std::move(bytes))
+	{
+	}
+
+	Elv::Io::Device* open(const char*, Elv::Io::Mode mode) override
+	{
+		return new Euph::Io::MemoryDevice(mode, std::vector<std::byte>(bytes_));
+	}
+
+	Elv::Io::uDevice openUnique(const char*, Elv::Io::Mode mode,
+								std::pmr::memory_resource* memRes) override
+	{
+		return Elv::Util::pmr_make_unique<Euph::Io::MemoryDevice>(
+			memRes, mode, std::vector<std::byte>(bytes_));
+	}
+
+	Elv::Io::sDevice openShared(const char*, Elv::Io::Mode mode,
+								std::pmr::memory_resource* memRes) override
+	{
+		return Elv::Util::pmr_make_shared<Euph::Io::MemoryDevice>(
+			memRes, mode, std::vector<std::byte>(bytes_));
+	}
+
+	bool exists(const char*) override { return true; }
+	char separator() const override { return '/'; }
+	void enumerate(const char*, bool, Elv::Io::System::FilenameCallback callback) override
+	{
+		(void)callback;
+	}
+	void enumerate(const char*, Elv::Io::System::FilesystemCallback callback) override
+	{
+		(void)callback;
+	}
+	bool isDirectory(const char*) override { return false; }
+	bool isSymlink(const char*) override { return false; }
+	bool isFile(const char*) override { return true; }
+	bool mkdir(const char*) override { return false; }
+	bool remove(const char*) override { return false; }
+
+private:
+	std::vector<std::byte> bytes_;
+};
 
 }
 
@@ -573,4 +642,40 @@ TEST_CASE("Image format tags and the midpoint flag follow the container rules", 
 	vectorStream >> decodedImage;
 	CHECK(decodedImage.midpointAdjustment == 1.0f);
 	CHECK(decodedImage.imageFormat.back() == '\0');
+}
+
+TEST_CASE("Font faces load through Elv::Io::System or an open device", "[font][io]")
+{
+	using namespace Lotte::Text;
+
+	const PreprocessedFontFace face = makeFace();
+	const std::vector<std::byte> bytes = serializeFace(face);
+
+	Euph::Io::MemoryDevice device(Elv::Io::Mode::READ, std::vector<std::byte>(bytes));
+	const std::shared_ptr<PreprocessedFontFace> fromDevice = loadFontFace(device);
+	REQUIRE(fromDevice != nullptr);
+	CHECK(fromDevice->familyName == face.familyName);
+
+	MemorySystem system(bytes);
+	const std::shared_ptr<PreprocessedFontFace> fromSystem =
+		loadFontFace(system, "fonts/roundtrip.wodf");
+	REQUIRE(fromSystem != nullptr);
+	CHECK(fromSystem->familyName == face.familyName);
+
+	Lotte::CommandBuffer dispatcher;
+	Lotte::Gfx::ResourceFactory factory(dispatcher);
+	FontRepository repository(factory);
+
+	Euph::Io::MemoryDevice deviceForRepository(Elv::Io::Mode::READ,
+											  std::vector<std::byte>(bytes));
+	const std::shared_ptr<const PreprocessedFontFace> byDevice =
+		repository.addFaceFromDevice("DeviceFace", deviceForRepository);
+	REQUIRE(byDevice != nullptr);
+	CHECK(repository.face("DeviceFace") == byDevice.get());
+
+	const std::shared_ptr<const PreprocessedFontFace> byFile =
+		repository.addFaceFromFile("FileFace", system, "fonts/roundtrip.wodf");
+	REQUIRE(byFile != nullptr);
+	CHECK(repository.face("FileFace") == byFile.get());
+	CHECK(repository.faceCount() == 2);
 }

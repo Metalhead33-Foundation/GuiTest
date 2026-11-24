@@ -1,5 +1,4 @@
 #include "LteFontRepository.hpp"
-#include <Euphemy/Io/EuphFile.hpp>
 #include <algorithm>
 #include <cctype>
 #include <stdexcept>
@@ -212,11 +211,10 @@ void FontRepository::setDefaultFaceId(std::string id)
 	defaultFaceId_ = entry->id;
 }
 
-std::shared_ptr<const PreprocessedFontFace> FontRepository::addFaceFromFile(std::string id,
-																			 const std::string& path,
-																			 FontStyle style)
+std::shared_ptr<const PreprocessedFontFace> FontRepository::addFaceFromFile(
+	std::string id, Elv::Io::System& iosys, const std::string& path, FontStyle style)
 {
-	std::shared_ptr<PreprocessedFontFace> loaded = loadFontFace(path);
+	std::shared_ptr<PreprocessedFontFace> loaded = loadFontFace(iosys, path);
 	if (id.empty()) {
 		id = loaded->familyName;
 	}
@@ -224,14 +222,33 @@ std::shared_ptr<const PreprocessedFontFace> FontRepository::addFaceFromFile(std:
 	return loaded;
 }
 
-std::shared_ptr<PreprocessedFontFace> loadFontFace(const std::string& path)
+std::shared_ptr<const PreprocessedFontFace> FontRepository::addFaceFromDevice(
+	std::string id, Elv::Io::Device& device, FontStyle style)
 {
-	Euph::Io::File file(path.c_str(), Elv::Io::Mode::READ);
-	if (!file.isValid()) {
+	std::shared_ptr<PreprocessedFontFace> loaded = loadFontFace(device);
+	if (id.empty()) {
+		id = loaded->familyName;
+	}
+	addFace(id, loaded, style);
+	return loaded;
+}
+
+std::shared_ptr<PreprocessedFontFace> loadFontFace(Elv::Io::System& iosys, const std::string& path)
+{
+	Elv::Io::uDevice device = iosys.openUnique(path.c_str(), Elv::Io::Mode::READ);
+	if (!device || !device->isValid()) {
 		throw std::runtime_error("FontRepository: cannot open '" + path + "'");
 	}
+	return loadFontFace(*device);
+}
+
+std::shared_ptr<PreprocessedFontFace> loadFontFace(Elv::Io::Device& device)
+{
+	if (!device.isValid()) {
+		throw std::runtime_error("FontRepository: cannot read from an invalid device");
+	}
 	auto face = std::make_shared<PreprocessedFontFace>();
-	FontDataStream<> stream(file);
+	FontDataStream<> stream(device);
 	stream >> *face;
 	return face;
 }
