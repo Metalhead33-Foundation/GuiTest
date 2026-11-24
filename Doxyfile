@@ -51,6 +51,15 @@ EXCLUDE                = extern build Elvavena/Util/half.hpp Euphemy/Media/Audio
 EXCLUDE_PATTERNS       = */build/* */node_modules/* *.inc
 INPUT_ENCODING         = UTF-8
 
+# Images referenced from Markdown (the mascot art next to each module README, and the
+# banner row on the main page) are copied into the HTML output only when Doxygen can
+# find them through this list. Without it Doxygen still emits the `<img>` tag, copies
+# nothing, and reports no warning — every picture on the site is then a broken link.
+# The lookup is: the Markdown file's own directory first, then these paths, so `.` is
+# what makes `Elvavena/Elvavena.jpg` in the root README resolve. Doxygen copies the
+# files flat (by base name), which is why the mascot names must stay unique.
+IMAGE_PATH             = .
+
 
 # A header is a documentation artifact here: show every declaration, including
 # the internal ones, so the reference renders the header as it reads.
