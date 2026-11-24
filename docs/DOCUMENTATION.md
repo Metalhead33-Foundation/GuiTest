@@ -232,6 +232,7 @@ listed rather than left to intuition:
 | An anchor link whose heading carries no explicit label | The anchor is not a Doxygen label, so the reference cannot be resolved | Put a label on the heading (`{#environment-notes}`) and link to that |
 | A link to `<Module>/README.md` | It resolves to the *directory* reference, not to the module's page, because Doxygen uses a subdirectory README as directory documentation (§11) | Link the page id instead: `@ref mod_<module>`, or list it as a `\subpage` row in `docs/modules/index.md` |
 | A `\subpage` row read in a Markdown preview | GitHub shows the command literally; only the generated site turns it into a link | Accept it — this is the price of a nested tree, exactly as WasmJit pays for its `{#id}` anchors |
+| An image referenced from Markdown, for example a mascot next to the module README | The `<img>` tag is emitted with the path as written and **nothing is copied** unless Doxygen can find the file through `IMAGE_PATH`; the site then shows a broken image and the run stays warning-free | `IMAGE_PATH = .` in the `Doxyfile` (already set). Doxygen copies the files flat by base name, so keep image names unique |
 
 **Rule of thumb:** the generated site is the arbiter, not the Markdown preview.
 `doxygen Doxyfile` must report nothing; a warning is a doc bug with a rewrite, which is

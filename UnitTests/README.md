@@ -10,7 +10,7 @@ when a format or a codec changes.
 
 The manual, human-driven scenarios live in [`../Sandbox`](../Sandbox/README.md).
 
-**Status: implemented and passing.** 220 test cases / 2870 assertions covering the
+**Status: implemented and passing.** 221 test cases / 2891 assertions covering the
 asset runtime, compression, image codecs, the font containers, configuration,
 bit-level packet coding, the networking foundation (transport/session/clock/RPC,
 snapshots, field deltas, interpolation, prediction, lockstep and the reference
@@ -89,7 +89,7 @@ The suite exits non-zero when a check fails, so it can be used as a gate. Useful
 ./UnitTests/UnitTests "[nativewindow]"     # SDL -> native window handles
 ./UnitTests/UnitTests "[dispatch]"         # Kaldi dispatch (computed goto + switch)
 ./UnitTests/UnitTests "[capabilities]"     # HAL fallbacks + status helpers
-./UnitTests/UnitTests "[docs]"             # the Markdown note tree and the module pages
+./UnitTests/UnitTests "[docs]"             # the note tree, the module pages and their images
 ./UnitTests/UnitTests "Snappy*" -s         # one group, showing passing assertions
 ```
 
@@ -131,9 +131,9 @@ build Catch2 as a single amalgamated header and replace the includes.
 | `tests/PlatformWrappersTests.cpp` | Contiguous ring-buffer spans/wrap/bulk copy/resize; event-poller factory; epoll pipe readiness with modify/remove; polling loop commands/readiness/wakeup; kqueue stub; io_uring NOP when available; IOCP unavailable stub |
 | `tests/ShaderCompileTests.cpp` | Lotte's HLSL/GLSL -> SPIR-V compiler: one blob per stage, `Kld::ShaderBinaryDescriptor` views consistent with the stored words, empty/duplicate/diagnostic/include failure paths, `Pipeline` ownership |
 | `tests/UdpTransportTests.cpp` | Localhost non-blocking UDP request/reply through `Euph::Net::UdpTransport` and `Euph::Io::Socket`, including ephemeral-port binding and source-endpoint capture |
-| `tests/DocumentationTests.cpp` | The note tree: every note declares a `{#doc_...}` id and is listed in its folder index, every `\subpage` row resolves, every module README is a `\page mod_<folder>` page listed in `docs/modules/index.md`, page ids are unique, and `## References` is the last section of every note |
+| `tests/DocumentationTests.cpp` | The note tree: every note declares a `{#doc_...}` id and is listed in its folder index, every `\subpage` row resolves, every module README is a `\page mod_<folder>` page listed in `docs/modules/index.md`, page ids are unique, `## References` is the last section of every note, and every image a note references exists with a base name Doxygen can copy without collision |
 
-`DocumentationTests.cpp` reads the repository through the `UNITTESTS_SOURCE_ROOT` define that `UnitTests.pro` injects, so it never depends on the working directory and never looks at `extern/` or `build/`. It checks structure, not prose quality: the other half of the documentation gate is the `doxygen Doxyfile` render in `docs/DOCUMENTATION.md` §8.
+`DocumentationTests.cpp` reads the repository through the `UNITTESTS_SOURCE_ROOT` define that `UnitTests.pro` injects, so it never depends on the working directory and never looks at `extern/` or `build/`. It checks structure, not prose quality: the other half of the documentation gate is the `doxygen Doxyfile` render in `docs/DOCUMENTATION.md` §8. The image check exists because Doxygen emits an `<img>` tag for a Markdown image even when it cannot find the file, copies nothing and reports no warning — a moved or renamed mascot used to disappear from the site silently.
 
 `support/TestSupport.hpp` holds the shared helpers: deterministic payload generators and
 `readToEnd()`, which drains a decompressing proxy device (its `size()` reports the *compressed* size,

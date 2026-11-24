@@ -112,7 +112,11 @@ public:
 	 * Callers should only consult this after @ref mapGlyph succeeded.
 	 * @param codePoint Code point to look up.
 	 */
-	virtual std::uint32_t pageForGlyph(char32_t codePoint) const { return 0; }
+	virtual std::uint32_t pageForGlyph(char32_t codePoint) const
+	{
+		(void)codePoint; // the default mapping is single-page, so every glyph reports page 0
+		return 0;
+	}
 };
 
 /** @brief Page index that means "this glyph is not in the atlas". */

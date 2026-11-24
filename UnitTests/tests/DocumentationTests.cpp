@@ -351,3 +351,56 @@ TEST_CASE("References is the last section of every note", "[docs][references]")
 	}
 }
 
+
+TEST_CASE("Every image referenced from Markdown exists and has a unique name", "[docs]")
+{
+	std::vector<fs::path> documents{sourceRoot() / "README.md"};
+	for (const std::string& page : kExternalPages)
+		documents.push_back(sourceRoot() / page);
+	for (const std::string& folder : kNoteFolders) {
+		for (const fs::path& note : markdownFiles(sourceRoot() / "docs" / folder))
+			documents.push_back(note);
+	}
+	for (const fs::path& module : moduleFolders())
+		documents.push_back(module / "README.md");
+
+	// Doxygen copies a Markdown image into the output directory by its base name, so two
+	// different files with the same name collide ("image file name ... is ambiguous") and
+	// one of them silently wins. Map the base name to the file it actually resolves to.
+	std::map<std::string, fs::path> images;
+	std::size_t references = 0;
+	for (const fs::path& document : documents) {
+		const std::string text = readFile(document);
+		for (std::size_t at = text.find("!["); at != std::string::npos; at = text.find("![", at + 2)) {
+			const std::size_t altEnd = text.find(']', at);
+			const std::size_t open = text.find("](", at);
+			if (altEnd == std::string::npos || open != altEnd)
+				continue;
+			const std::size_t end = text.find(')', open + 2);
+			if (end == std::string::npos)
+				continue;
+			std::string target = text.substr(open + 2, end - open - 2);
+			const std::size_t space = target.find_first_of(" \t");
+			if (space != std::string::npos)
+				target.erase(space);
+			if (target.rfind("http://", 0) == 0 || target.rfind("https://", 0) == 0)
+				continue;
+
+			const fs::path resolved = document.parent_path() / target;
+			INFO("document: " << fs::relative(document, sourceRoot()).string());
+			INFO("image: " << target);
+			REQUIRE(fs::is_regular_file(resolved));
+			++references;
+			const std::string base = resolved.filename().string();
+			const auto seen = images.find(base);
+			if (seen == images.end()) {
+				images.emplace(base, resolved.lexically_normal());
+			} else {
+				INFO("base name: " << base);
+				REQUIRE(seen->second == resolved.lexically_normal());
+			}
+		}
+	}
+	REQUIRE(references > 0);
+}
+
