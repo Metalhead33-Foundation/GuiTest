@@ -273,6 +273,39 @@ void GameSystem::initialize()
 	sdlDriver->pause(false);
 	script_thread = std::thread([this](){
 		JS::Core jscore(this->iosys);
+		jscore.insertModule("CONFIG", [this](JSContext& ctx,JS::RootedObject& obj) {
+			for( auto it = std::begin(config) ; it != std::end(config) ; ++it ) {
+				JS::RootedObject section(&ctx, JS_NewPlainObject(&ctx));
+				for( auto zt = std::begin(it->second) ; zt != std::end(it->second) ; ++zt ) {
+					switch (zt->second.type) {
+						case Euph::Conf::ConfigurationElementType::CONF_BOOL: {
+							JS::RootedValue rootedBool(&ctx, zt->second.storage.b ? JS::TrueValue() : JS::FalseValue() );
+							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedBool, JSPROP_READONLY | JSPROP_ENUMERATE);
+							break; }
+						case Euph::Conf::ConfigurationElementType::CONF_FLOAT: {
+							JS::RootedValue rootedFloat(&ctx, JS_NumberValue(zt->second.storage.f) );
+							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedFloat, JSPROP_READONLY | JSPROP_ENUMERATE );
+							break;  }
+						case Euph::Conf::ConfigurationElementType::CONF_INT: {
+							JS::RootedValue rootedInt(&ctx, JS_NumberValue(zt->second.storage.i) );
+							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedInt, JSPROP_READONLY | JSPROP_ENUMERATE );
+							break; }
+						case Euph::Conf::ConfigurationElementType::CONF_UINT: {
+							JS::RootedValue rootedUint(&ctx, JS_NumberValue(zt->second.storage.u) );
+							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedUint, JSPROP_READONLY  | JSPROP_ENUMERATE);
+							break; }
+						case Euph::Conf::ConfigurationElementType::CONF_STRING: {
+							auto strview = zt->second.storage.s.asStringView();
+							JS::UTF8Chars uChars( strview.data(), strview.size() );
+							JS::RootedString rootedString(&ctx, JS_NewStringCopyUTF8N(&ctx, uChars) );
+							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedString, JSPROP_READONLY | JSPROP_ENUMERATE );
+							break; }
+						default: break;
+					}
+				}
+				JS_DefineProperty(&ctx,obj, it->first.c_str(), section, JSPROP_READONLY | JSPROP_ENUMERATE);
+			}
+		});
 		// Let's do some javascript!
 		jscore.run();
 	});
