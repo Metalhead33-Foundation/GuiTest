@@ -24,6 +24,7 @@ INCLUDEPATH += $$PWD/..
 SOURCES += main.cpp sandbox.cpp \
     AppSystem.cpp \
     GameSystem.cpp \
+    GuiScene.cpp \
     HarukaContext.cpp \
     JS/JsCore.cpp \
     JS/JsException.cpp \
@@ -31,17 +32,21 @@ SOURCES += main.cpp sandbox.cpp \
     JS/Wrappers/Audio/JsAudioPlayer.cpp \
     JS/Wrappers/GUI/JsGuiWrappers.cpp \
     JS/Wrappers/Io/JsIO.cpp \
+    JS/Wrappers/System/JsSystem.cpp \
     JS/Wrappers/Util/JsRandom.cpp
 HEADERS += sandbox.hpp \
     AppSystem.hpp \
     GameSystem.hpp \
+    GuiScene.hpp \
     HarukaContext.hpp \
+    ScriptHost.hpp \
     JS/JsCore.hpp \
     JS/JsException.hpp \
     JS/JsUtil.hpp \
     JS/Wrappers/Audio/JsAudioPlayer.hpp \
     JS/Wrappers/GUI/JsGuiWrappers.hpp \
     JS/Wrappers/Io/JsIO.hpp \
+    JS/Wrappers/System/JsSystem.hpp \
     JS/Wrappers/Util/JsRandom.hpp
 
 # The Sandbox renders its cursor images from `cursors/`; qmake's file_copies

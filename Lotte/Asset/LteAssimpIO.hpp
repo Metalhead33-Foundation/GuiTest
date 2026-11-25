@@ -2,7 +2,7 @@
 #define LTEASSIMPIO_HPP
 
 /**
- * @file LteAssimpIo.hpp
+ * @file LteAssimpIO.hpp
  * @brief Declares Assimp I/O adapter classes wrapping the Elvavena/Io module.
  *
  * This header provides @ref Lotte::Asset::AssimpIOStream and @ref Lotte::Asset::AssimpIOSystem,

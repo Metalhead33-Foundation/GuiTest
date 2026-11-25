@@ -32,6 +32,53 @@ The inclusion of MozJS / SpiderMonkey is **temporary**. It is **not** intended t
 
 The included SpiderMonkey code is for demonstration purposes, plus for ease of integration into the windowing system.
 
+`scripts/main.js` is the demo the sandbox now runs: the rendered rich text, the module file, its
+volume, the button and the button's click handler are all declared there. The engine half only
+provides services, and `GameSystem` no longer contains a demo song path, a volume or an MML string.
+
+### The script modules
+
+| Module | Surface | Backing engine type |
+|---|---|---|
+| `System` | `setRichText(mml, {x, y, spacing, wordSpacing, scale})`, `loadTexture(path)` / `new System.Texture(path)`, `viewport` | `Lotte::Text` MML + layout, `Lotte::Gfx::WriteableTexture2D` |
+| `GUI` | `new GUI.Button({x, y, width, height, texture?, uv?, colours?, enabled?, hidden?})`, properties `x`, `y`, `width`, `height`, `enabled`, `hidden`, `hovered`, `pressed`, method `remove()`, and the assignable `onClick` | `Sandbox::ScriptButton` in a `Sandbox::GuiScene` |
+| `Audio` | `new Audio.Module(path, {volume, repeating, playing})`, properties `playing`, `paused`, `status`, `volume`, `repeating`, `cursor`, `valid`, method `stop()` | `Hrk::ModuleStreamer` inside the sandbox's `Hrk::Mixer` |
+| `IO` | `new IO.File(path, "r"\|"w"\|"a"\|"rw"\|"ra")`, `readString()`, `read(n)`, `writeString(s)`, `seek(offset, "set"\|"cur"\|"end")`, `flush()`, `size`, `tell`, `eof`, `valid`; `IO.exists`, `IO.isFile`, `IO.isDirectory` | `Elv::Io::System` / `Elv::Io::Device` |
+| `random`, `CONFIG`, `console`, `print`, `require`, `dofile` | unchanged | `JsRandom`, `Euph::Conf::Configuration` |
+
+A table entry like `colours: {idle, hover, active, disabled}` is an MML colour string
+(`'#4a6580ff'`, `'#abc'`, or a web colour name) parsed by `Lotte::Text::parseMarkupColour`, so a
+script speaks the same colour language as the text it renders.
+
+### Threading and lifetime
+
+The script executes **on the frame thread**, once, from `GameSystem::initialize()`. That is a
+deliberate simplification: a click handler arrives from the SDL event loop and mutates the same
+objects the frame draws, so the two cannot be on different threads without a marshalling layer that
+a temporary demonstration does not deserve. A script that blocks blocks the frame.
+
+The teardown order in `GameSystem::stopScript()` is the part that matters:
+
+```text
+widgets  ->  script context  ->  host  ->  renderer  ->  renderer context
+```
+
+- a widget's click callback owns a JavaScript root, so widgets must die while the context is alive;
+- the context must die before the renderer, because its finalizers release textures and unlink
+  streamers from the mixer;
+- the host outlives the context, because those finalizers reach the mixer and the SDL audio device
+  through it.
+
+Two rules follow for anything added here: a wrapper's finalizer must not set
+`JSCLASS_BACKGROUND_FINALIZE` (background finalization runs on a GC helper thread and would race the
+audio callback), and every audio mutation goes through `SDL_LockAudioDevice` (the `AudioLock` RAII
+helper in `JsAudioPlayer.cpp`), because `Hrk::Mixer` and `Hrk::PlaybackState` are read by the audio
+thread.
+
+`JsUtil.hpp` stores a wrapper's native half in a reserved slot as a typed pointer that the class's
+own finalizer deletes. The legacy `shared_ptr<void>` id table is gone: it hid the type, required a
+mutex for every access and could not be reasoned about.
+
 ## `GameSystem`: audio, a window and a cursor
 
 `main()` loads `config.ini` (if present, from the working directory), then hands it to a
@@ -40,8 +87,8 @@ window is closed or ESC is pressed:
 
 | Half | What it does | Configuration |
 |---|---|---|
-| Audio | `Haruka_SDL_Driver` opens an SDL audio device, a `Hrk::Mixer` feeds it, and a `Hrk::ModuleStreamer` plays a module file | `[Audio] uSamplerate`, `uChannels`, `uBufferSize`; `[Game] sSongPath`, `fModVolume` |
-| Graphics | `Lotte::Gfx::KaldiContext` loads a Kaldi backend library, creates its rendering device on the SDL window, and `render()` clears the window, draws the sample SDF text through `Lotte::Text::TextRenderer`, then draws a cursor through `Lotte::Gui::KaldiGuiRenderer` | `[Graphics] sBackendLibrary`, `sClearColor`, `sCursor`, `sFont` |
+| Audio | `Haruka_SDL_Driver` opens an SDL audio device and a `Hrk::Mixer` feeds it. The *script* inserts its `Audio.Module`s with `new Audio.Module(path, opts)` | `[Audio] uSamplerate`, `uChannels`, `uBufferSize`; the script reads `[Game] sSongPath` and `fModVolume` through `CONFIG` |
+| Graphics | `Lotte::Gfx::KaldiContext` loads a Kaldi backend library, creates its rendering device on the SDL window, and `render()` clears the window, draws the widgets the script created through `Lotte::Gui::KaldiGuiRenderer`, draws the rich text the script laid out through `Lotte::Text::TextRenderer`, then the cursor | `[Graphics] sBackendLibrary`, `sClearColor`, `sCursor`, `sFont` |
 
 The graphics half is the project's first end-to-end texture path. `KaldiContext` `dlopen`s the
 backend, calls `kld_create_rendering_device(window, size)` and reinterprets the handle as the
@@ -56,6 +103,7 @@ prepare text -> FontRepository::addFaceFromFile(iosys, path) / TextRenderer::pre
                 (lazy atlas uploads, submitted before the frame when new glyphs appeared)
 beginFrame   -> BeginFrame + ClearColorAttachment
 KaldiGuiRenderer::beginFrame -> reset the CPU caches
+GuiScene::render -> the widgets the script created (textured/coloured quads, in z order)
 TextRenderer::beginFrame/render -> per-page glyph runs + decoration quads
 Cursor::render -> one tinted textured quad at the mouse position
 flush        -> text draws first, then the cursor (viewport/scissor/blend,
@@ -64,11 +112,13 @@ flush        -> text draws first, then the cursor (viewport/scissor/blend,
 endFrame     -> EndFrame + Present, swapBuffers, processCommandQueue
 ```
 
-The sample text is loaded from `[Graphics] sFont` through the PhysFS
-`Elv::Io::System` (mount its directory, or point `sFont` at a virtual path) and laid
-out from MML, so it exercises the family/weight lookup, bold/italic/underline/strike/colour
-tags and the SDF atlas at once. A missing font logs `Text disabled: ...` and leaves
-the cursor path working.
+The face is loaded from `[Graphics] sFont` through the PhysFS `Elv::Io::System` (mount its
+directory, or point `sFont` at a virtual path). The text itself is whatever the script passes to
+`System.setRichText(...)`: `main.js` builds an MML document from `CONFIG`, so the family/weight
+lookup, bold/italic/underline/strike/colour tags and the SDF atlas are all exercised by content that
+lives in the script, not in the binary. A missing font logs `Text disabled: ...` and leaves the
+cursor path working; a script that calls `setRichText` without a font gets a JavaScript exception it
+can catch.
 
 Missing backend, missing GPU or a refused device is not fatal: it logs
 `Graphics disabled: ...` and the audio half keeps running. Cursor images are resolved
@@ -77,7 +127,7 @@ path still runs when the binary is started from the build directory.
 
 | Input | Effect |
 |---|---|
-| Mouse motion / click | Moves the cursor; the cursor's origin point (hotspot) is what lands on the pointer. The window system's pointer is hidden while the window is focused, so only the engine cursor is visible |
+| Mouse motion / click | Moves the cursor; the cursor's origin point (hotspot) is what lands on the pointer. The window system's pointer is hidden while the window is focused, so only the engine cursor is visible. The same position is hit-tested against the script's buttons: hover swaps their visual state and a completed click runs the button's `onClick`. In `main.js` that handler switches the music on and off and rewrites the status line, so one click exercises the GUI, the audio and the text path together |
 | `Tab` | Cycles the loaded cursors (`wodmouse.png`: upper-left arrow, `hourglass2.png`: center-intended hourglass) |
 | `1`-`9` | Sets the active cursor's anchor in enum order: TopLeft, Top, TopRight, Left, Center, Right, BottomLeft, Bottom, BottomRight. Each change logs the re-resolved hotspot |
 | `Esc` | Quits |

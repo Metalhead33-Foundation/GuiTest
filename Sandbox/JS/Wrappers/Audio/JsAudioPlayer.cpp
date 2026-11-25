@@ -1,433 +1,394 @@
 #include "JsAudioPlayer.hpp"
-
-/*#include <MhLib/Io/MhIoDevice.hpp>
-#include <MhLib/Media/AdvancedAudio/MhAudioBuffer.hpp>
-#include <MhLib/Media/AdvancedAudio/MhSoundSource.hpp>
-#include <MhLib/Media/AdvancedAudio/MhAudioStreamer.hpp>
-#include <MhLib/Media/AdvancedAudio/MhAudioMixer.hpp>
-#include <jsapi.h>
+#include <ScriptHost.hpp>
+#include <HarukaContext.hpp>
+#include <Haruka/IO/HrkModuleStreamer.hpp>
 #include <js/Object.h>
+#include <cstring>
+#include <stdexcept>
+#include <utility>
 
 namespace JS {
 
-ClassCreator MhAudioStreamerClass;
-ClassCreator MhAudioBufferClass;
-ClassCreator MhSoundSourceClass;
-ClassCreator MhAudioMixerClass;
-static bool hasIoBeenInitialized = false;
+namespace {
 
-template <> struct ReturnValueWrapper<MH33::Audio::PlayStatus> {
-	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, MH33::Audio::PlayStatus value) {
-		// Default case for non-specialized types
-		rval.setInt32(static_cast<int32_t>(value));
-	}
-	static MH33::Audio::PlayStatus fromValue(JSContext* cx, const HandleValue& arg) {
-		return static_cast<MH33::Audio::PlayStatus>(arg.toInt32());
-	}
-};
-template <> struct ReturnValueWrapper<MH33::Audio::ChannelCount> {
-	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, MH33::Audio::ChannelCount value) {
-		// Default case for non-specialized types
-		rval.setInt32(static_cast<int32_t>(value.var));
-	}
-	static MH33::Audio::ChannelCount fromValue(JSContext* cx, const HandleValue& arg) {
-		return MH33::Audio::ChannelCount(arg.toInt32());
-	}
-};
-template <> struct ReturnValueWrapper<MH33::Audio::FrameRate> {
-	static void setReturnValue(JSContext* cx, JS::MutableHandleValue rval, MH33::Audio::FrameRate value) {
-		// Default case for non-specialized types
-		rval.setInt32(static_cast<int32_t>(value.var));
-	}
-	static MH33::Audio::FrameRate fromValue(JSContext* cx, const HandleValue& arg) {
-		return MH33::Audio::FrameRate(arg.toInt32());
-	}
+/// @brief The host the registered functions talk to; see `JsSystem.cpp`.
+Sandbox::ScriptHost* gHost = nullptr;
+
+/// @brief The `Audio.Module` wrapper class.
+ClassCreator ModuleClass;
+
+/**
+ * @brief Native half of one `Audio.Module`: a streamer plus its mixer gain.
+ *
+ * The gain is cached because `Hrk::Mixer` stores it in its child map; keeping a
+ * copy lets the `volume` getter answer without a map lookup and lets the setter
+ * write back the thing the mixer actually reads.
+ */
+struct ModuleHandle {
+	/** @brief The playing module. */
+	Hrk::sModuleStreamer streamer;
+	/** @brief Linear gain the mixer multiplies the streamer by. */
+	float volume = 0.0f;
 };
 
-// Playable
-
-class Playable {
-public:
-	virtual ~Playable() = default;
-	virtual FrameCount outputTo(const Output& dst) = 0;
-	virtual FrameRate getFrameRate() const = 0;
-	virtual ChannelCount getChannelCount() const = 0;
-};
-*/
-
-/*static bool js_audio_playable_getFrameRate(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::Audio::Playable::getFrameRate);
-}
-static bool js_audio_playable_getChannelCount(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::Audio::Playable::getChannelCount);
-}
-
-// Constructors
-static bool js_audio_buffer_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto firstArg = args.get(0);
-		if(!firstArg.isObject()) throw std::runtime_error("Excepted object as first argument!");
-		auto iohandle = getSmartPointerFromObj<MH33::Io::Device>(firstArg.toObjectOrNull(),0);
-		JS::RootedObject obj(cx, JS_NewObjectWithGivenProto(cx,&MhAudioBufferClass.protoClass,*MhAudioBufferClass.prototype));
-		storeSmartPointerToObj( obj, 0, std::make_shared<MH33::Audio::Buffer>(std::move(iohandle)));
-		args.rval().setObject(*obj);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_sound_source_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		JS::RootedObject obj(cx, JS_NewObjectWithGivenProto(cx,&MhSoundSourceClass.protoClass,*MhSoundSourceClass.prototype));
-		auto firstArg = args.get(0);
-		if(firstArg.isObject()) {
-			auto bufferHandle = getSmartPointerFromObj<MH33::Audio::Buffer>(firstArg.toObjectOrNull(),0);
-			storeSmartPointerToObj( obj, 0, std::make_shared<MH33::Audio::SoundSource>(std::move(bufferHandle)));
-		}
-		else storeSmartPointerToObj( obj, 0, std::make_shared<MH33::Audio::SoundSource>());
-		args.rval().setObject(*obj);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_audio_streamer_streamer_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto firstArg = args.get(0);
-		if(!firstArg.isObject()) throw std::runtime_error("Excepted object as first argument!");
-		auto iohandle = getSmartPointerFromObj<MH33::Io::Device>(firstArg.toObjectOrNull(),0);
-		JS::RootedObject obj(cx, JS_NewObjectWithGivenProto(cx,&MhAudioStreamerClass.protoClass,*MhAudioStreamerClass.prototype));
-		storeSmartPointerToObj( obj, 0, std::make_shared<MH33::Audio::Streamer>(std::move(iohandle)));
-		args.rval().setObject(*obj);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_audio_mixer_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		// Args
-		auto arg0 = args.get(0);
-		if(!arg0.isInt32()) throw std::runtime_error("Excepted integer as first argument!");
-		auto arg1 = args.get(1);
-		if(!arg1.isInt32()) throw std::runtime_error("Excepted integer as second argument!");
-		auto arg2 = args.get(2);
-		if(!arg2.isInt32()) throw std::runtime_error("Excepted integer as third argument!");
-		// FrameCount frameCount, FrameRate frameRate, ChannelCount channelCount
-		auto handle = std::make_shared<MH33::Audio::Mixer>(
-					MH33::Audio::FrameCount(arg0.toInt32()),
-					MH33::Audio::FrameRate(arg1.toInt32()),
-					MH33::Audio::ChannelCount(arg2.toInt32())
-					);
-		JS::RootedObject obj(cx, JS_NewObjectWithGivenProto(cx,&MhAudioMixerClass.protoClass,*MhAudioMixerClass.prototype));
-		storeSmartPointerToObj( obj, 0, std::move(handle));
-		args.rval().setObject(*obj);
-		return true;
-	}, cx, argc, vp);
-}
-
-// Buffer
-static bool js_audio_buffer_getFrameCount(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto buff = JS::getSmartPointerFromObj<MH33::Audio::Buffer>(args.thisv().toObjectOrNull(), 0);
-		args.rval().setInt32(buff->getFrameCount().var);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_audio_buffer_getFrameRate(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto buff = JS::getSmartPointerFromObj<MH33::Audio::Buffer>(args.thisv().toObjectOrNull(), 0);
-		args.rval().setInt32(buff->getFrameRate().var);
-		return true;
-	}, cx, argc, vp);
-	//return wrapMemberFunction<MH33::Audio::Buffer, int, void, &MH33::Audio::Buffer::getFrameRate>(cx, argc, vp);
-}
-static bool js_audio_buffer_getChannelCount(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto buff = JS::getSmartPointerFromObj<MH33::Audio::Buffer>(args.thisv().toObjectOrNull(), 0);
-		args.rval().setInt32(buff->getChannelCount().var);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_audio_buffer_resample(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto buff = JS::getSmartPointerFromObj<MH33::Audio::Buffer>(args.thisv().toObjectOrNull(), 0);
-		auto arg0 = args.get(1).toInt32();
-		buff->resample(MH33::Audio::FrameRate(arg0));
-		args.rval().setNull();
-		return true;
-	}, cx, argc, vp);
-}
-
-static bool js_soundsurce_getBuffer(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::SoundSource>(args.thisv().toObjectOrNull(), 0);
-		JS::RootedObject rootedObj(cx, JS_NewObjectWithGivenProto(cx, &MhAudioBufferClass.protoClass, *MhAudioBufferClass.prototype ) );
-		auto buffer = zobj->getBuffer();
-		storeSmartPointerToObj(rootedObj, 0, std::move(buffer));
-		args.rval().setObjectOrNull(rootedObj);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_soundsurce_setBuffer(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::SoundSource>(args.thisv().toObjectOrNull(), 0);
-		auto firstArg = args.get(0);
-		if(!firstArg.isObject()) throw std::runtime_error("Excepted object as first argument!");
-		auto returnObj = JS::RootedObject(cx, firstArg.toObjectOrNull());
-		auto toSet = JS::getSmartPointerFromObj<MH33::Audio::sBuffer>(returnObj,0);
-		args.rval().setObjectOrNull(returnObj);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_soundsurce_getCursor(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::SoundSource>(args.thisv().toObjectOrNull(), 0);
-		args.rval().setInt32(zobj->getCursor().var);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_soundsurce_setCursor(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::SoundSource>(args.thisv().toObjectOrNull(), 0);
-		auto firstArg = args.get(0);
-		if(!firstArg.isInt32()) throw std::runtime_error("Excepted integer as first argument!");
-		zobj->setCursor(MH33::Audio::FrameIndex(firstArg.toInt32()));
-		args.rval().set(firstArg);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_soundsurce_getState(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::SoundSource>(args.thisv().toObjectOrNull(), 0);
-		args.rval().setInt32(static_cast<int32_t>(zobj->getState()));
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_soundsurce_setState(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::SoundSource>(args.thisv().toObjectOrNull(), 0);
-		auto firstArg = args.get(0);
-		if(!firstArg.isInt32()) throw std::runtime_error("Excepted integer as first argument!");
-		switch (firstArg.toInt32()) {
-			case static_cast<int32_t>(MH33::Audio::PlayStatus::STOPPED): zobj->setState(MH33::Audio::PlayStatus::STOPPED); break;
-			case static_cast<int32_t>(MH33::Audio::PlayStatus::PLAYING): zobj->setState(MH33::Audio::PlayStatus::PLAYING); break;
-			case static_cast<int32_t>(MH33::Audio::PlayStatus::PAUSED): zobj->setState(MH33::Audio::PlayStatus::PAUSED); break;
-			default: throw std::runtime_error("Invalid audio playing status!");
-		}
-		args.rval().set(firstArg);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_soundsurce_getRepeating(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::SoundSource>(args.thisv().toObjectOrNull(), 0);
-		args.rval().setBoolean(static_cast<int32_t>(zobj->getRepeating()));
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_soundsurce_setRepeating(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::SoundSource>(args.thisv().toObjectOrNull(), 0);
-		auto firstArg = args.get(0);
-		if(!firstArg.isBoolean()) throw std::runtime_error("Excepted boolean as first argument!");
-		zobj->setRepeating(firstArg.toBoolean());
-		args.rval().set(firstArg);
-		return true;
-	}, cx, argc, vp);
-}
-
-// Streamer
-static bool js_audiostreamer_getCursor(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::Streamer>(args.thisv().toObjectOrNull(), 0);
-		args.rval().setInt32(zobj->getSoundfile().seekCur(MH33::Audio::FrameCount(0)).var);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_audiostreamer_setCursor(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::Streamer>(args.thisv().toObjectOrNull(), 0);
-		auto firstArg = args.get(0);
-		if(!firstArg.isInt32()) throw std::runtime_error("Excepted integer as first argument!");
-		args.rval().setInt32(zobj->getSoundfile().seekSet(MH33::Audio::FrameCount(firstArg.toInt32() )).var);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_audiostreamer_getState(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::Streamer>(args.thisv().toObjectOrNull(), 0);
-		args.rval().setInt32(static_cast<int32_t>(zobj->getState()));
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_audiostreamer_setState(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::Streamer>(args.thisv().toObjectOrNull(), 0);
-		auto firstArg = args.get(0);
-		if(!firstArg.isInt32()) throw std::runtime_error("Excepted integer as first argument!");
-		switch (firstArg.toInt32()) {
-			case static_cast<int32_t>(MH33::Audio::PlayStatus::STOPPED): zobj->setState(MH33::Audio::PlayStatus::STOPPED); break;
-			case static_cast<int32_t>(MH33::Audio::PlayStatus::PLAYING): zobj->setState(MH33::Audio::PlayStatus::PLAYING); break;
-			case static_cast<int32_t>(MH33::Audio::PlayStatus::PAUSED): zobj->setState(MH33::Audio::PlayStatus::PAUSED); break;
-			default: throw std::runtime_error("Invalid audio playing status!");
-		}
-		args.rval().set(firstArg);
-		return true;
-	}, cx, argc, vp);
-}
-static bool js_audiostreamer_getRepeating(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::Audio::Streamer::getRepeating);
-}
-static bool js_audiostreamer_setRepeating(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::Audio::Streamer::setRepeating);
-}
-
-static bool js_mixer_InserPlayable(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
-		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto zobj = JS::getSmartPointerFromObj<MH33::Audio::Mixer>(args.thisv().toObjectOrNull(), 0);
-		auto firstArg = args.get(0);
-		if(!firstArg.isObject()) throw std::runtime_error("Excepted object as first argument!");
-		auto returnObj = JS::RootedObject(cx, firstArg.toObjectOrNull());
-		auto toSet = JS::getSmartPointerFromObj<MH33::Audio::Playable>(returnObj,0);
-		auto secondArg = args.get(1);
-		if(!secondArg.isNumber()) throw std::runtime_error("Excepted number as first argument!");
-		float volume = secondArg.toNumber();
-		zobj->set(std::move(toSet),volume);
-		args.rval().set(args.thisv());
-		return true;
-	}, cx, argc, vp);
-}
-
-void RegisterAudioPlayerClasses(JSContext* cx, const HandleObject& global)
+/**
+ * @brief Serializes mixer and transport mutation with the SDL audio callback.
+ *
+ * `Hrk::Mixer` and `Hrk::PlaybackState` are plain containers read by the audio
+ * thread. `SDL_LockAudioDevice` guarantees the callback is not running, so a
+ * script that inserts a module or toggles playback cannot race the decoder.
+ */
+class AudioLock
 {
-	if(hasIoBeenInitialized) return;
+public:
+	/// @brief Locks @p driver when it is not null.
+	explicit AudioLock(Haruka_SDL_Driver* driver) : driver(driver)
+	{
+		if (driver != nullptr) driver->lock();
+	}
+	/// @brief Releases the lock.
+	~AudioLock()
+	{
+		if (driver != nullptr) driver->unlock();
+	}
+	AudioLock(const AudioLock&) = delete;
+	AudioLock& operator=(const AudioLock&) = delete;
+private:
+	/// @brief Device whose callback is held off.
+	Haruka_SDL_Driver* driver;
+};
 
-	// Let's start with the audio buffer
-
-	// AudioBuffer
-	std::memset(&MhAudioBufferClass.protoClass, 0, sizeof(JSClass));
-	std::memset(&MhAudioBufferClass.ops, 0, sizeof(JSClassOps));
-	MhAudioBufferClass.constructor = js_audio_buffer_constructor;
-	MhAudioBufferClass.name = "Buffer";
-	MhAudioBufferClass.nargs = 1;
-	MhAudioBufferClass.ops.finalize = js_finalizer_shared;
-	MhAudioBufferClass.ops.construct = js_audio_buffer_constructor;
-	MhAudioBufferClass.protoClass.cOps = &MhAudioBufferClass.ops;
-	MhAudioBufferClass.protoClass.name = "Buffer";
-	MhAudioBufferClass.protoClass.flags = JSCLASS_HAS_RESERVED_SLOTS(1) | JSCLASS_BACKGROUND_FINALIZE;
-	MhAudioBufferClass.prototype = std::make_unique<JS::RootedObject>(cx, JS_NewObject(cx,&MhAudioBufferClass.protoClass));
-	MhAudioBufferClass.ps.push_back(JS_PSG("frameCount", js_audio_buffer_getFrameCount, JSPROP_ENUMERATE ) );
-	MhAudioBufferClass.ps.push_back(JS_PSG("frameRate", js_audio_buffer_getFrameRate, JSPROP_ENUMERATE ) );
-	MhAudioBufferClass.ps.push_back(JS_PSG("channelCount", js_audio_buffer_getChannelCount, JSPROP_ENUMERATE ) );
-	MhAudioBufferClass.ps.push_back(JS_PS_END);
-	MhAudioBufferClass.static_ps.push_back(JS_PS_END);
-	MhAudioBufferClass.fs.push_back(JS_FN("resample",js_audio_buffer_resample,0,0));
-	MhAudioBufferClass.fs.push_back(JS_FS_END);
-	MhAudioBufferClass.static_fs.push_back(JS_FS_END);
-	{
-		auto toReturn = MhAudioBufferClass.registerToJS(cx, global, *MhAudioBufferClass.prototype);
-		auto reg = JS::RootedValue(cx,JS::ObjectOrNullValue(toReturn) );
-		auto rootedReg = JS::RootedObject(cx,toReturn);
-		JS_SetProperty(cx, global, MhAudioBufferClass.name.c_str(), reg );
+/// @brief Reads a numeric property, falling back when it is missing or not a number.
+double numberProperty(JSContext* cx, JS::HandleObject object, const char* name, double fallback)
+{
+	JS::RootedValue value(cx);
+	if (!JS_GetProperty(cx, object, name, &value) || !value.isNumber()) {
+		return fallback;
 	}
-	// AudioSource
-	std::memset(&MhSoundSourceClass.protoClass, 0, sizeof(JSClass));
-	std::memset(&MhSoundSourceClass.ops, 0, sizeof(JSClassOps));
-	MhSoundSourceClass.constructor = js_sound_source_constructor;
-	MhSoundSourceClass.name = "SoundSource";
-	MhSoundSourceClass.nargs = 1;
-	MhSoundSourceClass.ops.finalize = js_finalizer_shared;
-	MhSoundSourceClass.ops.construct = js_sound_source_constructor;
-	MhSoundSourceClass.protoClass.cOps = &MhSoundSourceClass.ops;
-	MhSoundSourceClass.protoClass.name = "SoundSource";
-	MhSoundSourceClass.protoClass.flags = JSCLASS_HAS_RESERVED_SLOTS(1) | JSCLASS_BACKGROUND_FINALIZE;
-	MhSoundSourceClass.prototype = std::make_unique<JS::RootedObject>(cx, JS_NewObject(cx,&MhAudioBufferClass.protoClass));
-	MhSoundSourceClass.ps.push_back(JS_PSG("channelCount", js_audio_playable_getChannelCount, JSPROP_ENUMERATE ) );
-	MhSoundSourceClass.ps.push_back(JS_PSG("frameRate", js_audio_playable_getFrameRate, JSPROP_ENUMERATE ) );
-	MhSoundSourceClass.ps.push_back(JS_PSGS("buffer", js_soundsurce_getBuffer, js_soundsurce_setBuffer, JSPROP_ENUMERATE ) );
-	MhSoundSourceClass.ps.push_back(JS_PSGS("cursor", js_soundsurce_getCursor, js_soundsurce_setCursor, JSPROP_ENUMERATE ) );
-	MhSoundSourceClass.ps.push_back(JS_PSGS("state", js_soundsurce_getState, js_soundsurce_setState, JSPROP_ENUMERATE ) );
-	MhSoundSourceClass.ps.push_back(JS_PSGS("repeating", js_soundsurce_getRepeating, js_soundsurce_setRepeating, JSPROP_ENUMERATE ) );
-	MhSoundSourceClass.ps.push_back(JS_PS_END);
-	MhSoundSourceClass.static_ps.push_back(JS_PS_END);
-	MhSoundSourceClass.fs.push_back(JS_FS_END);
-	MhSoundSourceClass.static_fs.push_back(JS_FS_END);
-	{
-		auto toReturn = MhSoundSourceClass.registerToJS(cx, global, *MhSoundSourceClass.prototype);
-		auto reg = JS::RootedValue(cx,JS::ObjectOrNullValue(toReturn) );
-		auto rootedReg = JS::RootedObject(cx,toReturn);
-		JS_SetProperty(cx, global, MhSoundSourceClass.name.c_str(), reg );
-	}
-	// AudioStreamer
-	std::memset(&MhAudioStreamerClass.protoClass, 0, sizeof(JSClass));
-	std::memset(&MhAudioStreamerClass.ops, 0, sizeof(JSClassOps));
-	MhAudioStreamerClass.constructor = js_audio_streamer_streamer_constructor;
-	MhAudioStreamerClass.name = "Streamer";
-	MhAudioStreamerClass.nargs = 1;
-	MhAudioStreamerClass.ops.finalize = js_finalizer_shared;
-	MhAudioStreamerClass.ops.construct = js_audio_streamer_streamer_constructor;
-	MhAudioStreamerClass.protoClass.cOps = &MhAudioStreamerClass.ops;
-	MhAudioStreamerClass.protoClass.name = "Streamer";
-	MhAudioStreamerClass.protoClass.flags = JSCLASS_HAS_RESERVED_SLOTS(1) | JSCLASS_BACKGROUND_FINALIZE;
-	MhAudioStreamerClass.prototype = std::make_unique<JS::RootedObject>(cx, JS_NewObject(cx,&MhAudioBufferClass.protoClass));
-	MhAudioStreamerClass.ps.push_back(JS_PSG("channelCount", js_audio_playable_getChannelCount, JSPROP_ENUMERATE ) );
-	MhAudioStreamerClass.ps.push_back(JS_PSG("frameRate", js_audio_playable_getFrameRate, JSPROP_ENUMERATE ) );
-	MhAudioStreamerClass.ps.push_back(JS_PSGS("cursor", js_audiostreamer_getCursor, js_audiostreamer_setCursor, JSPROP_ENUMERATE ) );
-	MhAudioStreamerClass.ps.push_back(JS_PSGS("state", js_audiostreamer_getState, js_audiostreamer_setState, JSPROP_ENUMERATE ) );
-	MhAudioStreamerClass.ps.push_back(JS_PSGS("repeating", js_audiostreamer_getRepeating, js_audiostreamer_setRepeating, JSPROP_ENUMERATE ) );
-	MhAudioStreamerClass.ps.push_back(JS_PS_END);
-	MhAudioStreamerClass.static_ps.push_back(JS_PS_END);
-	MhAudioStreamerClass.fs.push_back(JS_FS_END);
-	MhAudioStreamerClass.static_fs.push_back(JS_FS_END);
-	{
-		auto toReturn = MhAudioStreamerClass.registerToJS(cx, global, *MhAudioStreamerClass.prototype);
-		auto reg = JS::RootedValue(cx,JS::ObjectOrNullValue(toReturn) );
-		auto rootedReg = JS::RootedObject(cx,toReturn);
-		JS_SetProperty(cx, global, MhAudioStreamerClass.name.c_str(), reg );
-	}
-
-	// AudioMixer
-	std::memset(&MhAudioMixerClass.protoClass, 0, sizeof(JSClass));
-	std::memset(&MhAudioMixerClass.ops, 0, sizeof(JSClassOps));
-	MhAudioMixerClass.constructor = js_audio_mixer_constructor;
-	MhAudioMixerClass.name = "Mixer";
-	MhAudioMixerClass.nargs = 1;
-	MhAudioMixerClass.ops.finalize = js_finalizer_shared;
-	MhAudioMixerClass.ops.construct = js_audio_mixer_constructor;
-	MhAudioMixerClass.protoClass.cOps = &MhAudioStreamerClass.ops;
-	MhAudioMixerClass.protoClass.name = "Mixer";
-	MhAudioMixerClass.protoClass.flags = JSCLASS_HAS_RESERVED_SLOTS(1) | JSCLASS_BACKGROUND_FINALIZE;
-	MhAudioMixerClass.prototype = std::make_unique<JS::RootedObject>(cx, JS_NewObject(cx,&MhAudioBufferClass.protoClass));
-	MhAudioMixerClass.ps.push_back(JS_PSG("channelCount", js_audio_playable_getChannelCount, JSPROP_ENUMERATE ) );
-	MhAudioMixerClass.ps.push_back(JS_PSG("frameRate", js_audio_playable_getFrameRate, JSPROP_ENUMERATE ) );
-	MhAudioMixerClass.ps.push_back(JS_PS_END);
-	MhAudioMixerClass.static_ps.push_back(JS_PS_END);
-	MhAudioMixerClass.fs.push_back(JS_FN("insert",js_mixer_InserPlayable,2,0));
-	MhAudioMixerClass.fs.push_back(JS_FS_END);
-	MhAudioMixerClass.static_fs.push_back(JS_FS_END);
-	{
-		auto toReturn = MhAudioMixerClass.registerToJS(cx, global, *MhAudioMixerClass.prototype);
-		auto reg = JS::RootedValue(cx,JS::ObjectOrNullValue(toReturn) );
-		auto rootedReg = JS::RootedObject(cx,toReturn);
-		JS_SetProperty(cx, global, MhAudioMixerClass.name.c_str(), reg );
-	}
-	hasIoBeenInitialized = true;
+	return value.toNumber();
 }
 
-}*/
+/// @brief Reads a boolean property, falling back when it is missing.
+bool boolProperty(JSContext* cx, JS::HandleObject object, const char* name, bool fallback)
+{
+	JS::RootedValue value(cx);
+	if (!JS_GetProperty(cx, object, name, &value) || value.isUndefined()) {
+		return fallback;
+	}
+	return value.toBoolean();
+}
+
+/// @brief The module behind `this`, never null.
+ModuleHandle* moduleFromThis(JS::CallArgs& args)
+{
+	ModuleHandle* handle = getNativePointer<ModuleHandle>(args.thisv().toObjectOrNull());
+	if (handle == nullptr || !handle->streamer) {
+		throw std::runtime_error("Audio.Module: the module is not valid");
+	}
+	return handle;
+}
+
+} // namespace
+
+namespace {
+
+/// @brief The driver pointer to lock, or null when there is no audio device.
+Haruka_SDL_Driver* audioDriver()
+{
+	return gHost != nullptr ? gHost->audio : nullptr;
+}
+
+/// @brief `new Audio.Module(path, options)`.
+bool js_audio_module_constructor(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		Sandbox::ScriptHost* host = gHost;
+		if (host == nullptr || !host->mixer) {
+			throw std::runtime_error("Audio.Module: the mixer is not available");
+		}
+		if (argc < 1) {
+			throw std::runtime_error("Audio.Module: expected a module path");
+		}
+		const std::string path = JsToNativeString(cx, args.get(0).toString());
+		float volume = 0.5f;
+		bool repeating = false;
+		bool playing = true;
+		if (argc >= 2 && args.get(1).isObject()) {
+			JS::RootedObject options(cx, &args.get(1).toObject());
+			volume = static_cast<float>(numberProperty(cx, options, "volume", volume));
+			repeating = boolProperty(cx, options, "repeating", repeating);
+			playing = boolProperty(cx, options, "playing", playing);
+		}
+		Elv::Io::uDevice file = host->io.openUnique(path.c_str(), Elv::Io::Mode::READ);
+		if (!file || !file->isValid()) {
+			throw std::runtime_error("Audio.Module: could not open '" + path + "'");
+		}
+		auto streamer = Elv::Util::pmr_make_shared<Hrk::ModuleStreamer>(
+			std::pmr::get_default_resource(), std::move(file));
+		if (!streamer->isValid()) {
+			throw std::runtime_error("Audio.Module: could not parse '" + path + "'");
+		}
+		{
+			AudioLock lock(host->audio);
+			streamer->getState().setCursor(Hrk::FrameIndex(0));
+			streamer->getState().setRepeat(repeating);
+			streamer->getState().setPlayStatus(playing ? Hrk::PlayStatus::PLAYING
+													   : Hrk::PlayStatus::PAUSED);
+			host->mixer->getChildren().emplace(streamer.get(), volume);
+		}
+		JS::RootedObject object(cx,
+			JS_NewObjectWithGivenProto(cx, &ModuleClass.protoClass, *ModuleClass.prototype));
+		setNativePointer(object, new ModuleHandle{ std::move(streamer), volume });
+		args.rval().setObject(*object);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief Finalizer of `Audio.Module`: unlinks the streamer from the mixer.
+void js_audio_module_finalizer(JS::GCContext* gcx, JSObject* obj)
+{
+	(void)gcx;
+	ModuleHandle* handle = getNativePointer<ModuleHandle>(obj);
+	if (handle == nullptr) return;
+	// Erasing the child is mandatory: the mixer stores a raw `Playable*`, so a
+	// destroyed streamer that is still registered would be pulled by the audio
+	// callback after it is gone.
+	Sandbox::ScriptHost* host = gHost;
+	if (host != nullptr && host->mixer && handle->streamer) {
+		AudioLock lock(host->audio);
+		host->mixer->getChildren().erase(handle->streamer.get());
+	}
+	delete handle;
+}
+
+/// @brief `module.playing`.
+bool js_module_get_playing(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		AudioLock lock(audioDriver());
+		setReturnValue(cx, args.rval(),
+			handle->streamer->getState().getPlayStatus() == Hrk::PlayStatus::PLAYING);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.playing = value`: toggles between playing and paused.
+bool js_module_set_playing(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		AudioLock lock(audioDriver());
+		handle->streamer->getState().setPlayStatus(
+			args.get(0).toBoolean() ? Hrk::PlayStatus::PLAYING : Hrk::PlayStatus::PAUSED);
+		args.rval().set(args.get(0));
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.paused`.
+bool js_module_get_paused(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		AudioLock lock(audioDriver());
+		setReturnValue(cx, args.rval(),
+			handle->streamer->getState().getPlayStatus() == Hrk::PlayStatus::PAUSED);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.paused = value`.
+bool js_module_set_paused(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		AudioLock lock(audioDriver());
+		handle->streamer->getState().setPlayStatus(
+			args.get(0).toBoolean() ? Hrk::PlayStatus::PAUSED : Hrk::PlayStatus::PLAYING);
+		args.rval().set(args.get(0));
+		return true;
+	}, cx, argc, vp);
+}
+
+} // namespace
+
+
+namespace {
+
+/// @brief `module.status`: the raw `Hrk::PlayStatus` value (0 stopped, 1 playing, 2 paused).
+bool js_module_get_status(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		AudioLock lock(audioDriver());
+		setReturnValue(cx, args.rval(),
+			static_cast<std::int32_t>(handle->streamer->getState().getPlayStatus()));
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.volume`.
+bool js_module_get_volume(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		setReturnValue(cx, args.rval(), handle->volume);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.volume = value`: writes the gain the mixer reads.
+bool js_module_set_volume(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		const float volume = static_cast<float>(args.get(0).toNumber());
+		Sandbox::ScriptHost* host = gHost;
+		AudioLock lock(audioDriver());
+		handle->volume = volume;
+		if (host != nullptr && host->mixer) {
+			auto& children = host->mixer->getChildren();
+			const auto child = children.find(handle->streamer.get());
+			if (child != children.end()) child->second = volume;
+		}
+		args.rval().set(args.get(0));
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.repeating`.
+bool js_module_get_repeating(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		AudioLock lock(audioDriver());
+		setReturnValue(cx, args.rval(), handle->streamer->getState().getRepeat());
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.repeating = value`.
+bool js_module_set_repeating(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		AudioLock lock(audioDriver());
+		handle->streamer->getState().setRepeat(args.get(0).toBoolean());
+		args.rval().set(args.get(0));
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.cursor`: the playback position in frames.
+bool js_module_get_cursor(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		AudioLock lock(audioDriver());
+		setReturnValue(cx, args.rval(), handle->streamer->getState().getCursor().var);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.cursor = value`: seeks the decoder on the next pull.
+bool js_module_set_cursor(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		const std::int64_t cursor = static_cast<std::int64_t>(args.get(0).toNumber());
+		AudioLock lock(audioDriver());
+		handle->streamer->getState().setCursor(Hrk::FrameIndex(cursor));
+		args.rval().set(args.get(0));
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.valid`.
+bool js_module_get_valid(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		setReturnValue(cx, args.rval(), moduleFromThis(args)->streamer->isValid());
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `module.stop()`: rewinds and stops.
+bool js_module_stop(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		ModuleHandle* handle = moduleFromThis(args);
+		AudioLock lock(audioDriver());
+		// `setPlayStatus(STOPPED)` also resets the cursor to zero.
+		handle->streamer->getState().setPlayStatus(Hrk::PlayStatus::STOPPED);
+		args.rval().setUndefined();
+		return true;
+	}, cx, argc, vp);
+}
+
+} // namespace
+
+
+
+void RegisterAudioPlayerClasses(JSContext* cx, const JS::HandleObject& global,
+								Sandbox::ScriptHost& host)
+{
+	gHost = &host;
+
+	std::memset(&ModuleClass.protoClass, 0, sizeof(JSClass));
+	std::memset(&ModuleClass.ops, 0, sizeof(JSClassOps));
+	ModuleClass.name = "Module";
+	ModuleClass.nargs = 2;
+	ModuleClass.constructor = js_audio_module_constructor;
+	ModuleClass.ops.construct = js_audio_module_constructor;
+	ModuleClass.ops.finalize = js_audio_module_finalizer;
+	ModuleClass.protoClass.cOps = &ModuleClass.ops;
+	ModuleClass.protoClass.name = "Module";
+	// Foreground finalization: the finalizer removes the streamer from the mixer
+	// and closes a PhysFS device, both of which must happen on this thread.
+	ModuleClass.protoClass.flags = JSCLASS_HAS_RESERVED_SLOTS(1);
+	ModuleClass.prototype = std::make_unique<JS::RootedObject>(cx,
+		JS_NewObject(cx, &ModuleClass.protoClass));
+	ModuleClass.ps.push_back(JS_PSGS("playing", js_module_get_playing, js_module_set_playing,
+		JSPROP_ENUMERATE));
+	ModuleClass.ps.push_back(JS_PSGS("paused", js_module_get_paused, js_module_set_paused,
+		JSPROP_ENUMERATE));
+	ModuleClass.ps.push_back(JS_PSG("status", js_module_get_status, JSPROP_ENUMERATE));
+	ModuleClass.ps.push_back(JS_PSGS("volume", js_module_get_volume, js_module_set_volume,
+		JSPROP_ENUMERATE));
+	ModuleClass.ps.push_back(JS_PSGS("repeating", js_module_get_repeating,
+		js_module_set_repeating, JSPROP_ENUMERATE));
+	ModuleClass.ps.push_back(JS_PSGS("cursor", js_module_get_cursor, js_module_set_cursor,
+		JSPROP_ENUMERATE));
+	ModuleClass.ps.push_back(JS_PSG("valid", js_module_get_valid, JSPROP_ENUMERATE));
+	ModuleClass.ps.push_back(JS_PS_END);
+	ModuleClass.static_ps.push_back(JS_PS_END);
+	ModuleClass.fs.push_back(JS_FN("stop", js_module_stop, 0, 0));
+	ModuleClass.fs.push_back(JS_FS_END);
+	ModuleClass.static_fs.push_back(JS_FS_END);
+	ModuleClass.registerToJS(cx, global, *ModuleClass.prototype);
+}
+
+} // namespace JS

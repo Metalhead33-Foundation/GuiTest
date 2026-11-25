@@ -8,7 +8,13 @@
 #include <optional>
 #include <string_view>
 #include <utility>
+#include "GuiScene.hpp"
+#include "ScriptHost.hpp"
 #include "JS/JsCore.hpp"
+#include "JS/Wrappers/Audio/JsAudioPlayer.hpp"
+#include "JS/Wrappers/GUI/JsGuiWrappers.hpp"
+#include "JS/Wrappers/Io/JsIO.hpp"
+#include "JS/Wrappers/System/JsSystem.hpp"
 
 namespace {
 
@@ -100,6 +106,7 @@ void GameSystem::startGraphics()
 		guiRenderer = std::make_unique<Lotte::Gui::KaldiGuiRenderer>(kaldi->resources(),
 			Lotte::Gui::KaldiGuiRendererSettings{ std::uint16_t(width),
 							      std::uint16_t(height) });
+		guiScene = std::make_unique<Sandbox::GuiScene>(kaldi->resources());
 		loadFont();
 		loadCursors();
 		// Pipeline creation, texture creation and the initial texture uploads are
@@ -119,6 +126,7 @@ void GameSystem::startGraphics()
 		textRenderer.reset();
 		fontRepository.reset();
 		fontReady = false;
+		guiScene.reset();
 		cursors.clear();
 		guiRenderer.reset();
 		kaldi.reset();
@@ -129,7 +137,19 @@ void GameSystem::startGraphics()
 GameSystem::~GameSystem()
 {
 	SDL_ShowCursor(SDL_ENABLE);
-	script_thread.join();
+	stopScript();
+}
+
+void GameSystem::stopScript()
+{
+	// Order matters. A widget's click callback owns a JavaScript root, so the
+	// widgets have to die while the context is still usable; the context has to
+	// die before the renderer and the resource factory its textures point into;
+	// and the host has to outlive the context, because module finalizers reach the
+	// mixer and the audio device through it.
+	guiScene.reset();
+	jsCore.reset();
+	scriptHost.reset();
 }
 
 void GameSystem::loadFont()
@@ -154,34 +174,48 @@ void GameSystem::loadFont()
 		textRenderer = std::make_unique<Lotte::Text::TextRenderer>(kaldi->resources(),
 																   *fontRepository,
 																   rendererSettings);
-
-		Lotte::Text::RichTextProcessor processor;
-		Lotte::Text::MmlParser parser(&processor);
-		parser.parse("[font=Vinque][color=#ffffff][size=52]Vinque SDF text[/size]\n"
-					 "[size=30][b]bold[/b] [i]italic[/i] [u]underline[/u] "
-					 "[s]strike[/s] [color=#ffd166]colour[/color][/size][/font]");
-		processor.flush();
-
-		Lotte::Text::TextLayoutOptions options;
-		options.origin = glm::fvec2(32.0f, 80.0f);
-		options.spacing = 4.0f;
-		options.wordSpacing = 2.0f;
-		sampleLayout = Lotte::Text::layoutRuns(
-			processor.getRuns(),
-			[this](const std::string& family, Lotte::Text::FontWeight weight) {
-				return fontRepository->faceFor(family, weight);
-			},
-			options);
 		fontReady = true;
-		SDL_Log("Font '%s': %zu stored glyphs, %u px tiles, %zu laid-out glyphs",
-				face->familyName.c_str(), face->glyphs.size(), face->storedBitmapSize(),
-				sampleLayout.glyphs.size());
+		SDL_Log("Font '%s': %zu stored glyphs, %u px tiles", face->familyName.c_str(),
+				face->glyphs.size(), face->storedBitmapSize());
 	} catch (const std::exception& error) {
 		textRenderer.reset();
 		fontRepository.reset();
 		fontReady = false;
 		SDL_Log("Text disabled: %s", error.what());
 	}
+}
+
+void GameSystem::setRichText(const Sandbox::RichTextRequest& request)
+{
+	if (!textRenderer || !fontRepository) {
+		throw std::runtime_error("setRichText: no font is loaded");
+	}
+	Lotte::Text::RichTextProcessor processor;
+	Lotte::Text::MmlParser parser(&processor);
+	parser.parse(request.mml);
+	processor.flush();
+	if (processor.getRuns().empty()) {
+		// An empty request clears the text: dropping the old layout is the only
+		// honest answer, because its face pointers may already be stale.
+		sampleLayout.clear();
+		textRendered = false;
+		return;
+	}
+	Lotte::Text::TextLayoutOptions options;
+	options.origin = request.origin;
+	options.spacing = request.spacing;
+	options.wordSpacing = request.wordSpacing;
+	options.scale = request.scale;
+	sampleLayout = Lotte::Text::layoutRuns(
+		processor.getRuns(),
+		[this](const std::string& family, Lotte::Text::FontWeight weight) {
+			return fontRepository->faceFor(family, weight);
+		},
+		options);
+	// The next frame renders the new layout, so the one-shot log may report again.
+	textRendered = false;
+	SDL_Log("Text: %zu glyphs from %zu runs", sampleLayout.glyphs.size(),
+			processor.getRuns().size());
 }
 
 void GameSystem::loadCursors()
@@ -250,65 +284,88 @@ void GameSystem::setActiveCursorAnchor(Lotte::Gui::CursorAnchor anchor)
 
 void GameSystem::initialize()
 {
-	std::string modpath = std::string(config.getString(
-		"Game", "sSongPath",
-		"/music/Magnus.it"));
-	Elv::Io::uDevice file = iosys.openUnique(modpath.c_str(), Elv::Io::Mode::READ);
-	if(file && file->isValid()) {
-		modplayer = Elv::Util::pmr_make_shared<Hrk::ModuleStreamer>(std::pmr::get_default_resource(),
-																	std::move(file));
-		if(modplayer->isValid()) {
-			mixer->getChildren().emplace(modplayer.get(), config.getFloat("Game","fModVolume",0.10F));
-			modplayer->getState().setCursor(Hrk::FrameIndex(0));
-			modplayer->getState().setPlayStatus(Hrk::PlayStatus::PLAYING);
-		} else {
-			SDL_Log("Could not parse module file: %s", modpath.c_str());
-			modplayer.reset();
-		}
-	} else {
-		SDL_Log("Could not open module file: %s", modpath.c_str());
-	}
-	// SDL audio devices start paused: without this the callback never runs,
-	// so nothing ever reaches ModuleStreamer::decodeFrames().
+	// SDL audio devices start paused: without this the callback never runs, so a
+	// module the script inserts into the mixer is never pulled.
 	sdlDriver->pause(false);
-	script_thread = std::thread([this](){
-		JS::Core jscore(this->iosys);
-		jscore.insertModule("CONFIG", [this](JSContext& ctx,JS::RootedObject& obj) {
-			for( auto it = std::begin(config) ; it != std::end(config) ; ++it ) {
-				JS::RootedObject section(&ctx, JS_NewPlainObject(&ctx));
-				for( auto zt = std::begin(it->second) ; zt != std::end(it->second) ; ++zt ) {
-					switch (zt->second.type) {
-						case Euph::Conf::ConfigurationElementType::CONF_BOOL: {
-							JS::RootedValue rootedBool(&ctx, zt->second.storage.b ? JS::TrueValue() : JS::FalseValue() );
-							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedBool, JSPROP_READONLY | JSPROP_ENUMERATE);
-							break; }
-						case Euph::Conf::ConfigurationElementType::CONF_FLOAT: {
-							JS::RootedValue rootedFloat(&ctx, JS_NumberValue(zt->second.storage.f) );
-							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedFloat, JSPROP_READONLY | JSPROP_ENUMERATE );
-							break;  }
-						case Euph::Conf::ConfigurationElementType::CONF_INT: {
-							JS::RootedValue rootedInt(&ctx, JS_NumberValue(zt->second.storage.i) );
-							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedInt, JSPROP_READONLY | JSPROP_ENUMERATE );
-							break; }
-						case Euph::Conf::ConfigurationElementType::CONF_UINT: {
-							JS::RootedValue rootedUint(&ctx, JS_NumberValue(zt->second.storage.u) );
-							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedUint, JSPROP_READONLY  | JSPROP_ENUMERATE);
-							break; }
-						case Euph::Conf::ConfigurationElementType::CONF_STRING: {
-							auto strview = zt->second.storage.s.asStringView();
-							JS::UTF8Chars uChars( strview.data(), strview.size() );
-							JS::RootedString rootedString(&ctx, JS_NewStringCopyUTF8N(&ctx, uChars) );
-							JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedString, JSPROP_READONLY | JSPROP_ENUMERATE );
-							break; }
-						default: break;
-					}
-				}
-				JS_DefineProperty(&ctx,obj, it->first.c_str(), section, JSPROP_READONLY | JSPROP_ENUMERATE);
+	startScript();
+}
+
+void GameSystem::startScript()
+{
+	scriptHost = std::make_unique<Sandbox::ScriptHost>(iosys, mixer);
+	scriptHost->audio = sdlDriver.get();
+	scriptHost->gui = guiScene.get();
+	scriptHost->viewport = glm::uvec2(std::uint32_t(width), std::uint32_t(height));
+	scriptHost->setRichText = [this](const Sandbox::RichTextRequest& request) {
+		setRichText(request);
+	};
+
+	jsCore = std::make_unique<JS::Core>(iosys);
+	jsCore->insertModule("CONFIG", [this](JSContext& ctx, JS::RootedObject& obj) {
+	for( auto it = std::begin(config) ; it != std::end(config) ; ++it ) {
+		JS::RootedObject section(&ctx, JS_NewPlainObject(&ctx));
+		for( auto zt = std::begin(it->second) ; zt != std::end(it->second) ; ++zt ) {
+			switch (zt->second.type) {
+				case Euph::Conf::ConfigurationElementType::CONF_BOOL: {
+					JS::RootedValue rootedBool(&ctx, zt->second.storage.b ? JS::TrueValue() : JS::FalseValue() );
+					JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedBool, JSPROP_READONLY | JSPROP_ENUMERATE);
+					break; }
+				case Euph::Conf::ConfigurationElementType::CONF_FLOAT: {
+					JS::RootedValue rootedFloat(&ctx, JS_NumberValue(zt->second.storage.f) );
+					JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedFloat, JSPROP_READONLY | JSPROP_ENUMERATE );
+					break;  }
+				case Euph::Conf::ConfigurationElementType::CONF_INT: {
+					JS::RootedValue rootedInt(&ctx, JS_NumberValue(zt->second.storage.i) );
+					JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedInt, JSPROP_READONLY | JSPROP_ENUMERATE );
+					break; }
+				case Euph::Conf::ConfigurationElementType::CONF_UINT: {
+					JS::RootedValue rootedUint(&ctx, JS_NumberValue(zt->second.storage.u) );
+					JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedUint, JSPROP_READONLY  | JSPROP_ENUMERATE);
+					break; }
+				case Euph::Conf::ConfigurationElementType::CONF_STRING: {
+					auto strview = zt->second.storage.s.asStringView();
+					JS::UTF8Chars uChars( strview.data(), strview.size() );
+					JS::RootedString rootedString(&ctx, JS_NewStringCopyUTF8N(&ctx, uChars) );
+					JS_DefineProperty(&ctx, section, zt->first.c_str(), rootedString, JSPROP_READONLY | JSPROP_ENUMERATE );
+					break; }
+				default: break;
 			}
-		});
-		// Let's do some javascript!
-		jscore.run();
+		}
+		JS_DefineProperty(&ctx,obj, it->first.c_str(), section, JSPROP_READONLY | JSPROP_ENUMERATE);
+	}
 	});
+	jsCore->insertModule("System", [this](JSContext& ctx, JS::RootedObject& obj) {
+		JS::RegisterSystemClasses(&ctx, obj, *scriptHost);
+	});
+	jsCore->insertModule("Audio", [this](JSContext& ctx, JS::RootedObject& obj) {
+		JS::RegisterAudioPlayerClasses(&ctx, obj, *scriptHost);
+	});
+	jsCore->insertModule("GUI", [this](JSContext& ctx, JS::RootedObject& obj) {
+		JS::RegisterGuiClasses(&ctx, obj, *scriptHost);
+	});
+	jsCore->insertModule("IO", [this](JSContext& ctx, JS::RootedObject& obj) {
+		JS::CreateIOClasses(&ctx, obj, *scriptHost);
+	});
+
+	try {
+		// `run()` executes `main.js` once. The script declares the scene and
+		// returns; its callbacks stay rooted in the context and are invoked from the
+		// event handlers, so nothing has to poll JavaScript per frame.
+		jsCore->run();
+	} catch (const std::exception& error) {
+		SDL_Log("Script failed: %s", error.what());
+	}
+
+	if (kaldi) {
+		// Textures the script created recorded their create/upload commands; hand
+		// them to the backend before the first frame opens a render pass.
+		const Kld::HalStatus status = kaldi->submit();
+		if (!status.ok()) {
+			SDL_Log("Script upload failed (%d): %s", static_cast<int>(status.code),
+				status.message != nullptr ? status.message : "(no message)");
+		}
+	}
+	SDL_Log("Script ready: %zu button(s)", guiScene ? guiScene->buttonCount() : std::size_t(0));
 }
 
 void GameSystem::updateLogic()
@@ -335,6 +392,7 @@ void GameSystem::render()
 					textRenderer.reset();
 					fontRepository.reset();
 					fontReady = false;
+					sampleLayout.clear();
 				}
 			}
 		} catch (const std::exception& error) {
@@ -342,6 +400,7 @@ void GameSystem::render()
 			textRenderer.reset();
 			fontRepository.reset();
 			fontReady = false;
+			sampleLayout.clear();
 		}
 	}
 	const Kld::HalStatus beginStatus = kaldi->beginFrame();
@@ -354,6 +413,11 @@ void GameSystem::render()
 		return;
 	}
 	guiRenderer->beginFrame();
+	// The widgets first, then the text on top of them, then the cursor: the same
+	// layering the hard-coded demo used, now driven by what the script created.
+	if (guiScene) {
+		guiScene->render(*guiRenderer);
+	}
 	if (textRenderer && fontReady) {
 		try {
 			textRenderer->setViewportSize(std::uint16_t(width), std::uint16_t(height));
@@ -363,7 +427,8 @@ void GameSystem::render()
 			textRenderer->flush();
 			if (!textRendered && glyphs > 0) {
 				textRendered = true;
-				Lotte::Text::FontAtlas* atlas = fontRepository->atlasFor("Vinque");
+				Lotte::Text::FontAtlas* atlas =
+					fontRepository->atlasFor(fontRepository->defaultFaceId());
 				SDL_Log("Text: %zu glyphs, %zu atlas glyphs in %zu pages, %zu draw runs",
 						glyphs, atlas != nullptr ? atlas->glyphCount() : 0,
 						atlas != nullptr ? atlas->pageCount() : 0, runs);
@@ -373,6 +438,7 @@ void GameSystem::render()
 			textRenderer.reset();
 			fontRepository.reset();
 			fontReady = false;
+			sampleLayout.clear();
 		}
 	}
 	if (!cursors.empty()) {
@@ -454,11 +520,21 @@ void GameSystem::handleJoyDeviceEvent(const SDL_JoyDeviceEvent& event)
 void GameSystem::handleMouseMotionEvent(const SDL_MouseMotionEvent& event)
 {
 	cursorPosition = glm::fvec2(float(event.x), float(event.y));
+	if (guiScene) {
+		guiScene->setMousePosition(cursorPosition);
+	}
 }
 
 void GameSystem::handleMouseButtonEvent(const SDL_MouseButtonEvent& event)
 {
 	cursorPosition = glm::fvec2(float(event.x), float(event.y));
+	// Only the primary button activates a widget; the scene stays backend-neutral
+	// and receives the raw index for the widget that wants to know.
+	if (!guiScene || event.button != SDL_BUTTON_LEFT) {
+		return;
+	}
+	const bool down = event.type == SDL_MOUSEBUTTONDOWN;
+	guiScene->setMouseButton(cursorPosition, event.button, down, event.clicks);
 }
 
 void GameSystem::handleMouseWheelEvent(const SDL_MouseWheelEvent& event)

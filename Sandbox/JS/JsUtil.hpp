@@ -95,36 +95,55 @@ bool executeSetPropertyOp(const SetPropertyOpWrapper& fun, JSContext* cx, JS::Ha
 bool executeGetOwnPropertyOp(const GetOwnPropertyOpWrapper& fun, JSContext* cx, JS::HandleObject obj, JS::HandleId id, JS::MutableHandle<mozilla::Maybe<JS::PropertyDescriptor>> desc);
 bool executeDeletePropertyOp(const DeletePropertyOpWrapper& fun, JSContext* cx, JS::HandleObject obj, JS::HandleId id, JS::ObjectOpResult& result);
 
-///! THIS IS A TERRIBLE IDEA!
-///! THIS MUST NOT BE CARRIED INTO ANYTHING FINAL!!!
-uintptr_t storeSharedVoidPtr(const std::shared_ptr<void>& ptr);
-uintptr_t storeSharedVoidPtr(std::shared_ptr<void>&& ptr);
-uintptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, const std::shared_ptr<void>& ptr);
-uintptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, std::shared_ptr<void>&& ptr);
-std::shared_ptr<void> getSharedVoidPtr(uintptr_t id);
-std::shared_ptr<void> getSharedVoidPtrFromObj(JSObject* obj, size_t slot);
-void removeSmartPointer(uintptr_t id);
-template<typename T> uintptr_t storeSmartPointer(const std::shared_ptr<T>& ptr) {
-	return storeSharedVoidPtr(ptr);
-}
-template<typename T> uintptr_t storeSmartPointer(std::shared_ptr<T>&& ptr) {
-	return storeSharedVoidPtr(std::move(ptr));
-}
-template<typename T> uintptr_t storeSmartPointerToObj(JSObject* obj, uint32_t index, const std::shared_ptr<T>& ptr) {
-	return storeSharedVoidPtrToObj(obj,index,ptr);
-}
-template<typename T> uintptr_t storeSmartPointerToObj(JSObject* obj, uint32_t index, std::shared_ptr<T>&& ptr) {
-	return storeSharedVoidPtrToObj(obj,index,std::move(ptr));
+/**
+ * @brief Stores a native object in a reserved slot of its JavaScript wrapper.
+ * @tparam T Native type the wrapper owns.
+ * @param obj Wrapper object; its class must have at least @p slot + 1 reserved slots.
+ * @param native Heap allocation that @ref finalizeNative will delete; may be null.
+ * @param slot Reserved slot to write.
+ *
+ * A wrapper declares `JSCLASS_HAS_RESERVED_SLOTS(n)` and keeps its native half in
+ * slot 0 as a private pointer whose static type the class itself names. There is no
+ * runtime type tag, no global id table and no `shared_ptr<void>` round-trip: the
+ * class's own finalizer knows exactly what to delete.
+ */
+template <typename T>
+void setNativePointer(JSObject* obj, T* native, std::size_t slot = 0)
+{
+	JS_SetReservedSlot(obj, slot, JS::PrivateValue(static_cast<void*>(native)));
 }
 
-template<typename T> std::shared_ptr<T> getSmartPointer(uintptr_t id) {
-	return std::static_pointer_cast<T>(getSharedVoidPtr(id));
+/**
+ * @brief Reads back a pointer stored by @ref setNativePointer.
+ * @tparam T Native type the wrapper owns.
+ * @param obj Wrapper object; may be null, in which case null is returned.
+ * @param slot Reserved slot to read.
+ * @return The stored pointer, or null when the slot is empty.
+ */
+template <typename T>
+T* getNativePointer(JSObject* obj, std::size_t slot = 0)
+{
+	if (!obj) return nullptr;
+	return static_cast<T*>(JS::GetMaybePtrFromReservedSlot<void>(obj, slot));
 }
-template<typename T> std::shared_ptr<T> getSmartPointerFromObj(JSObject* obj, size_t slot) {
-	return std::static_pointer_cast<T>(getSharedVoidPtrFromObj(obj,slot));
+
+/**
+ * @brief Finalizer for a wrapper class that owns a `new`-allocated native object.
+ * @tparam T Native type; `delete` must be able to release it.
+ * @param gcx Unused GC context.
+ * @param obj Wrapper being collected; null is tolerated.
+ * @warning A class that mutates engine state from its finalizer (a mixer, an I/O
+ *          device, a GUI scene) must **not** set `JSCLASS_BACKGROUND_FINALIZE`:
+ *          background finalization runs on a GC helper thread and would race the
+ *          audio callback or the resource factory.
+ */
+template <typename T>
+void finalizeNative(JS::GCContext* gcx, JSObject* obj)
+{
+	(void)gcx;
+	if (!obj) return;
+	delete getNativePointer<T>(obj, 0);
 }
-void js_finalizer_shared(JS::GCContext* cx, JSObject* obj);
-/// ^ Terrible idea over
 
 // Other wrappers
 namespace detail {
@@ -630,7 +649,7 @@ bool invokeMemberMethod(JSContext* cx, unsigned argc, JS::Value* vp, MethodPtr m
 	}
 
 	auto obj = args.thisv().toObjectOrNull();
-	auto ptr = getSmartPointerFromObj<T>(obj, 0);
+	auto ptr = getNativePointer<T>(obj, 0);
 	if (!ptr) {
 		JS_ReportErrorASCII(cx, "Native object pointer is null");
 		return false;
@@ -643,7 +662,7 @@ bool invokeMemberMethod(JSContext* cx, unsigned argc, JS::Value* vp, MethodPtr m
 
 	try {
 		auto nativeArgs = getNativeArguments<Args...>(cx, args);
-		auto boundArgs = std::tuple_cat(std::make_tuple(ptr.get()), std::move(nativeArgs));
+		auto boundArgs = std::tuple_cat(std::make_tuple(ptr), std::move(nativeArgs));
 
 		if constexpr (std::is_void_v<Ret>) {
 			std::apply(method, std::move(boundArgs));

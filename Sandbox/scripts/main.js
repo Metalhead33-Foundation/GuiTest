@@ -1,55 +1,114 @@
-const CONFIG = require('CONFIG');
+// Sandbox demo script.
+//
+// Everything the sandbox shows or plays originates here: the rendered rich text,
+// the module file, its volume, the button and what the button does when it is
+// clicked. The engine half (GameSystem, GuiScene, the Lotte/Haruka libraries) only
+// provides the services the `System`, `GUI`, `Audio` and `IO` modules expose.
+//
+// The script runs once, on the frame thread, and returns. Click handlers stay
+// alive in the context and are invoked from the SDL event handlers.
 
-print("Hello World from C++/JS!");
+const CONFIG = require('CONFIG');
+const System = require('System');
+const GUI = require('GUI');
+const Audio = require('Audio');
+const IO = require('IO');
+
+print('Hello World from C++/JS!');
 for (const [key, value] of Object.entries(CONFIG)) {
     console.log(`[${key}]`);
-    for(const [jey, jalue] of Object.entries(value)) {
+    for (const [jey, jalue] of Object.entries(value)) {
         console.log(`${jey}: ${jalue}`);
     }
 }
 
-/*
-The old legacy script:
+// Configuration with defaults that used to live in GameSystem.
+const title = CONFIG.Game.sTitle ?? 'Sandbox';
+const songPath = CONFIG.Game.sSongPath ?? '/music/Magnus.it';
+const songVolume = CONFIG.Game.fModVolume ?? 0.10;
+const titleSize = CONFIG.Graphics.uTitleSize ?? 52;
+const margin = CONFIG.Graphics.uTextMargin ?? 32;
 
-const CONFIG = require('CONFIG');
-const localizations = require('localization');
-const IO = require('IO');
-const Audio = require('Audio');
-const GlobalMixer = require('GLOBAL_AUDIO_MIXER');
-const GUI = require('GUI');
-const system = require('System');
+// 1. Music. The module object owns the streamer: losing the last reference stops
+//    playback and closes the file.
+let music = null;
+try {
+    music = new Audio.Module(songPath, {
+        volume: songVolume,
+        repeating: true,
+        playing: true
+    });
+    print(`Playing '${songPath}' at volume ${songVolume}`);
+} catch (error) {
+    print(`Could not start '${songPath}': ${error}`);
+}
 
-print("Hello World from C++/JS!");
-for (const [key, value] of Object.entries(CONFIG)) {
-    console.log(`${key}`);
-    for(const [jey, jalue] of Object.entries(value)) {
-        console.log(`${jey}: ${jalue}`);
+// 2. Rich text. This used to be an MML string compiled into `GameSystem`.
+function showStatus() {
+    const status = music === null
+        ? 'no module loaded'
+        : (music.playing ? 'music on' : 'music off');
+    try {
+        System.setRichText(
+            `[font=Vinque][color=#ffffff][size=${titleSize}]${title}[/size]\n` +
+            `[size=30]Click the button to switch the music [b]on[/b] and [i]off[/i].[/size]\n` +
+            `[size=26][color=#ffd166]${status}[/color][/size]`,
+            { x: margin, y: titleSize + 24, spacing: 4, wordSpacing: 2 }
+        );
+    } catch (error) {
+        print(`Text unavailable: ${error}`);
     }
 }
-for (const [key, value] of Object.entries(localizations)) {
-  console.log(`${key}: ${value}`);
-}
-const stdout = new IO.StdOut();
-stdout.writeString("Hello from raw IO out!");
-stdout.writeString("Well, whatever");
-//print(CONFIG.Video.iHeight);
-const audiofile = new IO.PhysFsFile('/sounds/rubies.ogg',1);
-const rubiesMusic = new Audio.Streamer(audiofile);
-rubiesMusic.state = 0;
-rubiesMusic.cursor = 0;
-rubiesMusic.repeating = true;
-GlobalMixer.insert(rubiesMusic,0.5);
-const tex = system.gibTexture('/textures/menuButton2.png');
-const texCoords = [0, 0, 1, 0.2, 0, 0.2, 1, 0.4, 0, 0, 1, 0.2, 0, 0.4, 1, 0.6, 0, 0, 1, 0.2, 0, 0.6, 1, 0.8, 0, 0, 0, 0, 0, 0.8, 1, 1 ];
-const guiElement = new GUI.TexturedButton(tex,texCoords);
-guiElement.onStateChange = function(val1, val2) {
-    print(`Old value: ${val1}\nNew value: ${val2}`);
-    if(guiElement.clicked) rubiesMusic.state = 1;
-    else rubiesMusic.state = 0;
-};
-guiElement.enabled = true;
-system.addWidget(guiElement);
-print(`\n${guiElement.enabled}\n`);
-print(`${rubiesMusic.channelCount}\n`);
 
-*/
+// 3. A clickable widget. `GUI.Button` auto-registers itself in the scene; the
+//    texture is optional, the colours are the fill (untextured) or the tint
+//    (textured) of each of the four visual states.
+let button = null;
+try {
+    let texture = null;
+    try {
+        texture = System.loadTexture('/cursors/hourglass2.png');
+    } catch (error) {
+        print(`No button texture: ${error}`);
+    }
+
+    const viewport = System.viewport;
+    const buttonWidth = 192;
+    const buttonHeight = 72;
+    button = new GUI.Button({
+        x: viewport.width - buttonWidth - margin,
+        y: viewport.height - buttonHeight - margin,
+        width: buttonWidth,
+        height: buttonHeight,
+        texture: texture,
+        colours: {
+            idle: '#32455aff',
+            hover: '#4a6580ff',
+            active: '#22303cff',
+            disabled: '#33333388'
+        }
+    });
+
+    button.onClick = function () {
+        if (music === null) {
+            print('There is no module to toggle.');
+            return;
+        }
+        music.playing = !music.playing;
+        print(`Music ${music.playing ? 'on' : 'off'}`);
+        showStatus();
+        // A small side effect through the IO module, to show that the click
+        // handler is ordinary script code.
+        try {
+            const log = new IO.File('/sandbox-session.log', 'a');
+            log.writeString(`music=${music.playing ? 'on' : 'off'}\n`);
+            log.flush();
+        } catch (error) {
+            print(`Could not write the session log: ${error}`);
+        }
+    };
+} catch (error) {
+    print(`No button: ${error}`);
+}
+
+showStatus();

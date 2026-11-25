@@ -1,62 +1,8 @@
 #include "JsUtil.hpp"
 #include <exception>
-#include <unordered_map>
-#include <Elvavena/Util/ElvIdPool.hpp>
 #include <js/Class.h>
 #include <js/Proxy.h>
 namespace JS {
-
-///! THIS IS A TERRIBLE IDEA!
-///! THIS MUST NOT BE CARRIED INTO ANYTHING FINAL!!!
-static Elv::Util::IdPool<uintptr_t> IdGenerator;
-static std::unordered_map<uintptr_t, std::shared_ptr<void>> smartPointerTable;
-static std::mutex smartPointerTableMutex;
-
-uintptr_t storeSharedVoidPtr(const std::shared_ptr<void>& ptr) {
-	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
-	uintptr_t id = IdGenerator.acquireId();
-	smartPointerTable[id] = ptr;
-	return id;
-}
-
-uintptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, const std::shared_ptr<void>& ptr)
-{
-	uintptr_t id = storeSharedVoidPtr(ptr);
-	JS_SetReservedSlot(obj, index, JS::PrivateValue( reinterpret_cast<void*>(id) ) );
-	return id;
-}
-uintptr_t storeSharedVoidPtr(std::shared_ptr<void>&& ptr) {
-	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
-	uintptr_t id = IdGenerator.acquireId();
-	smartPointerTable[id] = std::move(ptr);
-	return id;
-}
-
-uintptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, std::shared_ptr<void>&& ptr)
-{
-	uintptr_t id = storeSharedVoidPtr(std::move(ptr));
-	JS_SetReservedSlot(obj, index, JS::PrivateValue( reinterpret_cast<void*>(id) ) );
-	return id;
-}
-std::shared_ptr<void> getSharedVoidPtr(uintptr_t id) {
-	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
-	auto it = smartPointerTable.find(id);
-	if (it != smartPointerTable.end()) {
-		return it->second;
-	}
-	return nullptr;
-}
-
-std::shared_ptr<void> getSharedVoidPtrFromObj(JSObject* obj, size_t slot)
-{
-	uintptr_t id = reinterpret_cast<uintptr_t>(JS::GetMaybePtrFromReservedSlot<void>(obj,slot));
-	return getSharedVoidPtr(id);
-}
-void removeSmartPointer(uintptr_t id) {
-	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
-	smartPointerTable.erase(id);
-}
-///^ Terrible idea over
 
 JSObject* ClassCreator::registerToJS(JSContext* cx, JS::HandleObject obj)
 {
@@ -223,15 +169,6 @@ std::string JsToNativeString(JSContext *cx, JSString *jsstring)
 	JS::RootedString rootedJsStr(cx,jsstring);
 	auto encoded = JS_EncodeStringToUTF8(cx,rootedJsStr);
 	return std::string(encoded.get());
-}
-
-void js_finalizer_shared(GCContext* cx, JSObject* obj)
-{
-	(void)cx;
-	if(!obj) return;
-	auto privval = reinterpret_cast<uintptr_t>(JS::GetMaybePtrFromReservedSlot<void>(obj, 0));
-	if(!privval) return;
-	removeSmartPointer(privval);
 }
 
 }

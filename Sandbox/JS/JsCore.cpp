@@ -5,20 +5,20 @@
 #include <js/Array.h>
 #include <js/MapAndSet.h>
 #include <JS/Wrappers/Util/JsRandom.hpp>
-//#include <JS/Wrappers/Io/JsIO.hpp>
-//#include <JS/Wrappers/Audio/JsAudioPlayer.hpp>
-//#include <JS/Wrappers/GUI/JsGuiWrappers.hpp>
 
 namespace JS {
 void Core::run(bool module)
 {
-	JS::RootedObject global(cx.get(), createGlobal());
-	if (!global) {
-	  return;
+	// Reuse the global and the realm `initialize()` already created instead of
+	// making a second one: the pre-registered modules (and the classes they define)
+	// live in that realm, and a wrapper object created against a prototype from
+	// another compartment would be a cross-compartment wrapper, whose reserved
+	// slots cannot hold the native pointer.
+	if (!global || !*global) {
+		return;
 	}
-
-	JSAutoRealm ar(cx.get(), global);
-	registerGlobals(global);
+	JSAutoRealm ar(cx.get(), global->get());
+	registerGlobals(*global);
 	if(module) {
 		runToplevelModule("main.js");
 	}
@@ -156,15 +156,6 @@ void Core::initialize()
 	insertModule("random", [](JSContext& ctx,JS::RootedObject& obj) {
 		CreateRandomIzerClass(&ctx,obj);
 	});
-	/*insertModule("IO", [](JSContext& ctx,JS::RootedObject& obj) {
-		CreateIOClasses(&ctx,obj);
-	});
-	insertModule("Audio", [](JSContext& ctx,JS::RootedObject& obj) {
-		RegisterAudioPlayerClasses(&ctx,obj);
-	});
-	insertModule("GUI", [](JSContext& ctx,JS::RootedObject& obj) {
-		RegisterGuiClasses(&ctx,obj);
-	});*/
 	/*
 	//
 	//JS::RootedObject consoleObject(cx.get(),compileModuleFromSource("export const name = \"console\";","console"));
