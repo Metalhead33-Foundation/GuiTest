@@ -3,10 +3,12 @@
 #include <fstream>
 #include <Euphemy/Io/PhysFS.hpp>
 #include <sstream>
+#include "JS/JsCore.hpp"
 
 int main(int argc, char *argv[])
 {
 	PhysFS::System::init(argv[0]);
+	JS::Core::inintializeJs();
 	Euph::Conf::Configuration config;
 	{
 		std::ifstream istrm("config.ini", std::ios_base::in);
@@ -53,6 +55,7 @@ int main(int argc, char *argv[])
 	}
 	// The game's module streamer owns a PhysFS device. It must be destroyed while
 	// PhysicsFS is still initialized, otherwise PHYSFS_close() runs on freed state.
+	JS::Core::shutdownJs();
 	PhysFS::System::deinit();
 	return 0;
 }

@@ -51,6 +51,10 @@ CONFIG += file_copies
 cursorImages.files = $$files($$PWD/cursors/*.png)
 cursorImages.path = $$OUT_PWD/cursors
 COPIES += cursorImages
+js_scripts.files = $$files($$PWD/scripts/*.js)
+js_scripts.path = $$OUT_PWD/scripts
+COPIES += js_scripts
 
 DISTFILES += \
-    README.md
+    README.md \
+    scripts/main.js

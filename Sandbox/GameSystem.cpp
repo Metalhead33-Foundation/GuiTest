@@ -8,6 +8,7 @@
 #include <optional>
 #include <string_view>
 #include <utility>
+#include "JS/JsCore.hpp"
 
 namespace {
 
@@ -57,7 +58,7 @@ GameSystem::GameSystem(Euph::Conf::Configuration& config, Elv::Io::System& iosys
 				0,
 				config.getUInteger("Video","uWidth", 640),
 				config.getUInteger("Video","uHeight", 480),
-				0), config(config), iosys(iosys)
+				0), iosys(iosys), config(config)
 {
 	auto samplerate = config.getUInteger("Audio","uSamplerate",48000);
 	auto channels = config.getUInteger("Audio","uChannels",2);
@@ -128,6 +129,7 @@ void GameSystem::startGraphics()
 GameSystem::~GameSystem()
 {
 	SDL_ShowCursor(SDL_ENABLE);
+	script_thread.join();
 }
 
 void GameSystem::loadFont()
@@ -269,6 +271,11 @@ void GameSystem::initialize()
 	// SDL audio devices start paused: without this the callback never runs,
 	// so nothing ever reaches ModuleStreamer::decodeFrames().
 	sdlDriver->pause(false);
+	script_thread = std::thread([this](){
+		JS::Core jscore(this->iosys);
+		// Let's do some javascript!
+		jscore.run();
+	});
 }
 
 void GameSystem::updateLogic()

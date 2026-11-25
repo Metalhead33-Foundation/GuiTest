@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <thread>
 
 class GameSystem : public AppSystem
 {
@@ -37,6 +38,8 @@ private:
 	Hrk::sMixer mixer;
 	Hrk::sModuleStreamer modplayer;
 	std::unique_ptr<Haruka_SDL_Driver> sdlDriver;
+	std::thread script_thread;
+
 	/**
 	 * @brief The Lotte rendering context, or null when the backend could not start.
 	 *

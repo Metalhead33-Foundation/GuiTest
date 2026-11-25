@@ -203,20 +203,6 @@ void Core::registerGlobals(const JS::HandleObject &global)
 }
 
 std::map<JSContext*,Core*> Core::CONTEXT_MAP;
-const Elv::Io::sSystem &Core::getIosys() const
-{
-	return iosys;
-}
-
-void Core::setIosys(const Elv::Io::sSystem &newIosys)
-{
-	iosys = newIosys;
-}
-
-void Core::setIosys(Elv::Io::sSystem &&newIosys)
-{
-	iosys = std::move(newIosys);
-}
 
 static const std::vector<std::string> js_postfixes = {
 	"",
@@ -227,16 +213,16 @@ std::string Core::getCodeFromJsFile(const std::string &path, bool isRaw) const
 {
 	std::unique_ptr<Elv::Io::Device> iodev(nullptr);
 	if(isRaw) {
-		iodev = std::unique_ptr<Elv::Io::Device>(iosys->open(path,Elv::Io::Mode::READ));
+		iodev = std::unique_ptr<Elv::Io::Device>(iosys.open(path,Elv::Io::Mode::READ));
 	} else {
 		std::string path0 = path;
 		if(path0.starts_with("./")) {
 			path0 = std::string_view(++(++std::begin(path0)), std::end(path0));
 		}
-		iodev = std::unique_ptr<Elv::Io::Device>(iosys->open(path0,Elv::Io::Mode::READ));
+		iodev = std::unique_ptr<Elv::Io::Device>(iosys.open(path0,Elv::Io::Mode::READ));
 		if(!iodev->isValid()) {
 			for(const auto& it : js_postfixes) {
-				iodev = std::unique_ptr<Elv::Io::Device>(iosys->open("/scripts/" + path0 + it,Elv::Io::Mode::READ));
+				iodev = std::unique_ptr<Elv::Io::Device>(iosys.open("/scripts/" + path0 + it,Elv::Io::Mode::READ));
 				if(iodev->isValid()) break;
 			}
 		}
@@ -246,18 +232,8 @@ std::string Core::getCodeFromJsFile(const std::string &path, bool isRaw) const
 }
 
 
-Core::Core(const Elv::Io::sSystem &iosys, bool initSelfHosting)
+Core::Core(Elv::Io::System& iosys, bool initSelfHosting)
 	: cx(JsContext(JS_NewContext(JS::DefaultHeapMaxBytes),JS_DestroyContext)), iosys(iosys)
-{
-	CONTEXT_MAP.emplace(cx.get(),this);
-	if (initSelfHosting && !JS::InitSelfHostedCode(cx.get())) {
-	  throw std::runtime_error("Failed to initialize self-hosting code!");
-	}
-	initialize();
-}
-
-Core::Core(Elv::Io::sSystem &&iosys, bool initSelfHosting)
-	: cx(JsContext(JS_NewContext(JS::DefaultHeapMaxBytes),JS_DestroyContext)), iosys(std::move(iosys))
 {
 	CONTEXT_MAP.emplace(cx.get(),this);
 	if (initSelfHosting && !JS::InitSelfHostedCode(cx.get())) {

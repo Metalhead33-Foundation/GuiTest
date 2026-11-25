@@ -34,7 +34,7 @@ public:
 private:
 	JsContext cx;
 	std::map<std::string, JS::PersistentRootedObject> moduleRegistry;
-	Elv::Io::sSystem iosys;
+	Elv::Io::System& iosys;
 	std::unique_ptr<JS::RootedObject> global;
 	std::unique_ptr<JSAutoRealm> realm;
 	struct ErrorInterception : public JSErrorInterceptor {
@@ -48,13 +48,9 @@ public:
 	static bool inintializeJs();
 	static void shutdownJs();
 	// Constructor and destructor
-	Core(const Elv::Io::sSystem& iosys, bool initSelfHosting = true);
-	Core(Elv::Io::sSystem&& iosys, bool initSelfHosting = true);
+	Core(Elv::Io::System& iosys, bool initSelfHosting = true);
 	~Core();
 	// Internal Stuff
-	const Elv::Io::sSystem &getIosys() const;
-	void setIosys(const Elv::Io::sSystem &newIosys);
-	void setIosys(Elv::Io::sSystem&& newIosys);
 	std::string getCodeFromJsFile(const std::string& path, bool isRaw = false) const;
 	// JS stuff
 	JSObject* createGlobal();
