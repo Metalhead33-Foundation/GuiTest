@@ -1,5 +1,6 @@
 #include "sandbox.hpp"
 #include "GameSystem.hpp"
+#include "ThemeDemo.hpp"
 #include <fstream>
 #include <Euphemy/Io/PhysFS.hpp>
 #include <sstream>
@@ -34,6 +35,15 @@ int main(int argc, char *argv[])
 	}
 	physfsSystem.mount("/home/legacy/blenda","/");
 	physfsSystem.mount("/home/legacy/zene/GameMusic/Unreal Tournament/mod","/music");
+	// A terminal-only path: parse the theme document, generate its procedural atlas,
+	// dump the PNG next to the working directory and exit. It needs no window, no GPU
+	// and no audio device, which is what makes it usable from CI.
+	if (argc > 1 && std::string(argv[1]) == "--theme") {
+		const int exitCode = Sandbox::runThemeDemo(physfsSystem, "/gfx/theme_000.json", "theme_out");
+		JS::Core::shutdownJs();
+		PhysFS::System::deinit();
+		return exitCode;
+	}
 	//testConfiguration();
 	//testCustomAllocator();
 	/*testAssetRuntime();

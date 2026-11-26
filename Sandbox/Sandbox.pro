@@ -19,12 +19,21 @@ QMAKE_CXXFLAGS += -isystem /usr/include/mozjs-153
 LIBS += -lmozjs-153
 INCLUDEPATH += -I/usr/include/nspr
 
+# nlohmann_json is the theme/procedural data parser. It is deliberately only linked
+# here (and in UnitTests): no library of ours may depend on a JSON parser, and no
+# algorithm works on JSON directly - the loaders in this directory parse into the
+# plain structs of `Lotte::Gui::ThemeDefinition`.
+CONFIG += link_pkgconfig
+PKGCONFIG += nlohmann_json
+
 INCLUDEPATH += $$PWD/..
 
 SOURCES += main.cpp sandbox.cpp \
     AppSystem.cpp \
     GameSystem.cpp \
     GuiScene.cpp \
+    ThemeDemo.cpp \
+    ThemeJson.cpp \
     HarukaContext.cpp \
     JS/JsCore.cpp \
     JS/JsException.cpp \
@@ -39,6 +48,8 @@ HEADERS += sandbox.hpp \
     GameSystem.hpp \
     GuiScene.hpp \
     HarukaContext.hpp \
+    ThemeDemo.hpp \
+    ThemeJson.hpp \
     ScriptHost.hpp \
     JS/JsCore.hpp \
     JS/JsException.hpp \
@@ -59,6 +70,9 @@ COPIES += cursorImages
 js_scripts.files = $$files($$PWD/scripts/*.js)
 js_scripts.path = $$OUT_PWD/scripts
 COPIES += js_scripts
+gfx_fld.files = $$files($$PWD/gfx/*)
+gfx_fld.path = $$OUT_PWD/gfx
+COPIES += gfx_fld
 
 DISTFILES += \
     README.md \

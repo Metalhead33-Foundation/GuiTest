@@ -24,6 +24,7 @@ folder's index. A note missing from its index builds as a *sibling* and fails
 |---|---|---|
 | draw anything through Kaldi, or choose between the raw and the object-oriented API | \subpage doc_kaldi_tutorial | the command stream, the facade, a complete textured triangle, retirement/lifetime/threading, the per-backend differences |
 | author, compile or port a shader | \subpage doc_shaders | HLSL → SPIR-V 1.0, how each backend consumes it, the glslang deprecation and the deferred DXC migration |
+| generate textures, GUI atlases or a theme file | \subpage doc_procedural | the JSON and enum policies, the noise/Voronoi API, the SDF/material/lighting pipeline, the theme schema |
 | write, parse or style MML text, or ask what CSS may promise | \subpage doc_mml | the MML language specification, the CSS integration study, resolved attributes, landmines and what may not be promised |
 | touch the networking layer (session, snapshots, RPC, prediction) | \subpage doc_netcode | the Elvavena/Euphemy split, the wire contract, the milestones |
 | change the HTTP parser, client or server | \subpage doc_http | the deliberately minimal HTTP layer and its extension points |

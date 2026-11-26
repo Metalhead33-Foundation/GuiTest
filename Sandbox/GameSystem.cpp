@@ -220,8 +220,8 @@ void GameSystem::setRichText(const Sandbox::RichTextRequest& request)
 
 void GameSystem::loadCursors()
 {
-	const std::string primary { config.getString("Graphics", "sCursor", "/cursors/wodmouse.png") };
-	const std::vector<std::string> paths = { primary, "/cursors/hourglass2.png" };
+	const std::string primary { config.getString("Graphics", "sCursor", "/gfx/wodmouse.png") };
+	const std::vector<std::string> paths = { primary, "/gfx/hourglass2.png" };
 	for (const std::string& path : paths) {
 		Elv::Io::uDevice file;
 		try {

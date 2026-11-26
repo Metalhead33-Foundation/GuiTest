@@ -79,6 +79,38 @@ thread.
 own finalizer deletes. The legacy `shared_ptr<void>` id table is gone: it hid the type, required a
 mutex for every access and could not be reasoned about.
 
+## The theme demo (`--theme`)
+
+```sh
+cd build/Desktop-Debug/Sandbox
+LD_LIBRARY_PATH=../Elvavena:../Euphemy:../Lotte:../Haruka ../Sandbox --theme
+```
+
+This path needs no window, no GPU and no audio device, which is what makes it usable from a
+terminal or CI. It reads `gfx/theme_000.json` through the PhysFS mount, parses it into
+`Lotte::Gui::ThemeDefinition`, generates the atlas the document asks for
+(`Lotte::Procedural::buildGuiAtlas`), writes it to `theme_out/<alias>.png` with Euphemy's PNG
+encoder, prints the manifest and finally resolves skins through a `DefinitionTheme`.
+
+```text
+theme 'legacy_crpg': 4 atlas(es), 9 element(s)
+atlas 'PROC': 1024x382, 13 part(s) -> theme_out/PROC.png
+  parchment           0    0  208  272
+  panel             210    0  272  144
+  ...
+DefinitionTheme 'legacy_crpg': 18 skin query(s) resolved
+```
+
+**JSON is only linked here.** `nlohmann_json` is a dependency of the Sandbox and the
+tests, never of a library: `Sandbox/ThemeJson.cpp` is the one loader, it parses into
+the plain structs of `Lotte/Gui/LteThemeDefinition.hpp`, and every fixed vocabulary
+(element, text role, atlas source, recipe, atlas part) is resolved through Lotte's own
+name tables instead of a string map. The rules are recorded in
+[`../docs/PROCEDURAL.md`](../docs/PROCEDURAL.md).
+
+A procedural atlas is packed by the generator, so the rectangles in the theme file come
+from the manifest this command prints; feeding them back automatically is a known TODO.
+
 ## `GameSystem`: audio, a window and a cursor
 
 `main()` loads `config.ini` (if present, from the working directory), then hands it to a

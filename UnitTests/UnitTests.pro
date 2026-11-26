@@ -35,6 +35,12 @@ INCLUDEPATH += $$PWD/../KaldiGLCommon
 # skipped here to avoid duplicate symbols.
 # The GL config provider is plain translation code (no glad, no context), so the
 # configuration chain can be tested without linking a GL library.
+# The theme loader is the one JSON consumer in the tree, and it lives in the Sandbox by
+# policy. Compiling it into the test binary lets the tests exercise the real loader.
+PKGCONFIG += nlohmann_json
+INCLUDEPATH += $$PWD/../Sandbox
+SOURCES += ../Sandbox/ThemeJson.cpp
+
 SOURCES += ../KaldiGLCommon/GlContextConfig.cpp
 # The device provider composes the context provider with the executor policy keys.
 SOURCES += ../KaldiGLCommon/GlDeviceConfig.cpp
@@ -151,10 +157,13 @@ SOURCES += \
     tests/NetSessionTests.cpp \
     tests/NetSnapshotTests.cpp \
     tests/NetTransportTests.cpp \
+    tests/NoiseTests.cpp \
     tests/PlatformWrappersTests.cpp \
+    tests/ProceduralAtlasTests.cpp \
     tests/ShaderAssetTests.cpp \
     tests/ShaderCompileTests.cpp \
     tests/TextRenderingTests.cpp \
+    tests/ThemeDefinitionTests.cpp \
     tests/UdpTransportTests.cpp \
     tests/WriteableTexture2DTests.cpp
 

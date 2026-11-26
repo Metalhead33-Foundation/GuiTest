@@ -123,6 +123,13 @@ roughly 512 MiB, so callers should pass a `PoolSizes` value suited to their work
 The resources are backed by `Elv::Util::FreelistMemoryManager` and bridged into PMR
 through `Elv::Util::AlexandrescuResource`.
 
+### `Util/` - noise and procedural fields
+
+| File | What it implements |
+|---|---|
+| `Util/EuphNoise.hpp` / `.cpp` | Deterministic 1D/2D noise: white, value, Perlin, bilinear Perlin, simplex, point/sector Voronoi and sum-of-sines, plus the normalize/remap helpers and an allocation-free hashed lattice (`latticeNoise2D`/`latticeFbm2D`) for per-pixel texture work. Seeded entry points own a `std::mt19937`, random entry points take a callable, and the degenerate cases the legacy code divided by or read past are clamped and documented |
+| `Util/EuphVoronoi.hpp` / `.cpp` | Tile Voronoi over a wrapping `blockCount x blockSize` grid. One traversal fills `VoronoiSample` (`F1`, `F2`, nearest-point index); `voronoiDistance`, `voronoiBorder` and `voronoiCellIndices` are cheap projections. The cell index is what turns the field into a tile map |
+
 ### `Asset/` - CPU-side asset streaming runtime
 
 | Header | Contents |

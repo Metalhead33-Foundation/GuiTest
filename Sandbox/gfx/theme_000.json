@@ -1,0 +1,76 @@
+{
+	"name": "legacy_crpg",
+	"comment": "Rects into 'PROC' are the manifest `./Sandbox --theme` printed for seed 4242.",
+	"texture_atlas": [
+		{ "alias": "BACKGROUND", "filename": "gfx/background_000.png" },
+		{ "alias": "WODMOUSE", "filename": "gfx/wodmouse.png" },
+		{ "alias": "HOURGLASS", "filename": "gfx/hourglass2.png" },
+		{ "alias": "PROC", "proc": "crpg_stone", "seed": 4242, "scale": 100 }
+	],
+	"elements": {
+		"panel": {
+			"skins": [
+				{ "atlas": "PROC", "rect": [210, 0, 272, 144], "slice": [22, 22, 22, 22] }
+			],
+			"metrics": { "padding": [16, 12], "spacing": [8, 8], "borderWidth": 2, "cornerRadius": 6 }
+		},
+		"button": {
+			"skins": [
+				{ "states": ["idle"], "atlas": "PROC", "rect": [566, 0, 144, 64], "slice": [12, 12, 12, 12] },
+				{ "states": ["hover"], "atlas": "PROC", "rect": [712, 0, 144, 64], "slice": [12, 12, 12, 12] },
+				{ "states": ["pressed"], "atlas": "PROC", "rect": [858, 0, 144, 64], "tint": "#d8d8d8", "slice": [12, 12, 12, 12] },
+				{ "states": ["enabled"], "atlas": "PROC", "rect": [0, 274, 144, 64], "slice": [12, 12, 12, 12] }
+			],
+			"metrics": { "padding": [10, 6], "minimumSize": [96, 32], "cornerRadius": 4 },
+			"text": { "face": "Vinque", "weight": 400, "size": 20, "colour": "#ffeec0" }
+		},
+		"check_box": {
+			"skins": [
+				{ "states": ["idle"], "atlas": "PROC", "rect": [694, 274, 48, 48] },
+				{ "states": ["clicked"], "atlas": "PROC", "rect": [744, 274, 48, 48] }
+			],
+			"metrics": { "minimumSize": [24, 24] }
+		},
+		"slider_track": {
+			"skins": [
+				{ "atlas": "PROC", "rect": [794, 274, 208, 48], "slice": [16, 12, 16, 12] }
+			]
+		},
+		"slider_thumb": {
+			"skins": [
+				{ "atlas": "PROC", "rect": [0, 340, 36, 42] }
+			]
+		},
+		"text_box": {
+			"skins": [
+				{ "atlas": "PROC", "rect": [420, 274, 272, 56], "slice": [10, 10, 10, 10] }
+			],
+			"text": { "face": "Vinque", "size": 22, "colour": "#e8e8f8" }
+		},
+		"scroll_area": {
+			"skins": [
+				{ "atlas": "PROC", "rect": [210, 0, 272, 144], "slice": [22, 22, 22, 22] }
+			]
+		},
+		"window_title_bar": {
+			"skins": [
+				{ "atlas": "PROC", "rect": [146, 274, 272, 64], "slice": [30, 14, 30, 14] }
+			],
+			"text": { "face": "Vinque", "weight": 700, "size": 24, "colour": "#ffe9a8" }
+		},
+		"tool_tip": {
+			"skins": [
+				{ "atlas": "PROC", "rect": [420, 274, 272, 56], "slice": [10, 10, 10, 10] }
+			],
+			"text": { "face": "Vinque", "size": 18, "colour": "#d8c98a" }
+		}
+	},
+	"roles": {
+		"body": { "face": "Vinque", "weight": 400, "size": 24, "colour": "#ffffff" },
+		"label": { "face": "Vinque", "weight": 400, "size": 20, "colour": "#ffeec0" },
+		"heading": { "face": "Vinque", "weight": 700, "size": 32, "colour": "#ffd166" },
+		"window_title": { "face": "Vinque", "weight": 700, "size": 26, "colour": "#ffe9a8" },
+		"placeholder": { "face": "Vinque", "weight": 400, "size": 20, "colour": "#8a8fa8", "italic": true },
+		"tool_tip": { "face": "Vinque", "weight": 400, "size": 18, "colour": "#d8c98a" }
+	}
+}

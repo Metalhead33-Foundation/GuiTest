@@ -69,7 +69,7 @@ let button = null;
 try {
     let texture = null;
     try {
-        texture = System.loadTexture('/cursors/hourglass2.png');
+        texture = System.loadTexture('/gfx/hourglass2.png');
     } catch (error) {
         print(`No button texture: ${error}`);
     }
@@ -84,12 +84,15 @@ try {
         height: buttonHeight,
         texture: texture,
         colours: {
-            idle: '#32455aff',
-            hover: '#4a6580ff',
-            active: '#22303cff',
+            //idle: '#32455aff',
+            idle: '#ff00ffff',
+            hover: '#00ffffff',
+            active: '#ffff00ff',
             disabled: '#33333388'
         }
     });
+
+    button.enabled = true;
 
     button.onClick = function () {
         if (music === null) {

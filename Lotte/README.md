@@ -30,9 +30,11 @@ Compiled units: `Asset/LteGpuAssetStreamer.cpp`, `Conf/LteBackendConfig.cpp`,
 `GFX/LteKaldiContext.cpp`, `GFX/LtePipeline.cpp`, `GFX/LteResourceFactory.cpp`,
 `GFX/LteWriteableTexture2D.cpp`, `Gui/LteCursor.cpp`, `Gui/LteGuiRenderable.cpp`,
 `Gui/LteGuiRootNode.cpp`, `Gui/LteKaldiGuiRenderer.cpp`,
-`Gui/LteTexturedWidget.cpp`, `Gui/LteWidget.cpp` and the ten `Text/*.cpp` files. The
-remaining `Gui/` and `GFX/` headers are header-only (templates plus inline recording
-helpers).
+`Gui/LteTexturedWidget.cpp`, `Gui/LteWidget.cpp`, `Gui/LteThemeDefinition.cpp`,
+`Procedural/LteGuiAtlas.cpp`, `Procedural/LteGuiMaterials.cpp`,
+`Procedural/LteSurfaceCanvas.cpp` and the ten `Text/*.cpp` files. `Procedural/LteSdf.hpp`
+and the remaining `Gui/` and `GFX/` headers are header-only (templates plus inline
+recording helpers).
 
 Kaldi is consumed header-only through `Kaldi.pri`. Do not add `-lKaldi` or `libKaldi`
 to Lotte; use the top-level include path.
@@ -145,6 +147,15 @@ context.endFrame();
 | `LteTextRenderer.hpp` / `.cpp` | `TextRenderer` - one SDF/MSDF/MSDFA pipeline and one vertex format for glyphs and decoration quads. `prepare()` ensures/records atlas uploads outside the frame, `render()` batches quads per atlas page, and `flush()` records the indexed draws. Colour is per vertex, weight is a per-vertex SDF threshold offset derived from the requested-vs-face weight delta (400 -> 700 reproduces the historical 4%-of-em dilation), and `3` in `params.x` draws solid underline/strikethrough quads that use `fwidth()` on their UVs for SDF-style edge anti-aliasing |
 | `MML.md` | The MML language specification and the CSS integration study |
 
+### `Procedural/` - the procedural theme atlas
+
+| File | What it implements |
+|---|---|
+| `Procedural/LteSdf.hpp` | Signed distance fields and their algebra: rounded box, circle, capsule, polygon, diamond, star, union, inset, outline and `roughen()`. A shape is `std::function<float(glm::fvec2)>` (negative inside, distance in pixels), which is what makes bevels, strokes and erosion one-liners |
+| `Procedural/LteSurfaceCanvas.hpp` / `.cpp` | Layered `paint(shape, material)` writing albedo + height + micro-height + material ids, `glow()`, `blit()`, and one deferred `shade()` pass: height -> normal, top-left key light, ambient occlusion from a blurred height field, Blinn-Phong specular, metal tint, emissive and a drop shadow. `toDecodeTarget()` hands the result to Euphemy's encoders |
+| `Procedural/LteGuiMaterials.hpp` / `.cpp` | The material set: eight named `StonePalette`s with chisel streaks, Voronoi-fed fissures and frosted edge wear, `goldMaterial`, `flatMaterial`, `gemMaterial`, `parchmentMaterial`, plus `GuiField` (a sampled float mask) and `makeVoronoiCrackField()` which uses Euphemy's tile Voronoi for the crack mask |
+| `Procedural/LteGuiAtlas.hpp` / `.cpp` | Element recipes (panel, four button states, slot, title plate, two checkbox states, slider track and thumb, parchment, inset bar) shaded and shelf-packed into one RGBA8 image, with an enum-keyed manifest (`GuiAtlasPart`, `guiAtlasPartName`/`parseGuiAtlasPart`). No file output: the caller encodes |
+
 ### `Gui/` and `GFX/` - geometry and draw vocabulary
 
 | Header | Contents |
@@ -156,7 +167,8 @@ context.endFrame();
 | `Gui/LteWidget.hpp` / `.cpp` | Abstract `Widget` base: `WidgetStateFlag` bitmask (`Enabled`, `Clicked`, `InMouseFocus`), state index for per-state assets, normalized rectangle/hit test, hidden flag, `Elv::Util::Signal` state/position notifications and the backend-neutral `onClick()` / `timedUpdate()` hooks |
 | `Gui/LteTexturedWidget.hpp` / `.cpp` | Concrete display-only `TexturedWidget`: `GuiTextureBinding` plus an 8-entry `TextureCoordDuo` atlas table indexed by `Widget::stateIndex()`, rendered through `TexturedQuad`; click/animation/child hooks are no-ops for subclasses to override |
 | `Gui/LteGuiRootNode.hpp` / `.cpp` | Owning `RootNode`: shared-child vector, duplicate/null rejection, add/remove/clear APIs, insertion-order iteration and a no-op own render |
-| `Gui/LteTheme.hpp` | Abstract `Theme` contract only: `ThemeElement`/`ThemeTextRole` enums, `ThemeSkin` with UV/tint/nine-slice source rectangle, `ThemeMetrics` and pure `skin()`/`textStyle()`/`metrics()` queries. No concrete theme yet |
+| `Gui/LteTheme.hpp` | Abstract `Theme` contract: `ThemeElement`/`ThemeTextRole` enums, `ThemeSkin` with UV/tint/nine-slice source rectangle, `ThemeMetrics` and pure `skin()`/`textStyle()`/`metrics()` queries |
+| `Gui/LteThemeDefinition.hpp` / `.cpp` | The data form of a theme: `ThemeDefinition` (atlases, `(stateMask, skin)` variants per element, metrics, one text style per role), the enum name tables (`parseThemeElement`, `parseThemeTextRole`, `parseThemeAtlasRecipe`, ...), `validate()`, and `DefinitionTheme` which resolves a definition plus a texture resolver into the `Theme` interface (pixel rect + atlas size become UVs; the most specific matching state mask wins) |
 | `GFX/LteMesh.hpp` | `MeshView` (buffer handles + layout + counts + index width + `MeshDrawRange` groups) with inline `recordBind`/`recordDraw`/`recordDrawInstanced`, and `MeshBuilder<Vertex>` that owns the buffers and records uploads |
 
 ### FontPacker binary formats

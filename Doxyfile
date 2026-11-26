@@ -47,7 +47,11 @@ INPUT                  = README.md \
                          Lotte Sandbox UnitTests docs
 FILE_PATTERNS          = *.h *.hpp *.md
 RECURSIVE              = YES
-EXCLUDE                = extern build Elvavena/Util/half.hpp Euphemy/Media/Audio/FFTConvolver
+# `Sandbox/slop_advice/` is reference material (external model output plus the images it
+# produced), not documentation of this project: it is not a note in the tree, it has no
+# page id and its LaTeX would only add warnings. It is excluded for the same reason
+# `extern/` is.
+EXCLUDE                = extern build Sandbox/slop_advice Elvavena/Util/half.hpp Euphemy/Media/Audio/FFTConvolver
 EXCLUDE_PATTERNS       = */build/* */node_modules/* *.inc
 INPUT_ENCODING         = UTF-8
 

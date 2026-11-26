@@ -51,6 +51,10 @@ SOURCES += \
     Gui/LteTexturedWidget.cpp \
     Gui/LteWidget.cpp \
     Gui/LteKaldiGuiRenderer.cpp \
+    Gui/LteThemeDefinition.cpp \
+    Procedural/LteGuiAtlas.cpp \
+    Procedural/LteGuiMaterials.cpp \
+    Procedural/LteSurfaceCanvas.cpp \
     Text/LteCssStyle.cpp \
     Text/LteFontAtlas.cpp \
     Text/LteFontRepository.cpp \
@@ -83,6 +87,11 @@ HEADERS += \
     Gui/LteGuiRenderer.hpp \
     Gui/LteGuiVertex.hpp \
     Gui/LteKaldiGuiRenderer.hpp \
+    Gui/LteThemeDefinition.hpp \
+    Procedural/LteGuiAtlas.hpp \
+    Procedural/LteGuiMaterials.hpp \
+    Procedural/LteSdf.hpp \
+    Procedural/LteSurfaceCanvas.hpp \
     LteKld.hpp \
     Text/LteFontAtlas.hpp \
     Text/LteFontFace.hpp \

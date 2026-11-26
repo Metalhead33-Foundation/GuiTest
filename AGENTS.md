@@ -69,3 +69,10 @@
    source tree.
 
 Whenever calling `git`, always use `--no-pager`.
+
+**JSON is an application concern, not a library one.** `nlohmann_json` is a dependency of
+   `Sandbox` and `UnitTests` only; no library in this tree may include it or any other parser.
+   A loader parses a document into the plain C++ structs the library already exposes
+   (`Lotte::Gui::ThemeDefinition` is the reference example), and every fixed vocabulary is an
+   enum with one name table (`parseThemeElement`, `guiAtlasPartName`, ...) - never a
+   `std::map<std::string, ...>` inside a loader. The reasoning is in `docs/PROCEDURAL.md` §1.
