@@ -10,7 +10,6 @@
  */
 #include <catch2/catch_test_macros.hpp>
 #include <Euphemy/Util/EuphNoise.hpp>
-#include <Euphemy/Util/EuphVoronoi.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>

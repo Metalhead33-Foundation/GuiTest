@@ -15,10 +15,8 @@
 
 namespace Sandbox {
 
-namespace {
-
 /// @brief Reads a whole virtual file, or returns an empty string.
-std::string readVirtual(Elv::Io::System& io, const std::string& path)
+std::string readVirtualFile(Elv::Io::System& io, const std::string& path)
 {
 	try {
 		Elv::Io::uDevice device = io.openUnique(path.c_str(), Elv::Io::Mode::READ);
@@ -31,7 +29,7 @@ std::string readVirtual(Elv::Io::System& io, const std::string& path)
 }
 
 /// @brief Turns a definition's procedural entry into builder settings.
-Lotte::Procedural::GuiAtlasSettings atlasSettings(const Lotte::Gui::ThemeAtlasDefinition& atlas)
+Lotte::Procedural::GuiAtlasSettings atlasSettingsFor(const Lotte::Gui::ThemeAtlasDefinition& atlas)
 {
 	Lotte::Procedural::GuiAtlasSettings settings;
 	settings.seed = atlas.proceduralSeed;
@@ -47,8 +45,6 @@ Lotte::Procedural::GuiAtlasSettings atlasSettings(const Lotte::Gui::ThemeAtlasDe
 	return settings;
 }
 
-} // namespace
-
 int runThemeDemo(Elv::Io::System& io, const std::string& themePath,
 const std::string& outputDirectory)
 {
@@ -59,7 +55,7 @@ const std::string& outputDirectory)
 					directoryError.message().c_str());
 		return 1;
 	}
-	const std::string text = readVirtual(io, themePath);
+	const std::string text = readVirtualFile(io, themePath);
 	if (text.empty()) {
 		std::printf("theme demo: '%s' is empty or could not be read\n", themePath.c_str());
 		return 1;
@@ -86,7 +82,7 @@ const std::string& outputDirectory)
 			continue;
 		}
 		auto built = std::make_unique<Lotte::Procedural::GuiAtlas>(
-		Lotte::Procedural::buildGuiAtlas(atlasSettings(atlas)));
+		Lotte::Procedural::buildGuiAtlas(atlasSettingsFor(atlas)));
 		if (!built->image.isValid()) {
 			std::printf("atlas '%s': the generator produced no image\n", atlas.alias.c_str());
 			continue;
@@ -120,7 +116,21 @@ const std::string& outputDirectory)
 		Lotte::Gui::ThemeAtlasBinding binding;
 		binding.binding.texture = Kld::HandleId(1);
 		binding.pixelSize = glm::fvec2(static_cast<float>(found->second->image.width),
-		static_cast<float>(found->second->image.height));
+									   static_cast<float>(found->second->image.height));
+		// The generated manifest answers "where did this part land?", which is what a
+		// part-based skin in the theme document needs.
+		const Lotte::Procedural::GuiAtlas* manifest = found->second.get();
+		binding.partRect = [manifest](Lotte::Procedural::GuiAtlasPart part)
+			-> std::optional<Lotte::Gui::ThemeRect> {
+			const Lotte::Procedural::GuiAtlasRect* rect = manifest->find(part);
+			if (rect == nullptr) return std::nullopt;
+			Lotte::Gui::ThemeRect result;
+			result.x = static_cast<std::int32_t>(rect->x);
+			result.y = static_cast<std::int32_t>(rect->y);
+			result.width = rect->width;
+			result.height = rect->height;
+			return result;
+		};
 		return binding;
 	});
 

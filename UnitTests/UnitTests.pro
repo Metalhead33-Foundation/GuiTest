@@ -40,6 +40,8 @@ INCLUDEPATH += $$PWD/../KaldiGLCommon
 PKGCONFIG += nlohmann_json
 INCLUDEPATH += $$PWD/../Sandbox
 SOURCES += ../Sandbox/ThemeJson.cpp
+# The scene is where a theme meets a widget, so the themed-render checks need it too.
+SOURCES += ../Sandbox/GuiScene.cpp
 
 SOURCES += ../KaldiGLCommon/GlContextConfig.cpp
 # The device provider composes the context provider with the executor policy keys.
@@ -164,6 +166,7 @@ SOURCES += \
     tests/ShaderCompileTests.cpp \
     tests/TextRenderingTests.cpp \
     tests/ThemeDefinitionTests.cpp \
+    tests/ThemedWidgetTests.cpp \
     tests/UdpTransportTests.cpp \
     tests/WriteableTexture2DTests.cpp
 

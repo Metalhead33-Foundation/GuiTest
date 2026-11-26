@@ -93,6 +93,7 @@ The suite exits non-zero when a check fails, so it can be used as a gate. Useful
 ./UnitTests/UnitTests "[noise]"            # Euphemy noise: determinism, ranges, degenerate inputs
 ./UnitTests/UnitTests "[voronoi]"          # tile Voronoi: distances and cell indices vs brute force
 ./UnitTests/UnitTests "[procedural]"       # GUI atlas: manifest, determinism, shading
+./UnitTests/UnitTests "[widget]"           # a theme skin drives the rendered widget
 ./UnitTests/UnitTests "[theme]"            # theme schema, validation, DefinitionTheme
 ./UnitTests/UnitTests "[json]"             # the Sandbox theme loader (the only JSON consumer)
 ./UnitTests/UnitTests "Snappy*" -s         # one group, showing passing assertions

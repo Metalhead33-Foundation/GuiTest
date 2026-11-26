@@ -89,6 +89,7 @@ HEADERS += \
     Gui/LteKaldiGuiRenderer.hpp \
     Gui/LteThemeDefinition.hpp \
     Procedural/LteGuiAtlas.hpp \
+    Procedural/LteGuiAtlasParts.hpp \
     Procedural/LteGuiMaterials.hpp \
     Procedural/LteSdf.hpp \
     Procedural/LteSurfaceCanvas.hpp \

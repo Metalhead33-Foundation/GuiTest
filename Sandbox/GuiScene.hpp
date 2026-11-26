@@ -32,6 +32,10 @@
 #include <Lotte/Gui/LteGuiRenderer.hpp>
 #include <Lotte/Gui/LteGuiRootNode.hpp>
 #include <Lotte/Gui/LteTexturedWidget.hpp>
+#include <Lotte/Gui/LteTheme.hpp>
+#include <Lotte/Gui/LteThemeDefinition.hpp>
+#include <Lotte/Procedural/LteGuiAtlas.hpp>
+#include <Lotte/Procedural/LteGuiAtlasParts.hpp>
 #include <Elvavena/Io/ElvIoSystem.hpp>
 #include <Elvavena/Util/ElvSignal.hpp>
 #include <glm/glm.hpp>
@@ -39,6 +43,8 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <map>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -148,9 +154,25 @@ public:
 	 */
 	bool onClick(const glm::fvec2& offset, std::uint8_t button,
 				 std::uint8_t state, std::uint8_t clicks) override;
-	/** @brief Draws the current state's quad, if the widget is visible. */
+	/**
+	 * @brief Draws the current state's quad, if the widget is visible.
+	 * @param renderer Renderer to submit the quad to.
+	 *
+	 * When a theme element is set (@ref setThemeElement) and the theme resolves a skin
+	 * for the current state, that skin's rectangle, tint and texture win. Otherwise the
+	 * widget falls back to its own style, which keeps an unthemed sandbox working.
+	 */
 	void render(Lotte::Gui::GuiRenderer& renderer) override;
 	///@}
+
+	/**
+	 * @brief Draws this button through a theme element instead of its own style.
+	 * @param theme Theme to query; null restores the self-contained look.
+	 * @param element Element whose skins describe the button (normally `Button`).
+	 */
+	void setThemeElement(const Lotte::Gui::Theme* theme, Lotte::Gui::ThemeElement element) noexcept;
+	/** @brief The theme this button draws through, or null. */
+	const Lotte::Gui::Theme* themedBy() const noexcept { return themedTheme; }
 
 	/**
 	 * @brief Sets or clears the hover bit.
@@ -178,6 +200,10 @@ private:
 	ButtonStyle style;
 	/** @brief True between a press inside the rectangle and its release. */
 	bool pressInside = false;
+	/** @brief Theme this button draws through; null keeps @ref style. */
+	const Lotte::Gui::Theme* themedTheme = nullptr;
+	/** @brief Element whose skins the theme is asked for. */
+	Lotte::Gui::ThemeElement themedElement = Lotte::Gui::ThemeElement::Button;
 };
 
 /**
@@ -208,6 +234,31 @@ public:
 	 * @throws std::runtime_error When the file cannot be opened or decoded.
 	 */
 	TexturePtr loadTexture(Elv::Io::System& io, const std::string& path);
+
+	/**
+	 * @brief Uploads an already decoded image and publishes it under a theme alias.
+	 * @param alias Theme alias the resolver answers to.
+	 * @param image Tightly packed RGBA8 pixels.
+	 * @param manifest Optional atlas manifest, copied; lets part-based skins resolve.
+	 * @return True when the image had pixels and a texture was created.
+	 */
+	bool addAtlas(const std::string& alias, const Lotte::Gfx::Rgba8Image& image,
+				  const Lotte::Procedural::GuiAtlas* manifest = nullptr);
+
+	/**
+	 * @brief Resolves a theme atlas alias to its handles, size and manifest.
+	 * @param alias Alias to look up.
+	 * @return The binding, or `std::nullopt` when this scene has no such atlas.
+	 */
+	std::optional<Lotte::Gui::ThemeAtlasBinding> resolveAtlas(std::string_view alias) const;
+
+	/**
+	 * @brief Selects the theme new and existing widgets are drawn through.
+	 * @param theme Theme to adopt; null clears it. The caller keeps ownership.
+	 */
+	void setTheme(const Lotte::Gui::Theme* theme) noexcept;
+	/** @brief The active theme, or null. */
+	const Lotte::Gui::Theme* theme() const noexcept { return activeTheme; }
 
 	/**
 	 * @brief Registers a button so it is drawn and receives input.
@@ -251,6 +302,16 @@ public:
 	std::size_t buttonCount() const noexcept { return buttons.size(); }
 
 private:
+	/** @brief One uploaded theme atlas: its texture, size and optional manifest. */
+	struct AtlasEntry {
+		/** @brief Owning surface; records its destroy command through the factory. */
+		std::unique_ptr<Lotte::Gfx::WriteableTexture2D> texture;
+		/** @brief Atlas size in pixels, for the pixel-rect to UV conversion. */
+		glm::fvec2 pixelSize = glm::fvec2(0.0f);
+		/** @brief Manifest of a generated atlas, or null for a file atlas. */
+		std::shared_ptr<const Lotte::Procedural::GuiAtlas> manifest;
+	};
+
 	/** @brief Factory used for every texture this scene creates. */
 	Lotte::Gfx::ResourceFactory& factory;
 	/** @brief On-screen widgets; the render list and hit testing walk these. */
@@ -259,6 +320,10 @@ private:
 	std::vector<ButtonPtr> buttons;
 	/** @brief Texture cache keyed by virtual path. */
 	std::unordered_map<std::string, TexturePtr> textures;
+	/** @brief Uploaded theme atlases keyed by their theme alias. */
+	std::map<std::string, AtlasEntry> atlases;
+	/** @brief Theme widgets are drawn through, or null. */
+	const Lotte::Gui::Theme* activeTheme = nullptr;
 	/** @brief Last known pointer position in window pixels. */
 	glm::fvec2 mouse = glm::fvec2(0.0f);
 };

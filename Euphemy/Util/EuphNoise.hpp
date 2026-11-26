@@ -32,7 +32,8 @@
  * @note The GPU plan is to move the fill loops (not the configuration) to compute
  *       shaders later; this CPU API is the reference the shaders will be checked
  *       against, which is why the degenerate-input behaviour is specified in prose.
- *       The block-based tile Voronoi lives in `EuphVoronoi.hpp`.
+ *       The block-based tile Voronoi is the last section of this header; both
+ *       Voronoi shapes are here because they are the same family of question.
  * @note The legacy 1D simplex kernel was not a simplex kernel: it mixed the 2D skew
  *       constants into a 1D expression and returned values in roughly `[-4.6, 3.9]`.
  *       The port uses the standard 1D kernel (and normalizes the 2D kernel scale),
@@ -564,6 +565,177 @@ MH_EUPH_API void sectorVoronoi2D(std::span<float> output, std::uint32_t width,
 
 ///@}
 
+/// @name Tile Voronoi (block grid, wrapping)
+///@{
+
+/**
+ * @brief Tile Voronoi over a `blockCount x blockSize` grid that wraps at the border.
+ *
+ * This is the warm-up algorithm of the Qt playground (`ProceduralGenerationTest`):
+ * the field is cut into tiles, every tile owns one point at an offset inside it, and
+ * each pixel searches the 3x3 neighbourhood of its own tile. The wrap is what makes
+ * the result tile seamlessly.
+ *
+ * It is the *other* Voronoi shape on purpose, and both live in this header because
+ * they answer different questions:
+ *
+ * - the explicit-point generators above (`voronoi1D`, `voronoi2D`, `sectorVoronoi*`)
+ *   take the points the caller already has and return a float field;
+ * - the tile generators below return a @ref VoronoiSample per pixel - `F1`, `F2`
+ *   **and** the index of the nearest point - so one traversal can feed a distance
+ *   ramp, a crack mask (`F2 - F1`) and a tile map (the cell index) at once.
+ *
+ * Normalization is a projection here, never a side effect of the raw fill: a caller
+ * that wants `F1` and `F2` normalized together can do it itself.
+ */
+/** @brief Metric used to measure the distance from a pixel to a tile's point. */
+enum class VoronoiDistance : std::uint8_t {
+	Euclidean, /**< `sqrt(dx^2 + dy^2)`; the usual Worley look. */
+	Manhattan  /**< `|dx| + |dy|`; diamond-shaped cells. */
+};
+
+/** @brief Geometry of the tile grid and the shape of the output. */
+struct VoronoiSettings {
+	/** @brief Width of one tile in pixels; must be non-zero. */
+	std::uint32_t blockSizeX = 128;
+	/** @brief Height of one tile in pixels; must be non-zero. */
+	std::uint32_t blockSizeY = 128;
+	/** @brief Number of tiles horizontally; must be non-zero. */
+	std::uint32_t blockCountX = 8;
+	/** @brief Number of tiles vertically; must be non-zero. */
+	std::uint32_t blockCountY = 8;
+	/** @brief Rescale the distance projection into `[0, 1]` (ignored by the cell output). */
+	bool normalize = true;
+	/** @brief Mirror the distance projection (`1 - d`) after normalization. */
+	bool inverted = false;
+	/** @brief Metric used for the distances. */
+	VoronoiDistance distance = VoronoiDistance::Euclidean;
+};
+
+/** @brief Width in pixels of a @ref VoronoiSettings grid. */
+constexpr std::uint32_t voronoiWidthPixels(const VoronoiSettings& settings) noexcept
+{
+	return settings.blockCountX * settings.blockSizeX;
+}
+
+/** @brief Height in pixels of a @ref VoronoiSettings grid. */
+constexpr std::uint32_t voronoiHeightPixels(const VoronoiSettings& settings) noexcept
+{
+	return settings.blockCountY * settings.blockSizeY;
+}
+
+/** @brief A point offset inside one tile, in `[0, tileSize)` per axis. */
+struct VoronoiOffset {
+	/** @brief Horizontal offset inside the tile. */
+	std::int32_t x = 0;
+	/** @brief Vertical offset inside the tile. */
+	std::int32_t y = 0;
+};
+
+/**
+ * @brief Places the point of one tile.
+ *
+ * The tile coordinates are given so a generator can make the field non-repeating
+ * (a hash of the tile index) or keep it uniform (a constant offset).
+ */
+using VoronoiOffsetGenerator =
+	std::function<VoronoiOffset(std::uint32_t tileX, std::uint32_t tileY, std::uint32_t tileWidth,
+								std::uint32_t tileHeight)>;
+
+/** @brief Everything one pixel needs to know about its neighbourhood. */
+struct VoronoiSample {
+	/** @brief Distance to the nearest point in the chosen metric (F1). */
+	float firstDistance = 0.0f;
+	/** @brief Distance to the second nearest point (F2); `F2 - F1` draws cell borders. */
+	float secondDistance = 0.0f;
+	/** @brief Index of the nearest point, `tileY * blockCountX + tileX`. */
+	std::uint32_t cell = 0;
+};
+
+/**
+ * @brief Fills a grid with the nearest/second-nearest point records.
+ * @param output Destination samples; `blockCountX * blockSizeX * blockCountY * blockSizeY`
+ *        entries are written starting at index 0.
+ * @param settings Tile grid, metric and normalization.
+ * @param generator Point placement; an empty callable centres every point in its tile.
+ * @throws std::invalid_argument When the destination span is too small.
+ */
+MH_EUPH_API void voronoi(std::span<VoronoiSample> output, const VoronoiSettings& settings,
+						const VoronoiOffsetGenerator& generator);
+
+/**
+ * @brief Fills a grid with point records placed by a local `std::mt19937`.
+ * @param output Destination samples.
+ * @param settings Tile grid, metric and normalization.
+ * @param seed Seed of the local `std::mt19937`.
+ * @throws std::invalid_argument When the destination span is too small.
+ */
+MH_EUPH_API void voronoi(std::span<VoronoiSample> output, const VoronoiSettings& settings,
+						std::uint32_t seed);
+
+/**
+ * @brief Fills a grid with the normalized F1 distance.
+ * @param output Destination samples; one per pixel.
+ * @param settings Tile grid, metric and normalization.
+ * @param generator Point placement; an empty callable centres every point in its tile.
+ * @throws std::invalid_argument When the destination span is too small.
+ */
+MH_EUPH_API void voronoiDistance(std::span<float> output, const VoronoiSettings& settings,
+								const VoronoiOffsetGenerator& generator);
+
+/**
+ * @brief Fills a grid with the normalized `F2 - F1` border field.
+ * @param output Destination samples; one per pixel.
+ * @param settings Tile grid, metric and normalization.
+ * @param generator Point placement; an empty callable centres every point in its tile.
+ * @throws std::invalid_argument When the destination span is too small.
+ */
+MH_EUPH_API void voronoiBorder(std::span<float> output, const VoronoiSettings& settings,
+							const VoronoiOffsetGenerator& generator);
+
+/**
+ * @brief Fills a grid with the index of the nearest point of every pixel.
+ * @param output Destination samples; one per pixel, in `[0, blockCountX * blockCountY)`.
+ * @param settings Tile grid and metric; normalization and inversion are ignored.
+ * @param generator Point placement; an empty callable centres every point in its tile.
+ * @throws std::invalid_argument When the destination span is too small.
+ */
+MH_EUPH_API void voronoiCellIndices(std::span<std::uint32_t> output,
+									const VoronoiSettings& settings,
+									const VoronoiOffsetGenerator& generator);
+
+/**
+ * @brief Seeded convenience overload of @ref voronoiDistance.
+ * @param output Destination samples; one per pixel.
+ * @param settings Tile grid, metric and normalization.
+ * @param seed Seed of the local `std::mt19937`.
+ * @throws std::invalid_argument When the destination span is too small.
+ */
+MH_EUPH_API void voronoiDistance(std::span<float> output, const VoronoiSettings& settings,
+								std::uint32_t seed);
+
+/**
+ * @brief Seeded convenience overload of @ref voronoiBorder.
+ * @param output Destination samples; one per pixel.
+ * @param settings Tile grid, metric and normalization.
+ * @param seed Seed of the local `std::mt19937`.
+ * @throws std::invalid_argument When the destination span is too small.
+ */
+MH_EUPH_API void voronoiBorder(std::span<float> output, const VoronoiSettings& settings,
+							std::uint32_t seed);
+
+/**
+ * @brief Seeded convenience overload of @ref voronoiCellIndices.
+ * @param output Destination samples; one per pixel.
+ * @param settings Tile grid and metric.
+ * @param seed Seed of the local `std::mt19937`.
+ * @throws std::invalid_argument When the destination span is too small.
+ */
+MH_EUPH_API void voronoiCellIndices(std::span<std::uint32_t> output,
+									const VoronoiSettings& settings, std::uint32_t seed);
+
+///@}
+
 /// @name Sum of sines / fractional Brownian motion
 ///@{
 
@@ -631,6 +803,7 @@ MH_EUPH_API void sumOfSines2D(std::span<float> output, std::uint32_t outWidth,
 							float periodicityBias = 2.0f, float amplitudeBias = 0.5f);
 
 ///@}
+
 
 } // namespace Noise
 } // namespace Util

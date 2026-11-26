@@ -206,7 +206,16 @@ std::optional<ThemeSkin> DefinitionTheme::skin(ThemeElement element, WidgetState
 	if (best == nullptr) return std::nullopt;
 	const std::optional<ThemeAtlasBinding> atlas = textureResolver(best->skin.atlas);
 	if (!atlas.has_value()) return std::nullopt;
-	return makeSkin(best->skin, *atlas);
+	// A named part only exists in a generated atlas, and only the atlas knows where the
+	// packer put it; an explicit rectangle keeps working for hand-authored atlases.
+	ThemeSkinDefinition resolved = best->skin;
+	if (resolved.part.has_value()) {
+		const std::optional<ThemeRect> rect =
+			atlas->partRect ? atlas->partRect(*resolved.part) : std::nullopt;
+		if (!rect.has_value()) return std::nullopt;
+		resolved.rect = *rect;
+	}
+	return makeSkin(resolved, *atlas);
 }
 
 Text::TextAttributes DefinitionTheme::textStyle(ThemeTextRole role, WidgetState state) const
@@ -258,8 +267,9 @@ std::vector<std::string> validate(const ThemeDefinition& definition)
 				addProblem(problems, "theme: '" + elementName + "' references unknown atlas '" +
 										variant.skin.atlas + "'");
 			}
-			if (variant.skin.rect.isEmpty()) {
-				addProblem(problems, "theme: '" + elementName + "' has an empty skin rectangle");
+			if (variant.skin.rect.isEmpty() && !variant.skin.part.has_value()) {
+				addProblem(problems, "theme: '" + elementName +
+										 "' has a skin with neither a rectangle nor a part");
 			}
 		}
 		if (element->textStyle.has_value() && element->textStyle->size <= 0.0f) {

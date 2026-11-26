@@ -25,6 +25,7 @@
  */
 #include <Lotte/LotteLib.hpp>
 #include <Lotte/GFX/LteImageConvert.hpp>
+#include <Lotte/Procedural/LteGuiAtlasParts.hpp>
 #include <Lotte/Procedural/LteGuiMaterials.hpp>
 #include <cstdint>
 #include <string_view>
@@ -32,56 +33,6 @@
 
 namespace Lotte {
 namespace Procedural {
-
-/** @brief One addressable rectangle of a generated atlas. */
-enum class GuiAtlasPart : std::uint8_t {
-	Panel,            /**< Generic stone panel face. */
-	ButtonIdle,       /**< Button in its normal state. */
-	ButtonHover,      /**< Button under the pointer. */
-	ButtonPressed,    /**< Button held down. */
-	ButtonDisabled,   /**< Button with the `Enabled` bit clear. */
-	Slot,             /**< Sunken inventory slot. */
-	TitlePlate,       /**< Stepped title bar with a recessed caption field. */
-	CheckboxEmpty,    /**< Unchecked box. */
-	CheckboxChecked,  /**< Checked box with a gold tick and glow. */
-	SliderTrack,      /**< Horizontal slider groove. */
-	SliderThumb,      /**< Gem thumb for the slider. */
-	Parchment,        /**< Torn parchment sheet. */
-	Bar,              /**< Inset text/log bar. */
-	Count             /**< Number of parts; not a valid part. */
-};
-
-/** @brief Number of @ref GuiAtlasPart values that name a rectangle. */
-inline constexpr std::size_t GuiAtlasPartCount = static_cast<std::size_t>(GuiAtlasPart::Count);
-
-/**
- * @brief Stable file/JSON name of a part.
- * @param part Part to name.
- * @return A lower-case identifier (`"button_idle"`, ...); never null.
- */
-MH_LOTTE_API const char* guiAtlasPartName(GuiAtlasPart part) noexcept;
-
-/**
- * @brief Resolves a part from its stable name.
- * @param name Identifier as returned by @ref guiAtlasPartName.
- * @param part Receives the part on success; untouched otherwise.
- * @return True when @p name named a part.
- */
-MH_LOTTE_API bool parseGuiAtlasPart(std::string_view name, GuiAtlasPart& part) noexcept;
-
-/** @brief Where one part landed in the atlas, in pixels. */
-struct GuiAtlasRect {
-	/** @brief Which part this rectangle holds. */
-	GuiAtlasPart part = GuiAtlasPart::Panel;
-	/** @brief Left edge in the atlas. */
-	std::uint32_t x = 0;
-	/** @brief Top edge in the atlas. */
-	std::uint32_t y = 0;
-	/** @brief Width including the transparent margin. */
-	std::uint32_t width = 0;
-	/** @brief Height including the transparent margin. */
-	std::uint32_t height = 0;
-};
 
 /** @brief A generated atlas image plus the manifest of its parts. */
 struct GuiAtlas {

@@ -5,7 +5,7 @@
 Status: policy note (revision 1 — 2026-11-26). It owns the JSON rule, the "enums over
 strings" rule, what was salvaged from the old trees and what was deliberately dropped.
 The API reference lives in the headers ([`EuphNoise.hpp`](../Euphemy/Util/EuphNoise.hpp),
-[`EuphVoronoi.hpp`](../Euphemy/Util/EuphVoronoi.hpp), `Lotte/Procedural/*`,
+`Lotte/Procedural/*`,
 [`LteThemeDefinition.hpp`](../Lotte/Gui/LteThemeDefinition.hpp)); the module pages list
 what exists and what is still a TODO.
 
@@ -36,7 +36,7 @@ language.
 | From | Kept | Dropped, and why |
 |---|---|---|
 | `GuiTest-legacy2/MhLib/Util/MhNoise.{hpp,cpp}` | white, value, Perlin, bilinear Perlin, simplex, Voronoi, sum-of-sines | the `srand()`/`rand()` overloads (one process-wide seed made a "seeded" result unreproducible), the `glm` lattice type (a pair of integers does not need a geometry library) |
-| `ProceduralGenerationTest/Voronoi.{hpp,cpp}` | the tile traversal with border wrapping, both distance metrics | `std::pair<int,int>` and the misspelled `Distance::Eucledian`; the global `rand()` default assigner |
+| `ProceduralGenerationTest/Voronoi.{hpp,cpp}` | the tile traversal with border wrapping, both distance metrics - folded into `EuphNoise.hpp` because a Voronoi distance field and a Voronoi tile map are the same algorithm | `std::pair<int,int>` and the misspelled `Distance::Eucledian`; the global `rand()` default assigner |
 | `ui_forge.cpp` (Claude) | the SDF painter, the height-to-normal lighting pass, the material set, the element recipes | the built-in PNG writer (Euphemy encodes), the on-disk element dump, the hard-coded `atlas.json` layout |
 | `gemini.md` | the material-mask idea, the per-state widget recipes | its own atlas writer and its fixed 1024x768 layout |
 | `grok.md` | the flat bevel vocabulary used by the simple recipes | the per-element hard-coded rectangles |
@@ -53,7 +53,8 @@ GuiAtlasSettings (seed, sizes)
   -> shade()                height -> normal -> diffuse/AO/spec/shadow
   -> shelf packing          image + enum-keyed rect manifest       (GuiAtlas)
   -> ThemeDefinition        atlas alias + pixel rect per element/state
-  -> DefinitionTheme        pixel rect + atlas size -> UVs + binding (Theme)
+  -> DefinitionTheme        skin lookup by element + state mask      (Theme)
+  -> GuiScene + ScriptButton  theme skin -> textured quad every frame
 ```
 
 Each arrow is a separate type, which is what lets the pieces be tested without a GPU:
@@ -85,10 +86,18 @@ edits; `DefinitionTheme` converts it to normalized UVs using the atlas size the
 resolver reports. State variants are resolved by "most specific mask fully contained in
 the requested state", so a theme that ignores hover costs one entry, not eight.
 
-Known gap: a procedural atlas is packed by the generator, so its rectangles come from
-the manifest (`./Sandbox --theme` prints it) and have to be written into the theme file.
-Feeding the manifest back into the definition automatically is a TODO; the schema
-already has the atlas alias it would need.
+A generated atlas is packed by the builder, so its rectangles are only known after it
+ran. A theme therefore names the **part** (`"part": "button_hover"`) instead of a
+rectangle: the loader resolves the name through `parseGuiAtlasPart`, and the atlas
+answers "where did this part land?" through `ThemeAtlasBinding::partRect`, which the
+scene builds from the manifest it kept when it uploaded the atlas. A hand-authored
+atlas keeps working with an explicit `rect`, so the same schema covers both.
+
+The scene is what makes this live: `GuiScene::addAtlas()` uploads a generated image
+and remembers its manifest, `GuiScene::resolveAtlas()` is the resolver the theme is
+constructed with, and `ScriptButton` queries `Theme::skin()` for its *current* state
+every frame. A theme installed after the script created its widgets still dresses
+them, and clearing it puts them back on their own colours.
 
 ## 6. The GPU plan
 
@@ -102,8 +111,6 @@ resolution: those are layout decisions that run once per theme.
 
 - [`Euphemy/Util/EuphNoise.hpp`](../Euphemy/Util/EuphNoise.hpp) - the noise API and the
   degenerate-input rules.
-- [`Euphemy/Util/EuphVoronoi.hpp`](../Euphemy/Util/EuphVoronoi.hpp) - the tile Voronoi
-  and its three projections.
 - [`Lotte/Procedural/LteSurfaceCanvas.hpp`](../Lotte/Procedural/LteSurfaceCanvas.hpp) -
   the painter and the lighting pass.
 - [`Lotte/Gui/LteThemeDefinition.hpp`](../Lotte/Gui/LteThemeDefinition.hpp) - the theme

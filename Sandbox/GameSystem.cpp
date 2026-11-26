@@ -1,6 +1,8 @@
 #include "GameSystem.hpp"
 #include <Euphemy/Media/Image/EuphPNG.hpp>
 #include <Lotte/Text/LteMml.hpp>
+#include <Lotte/Gui/LteThemeDefinition.hpp>
+#include <Lotte/Procedural/LteGuiAtlas.hpp>
 #include <Lotte/Text/LteRichText.hpp>
 #include <cstdint>
 #include <cstdlib>
@@ -10,6 +12,8 @@
 #include <utility>
 #include "GuiScene.hpp"
 #include "ScriptHost.hpp"
+#include "ThemeDemo.hpp"
+#include "ThemeJson.hpp"
 #include "JS/JsCore.hpp"
 #include "JS/Wrappers/Audio/JsAudioPlayer.hpp"
 #include "JS/Wrappers/GUI/JsGuiWrappers.hpp"
@@ -142,12 +146,13 @@ GameSystem::~GameSystem()
 
 void GameSystem::stopScript()
 {
-	// Order matters. A widget's click callback owns a JavaScript root, so the
-	// widgets have to die while the context is still usable; the context has to
-	// die before the renderer and the resource factory its textures point into;
-	// and the host has to outlive the context, because module finalizers reach the
-	// mixer and the audio device through it.
+	// Order matters. A widget's click callback owns a JavaScript root, so the widgets
+	// have to die while the context is still usable; the widgets also borrow the theme,
+	// so it is released only after them; the context has to die before the renderer and
+	// the resource factory its textures point into; and the host has to outlive the
+	// context, because module finalizers reach the mixer and the audio device through it.
 	guiScene.reset();
+	theme.reset();
 	jsCore.reset();
 	scriptHost.reset();
 }
@@ -287,7 +292,53 @@ void GameSystem::initialize()
 	// SDL audio devices start paused: without this the callback never runs, so a
 	// module the script inserts into the mixer is never pulled.
 	sdlDriver->pause(false);
+	// The theme comes first: the script's `GUI.Button`s are dressed through it, and the
+	// scene has to know the atlases before the first widget asks for a skin.
+	startTheme();
 	startScript();
+}
+
+void GameSystem::startTheme()
+{
+	if (!guiScene) {
+		SDL_Log("Theme skipped: graphics is disabled");
+		return;
+	}
+	const std::string text = Sandbox::readVirtualFile(iosys, "gfx/theme_000.json");
+	if (text.empty()) {
+		SDL_Log("Theme skipped: gfx/theme_000.json is not readable");
+		return;
+	}
+	const Sandbox::ThemeParseResult parsed = Sandbox::parseThemeJson(text);
+	for (const std::string& problem : parsed.problems) {
+		SDL_Log("Theme: %s", problem.c_str());
+	}
+	if (!parsed.ok) {
+		return;
+	}
+	std::size_t uploaded = 0;
+	for (const Lotte::Gui::ThemeAtlasDefinition& atlas : parsed.definition.atlases) {
+		if (atlas.source != Lotte::Gui::ThemeAtlasSource::Procedural) {
+			// File atlases need an upload path of their own; the demo document only uses
+			// the generated one, so this is a log line rather than a failure.
+			SDL_Log("Theme atlas '%s': file source '%s' is not uploaded yet",
+					atlas.alias.c_str(), atlas.path.c_str());
+			continue;
+		}
+		const Lotte::Procedural::GuiAtlas built =
+			Lotte::Procedural::buildGuiAtlas(Sandbox::atlasSettingsFor(atlas));
+		if (!built.image.isValid()) {
+			SDL_Log("Theme atlas '%s': the generator produced no image", atlas.alias.c_str());
+			continue;
+		}
+		if (guiScene->addAtlas(atlas.alias, built.image, &built)) ++uploaded;
+	}
+	// The scene owns the atlases and answers the alias/part questions; the theme is a
+	// thin layer over the parsed document that resolves those answers into skins.
+	theme = std::make_unique<Lotte::Gui::DefinitionTheme>(
+		parsed.definition, [this](std::string_view alias) { return guiScene->resolveAtlas(alias); });
+	guiScene->setTheme(theme.get());
+	SDL_Log("Theme '%s': %zu atlas(es) uploaded", std::string(theme->name()).c_str(), uploaded);
 }
 
 void GameSystem::startScript()
@@ -295,6 +346,7 @@ void GameSystem::startScript()
 	scriptHost = std::make_unique<Sandbox::ScriptHost>(iosys, mixer);
 	scriptHost->audio = sdlDriver.get();
 	scriptHost->gui = guiScene.get();
+	scriptHost->theme = theme.get();
 	scriptHost->viewport = glm::uvec2(std::uint32_t(width), std::uint32_t(height));
 	scriptHost->setRichText = [this](const Sandbox::RichTextRequest& request) {
 		setRichText(request);

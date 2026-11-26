@@ -17,6 +17,7 @@
 #include "GuiScene.hpp"
 #include <Haruka/Core/HrkMixer.hpp>
 #include <Elvavena/Io/ElvIoSystem.hpp>
+#include <Lotte/Gui/LteTheme.hpp>
 #include <glm/glm.hpp>
 #include <functional>
 #include <string>
@@ -56,6 +57,13 @@ struct ScriptHost {
 	Haruka_SDL_Driver* audio = nullptr;
 	/** @brief The widget scene, or null when the renderer did not start. */
 	GuiScene* gui = nullptr;
+	/**
+	 * @brief The theme widgets are drawn through, or null when none was loaded.
+	 *
+	 * Owned by the application; the scene and the widgets only borrow it, and it has to
+	 * outlive every widget that draws through it (see `GameSystem::stopScript`).
+	 */
+	const Lotte::Gui::Theme* theme = nullptr;
 	/** @brief Window size in pixels, so a script can lay out relative to it. */
 	glm::uvec2 viewport = glm::uvec2(0);
 	/** @brief Replaces the rendered rich text; see @ref RichTextRequest. */

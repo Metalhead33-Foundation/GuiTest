@@ -26,6 +26,12 @@ struct RichTextRequest;
 struct ScriptHost;
 }
 
+namespace Lotte {
+namespace Gui {
+class DefinitionTheme;
+}
+}
+
 class GameSystem : public AppSystem
 {
 private:
@@ -73,6 +79,13 @@ private:
 	/** @brief Records GUI geometry into the context's dispatcher. */
 	std::unique_ptr<Lotte::Gui::KaldiGuiRenderer> guiRenderer;
 	/**
+	 * @brief The theme the script's widgets are drawn through, or null.
+	 *
+	 * Declared before the scene so it is destroyed *after* the widgets: a widget only
+	 * borrows the theme (it queries it every frame), so the theme must outlive them.
+	 */
+	std::unique_ptr<Lotte::Gui::DefinitionTheme> theme;
+	/**
 	 * @brief Widgets and textures the script created, or null without graphics.
 	 *
 	 * Destroyed before the script context: a widget holds a JavaScript root through
@@ -110,6 +123,8 @@ private:
 	void setActiveCursorAnchor(Lotte::Gui::CursorAnchor anchor);
 	/** @brief Creates the script host and context, and runs `main.js`. */
 	void startScript();
+	/** @brief Loads the theme document, uploads its atlases and installs the theme. */
+	void startTheme();
 	/** @brief Releases the widgets, then the context, then the host. */
 	void stopScript();
 public:

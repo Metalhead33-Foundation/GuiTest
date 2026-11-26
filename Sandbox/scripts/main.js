@@ -62,9 +62,10 @@ function showStatus() {
     }
 }
 
-// 3. A clickable widget. `GUI.Button` auto-registers itself in the scene; the
-//    texture is optional, the colours are the fill (untextured) or the tint
-//    (textured) of each of the four visual states.
+// 3. A clickable widget. `GUI.Button` auto-registers itself in the scene. When a theme
+//    was loaded (gfx/theme_000.json) the button is drawn through its `button` element
+//    instead, so idle/hover/press come from the generated atlas; the texture and colours
+//    below are the fallback for a run without a theme.
 let button = null;
 try {
     let texture = null;

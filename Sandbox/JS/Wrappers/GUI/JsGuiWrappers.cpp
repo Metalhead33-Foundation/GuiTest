@@ -170,10 +170,27 @@ bool js_gui_button_constructor(JSContext* cx, unsigned argc, JS::Value* vp)
 		}
 
 		auto button = std::make_shared<Sandbox::ScriptButton>(binding, style);
+		// A loaded theme decides which element this widget is and how big it wants to be
+		// by default; the script can still name another element (a panel, a check box, ...).
+		Lotte::Gui::ThemeElement element = Lotte::Gui::ThemeElement::Button;
+		JS::RootedValue elementValue(cx);
+		if (JS_GetProperty(cx, options, "element", &elementValue) && elementValue.isString()) {
+			const std::string name = JsToNativeString(cx, elementValue.toString());
+			if (!Lotte::Gui::parseThemeElement(name, element)) {
+				throw std::runtime_error("GUI.Button: unknown theme element '" + name + "'");
+			}
+		}
+		glm::fvec2 defaultSize(128.0f, 48.0f);
+		if (host->theme != nullptr) {
+			const Lotte::Gui::ThemeMetrics metrics = host->theme->metrics(element);
+			if (metrics.minimumSize.x > 0.0f) defaultSize.x = metrics.minimumSize.x;
+			if (metrics.minimumSize.y > 0.0f) defaultSize.y = metrics.minimumSize.y;
+			button->setThemeElement(host->theme, element);
+		}
 		const double x = numberProperty(cx, options, "x", 0.0);
 		const double y = numberProperty(cx, options, "y", 0.0);
-		const double width = numberProperty(cx, options, "width", 128.0);
-		const double height = numberProperty(cx, options, "height", 48.0);
+		const double width = numberProperty(cx, options, "width", double(defaultSize.x));
+		const double height = numberProperty(cx, options, "height", double(defaultSize.y));
 		button->setPosition(glm::fvec2(float(x), float(y)),
 			glm::fvec2(float(x + width), float(y + height)));
 		button->setFlag<Lotte::Gui::WidgetStateFlag::Enabled>(

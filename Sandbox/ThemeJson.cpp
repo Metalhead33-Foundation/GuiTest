@@ -217,6 +217,17 @@ ThemeParseResult parseThemeJson(std::string_view source)
 					if (skinValue.contains("rect")) {
 						variant.skin.rect = readRect(skinValue["rect"]);
 					}
+					if (skinValue.contains("part") && skinValue["part"].is_string()) {
+						const std::string partName = skinValue["part"].get<std::string>();
+						Lotte::Procedural::GuiAtlasPart part =
+							Lotte::Procedural::GuiAtlasPart::Count;
+						if (Lotte::Procedural::parseGuiAtlasPart(partName, part)) {
+							variant.skin.part = part;
+						} else {
+							result.problems.push_back("theme: '" + name + "' names unknown part '" +
+													  partName + "'");
+						}
+					}
 					if (skinValue.contains("tint")) {
 						variant.skin.tint = readColour(skinValue["tint"], variant.skin.tint);
 					}

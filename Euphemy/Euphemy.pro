@@ -70,8 +70,7 @@ SOURCES += \
  Platform/EuphIoUring.cpp \
  Platform/EuphKqueuePoller.cpp \
  Platform/EuphWSAPollPoller.cpp \
- Util/EuphNoise.cpp \
- Util/EuphVoronoi.cpp
+ Util/EuphNoise.cpp
 
 HEADERS += \
  Asset/EuphAssetRuntime.hpp \
@@ -127,8 +126,7 @@ HEADERS += \
  Platform/EuphIoUring.hpp \
  Platform/EuphKqueuePoller.hpp \
  Platform/EuphWSAPollPoller.hpp \
- Util/EuphNoise.hpp \
- Util/EuphVoronoi.hpp
+ Util/EuphNoise.hpp
 
 DISTFILES += \
     ../docs/networking/HTTP.md \

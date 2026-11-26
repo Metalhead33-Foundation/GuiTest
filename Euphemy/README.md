@@ -127,8 +127,7 @@ through `Elv::Util::AlexandrescuResource`.
 
 | File | What it implements |
 |---|---|
-| `Util/EuphNoise.hpp` / `.cpp` | Deterministic 1D/2D noise: white, value, Perlin, bilinear Perlin, simplex, point/sector Voronoi and sum-of-sines, plus the normalize/remap helpers and an allocation-free hashed lattice (`latticeNoise2D`/`latticeFbm2D`) for per-pixel texture work. Seeded entry points own a `std::mt19937`, random entry points take a callable, and the degenerate cases the legacy code divided by or read past are clamped and documented |
-| `Util/EuphVoronoi.hpp` / `.cpp` | Tile Voronoi over a wrapping `blockCount x blockSize` grid. One traversal fills `VoronoiSample` (`F1`, `F2`, nearest-point index); `voronoiDistance`, `voronoiBorder` and `voronoiCellIndices` are cheap projections. The cell index is what turns the field into a tile map |
+| `Util/EuphNoise.hpp` / `.cpp` | Deterministic 1D/2D noise: white, value, Perlin, bilinear Perlin, simplex, sum-of-sines, plus the normalize/remap helpers and an allocation-free hashed lattice (`latticeNoise2D`/`latticeFbm2D`) for per-pixel texture work. Seeded entry points own a `std::mt19937`, random entry points take a callable, and the degenerate cases the legacy code divided by or read past are clamped and documented. The two Voronoi shapes live here too: explicit-point/sector ramps (`voronoi1D`, `voronoi2D`, `sectorVoronoi*`), and the wrapping tile grid whose one traversal fills `VoronoiSample` (`F1`, `F2`, nearest-point index) for `voronoiDistance`/`voronoiBorder`/`voronoiCellIndices` - the cell index is what turns the field into a tile map |
 
 ### `Asset/` - CPU-side asset streaming runtime
 

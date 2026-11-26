@@ -41,6 +41,7 @@
 #include <Lotte/Gui/LteGuiRenderer.hpp>
 #include <Lotte/Gui/LteTheme.hpp>
 #include <Lotte/Gui/LteWidget.hpp>
+#include <Lotte/Procedural/LteGuiAtlasParts.hpp>
 #include <Lotte/Text/LteFontWeight.hpp>
 #include <Lotte/Text/LteTextAttributes.hpp>
 #include <glm/glm.hpp>
@@ -122,12 +123,23 @@ struct ThemeAtlasDefinition {
 	std::uint32_t proceduralScalePercent = 100;
 };
 
-/** @brief A skin reference: which atlas, which rectangle, which tint and margins. */
+/**
+ * @brief A skin reference: which atlas, which rectangle, which tint and margins.
+ */
 struct ThemeSkinDefinition {
 	/** @brief Alias of the atlas the rectangle lives in. */
 	std::string atlas;
-	/** @brief Source rectangle in atlas pixels. */
+	/** @brief Source rectangle in atlas pixels; ignored when @ref part is set. */
 	ThemeRect rect;
+	/**
+	 * @brief Part of a procedurally generated atlas, resolved through the manifest.
+	 *
+	 * A generated atlas is packed by the builder, so its rectangles are only known
+	 * after it ran. Naming the part (@ref Lotte::Procedural::GuiAtlasPart) instead of a
+	 * rectangle keeps the theme file valid across seeds and sizes: the atlas answers
+	 * "where did this part land?" through @ref ThemeAtlasBinding::partRect.
+	 */
+	std::optional<Procedural::GuiAtlasPart> part;
 	/** @brief Tint multiplied into the sampled texels. */
 	glm::fvec4 tint = glm::fvec4(1.0f);
 	/** @brief Nine-slice source margins; all-zero means a plain quad. */
@@ -156,7 +168,13 @@ struct ThemeTextStyleDefinition {
 struct ThemeSkinVariant {
 	/** @brief State bits the variant requires; 0 matches every state. */
 	WidgetState stateMask = 0;
-	/** @brief The skin used when the mask matches. */
+	/**
+	 * @brief The skin used when the mask matches.
+	 *
+	 * A mask can only *require* bits, not their absence, so there is no way to express
+	 * "draw this when `Enabled` is clear". A disabled look is therefore the renderer's
+	 * decision (the Sandbox dims the idle tint), not a theme variant.
+	 */
 	ThemeSkinDefinition skin;
 };
 
@@ -213,6 +231,13 @@ struct ThemeAtlasBinding {
 	GuiTextureBinding binding;
 	/** @brief Atlas size in pixels. */
 	glm::fvec2 pixelSize = glm::fvec2(0.0f);
+	/**
+	 * @brief Where a generated part landed in this atlas, when it is a generated one.
+	 *
+	 * Empty for a file atlas (a hand-authored atlas uses explicit rectangles) and for
+	 * anything that was not produced by @ref Lotte::Procedural::buildGuiAtlas.
+	 */
+	std::function<std::optional<ThemeRect>(Procedural::GuiAtlasPart)> partRect;
 };
 
 /**

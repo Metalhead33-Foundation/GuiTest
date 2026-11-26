@@ -102,9 +102,37 @@ glm::fvec4 ScriptButton::currentTint() const noexcept
 	return style.colours[colourIndex(ButtonVisual::Idle)];
 }
 
+void ScriptButton::setThemeElement(const Lotte::Gui::Theme* theme,
+								   Lotte::Gui::ThemeElement element) noexcept
+{
+	themedTheme = theme;
+	themedElement = element;
+}
+
 void ScriptButton::render(Lotte::Gui::GuiRenderer& renderer)
 {
 	if (hidden()) return;
+	// A themed button asks the theme for the skin of its *current* state, so hover and
+	// press come from the theme's per-state variants instead of a local colour table.
+	if (themedTheme != nullptr) {
+		const std::optional<Lotte::Gui::ThemeSkin> skin = themedTheme->skin(themedElement, state());
+		if (skin.has_value() && skin->binding.texture != 0) {
+			Lotte::Gui::ColouredTexturedQuad quad;
+			quad.topLeft = topLeft();
+			quad.bottomRight = bottomRight();
+			quad.uv[0] = skin->uv[0];
+			quad.uv[1] = skin->uv[1];
+			quad.binding = skin->binding;
+			quad.colour = skin->tint;
+			// The state mask cannot express "not enabled", so the disabled look is the
+			// renderer's decision: dim the idle tint instead of inventing a variant.
+			if (!getFlag(Lotte::Gui::WidgetStateFlag::Enabled)) {
+				quad.colour *= glm::fvec4(0.55f, 0.55f, 0.55f, 0.75f);
+			}
+			renderer.render(quad);
+			return;
+		}
+	}
 	const glm::fvec4 tint = currentTint();
 	if (binding().texture != 0) {
 		Lotte::Gui::ColouredTexturedQuad quad;
@@ -147,6 +175,60 @@ GuiScene::TexturePtr GuiScene::loadTexture(Elv::Io::System& io, const std::strin
 	auto entry = std::make_shared<ScriptTexture>(std::move(surface), path);
 	textures.emplace(path, entry);
 	return entry;
+}
+
+bool GuiScene::addAtlas(const std::string& alias, const Lotte::Gfx::Rgba8Image& image,
+						const Lotte::Procedural::GuiAtlas* manifest)
+{
+	if (alias.empty() || !image.isValid()) return false;
+	AtlasEntry entry;
+	entry.texture = std::make_unique<Lotte::Gfx::WriteableTexture2D>(
+		Lotte::Gfx::WriteableTexture2D::fromRgba8(factory, image));
+	if (!entry.texture->isValid()) return false;
+	entry.pixelSize = glm::fvec2(static_cast<float>(image.width), static_cast<float>(image.height));
+	if (manifest != nullptr) {
+		// The manifest is copied into a shared_ptr: the caller's builder result is usually
+		// a local, and a resolved binding keeps the part lookup alive by holding it.
+		entry.manifest = std::make_shared<const Lotte::Procedural::GuiAtlas>(*manifest);
+	}
+	atlases[alias] = std::move(entry);
+	return true;
+}
+
+std::optional<Lotte::Gui::ThemeAtlasBinding> GuiScene::resolveAtlas(std::string_view alias) const
+{
+	const auto found = atlases.find(std::string(alias));
+	if (found == atlases.end() || !found->second.texture->isValid()) return std::nullopt;
+	Lotte::Gui::ThemeAtlasBinding binding;
+	binding.binding.texture = found->second.texture->handle();
+	binding.pixelSize = found->second.pixelSize;
+	if (found->second.manifest) {
+		// Holding the shared_ptr inside the binding keeps the manifest alive, so the
+		// lambda stays valid even if the scene's atlas table is rebuilt later.
+		const std::shared_ptr<const Lotte::Procedural::GuiAtlas> manifest = found->second.manifest;
+		binding.partRect = [manifest](
+							   Lotte::Procedural::GuiAtlasPart part) -> std::optional<Lotte::Gui::ThemeRect> {
+			const Lotte::Procedural::GuiAtlasRect* rect = manifest->find(part);
+			if (rect == nullptr) return std::nullopt;
+			Lotte::Gui::ThemeRect result;
+			result.x = static_cast<std::int32_t>(rect->x);
+			result.y = static_cast<std::int32_t>(rect->y);
+			result.width = rect->width;
+			result.height = rect->height;
+			return result;
+		};
+	}
+	return binding;
+}
+
+void GuiScene::setTheme(const Lotte::Gui::Theme* theme) noexcept
+{
+	activeTheme = theme;
+	// Existing widgets follow the scene: a theme installed after the script created the
+	// buttons still dresses them, and clearing it puts them back on their own style.
+	for (const ButtonPtr& button : buttons) {
+		button->setThemeElement(theme, Lotte::Gui::ThemeElement::Button);
+	}
 }
 
 void GuiScene::addButton(ButtonPtr button)

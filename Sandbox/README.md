@@ -41,7 +41,7 @@ provides services, and `GameSystem` no longer contains a demo song path, a volum
 | Module | Surface | Backing engine type |
 |---|---|---|
 | `System` | `setRichText(mml, {x, y, spacing, wordSpacing, scale})`, `loadTexture(path)` / `new System.Texture(path)`, `viewport` | `Lotte::Text` MML + layout, `Lotte::Gfx::WriteableTexture2D` |
-| `GUI` | `new GUI.Button({x, y, width, height, texture?, uv?, colours?, enabled?, hidden?})`, properties `x`, `y`, `width`, `height`, `enabled`, `hidden`, `hovered`, `pressed`, method `remove()`, and the assignable `onClick` | `Sandbox::ScriptButton` in a `Sandbox::GuiScene` |
+| `GUI` | `new GUI.Button({x, y, width, height, element?, texture?, uv?, colours?, enabled?, hidden?})`, properties `x`, `y`, `width`, `height`, `enabled`, `hidden`, `hovered`, `pressed`, method `remove()`, and the assignable `onClick`. When a theme is loaded the widget is drawn through `element` (default `button`) and `width`/`height` default to that element's `minimumSize`; `texture`/`uv`/`colours` stay as the unthemed fallback | `Sandbox::ScriptButton` in a `Sandbox::GuiScene` |
 | `Audio` | `new Audio.Module(path, {volume, repeating, playing})`, properties `playing`, `paused`, `status`, `volume`, `repeating`, `cursor`, `valid`, method `stop()` | `Hrk::ModuleStreamer` inside the sandbox's `Hrk::Mixer` |
 | `IO` | `new IO.File(path, "r"\|"w"\|"a"\|"rw"\|"ra")`, `readString()`, `read(n)`, `writeString(s)`, `seek(offset, "set"\|"cur"\|"end")`, `flush()`, `size`, `tell`, `eof`, `valid`; `IO.exists`, `IO.isFile`, `IO.isDirectory` | `Elv::Io::System` / `Elv::Io::Device` |
 | `random`, `CONFIG`, `console`, `print`, `require`, `dofile` | unchanged | `JsRandom`, `Euph::Conf::Configuration` |
@@ -108,8 +108,31 @@ the plain structs of `Lotte/Gui/LteThemeDefinition.hpp`, and every fixed vocabul
 name tables instead of a string map. The rules are recorded in
 [`../docs/PROCEDURAL.md`](../docs/PROCEDURAL.md).
 
-A procedural atlas is packed by the generator, so the rectangles in the theme file come
-from the manifest this command prints; feeding them back automatically is a known TODO.
+### The theme drives the sandbox, not only the CLI
+
+`GameSystem::startTheme()` runs the same load path before the script starts: it reads
+`gfx/theme_000.json`, generates every procedural atlas, uploads it through
+`GuiScene::addAtlas()` (which keeps the manifest), and installs a `DefinitionTheme` on the
+scene. `GUI.Button` then asks that theme for the skin of its *current* state, so hover and
+press come from `button_hover`/`button_pressed` in the generated atlas. A missing or
+invalid theme is logged and the widgets fall back to their own colours, which is what the
+headless run shows.
+
+The theme document names **parts** (`"part": "button_idle"`), not rectangles: the packer
+decides where a part lands, and the atlas answers the question through its manifest. A
+file atlas would use an explicit `"rect"` instead; the schema accepts both. The manifest
+this command prints is still useful for a hand-authored document or for a visual check.
+
+```text
+theme 'legacy_crpg': 4 atlas(es), 9 element(s)
+atlas 'PROC': 1024x382, 13 part(s) -> theme_out/PROC.png
+  parchment           0    0  208  272
+  panel             210    0  272  144
+  ...
+Theme 'legacy_crpg': 1 atlas(es) uploaded        <- the game loop
+Script ready: 1 button(s)                         <- the themed button
+DefinitionTheme 'legacy_crpg': 18 skin query(s) resolved   <- the CLI
+```
 
 ## `GameSystem`: audio, a window and a cursor
 

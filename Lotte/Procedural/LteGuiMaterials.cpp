@@ -1,6 +1,5 @@
 #include "LteGuiMaterials.hpp"
 #include <Euphemy/Util/EuphNoise.hpp>
-#include <Euphemy/Util/EuphVoronoi.hpp>
 #include <algorithm>
 #include <cmath>
 
