@@ -15,12 +15,14 @@ const Audio = require('Audio');
 const IO = require('IO');
 
 print('Hello World from C++/JS!');
-for (const [key, value] of Object.entries(CONFIG)) {
+/*for (const [key, value] of Object.entries(CONFIG)) {
     console.log(`[${key}]`);
     for (const [jey, jalue] of Object.entries(value)) {
         console.log(`${jey}: ${jalue}`);
     }
-}
+}*/
+//print(JSON.stringify(CONFIG));
+print(CONFIG);
 
 // Configuration with defaults that used to live in GameSystem.
 const title = CONFIG.Game.sTitle ?? 'Sandbox';
