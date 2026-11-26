@@ -76,3 +76,10 @@ Whenever calling `git`, always use `--no-pager`.
    (`Lotte::Gui::ThemeDefinition` is the reference example), and every fixed vocabulary is an
    enum with one name table (`parseThemeElement`, `guiAtlasPartName`, ...) - never a
    `std::map<std::string, ...>` inside a loader. The reasoning is in `docs/PROCEDURAL.md` §1.
+
+**Noise is a Euphemy concern.** Every generator lives in `EuphNoise.hpp`; `Lotte/Procedural/*`
+   composes them and never rolls its own - no local hash, no hand-rolled grating, no private
+   smoothstep. Gradient noise (`latticeGradient2D`, `latticeGradientFbm2D`) is the default for
+   a surface, value noise keeps its place where the lattice *is* the effect, the finest octave
+   stays at or above ~2 px per cycle, and a stretched field gets exactly one octave. The
+   parchment hatch and both of its causes are written up in `docs/PROCEDURAL.md` §5.

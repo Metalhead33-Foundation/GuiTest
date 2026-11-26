@@ -239,3 +239,83 @@ TEST_CASE("Euphemy Voronoi: cells and distances agree with a brute-force search"
 		REQUIRE(first == second);
 		REQUIRE(first != other);
 	}
+
+TEST_CASE("Euphemy noise: smoothStep clamps and survives a degenerate range", "[noise]")
+{
+	REQUIRE(smoothStep(0.0f, 1.0f, -2.0f) == 0.0f);
+	REQUIRE(smoothStep(0.0f, 1.0f, 3.0f) == 1.0f);
+	REQUIRE(smoothStep(0.0f, 1.0f, 0.5f) == 0.5f);
+	// A zero-width range is a step at the edge, never a division by zero.
+	REQUIRE(smoothStep(2.0f, 2.0f, 1.0f) == 0.0f);
+	REQUIRE(smoothStep(2.0f, 2.0f, 3.0f) == 1.0f);
+	float previous = 0.0f;
+	for (int index = 0; index <= 20; ++index) {
+		const float value = smoothStep(0.2f, 0.8f, static_cast<float>(index) / 20.0f);
+		REQUIRE(value >= previous);
+		previous = value;
+	}
+}
+
+TEST_CASE("Euphemy noise: gradient noise is deterministic and bounded", "[noise]")
+{
+	REQUIRE(latticeGradient2D(1.25f, -3.5f, 7u) == latticeGradient2D(1.25f, -3.5f, 7u));
+	REQUIRE(latticeGradient2D(1.25f, -3.5f, 7u) != latticeGradient2D(1.25f, -3.5f, 8u));
+	for (int index = 0; index < 64; ++index) {
+		const float x = static_cast<float>(index) * 0.37f - 4.0f;
+		const float value = latticeGradient2D(x, x * 0.5f, 11u);
+		REQUIRE(value >= 0.0f);
+		REQUIRE(value <= 1.0f);
+		const float fbm = latticeGradientFbm2D(x, x * 0.5f, 11u, 4);
+		REQUIRE(fbm >= 0.0f);
+		REQUIRE(fbm <= 1.0f);
+	}
+}
+
+TEST_CASE("Euphemy noise: gradient noise has no preferred direction", "[noise]")
+{
+	// The noise this replaced blended corner *values* on an axis-aligned lattice, and the
+	// recipes that stacked two axis-aligned gratings hatched a parchment sheet at 45
+	// degrees. A gradient field must not favour any direction: measure the mean neighbour
+	// difference along four directions of equal step length and compare them.
+	const auto roughness = [](float stepX, float stepY) {
+		double total = 0.0;
+		std::size_t count = 0;
+		for (int y = 0; y < 96; ++y) {
+			for (int x = 0; x < 96; ++x) {
+				const float here = latticeGradient2D(float(x) * 0.17f, float(y) * 0.17f, 21u);
+				const float there = latticeGradient2D((float(x) + stepX) * 0.17f,
+					(float(y) + stepY) * 0.17f, 21u);
+				total += std::fabs(double(there) - double(here));
+				++count;
+			}
+		}
+		return total / double(count) / std::sqrt(double(stepX) * stepX + double(stepY) * stepY);
+	};
+	const double horizontal = roughness(1.0f, 0.0f);
+	const double vertical = roughness(0.0f, 1.0f);
+	const double forward = roughness(1.0f, 1.0f);
+	const double backward = roughness(1.0f, -1.0f);
+	CAPTURE(horizontal, vertical, forward, backward);
+	const double largest = std::max({ horizontal, vertical, forward, backward });
+	const double smallest = std::min({ horizontal, vertical, forward, backward });
+	REQUIRE(smallest > 0.0);
+	REQUIRE(largest / smallest < 1.35);
+}
+
+TEST_CASE("Euphemy noise: the octave walk handles rotation, lacunarity and no octaves", "[noise]")
+{
+	REQUIRE(latticeFbm2D(3.5f, -1.25f, 5u, 0) == 0.0f);
+	REQUIRE(latticeGradientFbm2D(3.5f, -1.25f, 5u, 0) == 0.0f);
+
+	const float aligned = latticeGradientFbm2D(3.5f, -1.25f, 5u, 4, 0.0f);
+	const float rotated = latticeGradientFbm2D(3.5f, -1.25f, 5u, 4);
+	REQUIRE(aligned != rotated);
+	// A lacunarity that would not grow the octaves falls back to the classic ratio.
+	REQUIRE(latticeGradientFbm2D(3.5f, -1.25f, 5u, 4, 0.5f, 1.0f) == rotated);
+	REQUIRE(latticeGradientFbm2D(3.5f, -1.25f, 5u, 4, 0.5f, 0.0f) == rotated);
+
+	// The value-noise fbm keeps its historical shape at rotation 0 and decouples at another.
+	const float plain = latticeFbm2D(3.5f, -1.25f, 5u, 4, 0.0f);
+	REQUIRE(plain == latticeFbm2D(3.5f, -1.25f, 5u, 4));
+	REQUIRE(plain != latticeFbm2D(3.5f, -1.25f, 5u, 4, 0.7f));
+}

@@ -259,13 +259,14 @@ SurfaceCanvas canvas(settings.parchmentWidth + settings.margin * 2,
 settings.parchmentHeight + settings.margin * 2);
 const SdfFunction base = roundedBox(corner(margin + 3.0f, margin + 3.0f),
 corner(margin + width - 3.0f, margin + height - 3.0f), 3.0f);
-// Torn edge: two octaves of noise displace the outline, which is what makes the
-// silhouette irregular instead of a rectangle.
+// Torn edge: gradient noise displaces the outline, which is what makes the silhouette
+// irregular instead of a rectangle. The finest octave stays near 2 px so the edge reads
+// as fibre rather than as aliasing.
 const SdfFunction torn = [base, seed](glm::fvec2 position) {
-const float macro = Euph::Util::Noise::latticeFbm2D(position.x * 0.07f, position.y * 0.07f,
-seed, 4) - 0.5f;
-const float micro = Euph::Util::Noise::latticeFbm2D(position.x * 0.45f, position.y * 0.45f,
-seed + 3u, 2) - 0.5f;
+const float macro = Euph::Util::Noise::latticeGradientFbm2D(position.x * 0.07f,
+position.y * 0.07f, seed, 4) - 0.5f;
+const float micro = Euph::Util::Noise::latticeGradientFbm2D(position.x * 0.22f,
+position.y * 0.22f, seed + 3u, 2) - 0.5f;
 return base(position) + macro * 11.0f + micro * 2.4f;
 };
 PaintOptions options;

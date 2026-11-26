@@ -76,6 +76,18 @@ MH_EUPH_API float bilinearAverage(float tX, float tY, float topLeft, float topRi
 								float bottomLeft, float bottomRight);
 
 /**
+ * @brief Hermite smoothstep between two edges.
+ * @param edge0 Lower edge; equal to @p edge1 gives a hard step there instead of a NaN.
+ * @param edge1 Upper edge.
+ * @param value Value to ease.
+ * @return 0 below @p edge0, 1 above @p edge1, and a smooth ramp in between.
+ * @note The easing every procedural recipe ramps a noise value through. It is here
+ *       because a material that carries its own copy drifts in clamping behaviour, and
+ *       because the interpolants below use the same curve on their lattices.
+ */
+MH_EUPH_API float smoothStep(float edge0, float edge1, float value);
+
+/**
  * @brief Rescales a span so its smallest value is 0 and its largest is 1.
  * @param output Samples to rescale in place.
  * @note A span whose range is zero (flat, empty or a single value) is left untouched
@@ -147,10 +159,56 @@ MH_EUPH_API float latticeNoise2D(float x, float y, std::uint32_t seed);
  * @param y Sample position.
  * @param seed Hash seed of the first octave; later octaves offset it.
  * @param octaves Number of octaves to sum; zero returns 0.
+ * @param rotation Radians added to the sampling frame per octave; 0 keeps the octaves
+ *                 axis-aligned (the historical behaviour), which is what stacks their
+ *                 cell diagonals into visible hatching.
  * @return The normalized octave sum in `[0, 1]`.
  */
 MH_EUPH_API float latticeFbm2D(float x, float y, std::uint32_t seed,
-							   std::uint32_t octaves = 5);
+							   std::uint32_t octaves = 5, float rotation = 0.0f);
+
+///@}
+
+
+/// @name Infinite-lattice (hashed) gradient noise
+///@{
+
+/**
+ * @brief Samples gradient (Perlin) noise on an infinite integer lattice.
+ * @param x Sample position.
+ * @param y Sample position.
+ * @param seed Hash seed.
+ * @return A value in `[0, 1]`.
+ *
+ * @note This is the general-purpose primitive; prefer it over @ref latticeNoise2D when a
+ *       field has to read as *texture* rather than as a lattice.
+ *
+ * @ref latticeNoise2D blends four corner **values**, so its iso-contours run along the
+ * cell diagonals, every cell has a flat plateau in its middle, and a coarse lattice shows
+ * up as diamonds. Gradient noise blends four corner **gradients**, so it has no plateau
+ * and no preferred direction. Neither replaces the other: value noise is cheaper and its
+ * diamonds are sometimes the point, gradient noise is what a stone face or a parchment
+ * sheet wants.
+ */
+MH_EUPH_API float latticeGradient2D(float x, float y, std::uint32_t seed);
+
+/**
+ * @brief Octave sum of @ref latticeGradient2D that rotates every octave.
+ * @param x Sample position.
+ * @param y Sample position.
+ * @param seed Hash seed of the first octave; later octaves offset it.
+ * @param octaves Number of octaves to sum; zero returns 0.
+ * @param rotation Radians added to the sampling frame per octave.
+ * @param lacunarity Frequency ratio between octaves.
+ * @return The normalized octave sum in `[0, 1]`.
+ *
+ * The rotation is the point of this function. An fbm that only *translates* its octaves
+ * keeps every lattice parallel, so the ridges of the interpolant line up and the sum
+ * reads as hatching; rotating by a non-multiple of 90 degrees decorrelates them.
+ */
+MH_EUPH_API float latticeGradientFbm2D(float x, float y, std::uint32_t seed,
+									   std::uint32_t octaves = 5, float rotation = 0.5f,
+									   float lacunarity = 2.03f);
 
 ///@}
 

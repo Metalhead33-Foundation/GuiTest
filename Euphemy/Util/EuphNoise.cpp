@@ -50,6 +50,17 @@ void requireExtent(std::size_t available, std::uint64_t needed)
 
 } // namespace
 
+float smoothStep(float edge0, float edge1, float value)
+{
+	// A degenerate range is a step at that edge; dividing by it would be a NaN, and a NaN
+	// that reaches an albedo turns the whole quad black on some drivers.
+	const float span = edge1 - edge0;
+	if (span == 0.0f) return value < edge0 ? 0.0f : 1.0f;
+	float t = (value - edge0) / span;
+	t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+	return t * t * (3.0f - 2.0f * t);
+}
+
 float bilinearAverage(float tX, float tY, float topLeft, float topRight, float bottomLeft,
 					float bottomRight)
 {
@@ -761,16 +772,91 @@ float latticeNoise2D(float x, float y, std::uint32_t seed)
 	return lerp(top, bottom, v);
 }
 
-float latticeFbm2D(float x, float y, std::uint32_t seed, std::uint32_t octaves)
+float latticeFbm2D(float x, float y, std::uint32_t seed, std::uint32_t octaves, float rotation)
 {
 	float sum = 0.0f;
 	float amplitude = 0.5f;
 	float normalisation = 0.0f;
+	// Every octave may advance the sampling frame by `rotation` and `lacunarity`; with a
+	// zero rotation this degenerates into the historical translate-only walk.
+	const float rotationCosine = std::cos(rotation);
+	const float rotationSine = std::sin(rotation);
 	for (std::uint32_t octave = 0; octave < octaves; ++octave) {
 		sum += amplitude * latticeNoise2D(x, y, seed + octave * 101u);
 		normalisation += amplitude;
-		x = x * 2.03f + 7.1f;
-		y = y * 2.03f - 3.7f;
+		const float nextX = (x * rotationCosine - y * rotationSine) * 2.03f + 7.1f;
+		const float nextY = (x * rotationSine + y * rotationCosine) * 2.03f - 3.7f;
+		x = nextX;
+		y = nextY;
+		amplitude *= 0.5f;
+	}
+	return normalisation > 0.0f ? sum / normalisation : 0.0f;
+}
+
+
+namespace {
+
+/// @brief Ken Perlin's quintic fade, `6t^5 - 15t^4 + 10t^3`.
+float fade(float t)
+{
+	return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+}
+
+/// @brief Eight evenly spaced unit gradients; enough for a lattice without a table.
+constexpr float GradientDirections[8][2] = {
+	{ 1.0f, 0.0f },		 { -1.0f, 0.0f },	   { 0.0f, 1.0f },		{ 0.0f, -1.0f },
+	{ 0.70710678f, 0.70710678f },	 { -0.70710678f, 0.70710678f },
+	{ 0.70710678f, -0.70710678f },	 { -0.70710678f, -0.70710678f },
+};
+
+/// @brief Dot product of a hashed gradient with the offset to its corner.
+float gradientDot(std::uint32_t hash, float offsetX, float offsetY)
+{
+	const float* const direction = GradientDirections[hash & 7u];
+	return direction[0] * offsetX + direction[1] * offsetY;
+}
+
+} // namespace
+
+float latticeGradient2D(float x, float y, std::uint32_t seed)
+{
+	const int xi = fastFloor(x);
+	const int yi = fastFloor(y);
+	const float fx = x - static_cast<float>(xi);
+	const float fy = y - static_cast<float>(yi);
+	const std::uint32_t x0 = static_cast<std::uint32_t>(xi);
+	const std::uint32_t y0 = static_cast<std::uint32_t>(yi);
+	const float n00 = gradientDot(hashUints(x0, y0, seed), fx, fy);
+	const float n10 = gradientDot(hashUints(x0 + 1u, y0, seed), fx - 1.0f, fy);
+	const float n01 = gradientDot(hashUints(x0, y0 + 1u, seed), fx, fy - 1.0f);
+	const float n11 = gradientDot(hashUints(x0 + 1u, y0 + 1u, seed), fx - 1.0f, fy - 1.0f);
+	const float u = fade(fx);
+	const float v = fade(fy);
+	const float value = lerp(lerp(n00, n10, u), lerp(n01, n11, u), v);
+	// The dot products of unit gradients span about [-1.41, 1.41] for the diagonal pair;
+	// this scale puts the field inside [-1, 1] and the shift maps it to [0, 1].
+	const float unit = value * 0.70710678f + 0.5f;
+	return unit < 0.0f ? 0.0f : (unit > 1.0f ? 1.0f : unit);
+}
+
+float latticeGradientFbm2D(float x, float y, std::uint32_t seed, std::uint32_t octaves,
+						   float rotation, float lacunarity)
+{
+	// A lacunarity of exactly 1 would keep every octave at the same scale, so the sum
+	// would only deepen the first one; fall back to the classic ratio instead.
+	const float ratio = lacunarity > 1.0f ? lacunarity : 2.03f;
+	const float rotationCosine = std::cos(rotation);
+	const float rotationSine = std::sin(rotation);
+	float sum = 0.0f;
+	float amplitude = 0.5f;
+	float normalisation = 0.0f;
+	for (std::uint32_t octave = 0; octave < octaves; ++octave) {
+		sum += amplitude * latticeGradient2D(x, y, seed + octave * 101u);
+		normalisation += amplitude;
+		const float nextX = (x * rotationCosine - y * rotationSine) * ratio + 7.1f;
+		const float nextY = (x * rotationSine + y * rotationCosine) * ratio - 3.7f;
+		x = nextX;
+		y = nextY;
 		amplitude *= 0.5f;
 	}
 	return normalisation > 0.0f ? sum / normalisation : 0.0f;

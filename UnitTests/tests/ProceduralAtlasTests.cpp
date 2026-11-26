@@ -34,6 +34,39 @@ std::size_t coveredPixels(const Lotte::Gfx::Rgba8Image& image)
 	return covered;
 }
 
+/**
+ * @brief Mean absolute luminance difference between neighbours one pixel apart.
+ * @param image Shaded atlas.
+ * @param rect Part to measure.
+ * @param stepX Horizontal step of the sampling direction.
+ * @param stepY Vertical step of the sampling direction.
+ * @return Roughness per pixel of step length.
+ *
+ * The outer 24 px of a part are skipped so the torn edge and the rope frame stay out of
+ * the measurement.
+ */
+double directionalRoughness(const Lotte::Gfx::Rgba8Image& image, const GuiAtlasRect& rect,
+							int stepX, int stepY)
+{
+	const auto luminance = [&image](std::uint32_t x, std::uint32_t y) {
+		const std::size_t index = (std::size_t(y) * image.width + x) * 4u;
+		return (double(image.pixels[index]) + double(image.pixels[index + 1]) +
+				double(image.pixels[index + 2])) /
+			   3.0;
+	};
+	double total = 0.0;
+	std::size_t count = 0;
+	for (std::uint32_t y = rect.y + 24; y + 24 < rect.y + rect.height; ++y) {
+		for (std::uint32_t x = rect.x + 24; x + 24 < rect.x + rect.width; ++x) {
+			total += std::fabs(luminance(x, y) -
+							  luminance(std::uint32_t(int(x) + stepX), std::uint32_t(int(y) + stepY)));
+			++count;
+		}
+	}
+	const double length = std::sqrt(double(stepX) * stepX + double(stepY) * stepY);
+	return count > 0 ? total / double(count) / length : 0.0;
+}
+
 } // namespace
 
 TEST_CASE("Procedural atlas: every part has a rectangle and the image is shaded", "[procedural]")
@@ -135,4 +168,65 @@ TEST_CASE("Procedural materials: the crack field is a real Voronoi border", "[pr
 	REQUIRE(buckets.size() >= 3);
 	// Sampling outside the field clamps instead of reading out of bounds.
 	REQUIRE(cracks.sample(glm::fvec2(-5.0f, -5.0f)) == cracks.samples.front());
+}
+
+TEST_CASE("Procedural SDF: a rounded box reports its interior distance", "[procedural]")
+{
+	const SdfFunction box = roundedBox(glm::fvec2(0.0f, 0.0f), glm::fvec2(100.0f, 40.0f), 5.0f);
+	// Centre: 20 px from the nearest edge, negative because it is inside.
+	REQUIRE(std::fabs(box(glm::fvec2(50.0f, 20.0f)) + 20.0f) < 1.0e-3f);
+	// Five pixels inside the flat edges.
+	REQUIRE(std::fabs(box(glm::fvec2(50.0f, 35.0f)) + 5.0f) < 1.0e-3f);
+	REQUIRE(std::fabs(box(glm::fvec2(5.0f, 20.0f)) + 5.0f) < 1.0e-3f);
+	// Outside the flat edges and outside the rounded corner.
+	REQUIRE(std::fabs(box(glm::fvec2(50.0f, -3.0f)) - 3.0f) < 1.0e-3f);
+	REQUIRE(std::fabs(box(glm::fvec2(-5.0f, 20.0f)) - 5.0f) < 1.0e-3f);
+	REQUIRE(std::fabs(box(glm::fvec2(0.0f, 0.0f)) - 2.071068f) < 1.0e-4f);
+}
+
+TEST_CASE("Procedural SDF: outline() paints a frame, not the whole canvas", "[procedural]")
+{
+	// The parchment hatch came from exactly this: the rounded box used to report `-radius`
+	// for every interior point, `outline()` therefore covered the whole sheet, and the rope
+	// band's diagonal weave was blended over the face at full coverage.
+	const SdfFunction box = roundedBox(glm::fvec2(20.0f, 20.0f), glm::fvec2(140.0f, 100.0f), 2.0f);
+	const SdfFunction band = outline(box, 7.0f, 0.0f);
+	REQUIRE(band(glm::fvec2(80.0f, 60.0f)) > 0.5f);
+	// On the outline is inside the band: the band is where `abs(box) < 3.5`.
+	REQUIRE(band(glm::fvec2(80.0f, 20.0f)) < 0.5f);
+	REQUIRE(band(glm::fvec2(20.0f, 60.0f)) < 0.5f);
+
+	SurfaceCanvas canvas(160, 120);
+	canvas.paint(band, flatMaterial(glm::fvec3(0.8f, 0.6f, 0.4f)));
+	const Lotte::Gfx::Rgba8Image image = canvas.shade(ShadeOptions{});
+	REQUIRE(image.isValid());
+	const std::size_t covered = coveredPixels(image);
+	REQUIRE(covered > 0);
+	// Before the SDF fix the whole canvas matched and every pixel was covered;
+	// a frame around a 120x80 box with a 7 px stroke is a third of it.
+	REQUIRE(covered < std::size_t(image.width) * image.height / 2);
+	// The middle of the sheet stays empty; the frame itself is opaque.
+	REQUIRE(image.pixels[(std::size_t(60) * image.width + 80) * 4 + 3] == 0);
+	REQUIRE(image.pixels[(std::size_t(60) * image.width + 20) * 4 + 3] > 128);
+}
+
+TEST_CASE("Procedural atlas: the parchment face is not a diagonal grating", "[procedural]")
+{
+	GuiAtlasSettings settings;
+	settings.seed = 4242;
+	settings.atlasWidth = 512;
+	const GuiAtlas atlas = buildGuiAtlas(settings);
+	const GuiAtlasRect* parchment = atlas.find(GuiAtlasPart::Parchment);
+	REQUIRE(parchment != nullptr);
+	const double horizontal = directionalRoughness(atlas.image, *parchment, 1, 0);
+	const double vertical = directionalRoughness(atlas.image, *parchment, 0, 1);
+	const double forward = directionalRoughness(atlas.image, *parchment, 1, 1);
+	const double backward = directionalRoughness(atlas.image, *parchment, 1, -1);
+	CAPTURE(horizontal, vertical, forward, backward);
+	const double largest = std::max({ horizontal, vertical, forward, backward });
+	const double smallest = std::min({ horizontal, vertical, forward, backward });
+	REQUIRE(smallest > 0.0);
+	// A full-face `sin((x + y) * 0.82)` grating makes one diagonal an order of magnitude
+	// rougher than the other; a paper face is within a factor of about 1.6.
+	REQUIRE(largest / smallest < 3.0);
 }

@@ -11,32 +11,35 @@ namespace {
 /// @brief Clamps a float into `[0, 1]`.
 float clamp01(float value)
 {
-return value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
+	return value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
 }
 
 /// @brief Linear interpolation.
 float lerp(float a, float b, float t)
 {
-return a + (b - a) * t;
-}
-
-/// @brief Hermite smoothstep between two edges.
-float smooth(float edge0, float edge1, float value)
-{
-const float t = clamp01((value - edge0) / (edge1 - edge0));
-return t * t * (3.0f - 2.0f * t);
+	return a + (b - a) * t;
 }
 
 /// @brief Linear RGB mix.
 glm::fvec3 mix(glm::fvec3 a, glm::fvec3 b, float t)
 {
-return a + (b - a) * t;
+	return a + (b - a) * t;
 }
 
-/// @brief Shortcut for `noise::latticeFbm2D` with a seed offset.
+/// @brief The shared easing, so a recipe cannot drift from the rest of the tree.
+using Euph::Util::Noise::smoothStep;
+
+/// @brief Gradient fbm with rotated octaves: the generator every recipe here uses.
+/// @param position Sample position in pixels.
+/// @param seed Hash seed of the first octave.
+/// @param octaves Octave count.
+/// @return A value in `[0, 1]`.
+///
+/// Gradient noise has no lattice plateau and the rotation keeps the octaves from stacking
+/// their axes, which is exactly what stopped the parchment from hatching.
 float fbm(glm::fvec2 position, std::uint32_t seed, std::uint32_t octaves = 4)
 {
-return Euph::Util::Noise::latticeFbm2D(position.x, position.y, seed, octaves);
+	return Euph::Util::Noise::latticeGradientFbm2D(position.x, position.y, seed, octaves);
 }
 
 } // namespace
@@ -179,17 +182,20 @@ const float fineStrokes = fbm(glm::fvec2(u * 0.085f * scale, v * 0.65f * scale),
 		// sparse instead of covering the face with a crack net.
 		float crack = 0.0f;
 		if (cracks != nullptr) {
-			const float zone = smooth(0.52f, 0.74f, fbm(position * 0.040f, style.seed + 233u, 3));
-			crack = (1.0f - smooth(0.0f, 0.055f, cracks->sample(position))) * zone;
+			const float zone = smoothStep(0.52f, 0.74f, fbm(position * 0.040f, style.seed + 233u, 3));
+			crack = (1.0f - smoothStep(0.0f, 0.055f, cracks->sample(position))) * zone;
 		} else {
-			const float zone = smooth(0.52f, 0.74f, fbm(position * 0.040f, style.seed + 233u, 3));
+			const float zone = smoothStep(0.52f, 0.74f, fbm(position * 0.040f, style.seed + 233u, 3));
 			const float ridge = std::abs(fbm(position * 0.05f, style.seed + 5u, 3) - 0.5f) * 2.0f;
-			crack = (1.0f - smooth(0.0f, 0.30f, ridge)) * zone;
+			crack = (1.0f - smoothStep(0.0f, 0.30f, ridge)) * zone;
 		}
 
-		const float pits = smooth(0.66f, 0.82f, fbm(position * 0.11f, style.seed + 77u, 3));
-		const float grain = Euph::Util::Noise::latticeNoise2D(position.x * 0.85f, position.y * 0.85f,
-style.seed + 9u);
+		const float pits = smoothStep(0.66f, 0.82f, fbm(position * 0.11f, style.seed + 77u, 3));
+		// Grain: gradient noise at a 2.2 px cell. The value noise this replaced sampled a
+		// 1.2 px lattice, which is past the sampling limit and aliased into speckle.
+		const float grain = Euph::Util::Noise::latticeGradient2D(position.x * 0.45f,
+																 position.y * 0.45f,
+																 style.seed + 9u);
 		float tone = 0.28f * coarse + 0.44f * strokes * style.streak + 0.17f * fineStrokes + 0.11f * grain;
 		const float bias = 0.5f * (0.28f + 0.44f * style.streak + 0.28f);
 		tone = clamp01((tone - bias) * 2.8f + 0.5f);
@@ -199,8 +205,8 @@ style.seed + 9u);
 
 		// Chipped, frosted edge wear: irregular so it reads as stone rather than a rim.
 		const float wearNoise = fbm(position * 0.24f, style.seed + 55u, 3);
-		const float wearMask = (1.0f - smooth(0.0f, style.wearWidth, -distance)) *
-							   smooth(0.30f, 0.60f, wearNoise + 0.3f * (1.0f - smooth(0.0f, 1.6f, -distance)));
+		const float wearMask = (1.0f - smoothStep(0.0f, style.wearWidth, -distance)) *
+							   smoothStep(0.30f, 0.60f, wearNoise + 0.3f * (1.0f - smoothStep(0.0f, 1.6f, -distance)));
 		colour = mix(colour, style.frost, clamp01(wearMask * style.wear));
 
 		MaterialSample sample;
@@ -253,23 +259,44 @@ SurfaceMaterial gemMaterial(glm::fvec3 deep, glm::fvec3 bright, float depth)
 SurfaceMaterial parchmentMaterial(std::uint32_t seed)
 {
 	return [seed](glm::fvec2 position, float distance) -> MaterialSample {
-		const float mottle = fbm(position * 0.03f, seed + 1u, 4);
-		const float fibreA = fbm(glm::fvec2(position.x * 0.55f, position.y * 0.05f), seed + 2u, 3);
-		const float fibreB = fbm(glm::fvec2(position.x * 0.05f, position.y * 0.5f), seed + 12u, 3);
+		// Large, directionless blotches. Gradient noise at a 45 px cell has no lattice
+		// plateau, so the sheet does not read as a grid of diamonds, and the second, even
+		// coarser layer gives the uneven soak of a real sheet.
+		const float mottle = fbm(position * 0.022f, seed + 1u, 4);
+		const float broad = fbm(position * 0.008f, seed + 61u, 3);
 		glm::fvec3 colour = mix(glm::fvec3(0.839f, 0.612f, 0.369f),
-glm::fvec3(0.922f, 0.741f, 0.486f), mottle);
-		colour *= 0.965f + 0.06f * (fibreA * 0.4f + fibreB * 0.6f);
-		const float edge = 1.0f - smooth(0.0f, 30.0f, -distance);
+								glm::fvec3(0.922f, 0.741f, 0.486f), mottle);
+		colour = mix(colour, glm::fvec3(0.788f, 0.596f, 0.396f), broad * 0.35f);
+
+		// Fibres: ONE stretched lattice with a single octave. An anisotropic *fbm* is a
+		// stack of gratings, and that stack is what used to hatch the sheet at 45 degrees:
+		// each octave lands at its own angle and the two beat against each other. A single
+		// octave is one gentle directional cast, which is what a fibre should be.
+		constexpr float fibreAngle = -0.38f;
+		const float cosine = std::cos(fibreAngle);
+		const float sine = std::sin(fibreAngle);
+		const float along = position.x * cosine + position.y * sine;
+		const float across = -position.x * sine + position.y * cosine;
+		const float fibre = Euph::Util::Noise::latticeGradient2D(along * 0.09f, across * 0.035f,
+																 seed + 2u);
+		// Paper tooth: isotropic and one octave, for the same reason. Three pixels per cell
+		// is the finest lattice that still reads as surface instead of as aliasing.
+		const float tooth = Euph::Util::Noise::latticeGradient2D(position.x * 0.33f,
+																 position.y * 0.33f, seed + 5u);
+		colour *= 0.976f + 0.048f * fibre;
+		colour *= 0.965f + 0.070f * tooth;
+
+		const float edge = 1.0f - smoothStep(0.0f, 30.0f, -distance);
 		const float burn = edge * (0.4f + 0.6f * fbm(position * 0.09f, seed + 9u, 3));
 		colour = mix(colour, glm::fvec3(0.576f, 0.349f, 0.165f), burn * 0.6f);
-		const float stain = smooth(0.62f, 0.8f, fbm(position * 0.02f, seed + 21u, 3));
+		const float stain = smoothStep(0.62f, 0.8f, fbm(position * 0.02f, seed + 21u, 3));
 		colour = mix(colour, glm::fvec3(0.690f, 0.478f, 0.267f), stain * 0.5f);
-		const float blot = smooth(0.55f, 0.75f, fbm(position * 0.06f, seed + 41u, 3));
+		const float blot = smoothStep(0.55f, 0.75f, fbm(position * 0.06f, seed + 41u, 3));
 		colour = mix(colour, glm::fvec3(0.788f, 0.561f, 0.333f), blot * 0.35f);
 
 		MaterialSample sample;
 		sample.albedo = colour;
-		sample.micro = (fibreA - 0.5f) * 0.5f;
+		sample.micro = (tooth - 0.5f) * 0.42f + (fibre - 0.5f) * 0.14f + (mottle - 0.5f) * 0.16f;
 		return sample;
 	};
 }

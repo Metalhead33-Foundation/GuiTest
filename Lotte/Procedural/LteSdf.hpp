@@ -47,14 +47,19 @@ using SdfFunction = std::function<float(glm::fvec2)>;
  */
 inline SdfFunction roundedBox(glm::fvec2 topLeft, glm::fvec2 bottomRight, float radius = 0.0f)
 {
-return [=](glm::fvec2 point) {
-const glm::fvec2 half = (bottomRight - topLeft) * 0.5f;
-const float clampedRadius = std::min({ radius, half.x, half.y });
-const glm::fvec2 centre = (topLeft + bottomRight) * 0.5f;
-const glm::fvec2 inner = glm::max(glm::abs(point - centre) - (half - glm::fvec2(clampedRadius)),
-glm::fvec2(0.0f));
-return glm::length(inner) + std::min(std::max(inner.x, inner.y), 0.0f) - clampedRadius;
-};
+	return [=](glm::fvec2 point) {
+		const glm::fvec2 half = (bottomRight - topLeft) * 0.5f;
+		const float clampedRadius = std::min({ radius, half.x, half.y });
+		const glm::fvec2 centre = (topLeft + bottomRight) * 0.5f;
+		// The offset has to survive *unclamped* into the interior term: a point deep inside
+		// the box must report a real negative distance. Clamping each component to zero
+		// first makes every interior point return exactly `-radius`, which turns an
+		// `outline()` of this box into a full-canvas fill and flattens every bevel.
+		const glm::fvec2 offset = glm::abs(point - centre) - (half - glm::fvec2(clampedRadius));
+		const glm::fvec2 outward = glm::max(offset, glm::fvec2(0.0f));
+		return glm::length(outward) + std::min(std::max(offset.x, offset.y), 0.0f) -
+			   clampedRadius;
+	};
 }
 
 /**
@@ -210,9 +215,11 @@ return std::abs(shape(point) + offset) - thickness * 0.5f;
 inline SdfFunction roughen(SdfFunction shape, float amplitude, float frequency, std::uint32_t seed)
 {
 return [shape = std::move(shape), amplitude, frequency, seed](glm::fvec2 point) {
-const float macro = Euph::Util::Noise::latticeFbm2D(point.x * frequency, point.y * frequency,
-seed, 3) - 0.5f;
-const float micro = Euph::Util::Noise::latticeNoise2D(point.x * 0.9f, point.y * 0.9f,
+// Gradient noise, not value noise: a chipped edge wants no lattice plateau, and the
+// fine octave is capped near 2 px so the outline does not alias into speckle.
+const float macro = Euph::Util::Noise::latticeGradientFbm2D(point.x * frequency,
+point.y * frequency, seed, 3) - 0.5f;
+const float micro = Euph::Util::Noise::latticeGradient2D(point.x * 0.45f, point.y * 0.45f,
 seed + 5u) - 0.5f;
 return shape(point) + (macro * 2.0f + micro * 0.5f) * amplitude;
 };

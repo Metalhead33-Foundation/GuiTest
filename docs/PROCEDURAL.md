@@ -77,7 +77,45 @@ Both honour the border wrap, so a field tiles seamlessly. Tie-breaking follows t
 search order; a caller that needs a canonical winner must break ties itself (the tests
 document this by accepting any nearest cell).
 
-## 5. What the theme schema owns
+## 5. Noise: one provider, gradient first
+
+Every generator a recipe needs lives in `EuphNoise.hpp`; the procedural stack composes
+them and never rolls its own. That rule is not tidiness - it was a bug report.
+
+**The parchment hatched.** A diagonal grating appeared across the sheet. There were two
+independent causes, and both are worth remembering:
+
+1. **The SDF, not the noise.** `roundedBox` clamped the sideways offset before the
+   interior term, so every point inside the box reported exactly `-radius` instead of its
+   real (negative) distance. `outline(box, 7)` therefore evaluated negative over the whole
+   canvas, and `SurfaceCanvas::paint` blended the frame's rope material - a
+   `sin((x + y) * 0.82)` weave - over the face at full coverage. The fix keeps the offset
+   unclamped; the interior now reports a real distance, which also restores the bevel ramp
+   the `paint` depth term was silently flattening. The tests pin both halves: the exact
+   interior distance, and that `outline()` covers a frame, not 100% of the canvas.
+2. **Gratings, not texture.** The fibre layer summed a horizontal and a vertical
+   anisotropic `fbm` at ~2 px period. Two axis-aligned gratings near the sampling limit
+   interfere, and the beat reads as a 45 degree comb. An anisotropic *fbm* is worse than
+   one grating because each octave lands at its own angle. The recipe now uses one
+   single-octave stretched lattice for the fibre, plus an isotropic tooth.
+
+**Gradient noise is the default.** `latticeNoise2D` blends corner *values*, so its
+iso-contours run along the cell diagonals, each cell has a flat plateau, and a coarse
+lattice reads as diamonds - fine for a cheap field, wrong for a surface. `latticeGradient2D`
+blends corner *gradients*: no plateau, no preferred direction. Its fbm
+(`latticeGradientFbm2D`) **rotates every octave**, because translate-only octaves keep all
+lattices parallel and their ridges line up into hatching. `latticeFbm2D` keeps its
+historical translate-only walk at `rotation = 0` and offers the same escape hatch.
+
+Practical rules that follow from the above:
+
+- pick the generator by what the field *is*: gradient noise for a face, value noise when
+  the diamonds are the effect, Voronoi when cells are the effect;
+- keep the finest octave at or above ~2 px per cycle; anything faster is aliasing, not
+  detail;
+- sample a stretched field in a rotated frame, and only ever with **one** octave.
+
+## 6. What the theme schema owns
 
 `ThemeDefinition` is the data form of `LteTheme.hpp`'s interface: atlases (file or
 procedural), per-element skins as `(stateMask, skin)` variants, metrics, and one text
@@ -99,7 +137,7 @@ constructed with, and `ScriptButton` queries `Theme::skin()` for its *current* s
 every frame. A theme installed after the script created its widgets still dresses
 them, and clearing it puts them back on their own colours.
 
-## 6. The GPU plan
+## 7. The GPU plan
 
 Every algorithmic piece is written as "per-pixel pure function of position": SDFs,
 materials, the lighting pass. Those are exactly what a compute shader evaluates, so the
@@ -107,7 +145,7 @@ CPU implementations are the reference images the shaders will be checked against
 the tests are the fixture. What does *not* move to the GPU is the packing and the theme
 resolution: those are layout decisions that run once per theme.
 
-## 7. References
+## 8. References
 
 - [`Euphemy/Util/EuphNoise.hpp`](../Euphemy/Util/EuphNoise.hpp) - the noise API and the
   degenerate-input rules.
