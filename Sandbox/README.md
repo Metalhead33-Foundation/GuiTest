@@ -93,12 +93,12 @@ terminal or CI. It reads `gfx/theme_000.json` through the PhysFS mount, parses i
 encoder, prints the manifest and finally resolves skins through a `DefinitionTheme`.
 
 ```text
-theme 'legacy_crpg': 4 atlas(es), 9 element(s)
-atlas 'PROC': 1024x382, 13 part(s) -> theme_out/PROC.png
+theme 'legacy_crpg': 4 atlas(es), 24 element(s)
+atlas 'PROC': 1024x534, 26 part(s) -> theme_out/PROC.png
   parchment           0    0  208  272
   panel             210    0  272  144
   ...
-DefinitionTheme 'legacy_crpg': 18 skin query(s) resolved
+DefinitionTheme 'legacy_crpg': 48 skin query(s) resolved
 ```
 
 **JSON is only linked here.** `nlohmann_json` is a dependency of the Sandbox and the
@@ -124,14 +124,14 @@ file atlas would use an explicit `"rect"` instead; the schema accepts both. The 
 this command prints is still useful for a hand-authored document or for a visual check.
 
 ```text
-theme 'legacy_crpg': 4 atlas(es), 9 element(s)
-atlas 'PROC': 1024x382, 13 part(s) -> theme_out/PROC.png
+theme 'legacy_crpg': 4 atlas(es), 24 element(s)
+atlas 'PROC': 1024x534, 26 part(s) -> theme_out/PROC.png
   parchment           0    0  208  272
   panel             210    0  272  144
   ...
 Theme 'legacy_crpg': 1 atlas(es) uploaded        <- the game loop
 Script ready: 1 button(s)                         <- the themed button
-DefinitionTheme 'legacy_crpg': 18 skin query(s) resolved   <- the CLI
+DefinitionTheme 'legacy_crpg': 48 skin query(s) resolved   <- the CLI
 ```
 
 ## `GameSystem`: audio, a window and a cursor

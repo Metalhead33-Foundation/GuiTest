@@ -32,6 +32,19 @@ enum class GuiAtlasPart : std::uint8_t {
 	SliderThumb,      /**< Gem thumb for the slider. */
 	Parchment,        /**< Torn parchment sheet. */
 	Bar,              /**< Inset text/log bar. */
+	RadioEmpty,       /**< Unselected radio glyph. */
+	RadioChecked,     /**< Selected radio glyph with a lit gem core. */
+	ArrowUp,          /**< Scroll/spin button pointing up. */
+	ArrowDown,        /**< Scroll/spin button pointing down. */
+	TriDown,          /**< Dropdown triangle of a combo box. */
+	ScrollTrack,      /**< Vertical scroll-bar groove. */
+	ScrollThumb,      /**< Vertical scroll-bar handle. */
+	TabActive,        /**< Selected tab face. */
+	TabInactive,      /**< Unselected tab face. */
+	FrameText,        /**< Wide frame with a recessed field (portrait, text area). */
+	SlotGroup,        /**< Panel with a nameplate and a grid of wells. */
+	BorderStrip,      /**< Nine-sliceable window edge. */
+	GemTile,          /**< Decorated icon tile with a gem. */
 	Count             /**< Number of parts; not a valid part. */
 };
 

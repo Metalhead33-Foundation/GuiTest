@@ -10,9 +10,13 @@ namespace {
 
 /// @brief Names in the same order as the @ref GuiAtlasPart enumerators.
 constexpr std::array<const char*, GuiAtlasPartCount> PartNames = {
-"panel",  "button_idle", "button_hover", "button_pressed", "button_disabled",
-"slot",   "title_plate",  "checkbox_empty", "checkbox_checked", "slider_track",
-"slider_thumb", "parchment", "bar"
+	"panel",          "button_idle",  "button_hover",     "button_pressed",
+	"button_disabled", "slot",        "title_plate",      "checkbox_empty",
+	"checkbox_checked", "slider_track", "slider_thumb",    "parchment",
+	"bar",            "radio_empty",  "radio_checked",    "arrow_up",
+	"arrow_down",     "tri_down",     "scroll_track",     "scroll_thumb",
+	"tab_active",     "tab_inactive", "frame_text",       "slot_group",
+	"border_strip",   "gem_tile"
 };
 
 /// @brief Pointer to a rectangle's top-left corner.
@@ -312,6 +316,256 @@ stoneStyle(StonePalette::Void, seed + 1u), &cracks, 3.6f, 0.95f);
 return canvas;
 }
 
+/// @brief Paints a gold glyph with a soft glow, the way every arrow and triangle here is made.
+void paintGoldGlyph(SurfaceCanvas& canvas, const SdfFunction& glyph, std::uint32_t seed)
+{
+canvas.glow(glyph, glm::fvec3(1.0f, 0.760f, 0.240f), 4.0f, 0.30f);
+paintGold(canvas, glyph, seed, false);
+canvas.glow(glyph, glm::fvec3(1.0f, 0.878f, 0.502f), 1.2f, 0.30f);
+}
+
+/// @brief Radio glyph: a round stone bezel, a sunken well and a gem core when selected.
+SurfaceCanvas paintRadio(const GuiAtlasSettings& settings, std::uint32_t seed, bool checked)
+{
+const float margin = static_cast<float>(settings.margin);
+const float size = static_cast<float>(settings.radioSize);
+SurfaceCanvas canvas(settings.radioSize + settings.margin * 2,
+ settings.radioSize + settings.margin * 2);
+const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 12, seed);
+const glm::fvec2 centre = corner(margin + size * 0.5f, margin + size * 0.5f);
+const SdfFunction rim = circle(centre, size * 0.5f);
+paintRaised(canvas, rim, stoneStyle(StonePalette::Steel, seed), &cracks, 2.6f, 0.8f);
+paintSunken(canvas, circle(centre, size * 0.5f - 4.4f),
+stoneStyle(StonePalette::Navy, seed + 1u), &cracks, 2.0f, 0.7f);
+if (!checked) return canvas;
+paintGold(canvas, outline(rim, 2.0f, -1.2f), seed + 2u);
+const float coreRadius = size * 0.19f;
+canvas.glow(circle(centre, coreRadius), glm::fvec3(1.0f, 0.659f, 0.125f), 6.0f, 0.55f);
+PaintOptions options;
+options.bevel = coreRadius * 0.7f;
+options.slope = 1.0f;
+canvas.paint(circle(centre, coreRadius),
+ gemMaterial(glm::fvec3(0.557f, 0.0f, 0.078f), glm::fvec3(1.0f, 0.227f, 0.282f),
+ coreRadius), options);
+return canvas;
+}
+
+/// @brief Scroll/spin arrow: a stone button with a solid gold triangle on it.
+SurfaceCanvas paintArrow(const GuiAtlasSettings& settings, std::uint32_t seed, bool up)
+{
+const float margin = static_cast<float>(settings.margin);
+const float width = static_cast<float>(settings.arrowWidth);
+const float height = static_cast<float>(settings.arrowHeight);
+SurfaceCanvas canvas(settings.arrowWidth + settings.margin * 2,
+ settings.arrowHeight + settings.margin * 2);
+const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 12, seed);
+paintRaised(canvas, roundedBox(corner(margin, margin), corner(margin + width, margin + height), 3.0f),
+stoneStyle(StonePalette::Steel, seed), &cracks, 3.0f, 0.85f);
+// The triangle is inset so the stone bevel stays visible all the way round.
+const float centreX = margin + width * 0.5f;
+const float tip = margin + height * (up ? 0.28f : 0.72f);
+const float base = margin + height * (up ? 0.70f : 0.30f);
+const float halfWidth = width * 0.26f;
+const std::array<glm::fvec2, 3> points = { corner(centreX, tip), corner(centreX + halfWidth, base),
+  corner(centreX - halfWidth, base) };
+paintGoldGlyph(canvas, polygon(std::span<const glm::fvec2>(points)), seed + 1u);
+return canvas;
+}
+
+/// @brief Dropdown triangle: the small inset button a combo box shows on its right.
+SurfaceCanvas paintTriangle(const GuiAtlasSettings& settings, std::uint32_t seed)
+{
+const float margin = static_cast<float>(settings.margin);
+const float size = static_cast<float>(settings.triangleSize);
+SurfaceCanvas canvas(settings.triangleSize + settings.margin * 2,
+ settings.triangleSize + settings.margin * 2);
+const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 10, seed);
+paintRaised(canvas, roundedBox(corner(margin, margin), corner(margin + size, margin + size), 2.0f),
+stoneStyle(StonePalette::Steel, seed), &cracks, 2.2f, 0.8f);
+paintSunken(canvas, roundedBox(corner(margin + 2.4f, margin + 2.4f),
+  corner(margin + size - 2.4f, margin + size - 2.4f), 1.4f),
+stoneStyle(StonePalette::Void, seed + 1u), &cracks, 1.6f, 0.6f);
+const float centreX = margin + size * 0.5f;
+const float top = margin + size * 0.38f;
+const float bottom = margin + size * 0.62f;
+const float halfWidth = size * 0.22f;
+const std::array<glm::fvec2, 3> points = { corner(centreX, bottom), corner(centreX + halfWidth, top),
+  corner(centreX - halfWidth, top) };
+paintGoldGlyph(canvas, polygon(std::span<const glm::fvec2>(points)), seed + 2u);
+return canvas;
+}
+
+/// @brief Vertical scroll groove: a stone column with a sunken, gold-trimmed channel.
+SurfaceCanvas paintScrollTrack(const GuiAtlasSettings& settings, std::uint32_t seed)
+{
+const float margin = static_cast<float>(settings.margin);
+const float width = static_cast<float>(settings.scrollTrackWidth);
+const float height = static_cast<float>(settings.scrollTrackHeight);
+SurfaceCanvas canvas(settings.scrollTrackWidth + settings.margin * 2,
+ settings.scrollTrackHeight + settings.margin * 2);
+const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 16, seed);
+paintRaised(canvas, roundedBox(corner(margin, margin), corner(margin + width, margin + height), 6.0f),
+stoneStyle(StonePalette::Deep, seed), &cracks, 2.8f, 0.8f);
+const float insetX = width * 0.32f;
+const SdfFunction groove = roundedBox(corner(margin + insetX, margin + 10.0f),
+ corner(margin + width - insetX, margin + height - 10.0f),
+ insetX);
+paintSunken(canvas, groove, stoneStyle(StonePalette::Void, seed + 1u), &cracks, 2.0f, 0.7f);
+paintGold(canvas, outline(groove, 2.0f, 0.0f), seed + 2u);
+return canvas;
+}
+
+/// @brief Vertical scroll handle: a stone pill with a gold band at each end.
+SurfaceCanvas paintScrollThumb(const GuiAtlasSettings& settings, std::uint32_t seed)
+{
+const float margin = static_cast<float>(settings.margin);
+const float width = static_cast<float>(settings.scrollThumbWidth);
+const float height = static_cast<float>(settings.scrollThumbHeight);
+SurfaceCanvas canvas(settings.scrollThumbWidth + settings.margin * 2,
+ settings.scrollThumbHeight + settings.margin * 2);
+const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 10, seed);
+const SdfFunction body = roundedBox(corner(margin, margin), corner(margin + width, margin + height),
+width * 0.45f);
+paintRaised(canvas, body, stoneStyle(StonePalette::Rim, seed), &cracks, 2.6f, 0.85f);
+const float band = 4.0f;
+paintGold(canvas, roundedBox(corner(margin + 3.0f, margin + band),
+ corner(margin + width - 3.0f, margin + band + 1.8f), 1.0f),
+  seed + 1u, false);
+paintGold(canvas, roundedBox(corner(margin + 3.0f, margin + height - band - 1.8f),
+ corner(margin + width - 3.0f, margin + height - band), 1.0f),
+  seed + 2u, false);
+return canvas;
+}
+
+/// @brief Tab face: a trapezoid that is wider at the bottom, so it reads as part of a strip.
+SurfaceCanvas paintTab(const GuiAtlasSettings& settings, std::uint32_t seed, bool active)
+{
+const float margin = static_cast<float>(settings.margin);
+const float width = static_cast<float>(settings.tabWidth);
+const float height = static_cast<float>(settings.tabHeight);
+SurfaceCanvas canvas(settings.tabWidth + settings.margin * 2,
+ settings.tabHeight + settings.margin * 2);
+const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 14, seed);
+const float slant = height * 0.42f;
+const std::array<glm::fvec2, 4> outlinePoints = {
+corner(margin, margin + height), corner(margin + slant, margin),
+corner(margin + width - slant, margin), corner(margin + width, margin + height)
+};
+const SdfFunction body = roughen(polygon(std::span<const glm::fvec2>(outlinePoints)), 0.7f, 0.15f, seed);
+const GuiStoneStyle style = active ? stoneStyle(StonePalette::Deep, seed)
+   : dimStone(stoneStyle(StonePalette::Navy, seed), 0.85f);
+paintRaised(canvas, body, style, &cracks, 3.2f, 0.85f);
+if (active) {
+// The selected tab carries the gold trim and a lit field; the others stay quiet.
+paintGold(canvas, outline(body, 2.0f, -1.4f), seed + 1u);
+PaintOptions options;
+options.bevel = 1.2f;
+options.slope = 0.4f;
+canvas.paint(inset(body, 6.0f), flatMaterial(glm::fvec3(0.100f, 0.135f, 0.243f)), options);
+}
+return canvas;
+}
+
+/// @brief Wide frame with a deep recessed field: a portrait slot or a text area.
+SurfaceCanvas paintFrameText(const GuiAtlasSettings& settings, std::uint32_t seed)
+{
+const float margin = static_cast<float>(settings.margin);
+const float width = static_cast<float>(settings.frameWidth);
+const float height = static_cast<float>(settings.frameHeight);
+SurfaceCanvas canvas(settings.frameWidth + settings.margin * 2,
+ settings.frameHeight + settings.margin * 2);
+const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 24, seed);
+const SdfFunction body = roughen(
+roundedBox(corner(margin, margin), corner(margin + width, margin + height), 5.0f), 1.1f,
+0.12f, seed);
+paintRaised(canvas, body, stoneStyle(StonePalette::Blue, seed), &cracks, 3.2f, 0.85f);
+paintGold(canvas, outline(inset(body, 7.0f), 1.8f, 0.0f), seed + 1u);
+const SdfFunction field = inset(body, 12.0f);
+paintSunken(canvas, field, stoneStyle(StonePalette::Void, seed + 2u), &cracks, 3.0f, 0.9f);
+paintGold(canvas, outline(field, 1.4f, -2.0f), seed + 3u, false);
+return canvas;
+}
+
+/// @brief Inventory grid: a stone backing plate, a nameplate strip and a grid of wells.
+SurfaceCanvas paintSlotGroup(const GuiAtlasSettings& settings, std::uint32_t seed)
+{
+const float margin = static_cast<float>(settings.margin);
+const float well = static_cast<float>(settings.slotSize);
+const float pad = 12.0f;
+const float gap = 8.0f;
+const float nameHeight = 22.0f;
+const float columns = static_cast<float>(std::max(settings.slotGroupColumns, 1u));
+const float rows = static_cast<float>(std::max(settings.slotGroupRows, 1u));
+const float width = pad * 2.0f + columns * well + (columns - 1.0f) * gap;
+const float height = pad * 2.0f + nameHeight + 10.0f + rows * well + (rows - 1.0f) * gap;
+SurfaceCanvas canvas(static_cast<std::uint32_t>(width) + settings.margin * 2,
+ static_cast<std::uint32_t>(height) + settings.margin * 2);
+const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 26, seed);
+const SdfFunction body = roughen(
+roundedBox(corner(margin, margin), corner(margin + width, margin + height), 6.0f), 1.2f,
+0.12f, seed);
+paintRaised(canvas, body, stoneStyle(StonePalette::Blue, seed), &cracks, 3.6f, 0.85f);
+
+// Nameplate: the same recessed field a title plate uses, so a caption reads on it.
+const SdfFunction name = roundedBox(corner(margin + pad, margin + pad),
+corner(margin + width - pad, margin + pad + nameHeight), 2.0f);
+paintSunken(canvas, name, dimStone(stoneStyle(StonePalette::Deep, seed + 1u), 0.6f), &cracks, 2.4f,
+0.8f);
+paintGold(canvas, outline(name, 1.4f, -1.6f), seed + 2u, false);
+
+// Wells: a raised rim and a sunken face each, the same pair a loose slot uses.
+const float wellsTop = margin + pad + nameHeight + 10.0f;
+for (std::uint32_t row = 0; row < settings.slotGroupRows; ++row) {
+for (std::uint32_t column = 0; column < settings.slotGroupColumns; ++column) {
+const float left = margin + pad + static_cast<float>(column) * (well + gap);
+const float top = wellsTop + static_cast<float>(row) * (well + gap);
+paintRaised(canvas, roundedBox(corner(left, top), corner(left + well, top + well), 1.5f),
+stoneStyle(StonePalette::Rim, seed), &cracks, 1.5f, 0.6f);
+const float rim = 3.6f;
+paintSunken(canvas, roundedBox(corner(left + rim, top + rim),
+  corner(left + well - rim, top + well - rim), 1.0f),
+stoneStyle(StonePalette::Slot, seed + 3u), &cracks, 3.2f, 0.9f);
+}
+}
+return canvas;
+}
+
+/// @brief Nine-sliceable window edge: a beveled stone plank with a gold inlay.
+SurfaceCanvas paintBorderStrip(const GuiAtlasSettings& settings, std::uint32_t seed)
+{
+const float margin = static_cast<float>(settings.margin);
+const float length = static_cast<float>(settings.borderStripLength);
+const float thickness = static_cast<float>(settings.borderStripThickness);
+SurfaceCanvas canvas(settings.borderStripLength + settings.margin * 2,
+ settings.borderStripThickness + settings.margin * 2);
+const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 14, seed);
+const SdfFunction body = roughen(
+roundedBox(corner(margin, margin), corner(margin + length, margin + thickness), 2.0f),
+0.6f, 0.12f, seed);
+paintRaised(canvas, body, stoneStyle(StonePalette::Deep, seed), &cracks, 2.6f, 0.8f);
+paintGold(canvas, outline(inset(body, 3.5f), 1.6f, 0.0f), seed + 1u, false);
+return canvas;
+}
+
+/// @brief Icon tile: a slot frame with a gem medallion in the middle.
+SurfaceCanvas paintGemTile(const GuiAtlasSettings& settings, std::uint32_t seed)
+{
+const float margin = static_cast<float>(settings.margin);
+const float size = static_cast<float>(settings.tileSize);
+SurfaceCanvas canvas(settings.tileSize + settings.margin * 2,
+ settings.tileSize + settings.margin * 2);
+const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 12, seed);
+paintRaised(canvas, roundedBox(corner(margin, margin), corner(margin + size, margin + size), 2.0f),
+stoneStyle(StonePalette::Rim, seed), &cracks, 2.0f, 0.7f);
+const float border = 4.0f;
+paintSunken(canvas, roundedBox(corner(margin + border, margin + border),
+  corner(margin + size - border, margin + size - border), 1.0f),
+stoneStyle(StonePalette::Slot, seed + 1u), &cracks, 2.6f, 0.9f);
+paintGem(canvas, corner(margin + size * 0.5f, margin + size * 0.5f), size * 0.20f,
+ size * 0.26f, seed + 2u);
+return canvas;
+}
+
 /// @brief One generated element waiting to be packed.
 struct PendingElement {
 GuiAtlasPart part = GuiAtlasPart::Panel;
@@ -400,6 +654,19 @@ elements.push_back(std::move(element));
 	add(GuiAtlasPart::SliderThumb, paintSliderThumb(settings, seed + 10u));
 	add(GuiAtlasPart::Parchment, paintParchment(settings, seed + 11u));
 	add(GuiAtlasPart::Bar, paintBar(settings, seed + 12u));
+	add(GuiAtlasPart::RadioEmpty, paintRadio(settings, seed + 13u, false));
+	add(GuiAtlasPart::RadioChecked, paintRadio(settings, seed + 14u, true));
+	add(GuiAtlasPart::ArrowUp, paintArrow(settings, seed + 15u, true));
+	add(GuiAtlasPart::ArrowDown, paintArrow(settings, seed + 16u, false));
+	add(GuiAtlasPart::TriDown, paintTriangle(settings, seed + 17u));
+	add(GuiAtlasPart::ScrollTrack, paintScrollTrack(settings, seed + 18u));
+	add(GuiAtlasPart::ScrollThumb, paintScrollThumb(settings, seed + 19u));
+	add(GuiAtlasPart::TabActive, paintTab(settings, seed + 20u, true));
+	add(GuiAtlasPart::TabInactive, paintTab(settings, seed + 21u, false));
+	add(GuiAtlasPart::FrameText, paintFrameText(settings, seed + 22u));
+	add(GuiAtlasPart::SlotGroup, paintSlotGroup(settings, seed + 23u));
+	add(GuiAtlasPart::BorderStrip, paintBorderStrip(settings, seed + 24u));
+	add(GuiAtlasPart::GemTile, paintGemTile(settings, seed + 25u));
 
 	// Shelf packing: tallest first keeps the rows tight, and the builder grows the
 	// height instead of requiring a hand-tuned sheet size.

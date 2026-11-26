@@ -61,6 +61,30 @@ Each arrow is a separate type, which is what lets the pieces be tested without a
 the UnitTests build an atlas, check the manifest, and resolve skins through a resolver
 that returns a stand-in handle.
 
+### The element inventory
+
+The four reference documents were cross-checked against the builder, and the union of
+their types is what `GuiAtlasPart` now names. The panel/button/slot/slider/checkbox/
+parchment core came from `ui_forge.cpp` first; these were the gaps and are now generated
+too:
+
+| Type | Parts | Where the reference draws it |
+|---|---|---|
+| Radio glyph and its selected state | `radio_empty`, `radio_checked` | `ui_forge.cpp` (`radio_small_on`, `radio_tiny_on`) |
+| Scroll/spin arrows + dropdown triangle | `arrow_up`, `arrow_down`, `tri_down` | `ui_forge.cpp`; all three notes ("arrows from polygon paths") |
+| Vertical scroll bar | `scroll_track`, `scroll_thumb` | `ui_forge.cpp` (`scroll_panel`, `pill_*`); `grok.md` scrollbars |
+| Tabs | `tab_active`, `tab_inactive` | `ui_forge.cpp` (`arrow_tab`) |
+| Wide text/portrait frame | `frame_text` | `ui_forge.cpp` (`frame_text`); `gemini.md` inset frame |
+| Inventory grid | `slot_group` | `ui_forge.cpp` (`panel_*slot*`, `grid_8x2`); `gemini.md` `drawSlotGroup`; `grok.md` |
+| Window edge | `border_strip` | `ui_forge.cpp` (`border_strip`) |
+| Gem icon tile | `gem_tile` | `ui_forge.cpp` (`tile_star`, `tile_gem`) |
+
+Deliberate non-additions: the reference sheets draw ten grey button faces and five pill
+shades, which are *instances* of one recipe - the atlas ships the four button states and
+one thumb, and a theme tints them. Orientation (vertical slider, reversed arrow) is a
+rotation of the existing part, not a part of its own, and the nine-slice margins a theme
+already stores are what stretch a tab or a border.
+
 ## 4. The two Voronoi outputs
 
 A tile Voronoi has two useful answers per pixel, and the API returns both from one

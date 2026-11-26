@@ -160,12 +160,12 @@
 				{
 					"atlas": "PROC",
 					"slice": [
-						10,
-						10,
-						10,
-						10
+						14,
+						14,
+						14,
+						14
 					],
-					"part": "bar"
+					"part": "frame_text"
 				}
 			],
 			"text": {
@@ -179,12 +179,12 @@
 				{
 					"atlas": "PROC",
 					"slice": [
-						22,
-						22,
-						22,
-						22
+						16,
+						16,
+						16,
+						16
 					],
-					"part": "panel"
+					"part": "slot_group"
 				}
 			]
 		},
@@ -225,6 +225,340 @@
 				"face": "Vinque",
 				"size": 18,
 				"colour": "#d8c98a"
+			}
+		},
+		"radio_button": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"part": "radio_empty"
+				},
+				{
+					"states": [
+						"clicked"
+					],
+					"atlas": "PROC",
+					"part": "radio_checked"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					24,
+					24
+				]
+			}
+		},
+		"scroll_track": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						8,
+						8,
+						8,
+						8
+					],
+					"part": "scroll_track"
+				}
+			]
+		},
+		"scroll_thumb": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"part": "scroll_thumb"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"part": "scroll_thumb",
+					"tint": "#ffffff"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					16,
+					32
+				]
+			}
+		},
+		"tab_bar": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"part": "tab_inactive"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"part": "tab_active"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					96,
+					32
+				]
+			}
+		},
+		"tab_page": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "panel"
+				}
+			]
+		},
+		"combo_box": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "bar"
+				},
+				{
+					"states": [
+						"clicked"
+					],
+					"atlas": "PROC",
+					"part": "tri_down"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					160,
+					36
+				]
+			}
+		},
+		"spin_box": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "bar"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"part": "arrow_up"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					120,
+					36
+				]
+			}
+		},
+		"dial": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"part": "slider_thumb"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					32,
+					32
+				]
+			}
+		},
+		"tool_button": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "gem_tile"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "button_hover"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					40,
+					40
+				]
+			}
+		},
+		"table_view": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						16,
+						16,
+						16,
+						16
+					],
+					"part": "slot_group"
+				}
+			]
+		},
+		"table_header": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "title_plate"
+				}
+			]
+		},
+		"window_border": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						16,
+						16,
+						16,
+						16
+					],
+					"part": "border_strip"
+				}
+			]
+		},
+		"window_background": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						16,
+						16,
+						16,
+						16
+					],
+					"part": "panel"
+				}
+			]
+		},
+		"tick_box": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"part": "checkbox_empty"
+				},
+				{
+					"states": [
+						"clicked"
+					],
+					"atlas": "PROC",
+					"part": "checkbox_checked"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					20,
+					20
+				]
+			}
+		},
+		"push_button": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "button_idle"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "button_hover"
+				},
+				{
+					"states": [
+						"pressed"
+					],
+					"atlas": "PROC",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "button_pressed"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					96,
+					32
+				]
 			}
 		}
 	},

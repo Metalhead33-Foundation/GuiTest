@@ -67,6 +67,26 @@ double directionalRoughness(const Lotte::Gfx::Rgba8Image& image, const GuiAtlasR
 	return count > 0 ? total / double(count) / length : 0.0;
 }
 
+/**
+ * @brief Fraction of a part's rectangle that carries a visible alpha.
+ * @param image Shaded atlas.
+ * @param rect Part to measure.
+ * @return Covered fraction in `[0, 1]`.
+ *
+ * A part whose recipe silently painted nothing is all margin, so this is the cheap way to
+ * tell "the manifest lists it" from "the builder drew it".
+ */
+double partCoverage(const Lotte::Gfx::Rgba8Image& image, const GuiAtlasRect& rect)
+{
+	std::size_t covered = 0;
+	for (std::uint32_t y = rect.y; y < rect.y + rect.height; ++y) {
+		for (std::uint32_t x = rect.x; x < rect.x + rect.width; ++x) {
+			if (image.pixels[(std::size_t(y) * image.width + x) * 4u + 3u] > 8) ++covered;
+		}
+	}
+	return double(covered) / (double(rect.width) * double(rect.height));
+}
+
 } // namespace
 
 TEST_CASE("Procedural atlas: every part has a rectangle and the image is shaded", "[procedural]")
@@ -229,4 +249,52 @@ TEST_CASE("Procedural atlas: the parchment face is not a diagonal grating", "[pr
 	// A full-face `sin((x + y) * 0.82)` grating makes one diagonal an order of magnitude
 	// rougher than the other; a paper face is within a factor of about 1.6.
 	REQUIRE(largest / smallest < 3.0);
+}
+
+TEST_CASE("Procedural atlas: every element type the reference forges drew is generated", "[procedural]")
+{
+	GuiAtlasSettings settings;
+	settings.seed = 4242;
+	const GuiAtlas atlas = buildGuiAtlas(settings);
+	// `claude/ui_forge.cpp` plus the three notes draw these types on top of the panels,
+	// buttons, slots, sliders, checkboxes and parchment this builder already had. Each one
+	// needs a rectangle of its own *and* pixels in it: a recipe that silently paints
+	// nothing would otherwise pass the manifest check.
+	const GuiAtlasPart types[] = {
+		GuiAtlasPart::RadioEmpty,   GuiAtlasPart::RadioChecked, GuiAtlasPart::ArrowUp,
+		GuiAtlasPart::ArrowDown,    GuiAtlasPart::TriDown,      GuiAtlasPart::ScrollTrack,
+		GuiAtlasPart::ScrollThumb,  GuiAtlasPart::TabActive,    GuiAtlasPart::TabInactive,
+		GuiAtlasPart::FrameText,     GuiAtlasPart::SlotGroup,    GuiAtlasPart::BorderStrip,
+		GuiAtlasPart::GemTile,
+	};
+	for (const GuiAtlasPart part : types) {
+		CAPTURE(guiAtlasPartName(part));
+		const GuiAtlasRect* rect = atlas.find(part);
+		REQUIRE(rect != nullptr);
+		REQUIRE(rect->width > 0);
+		REQUIRE(rect->height > 0);
+		REQUIRE(partCoverage(atlas.image, *rect) > 0.25);
+	}
+
+	// The slot group is a container, so it has to be larger than the wells it holds, and the
+	// scroll track is a *vertical* groove.
+	const GuiAtlasRect* group = atlas.find(GuiAtlasPart::SlotGroup);
+	const GuiAtlasRect* slot = atlas.find(GuiAtlasPart::Slot);
+	REQUIRE(group->width > slot->width * 2);
+	REQUIRE(group->height > slot->height);
+	const GuiAtlasRect* track = atlas.find(GuiAtlasPart::ScrollTrack);
+	REQUIRE(track->height > track->width);
+	// The two radio states share a recipe but must not shade to the same bytes.
+	const GuiAtlasRect* empty = atlas.find(GuiAtlasPart::RadioEmpty);
+	const GuiAtlasRect* checked = atlas.find(GuiAtlasPart::RadioChecked);
+	REQUIRE(empty->width == checked->width);
+	REQUIRE(empty->height == checked->height);
+	// The two radio states share a recipe but must not shade to the same bytes: sample the
+	// middle of each part, where the empty one is a dark well and the selected one a gem.
+	const auto centreGreen = [&atlas](const GuiAtlasRect& rect) {
+		const std::uint32_t x = rect.x + rect.width / 2;
+		const std::uint32_t y = rect.y + rect.height / 2;
+		return atlas.image.pixels[(std::size_t(y) * atlas.image.width + x) * 4u + 1u];
+	};
+	REQUIRE(centreGreen(*empty) != centreGreen(*checked));
 }

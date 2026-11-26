@@ -5,7 +5,9 @@
  * @brief Builds a whole widget-skin atlas from one seed, with enum-keyed manifests.
  *
  * The element recipes of `Sandbox/slop_advice/gui_procedural_generation/claude/ui_forge.cpp`
- * (plus the flat-frame style of `grok.md`) turned into an API a theme can consume:
+ * plus the element types the four reference documents agree on (`grok.md`, `chatgpt.md`,
+ * `gemini.md`: arrows, tabs, scroll bars, slot groups, frames), turned into an API a
+ * theme can consume:
  * one call produces the atlas image and a manifest that says which rectangle holds
  * which part. Three deliberate differences from the original:
  *
@@ -91,6 +93,40 @@ struct GuiAtlasSettings {
 	std::uint32_t barWidth = 256;
 	/** @brief Bar height in pixels. */
 	std::uint32_t barHeight = 40;
+	/** @brief Radio glyph size in pixels. */
+	std::uint32_t radioSize = 32;
+	/** @brief Arrow button width in pixels. */
+	std::uint32_t arrowWidth = 28;
+	/** @brief Arrow button height in pixels. */
+	std::uint32_t arrowHeight = 32;
+	/** @brief Side of the square that holds the dropdown triangle. */
+	std::uint32_t triangleSize = 20;
+	/** @brief Scroll track width in pixels. */
+	std::uint32_t scrollTrackWidth = 24;
+	/** @brief Scroll track height in pixels. */
+	std::uint32_t scrollTrackHeight = 160;
+	/** @brief Scroll thumb width in pixels. */
+	std::uint32_t scrollThumbWidth = 20;
+	/** @brief Scroll thumb height in pixels. */
+	std::uint32_t scrollThumbHeight = 48;
+	/** @brief Tab width in pixels. */
+	std::uint32_t tabWidth = 128;
+	/** @brief Tab height in pixels. */
+	std::uint32_t tabHeight = 40;
+	/** @brief Text/portrait frame width in pixels. */
+	std::uint32_t frameWidth = 320;
+	/** @brief Text/portrait frame height in pixels. */
+	std::uint32_t frameHeight = 160;
+	/** @brief Columns of the generated slot group. */
+	std::uint32_t slotGroupColumns = 4;
+	/** @brief Rows of the generated slot group. */
+	std::uint32_t slotGroupRows = 2;
+	/** @brief Length of the nine-sliceable border strip in pixels. */
+	std::uint32_t borderStripLength = 256;
+	/** @brief Thickness of the border strip in pixels. */
+	std::uint32_t borderStripThickness = 16;
+	/** @brief Side of a decorated icon tile in pixels. */
+	std::uint32_t tileSize = 48;
 };
 
 /**
