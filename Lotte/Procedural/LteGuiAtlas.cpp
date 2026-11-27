@@ -25,6 +25,22 @@ glm::fvec2 corner(float x, float y)
 	return glm::fvec2(x, y);
 }
 
+/// @brief Multiplies a stone palette by the theme's face tint.
+GuiStoneStyle tinted(GuiStoneStyle style, glm::fvec3 tint)
+{
+	style.dark *= tint;
+	style.mid *= tint;
+	style.light *= tint;
+	style.frost *= tint;
+	return style;
+}
+
+/// @brief The bevel a recipe carves: the theme's CSS border width when it set one.
+float bevelWidth(const GuiAtlasSettings& settings, float fallback)
+{
+	return settings.bevelWidth > 0.0f ? settings.bevelWidth : fallback;
+}
+
 /// @brief Paints a raised chamfered body with a stone face.
 void paintRaised(SurfaceCanvas& canvas, const SdfFunction& shape, const GuiStoneStyle& style,
 				 const GuiField* cracks, float bevel = 3.0f, float slope = 0.85f)
@@ -94,10 +110,11 @@ settings.panelHeight + settings.margin * 2);
 	const SdfFunction body = roughen(
 roundedBox(corner(margin, margin), corner(margin + width, margin + height), 6.0f), 1.3f,
 0.12f, seed);
-	paintRaised(canvas, body, stoneStyle(StonePalette::Blue, seed), &cracks, 3.6f, 0.85f);
+	paintRaised(canvas, body, tinted(stoneStyle(StonePalette::Blue, seed), settings.faceTint), &cracks,
+				bevelWidth(settings, 3.6f), 0.85f);
 	paintSunken(canvas, roundedBox(corner(margin + 14.0f, margin + 14.0f),
 corner(margin + width - 14.0f, margin + height - 14.0f), 3.0f),
-stoneStyle(StonePalette::Void, seed + 2u), &cracks, 2.4f, 0.7f);
+tinted(stoneStyle(StonePalette::Void, seed + 2u), settings.faceTint), &cracks, 2.4f, 0.7f);
 	paintGold(canvas, outline(roundedBox(corner(margin + 18.0f, margin + 18.0f),
 corner(margin + width - 18.0f, margin + height - 18.0f), 2.0f),
 2.0f, 0.0f),
@@ -114,8 +131,8 @@ SurfaceCanvas paintButton(const GuiAtlasSettings& settings, std::uint32_t seed, 
 settings.buttonHeight + settings.margin * 2);
 	const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 16, seed);
 
-	GuiStoneStyle style = stoneStyle(StonePalette::Grey, seed);
-	if (state == 1) style = stoneStyle(StonePalette::Rim, seed + 2u);
+	GuiStoneStyle style = tinted(stoneStyle(StonePalette::Grey, seed), settings.faceTint);
+	if (state == 1) style = tinted(stoneStyle(StonePalette::Rim, seed + 2u), settings.faceTint);
 	if (state == 3) style = dimStone(style, 0.58f);
 	style.mid = state == 1 ? glm::fvec3(0.659f, 0.663f, 0.706f) : style.mid;
 	style.dark = state == 1 ? glm::fvec3(0.486f, 0.490f, 0.533f) : style.dark;
@@ -124,9 +141,9 @@ settings.buttonHeight + settings.margin * 2);
 roundedBox(corner(margin, margin), corner(margin + width, margin + height), 4.0f), 0.9f,
 0.15f, seed);
 	if (state == 2) {
-		paintSunken(canvas, body, dimStone(style, 0.8f), &cracks, 3.6f, 0.85f);
+		paintSunken(canvas, body, dimStone(style, 0.8f), &cracks, bevelWidth(settings, 3.6f), 0.85f);
 	} else {
-		paintRaised(canvas, body, style, &cracks, 4.0f, 0.9f);
+		paintRaised(canvas, body, style, &cracks, bevelWidth(settings, 4.0f), 0.9f);
 	}
 	if (state == 1) {
 		paintGold(canvas, outline(roundedBox(corner(margin, margin),
@@ -145,11 +162,11 @@ SurfaceCanvas paintSlot(const GuiAtlasSettings& settings, std::uint32_t seed)
 settings.slotSize + settings.margin * 2);
 	const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 14, seed);
 	paintRaised(canvas, roundedBox(corner(margin, margin), corner(margin + size, margin + size), 1.5f),
-stoneStyle(StonePalette::Rim, seed), &cracks, 1.5f, 0.6f);
+tinted(stoneStyle(StonePalette::Rim, seed), settings.faceTint), &cracks, 1.5f, 0.6f);
 	const float rim = 3.6f;
 	paintSunken(canvas, roundedBox(corner(margin + rim, margin + rim),
 corner(margin + size - rim, margin + size - rim), 1.0f),
-stoneStyle(StonePalette::Slot, seed + 1u), &cracks, 3.2f, 0.9f);
+tinted(stoneStyle(StonePalette::Slot, seed + 1u), settings.faceTint), &cracks, 3.2f, 0.9f);
 	return canvas;
 }
 
@@ -171,11 +188,11 @@ const SdfFunction body = roughen(
 unite(ends, roundedBox(corner(margin, margin + height * 0.14f),
 corner(margin + width, margin + height * 0.86f), 3.0f)),
 0.9f, 0.15f, seed);
-paintRaised(canvas, body, stoneStyle(StonePalette::Deep, seed), &cracks, 3.6f, 0.85f);
+paintRaised(canvas, body, tinted(stoneStyle(StonePalette::Deep, seed), settings.faceTint), &cracks, 3.6f, 0.85f);
 
 const SdfFunction field = roundedBox(corner(margin + 14.0f, margin + height * 0.27f),
 corner(margin + width - 14.0f, margin + height * 0.73f), 2.0f);
-paintSunken(canvas, field, dimStone(stoneStyle(StonePalette::Deep, seed + 2u), 0.55f), &cracks,
+paintSunken(canvas, field, dimStone(tinted(stoneStyle(StonePalette::Deep, seed + 2u), settings.faceTint), 0.55f), &cracks,
 2.8f, 0.8f);
 PaintOptions trim;
 trim.bevel = 0.8f;
@@ -196,7 +213,7 @@ const SdfFunction frame = roundedBox(corner(margin, margin), corner(margin + siz
 if (checked) {
 paintGold(canvas, frame, seed, false);
 } else {
-paintRaised(canvas, frame, stoneStyle(StonePalette::Steel, seed), &cracks, 2.6f, 0.8f);
+paintRaised(canvas, frame, tinted(stoneStyle(StonePalette::Steel, seed), settings.faceTint), &cracks, 2.6f, 0.8f);
 }
 const float border = checked ? 4.2f : 5.0f;
 paintSunken(canvas, roundedBox(corner(margin + border, margin + border),
@@ -230,13 +247,13 @@ const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 1
 paintRaised(canvas,
 roughen(roundedBox(corner(margin, margin), corner(margin + width, margin + height), 9.0f),
 0.7f, 0.15f, seed),
-stoneStyle(StonePalette::Deep, seed), &cracks, 3.0f, 0.8f);
+tinted(stoneStyle(StonePalette::Deep, seed), settings.faceTint), &cracks, 3.0f, 0.8f);
 const float grooveTop = margin + height * 0.34f;
 const float grooveBottom = margin + height * 0.66f;
 const SdfFunction groove = roundedBox(corner(margin + 16.0f, grooveTop),
 corner(margin + width - 16.0f, grooveBottom),
 (grooveBottom - grooveTop) * 0.5f);
-paintSunken(canvas, groove, stoneStyle(StonePalette::Void, seed + 1u), &cracks, 2.2f, 0.7f);
+paintSunken(canvas, groove, tinted(stoneStyle(StonePalette::Void, seed + 1u), settings.faceTint), &cracks, 2.2f, 0.7f);
 paintGold(canvas, outline(groove, 2.4f, 0.0f), seed + 2u);
 return canvas;
 }
@@ -309,10 +326,10 @@ const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 1
 paintRaised(canvas,
 roughen(roundedBox(corner(margin, margin), corner(margin + width, margin + height), 2.0f),
 0.6f, 0.1f, seed),
-stoneStyle(StonePalette::Blue, seed), &cracks, 3.0f, 0.85f);
+tinted(stoneStyle(StonePalette::Blue, seed), settings.faceTint), &cracks, 3.0f, 0.85f);
 paintSunken(canvas, roundedBox(corner(margin + 5.0f, margin + 5.0f),
 corner(margin + width - 5.0f, margin + height - 5.0f), 1.0f),
-stoneStyle(StonePalette::Void, seed + 1u), &cracks, 3.6f, 0.95f);
+tinted(stoneStyle(StonePalette::Void, seed + 1u), settings.faceTint), &cracks, 3.6f, 0.95f);
 return canvas;
 }
 
@@ -334,9 +351,9 @@ SurfaceCanvas canvas(settings.radioSize + settings.margin * 2,
 const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 12, seed);
 const glm::fvec2 centre = corner(margin + size * 0.5f, margin + size * 0.5f);
 const SdfFunction rim = circle(centre, size * 0.5f);
-paintRaised(canvas, rim, stoneStyle(StonePalette::Steel, seed), &cracks, 2.6f, 0.8f);
+paintRaised(canvas, rim, tinted(stoneStyle(StonePalette::Steel, seed), settings.faceTint), &cracks, 2.6f, 0.8f);
 paintSunken(canvas, circle(centre, size * 0.5f - 4.4f),
-stoneStyle(StonePalette::Navy, seed + 1u), &cracks, 2.0f, 0.7f);
+tinted(stoneStyle(StonePalette::Navy, seed + 1u), settings.faceTint), &cracks, 2.0f, 0.7f);
 if (!checked) return canvas;
 paintGold(canvas, outline(rim, 2.0f, -1.2f), seed + 2u);
 const float coreRadius = size * 0.19f;
@@ -360,7 +377,7 @@ SurfaceCanvas canvas(settings.arrowWidth + settings.margin * 2,
  settings.arrowHeight + settings.margin * 2);
 const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 12, seed);
 paintRaised(canvas, roundedBox(corner(margin, margin), corner(margin + width, margin + height), 3.0f),
-stoneStyle(StonePalette::Steel, seed), &cracks, 3.0f, 0.85f);
+tinted(stoneStyle(StonePalette::Steel, seed), settings.faceTint), &cracks, 3.0f, 0.85f);
 // The triangle is inset so the stone bevel stays visible all the way round.
 const float centreX = margin + width * 0.5f;
 const float tip = margin + height * (up ? 0.28f : 0.72f);
@@ -381,10 +398,10 @@ SurfaceCanvas canvas(settings.triangleSize + settings.margin * 2,
  settings.triangleSize + settings.margin * 2);
 const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 10, seed);
 paintRaised(canvas, roundedBox(corner(margin, margin), corner(margin + size, margin + size), 2.0f),
-stoneStyle(StonePalette::Steel, seed), &cracks, 2.2f, 0.8f);
+tinted(stoneStyle(StonePalette::Steel, seed), settings.faceTint), &cracks, 2.2f, 0.8f);
 paintSunken(canvas, roundedBox(corner(margin + 2.4f, margin + 2.4f),
   corner(margin + size - 2.4f, margin + size - 2.4f), 1.4f),
-stoneStyle(StonePalette::Void, seed + 1u), &cracks, 1.6f, 0.6f);
+tinted(stoneStyle(StonePalette::Void, seed + 1u), settings.faceTint), &cracks, 1.6f, 0.6f);
 const float centreX = margin + size * 0.5f;
 const float top = margin + size * 0.38f;
 const float bottom = margin + size * 0.62f;
@@ -405,12 +422,12 @@ SurfaceCanvas canvas(settings.scrollTrackWidth + settings.margin * 2,
  settings.scrollTrackHeight + settings.margin * 2);
 const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 16, seed);
 paintRaised(canvas, roundedBox(corner(margin, margin), corner(margin + width, margin + height), 6.0f),
-stoneStyle(StonePalette::Deep, seed), &cracks, 2.8f, 0.8f);
+tinted(stoneStyle(StonePalette::Deep, seed), settings.faceTint), &cracks, 2.8f, 0.8f);
 const float insetX = width * 0.32f;
 const SdfFunction groove = roundedBox(corner(margin + insetX, margin + 10.0f),
  corner(margin + width - insetX, margin + height - 10.0f),
  insetX);
-paintSunken(canvas, groove, stoneStyle(StonePalette::Void, seed + 1u), &cracks, 2.0f, 0.7f);
+paintSunken(canvas, groove, tinted(stoneStyle(StonePalette::Void, seed + 1u), settings.faceTint), &cracks, 2.0f, 0.7f);
 paintGold(canvas, outline(groove, 2.0f, 0.0f), seed + 2u);
 return canvas;
 }
@@ -426,7 +443,7 @@ SurfaceCanvas canvas(settings.scrollThumbWidth + settings.margin * 2,
 const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 10, seed);
 const SdfFunction body = roundedBox(corner(margin, margin), corner(margin + width, margin + height),
 width * 0.45f);
-paintRaised(canvas, body, stoneStyle(StonePalette::Rim, seed), &cracks, 2.6f, 0.85f);
+paintRaised(canvas, body, tinted(stoneStyle(StonePalette::Rim, seed), settings.faceTint), &cracks, 2.6f, 0.85f);
 const float band = 4.0f;
 paintGold(canvas, roundedBox(corner(margin + 3.0f, margin + band),
  corner(margin + width - 3.0f, margin + band + 1.8f), 1.0f),
@@ -452,9 +469,9 @@ corner(margin, margin + height), corner(margin + slant, margin),
 corner(margin + width - slant, margin), corner(margin + width, margin + height)
 };
 const SdfFunction body = roughen(polygon(std::span<const glm::fvec2>(outlinePoints)), 0.7f, 0.15f, seed);
-const GuiStoneStyle style = active ? stoneStyle(StonePalette::Deep, seed)
-   : dimStone(stoneStyle(StonePalette::Navy, seed), 0.85f);
-paintRaised(canvas, body, style, &cracks, 3.2f, 0.85f);
+const GuiStoneStyle style = active ? tinted(stoneStyle(StonePalette::Deep, seed), settings.faceTint)
+   : dimStone(tinted(stoneStyle(StonePalette::Navy, seed), settings.faceTint), 0.85f);
+paintRaised(canvas, body, style, &cracks, bevelWidth(settings, 3.2f), 0.85f);
 if (active) {
 // The selected tab carries the gold trim and a lit field; the others stay quiet.
 paintGold(canvas, outline(body, 2.0f, -1.4f), seed + 1u);
@@ -478,10 +495,10 @@ const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 2
 const SdfFunction body = roughen(
 roundedBox(corner(margin, margin), corner(margin + width, margin + height), 5.0f), 1.1f,
 0.12f, seed);
-paintRaised(canvas, body, stoneStyle(StonePalette::Blue, seed), &cracks, 3.2f, 0.85f);
+paintRaised(canvas, body, tinted(stoneStyle(StonePalette::Blue, seed), settings.faceTint), &cracks, bevelWidth(settings, 3.2f), 0.85f);
 paintGold(canvas, outline(inset(body, 7.0f), 1.8f, 0.0f), seed + 1u);
 const SdfFunction field = inset(body, 12.0f);
-paintSunken(canvas, field, stoneStyle(StonePalette::Void, seed + 2u), &cracks, 3.0f, 0.9f);
+paintSunken(canvas, field, tinted(stoneStyle(StonePalette::Void, seed + 2u), settings.faceTint), &cracks, 3.0f, 0.9f);
 paintGold(canvas, outline(field, 1.4f, -2.0f), seed + 3u, false);
 return canvas;
 }
@@ -504,12 +521,12 @@ const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 2
 const SdfFunction body = roughen(
 roundedBox(corner(margin, margin), corner(margin + width, margin + height), 6.0f), 1.2f,
 0.12f, seed);
-paintRaised(canvas, body, stoneStyle(StonePalette::Blue, seed), &cracks, 3.6f, 0.85f);
+paintRaised(canvas, body, tinted(stoneStyle(StonePalette::Blue, seed), settings.faceTint), &cracks, bevelWidth(settings, 3.6f), 0.85f);
 
 // Nameplate: the same recessed field a title plate uses, so a caption reads on it.
 const SdfFunction name = roundedBox(corner(margin + pad, margin + pad),
 corner(margin + width - pad, margin + pad + nameHeight), 2.0f);
-paintSunken(canvas, name, dimStone(stoneStyle(StonePalette::Deep, seed + 1u), 0.6f), &cracks, 2.4f,
+paintSunken(canvas, name, dimStone(tinted(stoneStyle(StonePalette::Deep, seed + 1u), settings.faceTint), 0.6f), &cracks, 2.4f,
 0.8f);
 paintGold(canvas, outline(name, 1.4f, -1.6f), seed + 2u, false);
 
@@ -520,11 +537,11 @@ for (std::uint32_t column = 0; column < settings.slotGroupColumns; ++column) {
 const float left = margin + pad + static_cast<float>(column) * (well + gap);
 const float top = wellsTop + static_cast<float>(row) * (well + gap);
 paintRaised(canvas, roundedBox(corner(left, top), corner(left + well, top + well), 1.5f),
-stoneStyle(StonePalette::Rim, seed), &cracks, 1.5f, 0.6f);
+tinted(stoneStyle(StonePalette::Rim, seed), settings.faceTint), &cracks, 1.5f, 0.6f);
 const float rim = 3.6f;
 paintSunken(canvas, roundedBox(corner(left + rim, top + rim),
   corner(left + well - rim, top + well - rim), 1.0f),
-stoneStyle(StonePalette::Slot, seed + 3u), &cracks, 3.2f, 0.9f);
+tinted(stoneStyle(StonePalette::Slot, seed + 3u), settings.faceTint), &cracks, 3.2f, 0.9f);
 }
 }
 return canvas;
@@ -542,7 +559,7 @@ const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 1
 const SdfFunction body = roughen(
 roundedBox(corner(margin, margin), corner(margin + length, margin + thickness), 2.0f),
 0.6f, 0.12f, seed);
-paintRaised(canvas, body, stoneStyle(StonePalette::Deep, seed), &cracks, 2.6f, 0.8f);
+paintRaised(canvas, body, tinted(stoneStyle(StonePalette::Deep, seed), settings.faceTint), &cracks, 2.6f, 0.8f);
 paintGold(canvas, outline(inset(body, 3.5f), 1.6f, 0.0f), seed + 1u, false);
 return canvas;
 }
@@ -556,11 +573,11 @@ SurfaceCanvas canvas(settings.tileSize + settings.margin * 2,
  settings.tileSize + settings.margin * 2);
 const GuiField cracks = makeVoronoiCrackField(canvas.width(), canvas.height(), 12, seed);
 paintRaised(canvas, roundedBox(corner(margin, margin), corner(margin + size, margin + size), 2.0f),
-stoneStyle(StonePalette::Rim, seed), &cracks, 2.0f, 0.7f);
+tinted(stoneStyle(StonePalette::Rim, seed), settings.faceTint), &cracks, 2.0f, 0.7f);
 const float border = 4.0f;
 paintSunken(canvas, roundedBox(corner(margin + border, margin + border),
   corner(margin + size - border, margin + size - border), 1.0f),
-stoneStyle(StonePalette::Slot, seed + 1u), &cracks, 2.6f, 0.9f);
+tinted(stoneStyle(StonePalette::Slot, seed + 1u), settings.faceTint), &cracks, 2.6f, 0.9f);
 paintGem(canvas, corner(margin + size * 0.5f, margin + size * 0.5f), size * 0.20f,
  size * 0.26f, seed + 2u);
 return canvas;

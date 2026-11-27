@@ -194,6 +194,43 @@ private:
 MH_LOTTE_API TextRunList styleMarkup(std::string_view mml, const CssStylesheet& sheet,
 				     const TextAttributes& base = {});
 
+/**
+ * @brief Everything the cascade computes for one element outside a document.
+ *
+ * This is the door a *theme* uses: a theme document carries a declaration block such as
+ * `font-size: 18px; color: #ffd27f; padding: 6px; border-width: 3px`, the theme wraps it
+ * in a universal rule, and this call answers with the attributes and box hints libcss
+ * computed. No markup, no processor, no document tree.
+ */
+struct CssElementStyle {
+	/** @brief Colour, family, size, weight, slant and decoration of the element's text. */
+	TextAttributes text;
+	/** @brief Computed padding in pixels, in CSS order: top, right, bottom, left. */
+	float padding[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	/** @brief Computed border width in pixels, in CSS order: top, right, bottom, left. */
+	float border[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	/** @brief Computed `background-color`; read it only when @ref hasBackground is set. */
+	Colour background = Colour(0.0f, 0.0f, 0.0f, 0.0f);
+	/** @brief True when the cascade gave `background-color` a value. */
+	bool hasBackground = false;
+};
+
+/**
+ * @brief Computes one element's style against a stylesheet, with no document.
+ * @param sheet Stylesheet to match; its universal rules apply to the element.
+ * @param element Element name to select, e.g. `label`, `button`, `body`.
+ * @param classes Space-separated class list for the element; may be empty.
+ * @param base Attributes of the parent, i.e. what the element inherits before any rule.
+ * @return The composed attributes and box hints.
+ * @note A failed selection is not an error: the result simply equals @p base, because a
+ *       theme must still render when one of its declarations does not parse.
+ */
+MH_LOTTE_API CssElementStyle computeElementStyle(const CssStylesheet& sheet,
+						 std::string_view element,
+						 std::string_view classes = {},
+						 const TextAttributes& base = {});
+
+
 } // namespace Text
 } // namespace Lotte
 

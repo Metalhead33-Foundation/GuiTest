@@ -121,6 +121,14 @@ struct ThemeAtlasDefinition {
 	std::uint32_t proceduralSeed = 1337;
 	/** @brief Resolution multiplier in percent for the procedural generator (100 = default). */
 	std::uint32_t proceduralScalePercent = 100;
+	/**
+	 * @brief Optional CSS declaration block the generator follows.
+	 *
+	 * `border-width` becomes the bevel the recipes carve and `background-color` tints the
+	 * stone, so a theme can restyle the *generated* atlas with the same vocabulary it
+	 * uses for text. Resolved by `Lotte::Gui::resolveThemeCss` before the build.
+	 */
+	std::string css;
 };
 
 /**
@@ -162,6 +170,15 @@ struct ThemeTextStyleDefinition {
 	bool underline = false;
 	/** @brief Strikethrough request. */
 	bool strikethrough = false;
+	/**
+	 * @brief Optional CSS declaration block that styles this text.
+	 *
+	 * The block is resolved through libcss when the definition is turned into a theme
+	 * (`resolveThemeCssInPlace`), and the resolved values replace the fields above. It
+	 * may be bare declarations (`"font-size: 18px; color: #ffd27f"`); a theme never has
+	 * to write selectors. Kept as the source text so a tool can show and re-save it.
+	 */
+	std::string css;
 };
 
 /** @brief One `(state mask, skin)` pair of an element. */

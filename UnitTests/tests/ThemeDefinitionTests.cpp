@@ -10,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <ThemeJson.hpp>
 #include <Lotte/Gui/LteThemeDefinition.hpp>
+#include <Lotte/Gui/LteThemeCss.hpp>
 #include <glm/glm.hpp>
 #include <array>
 #include <cmath>
@@ -215,4 +216,74 @@ TEST_CASE("Theme definition: validation is order-stable and descriptive", "[them
 	const std::vector<std::string> problems = validate(definition);
 	REQUIRE(problems.size() >= 4);
 	REQUIRE(problems.front().find("no alias") != std::string::npos);
+}
+
+TEST_CASE("Theme CSS: a declaration block styles text, metrics and the atlas", "[theme][css]")
+{
+	const Lotte::Gui::ThemeCssStyle style = Lotte::Gui::resolveThemeCss(
+		"font-size: 18px; color: #ffd27f; font-weight: bold; font-style: italic; "
+		"text-decoration: underline; padding: 6px; border-width: 3px; "
+		"background-color: #102030");
+	CAPTURE(style.problems);
+	REQUIRE(style.valid);
+	REQUIRE(style.text.size == 18.0f);
+	REQUIRE(style.text.colour.r > 0.99f);
+	REQUIRE(std::fabs(style.text.colour.g - 0.8235f) < 0.01f);
+	REQUIRE(std::fabs(style.text.colour.b - 0.4980f) < 0.01f);
+	REQUIRE(style.text.weight == Lotte::Text::FontWeight::Bold);
+	REQUIRE(style.text.italic);
+	REQUIRE(style.text.underline);
+	REQUIRE(style.metrics.padding.x == 6.0f);
+	REQUIRE(style.metrics.padding.y == 6.0f);
+	REQUIRE(style.metrics.borderWidth == 3.0f);
+	REQUIRE(style.atlas.hasBorderWidth);
+	REQUIRE(style.atlas.borderWidth == 3.0f);
+	REQUIRE(style.atlas.hasBackground);
+	REQUIRE(std::fabs(style.atlas.background.b - 0.1882f) < 0.01f);
+}
+
+TEST_CASE("Theme CSS: what the document does not mention keeps its JSON value", "[theme][css]")
+{
+	// This used to be the trap: libcss's initial values (16 px, weight 400) flattened the
+	// document's own numbers whenever a block mentioned only part of the style.
+	Lotte::Gui::ThemeTextStyleDefinition base;
+	base.size = 32.0f;
+	base.weight = Lotte::Text::FontWeight::Bold;
+	base.colour = Lotte::Text::Colour(0.0f, 1.0f, 0.0f, 1.0f);
+	const Lotte::Gui::ThemeCssStyle style = Lotte::Gui::resolveThemeCss("color: #0000ff", base);
+	REQUIRE(style.valid);
+	REQUIRE(style.text.size == 32.0f);
+	REQUIRE(style.text.weight == Lotte::Text::FontWeight::Bold);
+	REQUIRE(style.text.colour.b > 0.99f);
+	REQUIRE(style.text.colour.r < 0.01f);
+}
+
+TEST_CASE("Theme CSS: an empty block is reported, not applied", "[theme][css]")
+{
+	const Lotte::Gui::ThemeCssStyle style = Lotte::Gui::resolveThemeCss("");
+	REQUIRE_FALSE(style.valid);
+	REQUIRE_FALSE(style.problems.empty());
+}
+
+TEST_CASE("Theme definition: CSS roles are resolved when the theme is built", "[theme][css]")
+{
+	Sandbox::ThemeParseResult parsed = Sandbox::parseThemeJson(R"JSON({
+		"name": "css_theme",
+		"texture_atlas": [ { "alias": "A", "filename": "a.png" } ],
+		"elements": {},
+		"roles": { "heading": { "face": "Vinque", "size": 32, "weight": 700,
+			"colour": "#ffffff", "css": "font-size: 40px; text-decoration: underline" } }
+	})JSON");
+	REQUIRE(parsed.ok);
+	REQUIRE(parsed.definition.roles[static_cast<std::size_t>(Lotte::Gui::ThemeTextRole::Heading)]
+				.has_value());
+	const Lotte::Gui::DefinitionTheme theme(parsed.definition,
+			[](std::string_view) -> std::optional<Lotte::Gui::ThemeAtlasBinding> {
+				return std::nullopt;
+			});
+	const Lotte::Text::TextAttributes heading =
+		theme.textStyle(Lotte::Gui::ThemeTextRole::Heading, 0u);
+	REQUIRE(heading.size == 40.0f);
+	REQUIRE(heading.underline);
+	REQUIRE(heading.effectiveWeight() == Lotte::Text::FontWeight::Bold);
 }

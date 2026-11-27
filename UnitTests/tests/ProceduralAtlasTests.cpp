@@ -87,6 +87,30 @@ double partCoverage(const Lotte::Gfx::Rgba8Image& image, const GuiAtlasRect& rec
 	return double(covered) / (double(rect.width) * double(rect.height));
 }
 
+/**
+ * @brief Mean colour of the covered pixels inside one part.
+ * @param image Shaded atlas.
+ * @param rect Part to average.
+ * @return RGB averages in `[0, 255]`; zero when the part is empty.
+ */
+glm::dvec3 meanColour(const Lotte::Gfx::Rgba8Image& image, const GuiAtlasRect& rect)
+{
+	double sum[3] = { 0.0, 0.0, 0.0 };
+	std::size_t count = 0;
+	for (std::uint32_t y = rect.y; y < rect.y + rect.height; ++y) {
+		for (std::uint32_t x = rect.x; x < rect.x + rect.width; ++x) {
+			const std::size_t index = (std::size_t(y) * image.width + x) * 4u;
+			if (image.pixels[index + 3u] <= 8) continue;
+			for (std::size_t channel = 0; channel < 3; ++channel) {
+				sum[channel] += double(image.pixels[index + channel]);
+			}
+			++count;
+		}
+	}
+	if (count == 0) return glm::dvec3(0.0);
+	return glm::dvec3(sum[0], sum[1], sum[2]) / double(count);
+}
+
 } // namespace
 
 TEST_CASE("Procedural atlas: every part has a rectangle and the image is shaded", "[procedural]")
@@ -297,4 +321,30 @@ TEST_CASE("Procedural atlas: every element type the reference forges drew is gen
 		return atlas.image.pixels[(std::size_t(y) * atlas.image.width + x) * 4u + 1u];
 	};
 	REQUIRE(centreGreen(*empty) != centreGreen(*checked));
+}
+
+TEST_CASE("Procedural atlas: the CSS bevel and tint reach the generated skin", "[procedural][css]")
+{
+	GuiAtlasSettings plain;
+	plain.seed = 4242;
+	const GuiAtlas baseline = buildGuiAtlas(plain);
+
+	// What `resolveThemeCss` hands over for `border-width: 6px; background-color: #...`.
+	GuiAtlasSettings themed = plain;
+	themed.bevelWidth = 6.0f;
+	themed.faceTint = glm::fvec3(0.870f, 0.894f, 1.0f);
+	const GuiAtlas tinted = buildGuiAtlas(themed);
+	REQUIRE(tinted.image.isValid());
+	REQUIRE(tinted.image.pixels != baseline.image.pixels);
+
+	const GuiAtlasRect* panel = baseline.find(GuiAtlasPart::Panel);
+	const GuiAtlasRect* tintedPanel = tinted.find(GuiAtlasPart::Panel);
+	REQUIRE(panel != nullptr);
+	REQUIRE(tintedPanel != nullptr);
+	REQUIRE(tintedPanel->width == panel->width);
+	const glm::dvec3 before = meanColour(baseline.image, *panel);
+	const glm::dvec3 after = meanColour(tinted.image, *tintedPanel);
+	CAPTURE(before.x, before.y, before.z, after.x, after.y, after.z);
+	// A cool tint multiplies red down more than blue, so the blue/red ratio has to rise.
+	REQUIRE(after.z / after.x > before.z / before.x);
 }

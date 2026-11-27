@@ -118,6 +118,12 @@ press come from `button_hover`/`button_pressed` in the generated atlas. A missin
 invalid theme is logged and the widgets fall back to their own colours, which is what the
 headless run shows.
 
+A text style (and a procedural atlas entry) may also carry a `css` key with bare CSS
+declarations: libcss resolves them into the text style, the element metrics, and the
+generator's bevel and face tint, so one vocabulary styles the words and the stone they sit
+on. The demo document uses it for the `heading`/`placeholder` roles and for `PROC`
+(`border-width: 5px; background-color: #dfe4ff`).
+
 The theme document names **parts** (`"part": "button_idle"`), not rectangles: the packer
 decides where a part lands, and the atlas answers the question through its manifest. A
 file atlas would use an explicit `"rect"` instead; the schema accepts both. The manifest

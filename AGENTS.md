@@ -77,6 +77,13 @@ Whenever calling `git`, always use `--no-pager`.
    enum with one name table (`parseThemeElement`, `guiAtlasPartName`, ...) - never a
    `std::map<std::string, ...>` inside a loader. The reasoning is in `docs/PROCEDURAL.md` §1.
 
+**CSS is libcss's job, not a second parser.** Theme typography and box hints are CSS
+   declarations resolved through `libcss` (`Lotte::Gui::resolveThemeCss` ->
+   `Text::computeElementStyle`); the library wraps them in a universal rule and reads the
+   computed style back. Never hand-parse `font-size`/`color`/`padding` in a loader, and
+   never resolve a theme's CSS per frame: `DefinitionTheme` resolves it once when it is
+   built. Without `LTE_WITH_LIBCSS` a block is reported and ignored, never fatal.
+
 **Noise is a Euphemy concern.** Every generator lives in `EuphNoise.hpp`; `Lotte/Procedural/*`
    composes them and never rolls its own - no local hash, no hand-rolled grating, no private
    smoothstep. Gradient noise (`latticeGradient2D`, `latticeGradientFbm2D`) is the default for

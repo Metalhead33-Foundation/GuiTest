@@ -18,7 +18,8 @@
 			"alias": "PROC",
 			"proc": "crpg_stone",
 			"seed": 4242,
-			"scale": 100
+			"scale": 100,
+			"css": "border-width: 5px; background-color: #dfe4ff"
 		}
 	],
 	"elements": {
@@ -106,7 +107,8 @@
 				"face": "Vinque",
 				"weight": 400,
 				"size": 20,
-				"colour": "#ffeec0"
+				"colour": "#ffeec0",
+				"css": "font-size: 20px; font-weight: bold; color: #fff4d6"
 			}
 		},
 		"check_box": {
@@ -579,7 +581,8 @@
 			"face": "Vinque",
 			"weight": 700,
 			"size": 32,
-			"colour": "#ffd166"
+			"colour": "#ffd166",
+			"css": "font-size: 34px; letter-spacing: 1px; text-decoration: underline; color: #ffd166"
 		},
 		"window_title": {
 			"face": "Vinque",
@@ -592,7 +595,8 @@
 			"weight": 400,
 			"size": 20,
 			"colour": "#8a8fa8",
-			"italic": true
+			"italic": true,
+			"css": "font-size: 19px; font-style: italic; color: #8a8fa8"
 		},
 		"tool_tip": {
 			"face": "Vinque",

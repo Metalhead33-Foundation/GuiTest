@@ -161,6 +161,37 @@ constructed with, and `ScriptButton` queries `Theme::skin()` for its *current* s
 every frame. A theme installed after the script created its widgets still dresses
 them, and clearing it puts them back on their own colours.
 
+### CSS is the theme's second language
+
+A theme document is JSON, but JSON has no vocabulary for typography: a font stack, a
+size in `pt` or `em`, a colour, a padding and a border width are exactly what CSS already
+names, resolves and cascade-resolves. So the theme borrows them (`Lotte/Gui/LteThemeCss`):
+
+| CSS | Becomes |
+|---|---|
+| `font-family`, `font-size`, `font-weight`, `font-style` | `ThemeTextStyleDefinition` |
+| `color`, `text-decoration` | text colour, underline, strikethrough |
+| `padding` | `ThemeMetrics::padding` (the horizontal/vertical averages) |
+| `border-width` | `ThemeMetrics::borderWidth` **and** the atlas bevel |
+| `background-color` | the procedural atlas face tint |
+
+The last two rows are the point: the same block that styles a widget's text also styles
+the *generated skin* the widget wears, because `GuiAtlasSettings` takes a `bevelWidth` and
+a `faceTint` that `GuiAtlas` applies while painting. Change the CSS, and the atlas is
+carved differently on the next build.
+
+Two rules make that safe to use:
+
+- **The document's explicit values are a CSS rule of their own.** The block is prefixed
+  with a `* { ... }` rule generated from the JSON fields, so a block that mentions only
+  `color` cannot reset the 32 px / 700 weight the document asked for (libcss's initial
+  values would otherwise win, which is exactly the bug this design avoids).
+- **Resolve once, never per frame.** `DefinitionTheme` resolves every block in its
+  constructor and stores the computed style; a widget asking for its text style gets a
+  plain struct, and a broken block is reported by `validate()` instead of throwing at
+  draw time. Without `LTE_WITH_LIBCSS` the block is reported and ignored, so a theme
+  document stays usable in a build that dropped the dependency.
+
 ## 7. The GPU plan
 
 Every algorithmic piece is written as "per-pixel pure function of position": SDFs,

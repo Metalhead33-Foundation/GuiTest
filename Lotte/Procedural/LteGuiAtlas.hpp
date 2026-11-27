@@ -127,6 +127,21 @@ struct GuiAtlasSettings {
 	std::uint32_t borderStripThickness = 16;
 	/** @brief Side of a decorated icon tile in pixels. */
 	std::uint32_t tileSize = 48;
+	/**
+	 * @brief Bevel the recipes carve, in pixels; zero keeps each recipe's own default.
+	 *
+	 * A theme's CSS `border-width` lands here, so the generated skin and the widget
+	 * metrics agree on how thick a stroke is.
+	 */
+	float bevelWidth = 0.0f;
+	/**
+	 * @brief Multiplier for the stone palette, `(1, 1, 1)` for the recipe's own colours.
+	 *
+	 * A theme's CSS `background-color` lands here: the recipes multiply their dark/mid/
+	 * light/frost tones by it, so the same panel can be navy stone or warm sandstone
+	 * without a second palette.
+	 */
+	glm::fvec3 faceTint = glm::fvec3(1.0f);
 };
 
 /**

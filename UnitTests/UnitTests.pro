@@ -10,10 +10,9 @@ TARGET = UnitTests
 PKGCONFIG += catch2-with-main
 
 # Lotte's CSS-for-MML module is optional and only compiled when libcss is present;
-# the tests for it are guarded by the same define, so they disappear with it.
-packagesExist(libcss) {
-    DEFINES += LTE_WITH_LIBCSS
-}
+# the tests for it are guarded by the same define, so they disappear with it. The define
+# and the include path must match Lotte's exactly, which is what the shared .pri ensures.
+include($$PWD/../extern/netsurf/netsurf.pri)
 
 # Link to our local libraries
 LIBS += -L$$OUT_PWD/../Elvavena -lElvavena

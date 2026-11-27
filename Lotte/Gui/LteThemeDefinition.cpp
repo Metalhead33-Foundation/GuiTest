@@ -1,4 +1,5 @@
 #include "LteThemeDefinition.hpp"
+#include "LteThemeCss.hpp"
 #include <algorithm>
 #include <array>
 
@@ -178,6 +179,10 @@ const ThemeTextStyleDefinition* ThemeDefinition::findRole(ThemeTextRole role) co
 DefinitionTheme::DefinitionTheme(ThemeDefinition definition, ThemeTextureResolver resolver)
 	: data(std::move(definition)), textureResolver(std::move(resolver))
 {
+	// CSS is resolved once, here: a widget asks for its text style every frame, and a
+	// libcss parse per frame would be absurd. A block that does not parse is reported by
+	// `validate()` and leaves the explicit fields in place.
+	resolveThemeCssInPlace(data, nullptr);
 }
 
 std::string_view DefinitionTheme::name() const
@@ -275,6 +280,15 @@ std::vector<std::string> validate(const ThemeDefinition& definition)
 		if (element->textStyle.has_value() && element->textStyle->size <= 0.0f) {
 			addProblem(problems, "theme: '" + elementName + "' has a non-positive text size");
 		}
+	}
+
+	// A block libcss rejects is a problem in the document, not in a widget, so it belongs
+	// in the same list as a dangling atlas alias.
+	{
+		ThemeDefinition probe = definition;
+		std::vector<std::string> cssProblems;
+		resolveThemeCssInPlace(probe, &cssProblems);
+		problems.insert(problems.end(), cssProblems.begin(), cssProblems.end());
 	}
 
 	for (std::size_t index = 0; index < definition.roles.size(); ++index) {

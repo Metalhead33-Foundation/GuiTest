@@ -111,6 +111,11 @@ Lotte::Gui::ThemeTextStyleDefinition readTextStyle(const json& value)
 	if (value.contains("italic")) style.italic = value["italic"].get<bool>();
 	if (value.contains("underline")) style.underline = value["underline"].get<bool>();
 	if (value.contains("strikethrough")) style.strikethrough = value["strikethrough"].get<bool>();
+	// A declaration block is carried verbatim: libcss, not the loader, decides what it
+	// means, and the resolved values replace the explicit fields above.
+	if (value.contains("css") && value["css"].is_string()) {
+		style.css = value["css"].get<std::string>();
+	}
 	return style;
 }
 
@@ -177,6 +182,9 @@ ThemeParseResult parseThemeJson(std::string_view source)
 				if (entry.contains("seed")) atlas.proceduralSeed = entry["seed"].get<std::uint32_t>();
 				if (entry.contains("scale")) {
 					atlas.proceduralScalePercent = entry["scale"].get<std::uint32_t>();
+				}
+				if (entry.contains("css") && entry["css"].is_string()) {
+					atlas.css = entry["css"].get<std::string>();
 				}
 				if (atlas.alias.empty()) {
 					// The legacy file had no alias: the filename is a good enough name.

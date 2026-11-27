@@ -1,4 +1,5 @@
 #include "ThemeDemo.hpp"
+#include <Lotte/Gui/LteThemeCss.hpp>
 #include "ThemeJson.hpp"
 #include <Lotte/Procedural/LteGuiAtlas.hpp>
 #include <Lotte/Procedural/LteSurfaceCanvas.hpp>
@@ -42,6 +43,15 @@ Lotte::Procedural::GuiAtlasSettings atlasSettingsFor(const Lotte::Gui::ThemeAtla
 	settings.slotSize = 64u * scale / 100u;
 	settings.titleWidth = 256u * scale / 100u;
 	settings.titleHeight = 48u * scale / 100u;
+	if (!atlas.css.empty()) {
+		// The same CSS vocabulary the text uses decides the generator's bevel and face
+		// tint: libcss computes `border-width` and `background-color`, the builder obeys.
+		const Lotte::Gui::ThemeCssStyle css = Lotte::Gui::resolveThemeCss(atlas.css);
+		if (css.valid) {
+			if (css.atlas.hasBorderWidth) settings.bevelWidth = css.atlas.borderWidth;
+			if (css.atlas.hasBackground) settings.faceTint = css.atlas.background;
+		}
+	}
 	return settings;
 }
 
@@ -145,6 +155,23 @@ const std::string& outputDirectory)
 	}
 	std::printf("DefinitionTheme '%s': %zu skin query(s) resolved\n",
 	std::string(theme.name()).c_str(), resolved);
+	// Text styles are the other half of the contract, and the ones the document states in
+	// CSS are resolved through libcss at construction: print what the cascade produced, so
+	// a broken block shows up here rather than on screen.
+	const auto channel = [](float value) {
+		return unsigned(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
+	};
+	const Lotte::Gui::ThemeTextRole roles[] = { Lotte::Gui::ThemeTextRole::Heading,
+											   Lotte::Gui::ThemeTextRole::Label };
+	for (const Lotte::Gui::ThemeTextRole role : roles) {
+		const Lotte::Text::TextAttributes style = theme.textStyle(role, 0u);
+		std::printf("  text role %-10s: %5.1f px  weight %4u  #%02x%02x%02x%s%s\n",
+					Lotte::Gui::themeTextRoleName(role), double(style.size),
+					unsigned(style.effectiveWeight()), channel(style.colour.r),
+					channel(style.colour.g), channel(style.colour.b),
+					style.italic ? " italic" : "", style.underline ? " underlined" : "");
+	}
+
 	return 0;
 }
 
