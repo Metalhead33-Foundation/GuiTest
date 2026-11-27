@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	{
-		std::string paths = std::string(config.getString("Game","ModPaths"));
+		std::string paths = std::string(config.getString("Game","sModPaths"));
 		std::string token;
 		std::stringstream ss(paths);
 		// Extract tokens separated by semicolons
