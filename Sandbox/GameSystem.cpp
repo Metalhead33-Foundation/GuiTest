@@ -68,7 +68,7 @@ GameSystem::GameSystem(Euph::Conf::Configuration& config, Elv::Io::System& iosys
 				0,
 				config.getUInteger("Video","uWidth", 640),
 				config.getUInteger("Video","uHeight", 480),
-				0), iosys(iosys), config(config)
+				config.getBool("Video","bFullscreen", false) ? SDL_WINDOW_FULLSCREEN : 0), iosys(iosys), config(config)
 {
 	auto samplerate = config.getUInteger("Audio","uSamplerate",48000);
 	auto channels = config.getUInteger("Audio","uChannels",2);

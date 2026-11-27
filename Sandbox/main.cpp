@@ -21,6 +21,7 @@ int main(int argc, char *argv[])
 	SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS,"1");
 	PhysFS::System physfsSystem;
 	std::string writepath = std::string(physfsSystem.getBaseDir()) + physfsSystem.separator() + "overwrite";
+	physfsSystem.setWriteDir(writepath.c_str());
 	physfsSystem.mount(physfsSystem.getBaseDir(),"/");
 	physfsSystem.mount(writepath.c_str(),"/");
 	{
