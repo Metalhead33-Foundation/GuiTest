@@ -134,7 +134,7 @@ bool applyBackendConfig(Euph::Conf::Configuration& config,
 	return provider.apply(reader);
 }
 
-std::string serializeConfiguration(Euph::Conf::Configuration& config)
+std::string serializeConfiguration(const Euph::Conf::Configuration& config)
 {
 	std::ostringstream stream;
 	stream << config;
@@ -148,7 +148,7 @@ Euph::Conf::Configuration parseConfiguration(std::string_view text)
 	return config;
 }
 
-void saveConfiguration(Elv::Io::System& iosys, const char* path, Euph::Conf::Configuration& config)
+void saveConfiguration(Elv::Io::System& iosys, const char* path, const Euph::Conf::Configuration& config)
 {
 	auto device = iosys.openUnique(path, Elv::Io::Mode::WRITE);
 	if (!device) {

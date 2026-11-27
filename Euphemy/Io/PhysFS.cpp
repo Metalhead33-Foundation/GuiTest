@@ -22,6 +22,7 @@ Device& Device::operator=(Device&& mov)
 }
 
 Device::Device(const char* path, Elv::Io::Mode mode, int bufferSize)
+	: mode(mode)
 {
 	assert(PHYSFS_isInit());
 	switch (mode) {
