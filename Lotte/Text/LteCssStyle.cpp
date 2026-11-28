@@ -798,6 +798,126 @@ TextRunList styleMarkup(std::string_view mml, const CssStylesheet& sheet, const 
 	return processor.getRuns();
 }
 
+namespace {
+
+/// @brief Interns a node's tree identity the way the document resolver does.
+void prepareNode(CssNode& node)
+{
+	node.nameString = internText(node.name);
+	node.idString = internText(node.idText);
+	internClasses(node.classesText, node.classStrings);
+}
+
+/// @brief Reads one padding longhand, or zero when the cascade left it unset.
+float readPadding(uint8_t status, css_fixed length, css_unit unit, float baseSize,
+				  const CssMetrics& metrics)
+{
+	return status == CSS_PADDING_SET ? lengthToPixels(length, unit, baseSize, metrics) : 0.0f;
+}
+
+/// @brief Reads one border-width longhand, mapping the three keywords to pixels.
+float readBorderWidth(uint8_t status, css_fixed length, css_unit unit, float baseSize,
+					  const CssMetrics& metrics)
+{
+	switch (status) {
+	case CSS_BORDER_WIDTH_WIDTH: return lengthToPixels(length, unit, baseSize, metrics);
+	case CSS_BORDER_WIDTH_THIN: return 1.0f;
+	case CSS_BORDER_WIDTH_MEDIUM: return 3.0f;
+	case CSS_BORDER_WIDTH_THICK: return 5.0f;
+	default: return 0.0f;
+	}
+}
+
+/// @brief Converts a packed libcss colour to the engine's colour type.
+Colour unpackColour(css_color colour) noexcept
+{
+	return Colour(float((colour >> 16) & 0xFFu) / 255.0f, float((colour >> 8) & 0xFFu) / 255.0f,
+				  float(colour & 0xFFu) / 255.0f, float((colour >> 24) & 0xFFu) / 255.0f);
+}
+
+} // namespace
+
+CssElementStyle computeElementStyle(const CssStylesheet& sheet, std::string_view element,
+					std::string_view classes, const TextAttributes& base)
+{
+	CssElementStyle result;
+	result.text = base;
+	if (element.empty()) return result;
+
+	auto& engine = detail::CssAccess::engine(sheet);
+	const CssMetrics& metrics = engine.metrics;
+	css_select_handler handler = makeHandler();
+	SelectContext context;
+	context.baseColour = packColour(base.colour);
+	// The caller's size is what `medium` means here, so `em`/`%` lengths resolve against
+	// the theme's own base rather than libcss's default 16 px.
+	const css_unit_ctx units = engine.unitsFor(base.size);
+
+	// The element is selected as a *root*: with no parent node, libcss leaves every
+	// inherited property marked INHERIT, and `composeAttributes` then takes it from the
+	// caller's base style. Composing against a synthetic parent would instead let
+	// libcss's own initial values (weight 400, size 16 px) win over the theme's.
+	CssNode node;
+	node.name.assign(element);
+	node.classesText.assign(classes);
+	prepareNode(node);
+
+	css_select_results* nodeResults = nullptr;
+	if (engine.select(&node, handler, &context, &units, &nodeResults) != CSS_OK ||
+		nodeResults == nullptr) {
+		return result;
+	}
+	node.results = nodeResults;
+
+	const css_computed_style* style = node.effectiveStyle();
+	result.text = composeAttributes(style, base, metrics);
+	if (style == nullptr) return result;
+
+	// Each getter has to run before its value is read: passing `length`/`unit` as
+	// arguments of the same call leaves their evaluation order unspecified, which silently
+	// reads the previous longhand's zero.
+	css_fixed length = 0;
+	css_unit unit = CSS_UNIT_PX;
+	uint8_t status = css_computed_padding_top(style, &length, &unit);
+	result.padding[0] = readPadding(status, length, unit, base.size, metrics);
+	length = 0;
+	unit = CSS_UNIT_PX;
+	status = css_computed_padding_right(style, &length, &unit);
+	result.padding[1] = readPadding(status, length, unit, base.size, metrics);
+	length = 0;
+	unit = CSS_UNIT_PX;
+	status = css_computed_padding_bottom(style, &length, &unit);
+	result.padding[2] = readPadding(status, length, unit, base.size, metrics);
+	length = 0;
+	unit = CSS_UNIT_PX;
+	status = css_computed_padding_left(style, &length, &unit);
+	result.padding[3] = readPadding(status, length, unit, base.size, metrics);
+
+	length = 0;
+	unit = CSS_UNIT_PX;
+	status = css_computed_border_top_width(style, &length, &unit);
+	result.border[0] = readBorderWidth(status, length, unit, base.size, metrics);
+	length = 0;
+	unit = CSS_UNIT_PX;
+	status = css_computed_border_right_width(style, &length, &unit);
+	result.border[1] = readBorderWidth(status, length, unit, base.size, metrics);
+	length = 0;
+	unit = CSS_UNIT_PX;
+	status = css_computed_border_bottom_width(style, &length, &unit);
+	result.border[2] = readBorderWidth(status, length, unit, base.size, metrics);
+	length = 0;
+	unit = CSS_UNIT_PX;
+	status = css_computed_border_left_width(style, &length, &unit);
+	result.border[3] = readBorderWidth(status, length, unit, base.size, metrics);
+
+	css_color background = 0;
+	if (css_computed_background_color(style, &background) == CSS_BACKGROUND_COLOR_COLOR) {
+		result.background = unpackColour(background);
+		result.hasBackground = true;
+	}
+	return result;
+}
+
 } // namespace Text
 } // namespace Lotte
 

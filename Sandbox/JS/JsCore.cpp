@@ -5,20 +5,23 @@
 #include <js/Array.h>
 #include <js/MapAndSet.h>
 #include <JS/Wrappers/Util/JsRandom.hpp>
-//#include <JS/Wrappers/Io/JsIO.hpp>
-//#include <JS/Wrappers/Audio/JsAudioPlayer.hpp>
-//#include <JS/Wrappers/GUI/JsGuiWrappers.hpp>
+#include <js/JSON.h>
+#include <js/Conversions.h>
+#include <js/Symbol.h>
 
 namespace JS {
 void Core::run(bool module)
 {
-	JS::RootedObject global(cx.get(), createGlobal());
-	if (!global) {
-	  return;
+	// Reuse the global and the realm `initialize()` already created instead of
+	// making a second one: the pre-registered modules (and the classes they define)
+	// live in that realm, and a wrapper object created against a prototype from
+	// another compartment would be a cross-compartment wrapper, whose reserved
+	// slots cannot hold the native pointer.
+	if (!global || !*global) {
+		return;
 	}
-
-	JSAutoRealm ar(cx.get(), global);
-	registerGlobals(global);
+	JSAutoRealm ar(cx.get(), global->get());
+	registerGlobals(*global);
 	if(module) {
 		runToplevelModule("main.js");
 	}
@@ -84,31 +87,108 @@ void Core::executeWithinContext(const ContextAccessor& accessor)
 	accessor(*cx);
 }
 
-static bool JsPrint(JSContext* cx, unsigned argc, JS::Value* vp) {
-  JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-  auto arg0 = args.get(0);
-  /*
-  Double = JSVAL_TYPE_DOUBLE,
-  Int32 = JSVAL_TYPE_INT32,
-  Boolean = JSVAL_TYPE_BOOLEAN,
-  Undefined = JSVAL_TYPE_UNDEFINED,
-  Null = JSVAL_TYPE_NULL,
-  Magic = JSVAL_TYPE_MAGIC,
-  String = JSVAL_TYPE_STRING,
-  Symbol = JSVAL_TYPE_SYMBOL,
-  PrivateGCThing = JSVAL_TYPE_PRIVATE_GCTHING,
-  BigInt = JSVAL_TYPE_BIGINT,
-*/
-  switch (arg0.type()) {
-  case JS::ValueType::Double: std::cout << arg0.toDouble() << std::endl; break;
-  case JS::ValueType::Int32: std::cout << arg0.toInt32() << std::endl; break;
-  case JS::ValueType::Boolean: std::cout << (arg0.toBoolean() ? "true" : "false") << std::endl; break;
-  case JS::ValueType::String: std::cout << JsToNativeString(cx, arg0.toString()) << std::endl; break;
-  default: std::cout << "Unprintable" << std::endl;
-  }
-  args.rval().setNull();
-  return true;
+// Callback used by JS_Stringify to append UTF-16 chunks to a std::string
+static bool StringifyCallback(const char16_t* buf, uint32_t len, void* data) {
+	auto* out = static_cast<std::string*>(data);
+	// Assuming your JsToNativeString converts UTF-16 (char16_t*) to UTF-8 std::string.
+	// Replace this loop with your UTF-16 -> UTF-8 converter (e.g., JS::DeflateStringToUTF8Buffer).
+	for (uint32_t i = 0; i < len; ++i) {
+		out->push_back(static_cast<char>(buf[i]));
+	}
+	return true;
 }
+
+static bool JsPrint(JSContext* cx, unsigned argc, JS::Value* vp) {
+	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+
+	// Rooted variables protect GC things if JS_Stringify or JS::ToString triggers a GC
+	JS::RootedValue arg(cx);
+	JS::RootedString str(cx);
+	JS::RootedValue space(cx, JS::Int32Value(2)); // 2-space indentation like Node.js
+
+	for (unsigned i = 0; i < args.length(); ++i) {
+		if (i > 0) {
+			std::cout << " ";
+		}
+
+		arg = args[i];
+
+		switch (arg.type()) {
+			case JS::ValueType::Undefined:
+				std::cout << "undefined";
+				break;
+
+			case JS::ValueType::Null:
+				std::cout << "null";
+				break;
+
+			case JS::ValueType::Boolean:
+				std::cout << (arg.toBoolean() ? "true" : "false");
+				break;
+
+			case JS::ValueType::Int32:
+				std::cout << arg.toInt32();
+				break;
+
+			case JS::ValueType::Double:
+				std::cout << arg.toDouble();
+				break;
+
+			case JS::ValueType::BigInt:
+				str = JS::ToString(cx, arg);
+				if (!str) return false;
+				std::cout << JsToNativeString(cx, str) << "n";
+				break;
+
+			case JS::ValueType::Symbol: {
+				JS::RootedSymbol sym(cx, arg.toSymbol());
+				str = JS::GetSymbolDescription(cx, sym);
+				if (str) {
+					std::cout << "Symbol(" << JsToNativeString(cx, str) << ")";
+				} else {
+					// GetSymbolDescription returns nullptr for Symbol() with no description
+					std::cout << "Symbol()";
+				}
+				break;
+			}
+
+			case JS::ValueType::String:
+				// Top-level strings print raw without quotes (matching Node/browser behavior)
+				std::cout << JsToNativeString(cx, arg.toString());
+				break;
+
+			case JS::ValueType::Object: {
+				std::string jsonOut;
+				// Attempt pretty-printed JSON serialization
+				if (JS_Stringify(cx, &arg, nullptr, space, StringifyCallback, &jsonOut)) {
+					// JS_Stringify succeeds but leaves jsonOut empty for functions or undefined-only objects
+					if (!jsonOut.empty()) {
+						std::cout << jsonOut;
+						break;
+					}
+				} else {
+					// Clear pending exception (e.g. TypeError from circular references) before falling back
+					JS_ClearPendingException(cx);
+				}
+
+				// Fallback for functions, circular objects, Maps/Sets, etc. (prints "[object Object]" or function source)
+				str = JS::ToString(cx, arg);
+				if (!str) return false;
+				std::cout << JsToNativeString(cx, str);
+				break;
+			}
+
+			default:
+				std::cout << "[Unprintable]";
+				break;
+		}
+	}
+
+	std::cout << std::endl;
+	args.rval().setUndefined();
+	return true;
+}
+
 bool Core::JsDofile(JSContext* cx, unsigned argc, JS::Value* vp) {
 	return executeJSNative([] (JSContext* cx, unsigned argc, JS::Value* vp) {
 		auto heart = CONTEXT_MAP[cx];
@@ -156,15 +236,6 @@ void Core::initialize()
 	insertModule("random", [](JSContext& ctx,JS::RootedObject& obj) {
 		CreateRandomIzerClass(&ctx,obj);
 	});
-	/*insertModule("IO", [](JSContext& ctx,JS::RootedObject& obj) {
-		CreateIOClasses(&ctx,obj);
-	});
-	insertModule("Audio", [](JSContext& ctx,JS::RootedObject& obj) {
-		RegisterAudioPlayerClasses(&ctx,obj);
-	});
-	insertModule("GUI", [](JSContext& ctx,JS::RootedObject& obj) {
-		RegisterGuiClasses(&ctx,obj);
-	});*/
 	/*
 	//
 	//JS::RootedObject consoleObject(cx.get(),compileModuleFromSource("export const name = \"console\";","console"));
@@ -192,6 +263,11 @@ bool Core::inintializeJs()
 
 void Core::shutdownJs()
 {
+	// The wrapper classes keep their prototypes in file-static `ClassCreator` objects,
+	// whose destructors run *after* this function returns. Unrooting a `RootedObject`
+	// after `JS_ShutDown()` writes into a destroyed runtime, so the roots are dropped
+	// here, while it is still alive.
+	clearAllClassPrototypes();
 	JS_ShutDown();
 }
 void Core::registerGlobals(const JS::HandleObject &global)
@@ -203,20 +279,6 @@ void Core::registerGlobals(const JS::HandleObject &global)
 }
 
 std::map<JSContext*,Core*> Core::CONTEXT_MAP;
-const Elv::Io::sSystem &Core::getIosys() const
-{
-	return iosys;
-}
-
-void Core::setIosys(const Elv::Io::sSystem &newIosys)
-{
-	iosys = newIosys;
-}
-
-void Core::setIosys(Elv::Io::sSystem &&newIosys)
-{
-	iosys = std::move(newIosys);
-}
 
 static const std::vector<std::string> js_postfixes = {
 	"",
@@ -227,16 +289,16 @@ std::string Core::getCodeFromJsFile(const std::string &path, bool isRaw) const
 {
 	std::unique_ptr<Elv::Io::Device> iodev(nullptr);
 	if(isRaw) {
-		iodev = std::unique_ptr<Elv::Io::Device>(iosys->open(path,Elv::Io::Mode::READ));
+		iodev = std::unique_ptr<Elv::Io::Device>(iosys.open(path,Elv::Io::Mode::READ));
 	} else {
 		std::string path0 = path;
 		if(path0.starts_with("./")) {
 			path0 = std::string_view(++(++std::begin(path0)), std::end(path0));
 		}
-		iodev = std::unique_ptr<Elv::Io::Device>(iosys->open(path0,Elv::Io::Mode::READ));
+		iodev = std::unique_ptr<Elv::Io::Device>(iosys.open(path0,Elv::Io::Mode::READ));
 		if(!iodev->isValid()) {
 			for(const auto& it : js_postfixes) {
-				iodev = std::unique_ptr<Elv::Io::Device>(iosys->open("/scripts/" + path0 + it,Elv::Io::Mode::READ));
+				iodev = std::unique_ptr<Elv::Io::Device>(iosys.open("/scripts/" + path0 + it,Elv::Io::Mode::READ));
 				if(iodev->isValid()) break;
 			}
 		}
@@ -246,18 +308,8 @@ std::string Core::getCodeFromJsFile(const std::string &path, bool isRaw) const
 }
 
 
-Core::Core(const Elv::Io::sSystem &iosys, bool initSelfHosting)
+Core::Core(Elv::Io::System& iosys, bool initSelfHosting)
 	: cx(JsContext(JS_NewContext(JS::DefaultHeapMaxBytes),JS_DestroyContext)), iosys(iosys)
-{
-	CONTEXT_MAP.emplace(cx.get(),this);
-	if (initSelfHosting && !JS::InitSelfHostedCode(cx.get())) {
-	  throw std::runtime_error("Failed to initialize self-hosting code!");
-	}
-	initialize();
-}
-
-Core::Core(Elv::Io::sSystem &&iosys, bool initSelfHosting)
-	: cx(JsContext(JS_NewContext(JS::DefaultHeapMaxBytes),JS_DestroyContext)), iosys(std::move(iosys))
 {
 	CONTEXT_MAP.emplace(cx.get(),this);
 	if (initSelfHosting && !JS::InitSelfHostedCode(cx.get())) {

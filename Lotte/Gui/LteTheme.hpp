@@ -162,6 +162,26 @@ public:
 	virtual Text::TextAttributes textStyle(ThemeTextRole role, WidgetState state) const = 0;
 
 	/**
+	 * @brief Returns the caption styling an element declares, if it declares one.
+	 * @param element Element whose text styling is requested.
+	 * @param state Widget-state bitmask.
+	 * @return Attributes to draw a caption with, or `std::nullopt` when the theme has
+	 *         no opinion about this element's text.
+	 *
+	 * The default answers `std::nullopt`, which keeps every theme that only knows
+	 * semantic roles valid; a theme file that styles `button.text` overrides it. A
+	 * widget that draws its own caption asks this first and falls back to
+	 * @ref textStyle() with @ref ThemeTextRole::Label.
+	 */
+	virtual std::optional<Text::TextAttributes> elementTextStyle(ThemeElement element,
+																WidgetState state) const
+	{
+		(void)element;
+		(void)state;
+		return std::nullopt;
+	}
+
+	/**
 	 * @brief Returns spacing/size hints for one element.
 	 * @param element Part whose metrics are requested.
 	 */

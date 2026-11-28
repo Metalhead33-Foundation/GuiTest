@@ -27,13 +27,9 @@ LIBS += -lassimp
 
 # CSS support for MML is optional. libcss (NetSurf) is a C library needed by one
 # module only, and `Text/LteCssStyle.cpp` compiles to nothing without the define,
-# so the library keeps building on hosts that do not have it installed.
-packagesExist(libcss) {
-    message("Lotte: libcss found, enabling MML CSS support (LTE_WITH_LIBCSS)")
-    CONFIG += link_pkgconfig
-    PKGCONFIG += libcss
-    DEFINES += LTE_WITH_LIBCSS
-}
+# so the library keeps building on hosts that do not have it installed. The vendored
+# checkout under extern/netsurf is preferred over the host's copy; see the .pri.
+include($$PWD/../extern/netsurf/netsurf.pri)
 
 
 SOURCES += \
@@ -51,6 +47,13 @@ SOURCES += \
     Gui/LteTexturedWidget.cpp \
     Gui/LteWidget.cpp \
     Gui/LteKaldiGuiRenderer.cpp \
+    Gui/LteThemeDefinition.cpp \
+    Gui/LteSlider.cpp \
+    Gui/LteGuiViewport.cpp \
+    Gui/LteThemeCss.cpp \
+    Procedural/LteGuiAtlas.cpp \
+    Procedural/LteGuiMaterials.cpp \
+    Procedural/LteSurfaceCanvas.cpp \
     Text/LteCssStyle.cpp \
     Text/LteFontAtlas.cpp \
     Text/LteFontRepository.cpp \
@@ -83,6 +86,15 @@ HEADERS += \
     Gui/LteGuiRenderer.hpp \
     Gui/LteGuiVertex.hpp \
     Gui/LteKaldiGuiRenderer.hpp \
+    Gui/LteThemeDefinition.hpp \
+    Gui/LteSlider.hpp \
+    Gui/LteGuiViewport.hpp \
+    Gui/LteThemeCss.hpp \
+    Procedural/LteGuiAtlas.hpp \
+    Procedural/LteGuiAtlasParts.hpp \
+    Procedural/LteGuiMaterials.hpp \
+    Procedural/LteSdf.hpp \
+    Procedural/LteSurfaceCanvas.hpp \
     LteKld.hpp \
     Text/LteFontAtlas.hpp \
     Text/LteFontFace.hpp \

@@ -148,6 +148,18 @@ public:
 	virtual bool onClick(const glm::fvec2& offset, std::uint8_t button,
 						 std::uint8_t state, std::uint8_t clicks) = 0;
 
+	/**
+	 * @brief Delivers pointer motion in widget-local coordinates.
+	 * @param offset Pointer position relative to @ref topLeft().
+	 *
+	 * The default does nothing: a button only reacts to presses, while a control with
+	 * a continuous value has to follow the pointer between the press and the release.
+	 * A scene that owns the pointer forwards every motion event here, for the widget
+	 * under the pointer and for any widget whose `Clicked` bit is still set, so a drag
+	 * that leaves the rectangle keeps updating.
+	 */
+	virtual void onPointerMove(const glm::fvec2& offset);
+
 	/** @brief Emitted only when the state bitmask actually changes. */
 	StateSignal stateChanged;
 	/** @brief Emitted by every geometry setter. */

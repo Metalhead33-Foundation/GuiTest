@@ -243,6 +243,11 @@ public:
 	 * Called once per frame, and possibly earlier when the implementation has to
 	 * change pipeline state. Implementations must be callable when nothing is
 	 * pending.
+	 *
+	 * @note A caller that records other geometry into the same command buffer between
+	 *       two batches (a text pass, a debug overlay) must call `flush()` before it
+	 *       does so. Batching is invisible to the command buffer, so the *flush* order
+	 *       - not the submission order - decides what is drawn on top.
 	 */
 	virtual void flush() = 0;
 };

@@ -69,3 +69,42 @@
    source tree.
 
 Whenever calling `git`, always use `--no-pager`.
+
+**JSON is an application concern, not a library one.** `nlohmann_json` is a dependency of
+   `Sandbox` and `UnitTests` only; no library in this tree may include it or any other parser.
+   A loader parses a document into the plain C++ structs the library already exposes
+   (`Lotte::Gui::ThemeDefinition` is the reference example), and every fixed vocabulary is an
+   enum with one name table (`parseThemeElement`, `guiAtlasPartName`, ...) - never a
+   `std::map<std::string, ...>` inside a loader. The reasoning is in `docs/PROCEDURAL.md` §1.
+
+**The same holds for YAML, and no user-visible string lives in C++.** `libyaml` is a dependency
+   of `Sandbox` (and of the tests that compile its loader) only: `Sandbox/LocalizationYaml.cpp`
+   fills a plain `Euph::Loc::Localization`, which is what a library is allowed to expose.
+   Captions, labels and menu entries are keys looked up at runtime; a missing key renders as the
+   key itself, never as an empty widget, and a new caption is a new line under
+   `Sandbox/localization/<language>/` - not a string literal next to the code that shows it.
+
+**CSS is libcss's job, not a second parser.** Theme typography and box hints are CSS
+   declarations resolved through `libcss` (`Lotte::Gui::resolveThemeCss` ->
+   `Text::computeElementStyle`); the library wraps them in a universal rule and reads the
+   computed style back. Never hand-parse `font-size`/`color`/`padding` in a loader, and
+   never resolve a theme's CSS per frame: `DefinitionTheme` resolves it once when it is
+   built. Without `LTE_WITH_LIBCSS` a block is reported and ignored, never fatal.
+
+**Noise is a Euphemy concern.** Every generator lives in `EuphNoise.hpp`; `Lotte/Procedural/*`
+   composes them and never rolls its own - no local hash, no hand-rolled grating, no private
+   smoothstep. Gradient noise (`latticeGradient2D`, `latticeGradientFbm2D`) is the default for
+   a surface, value noise keeps its place where the lattice *is* the effect, the finest octave
+   stays at or above ~2 px per cycle, and a stretched field gets exactly one octave. The
+   parchment hatch and both of its causes are written up in `docs/PROCEDURAL.md` §5.
+
+**A GUI layout is written on a virtual canvas, never in window pixels.** The design size is a
+   `Lotte::Gui::ViewportSettings::canvas` (800x600 in the sandbox) and
+   `Lotte::Gui::GuiViewport` is the only place a real resolution may enter: it turns canvas
+   units into pixels with one uniform factor (`fit` keeps the whole canvas and letterboxes,
+   `fill` covers the window and crops). Widget rectangles, font sizes and mouse positions all
+   pass through it, so "GUI scale" is one number rather than a per-element concern, and a script
+   that never reads `GUI.Layout.resolution` works on every window. A widget's box is stored in
+   *canvas* units by `Sandbox::GuiScene` and re-derived on every viewport change - never cache a
+   pixel rectangle in a script. A layout may use `0..1` fractions (`UI.x(0.5)`) instead of
+   numbers, but it must not branch on the window size to fake scaling.

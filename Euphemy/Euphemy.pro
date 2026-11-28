@@ -42,10 +42,12 @@ SOURCES += \
  Io/EuphTempFile.cpp \
  Io/EuphZstd.cpp \
  Io/PhysFS.cpp \
+ Localization/EuphLocalization.cpp \
  Media/Audio/EuphConvolver.cpp \
  Media/Audio/EuphModuleRenderer.cpp \
  Media/Audio/EuphResampler.cpp \
  Media/Audio/EuphSoundFile.cpp \
+ Media/Audio/EuphSoundClip.cpp \
  Media/Audio/FFTConvolver/AudioFFT.cpp \
  Media/Audio/FFTConvolver/FFTConvolver.cpp \
  Media/Audio/FFTConvolver/TwoStageFFTConvolver.cpp \
@@ -69,7 +71,8 @@ SOURCES += \
  Platform/EuphIocp.cpp \
  Platform/EuphIoUring.cpp \
  Platform/EuphKqueuePoller.cpp \
- Platform/EuphWSAPollPoller.cpp
+ Platform/EuphWSAPollPoller.cpp \
+ Util/EuphNoise.cpp
 
 HEADERS += \
  Asset/EuphAssetRuntime.hpp \
@@ -93,11 +96,13 @@ HEADERS += \
  Io/EuphTempFile.hpp \
  Io/EuphZstd.hpp \
  Io/PhysFS.hpp \
+ Localization/EuphLocalization.hpp \
  Media/Audio/EuphAudioIterator.hpp \
  Media/Audio/EuphConvolver.hpp \
  Media/Audio/EuphModuleRenderer.hpp \
  Media/Audio/EuphResampler.hpp \
  Media/Audio/EuphSoundFile.hpp \
+ Media/Audio/EuphSoundClip.hpp \
  Media/Audio/FFTConvolver/AudioFFT.h \
  Media/Audio/FFTConvolver/FFTConvolver.h \
  Media/Audio/FFTConvolver/TwoStageFFTConvolver.h \
@@ -124,7 +129,8 @@ HEADERS += \
  Platform/EuphIocp.hpp \
  Platform/EuphIoUring.hpp \
  Platform/EuphKqueuePoller.hpp \
- Platform/EuphWSAPollPoller.hpp
+ Platform/EuphWSAPollPoller.hpp \
+ Util/EuphNoise.hpp
 
 DISTFILES += \
     ../docs/networking/HTTP.md \

@@ -1,128 +1,464 @@
 #include "JsGuiWrappers.hpp"
-/*#include <GUI/MhTexturedButton.hpp>
+#include <ScriptHost.hpp>
+#include <GuiScene.hpp>
+#include <JS/Wrappers/System/JsSystem.hpp>
+#include <Lotte/Text/LteMarkupColour.hpp>
 #include <js/Array.h>
 #include <js/Object.h>
-#include <js/Value.h>
+#include <algorithm>
+#include <cstring>
+#include <stdexcept>
+#include <utility>
+
 namespace JS {
 
-ClassCreator MhTexturedButtonClass;
-static bool hasIoBeenInitialized = false;
+namespace {
 
-double dumbWorkaround[] = { 0, 0, 1, 0.2, 0, 0.2, 1, 0.4, 0, 0, 1, 0.2, 0, 0.4, 1, 0.6, 0, 0, 1, 0.2, 0, 0.6, 1, 0.8, 0, 0, 0, 0, 0, 0.8, 1, 1 };
-std::unordered_map<void*,JS::PersistentRootedObject> persistentMap;
+/// @brief The host the registered functions talk to; see `JsSystem.cpp`.
+Sandbox::ScriptHost* gHost = nullptr;
 
-// void* textureAtlasId, const std::initializer_list<const TextureCoordDuo>& coordDuos
-static bool js_gui_textured_button_constructor(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp){
+/// @brief The `GUI.Button` wrapper class.
+ClassCreator ButtonClass;
+
+/// @brief Reads a numeric property, falling back when it is missing or not a number.
+double numberProperty(JSContext* cx, JS::HandleObject object, const char* name, double fallback)
+{
+	JS::RootedValue value(cx);
+	if (!JS_GetProperty(cx, object, name, &value) || !value.isNumber()) {
+		return fallback;
+	}
+	return value.toNumber();
+}
+
+/// @brief Reads a boolean property, falling back when it is missing.
+bool boolProperty(JSContext* cx, JS::HandleObject object, const char* name, bool fallback)
+{
+	JS::RootedValue value(cx);
+	if (!JS_GetProperty(cx, object, name, &value) || value.isUndefined()) {
+		return fallback;
+	}
+	return value.toBoolean();
+}
+
+/// @brief The canvas rectangle a widget was authored with.
+Sandbox::CanvasRect canvasRectOf(const std::shared_ptr<Sandbox::ScriptButton>& button)
+{
+	return gHost->gui->canvasRect(*button);
+}
+
+/// @brief Re-places a widget from a canvas rectangle the script just changed.
+void placeAt(JS::CallArgs& args, const std::shared_ptr<Sandbox::ScriptButton>& button,
+			 const Sandbox::CanvasRect& rect)
+{
+	gHost->gui->setCanvasRect(*button, rect);
+	args.rval().set(args.get(0));
+}
+
+/// @brief The button behind `this`, never null.
+std::shared_ptr<Sandbox::ScriptButton> buttonFromThis(JS::CallArgs& args)
+{
+	auto holder = getNativePointer<std::shared_ptr<Sandbox::ScriptButton>>(
+		args.thisv().toObjectOrNull());
+	if (!holder || !*holder) {
+		throw std::runtime_error("GUI.Button: the widget is not valid");
+	}
+	return *holder;
+}
+
+/// @brief Reads a colour property written as an MML colour string.
+glm::fvec4 colourProperty(JSContext* cx, JS::HandleObject object, const char* name,
+   const glm::fvec4& fallback)
+{
+	JS::RootedValue value(cx);
+	if (!JS_GetProperty(cx, object, name, &value) || !value.isString()) {
+		return fallback;
+	}
+	const std::string text = JsToNativeString(cx, value.toString());
+	Lotte::Text::Colour colour = fallback;
+	if (!Lotte::Text::parseMarkupColour(text, colour)) {
+		return fallback;
+	}
+	return colour;
+}
+
+/// @brief Reads the first @p count numbers of a JavaScript array.
+bool readNumberArray(JSContext* cx, JS::HandleObject array, uint32_t count, double (&out)[4])
+{
+	bool isArray = false;
+	JS::IsArrayObject(cx, array, &isArray);
+	if (!isArray) return false;
+	uint32_t length = 0;
+	JS::GetArrayLength(cx, array, &length);
+	if (length < count) return false;
+	for (uint32_t index = 0; index < count; ++index) {
+		JS::RootedValue element(cx);
+		JS_GetElement(cx, array, index, &element);
+		if (!element.isNumber()) return false;
+		out[index] = element.toNumber();
+	}
+	return true;
+}
+
+/// @brief Builds an atlas rectangle from `[u0, v0, u1, v1]`.
+Lotte::Gui::TextureCoordDuo makeQuad(const double (&numbers)[4])
+{
+	Lotte::Gui::TextureCoordDuo duo;
+	duo.first = glm::fvec2(float(numbers[0]), float(numbers[1]));
+	duo.second = glm::fvec2(float(numbers[2]), float(numbers[3]));
+	return duo;
+}
+
+/// @brief Reads `uv`: four numbers for every state, or eight `[u0, v0, u1, v1]` entries.
+std::array<Lotte::Gui::TextureCoordDuo, Lotte::Gui::WidgetStateCount>
+readAtlasTable(JSContext* cx, JS::HandleValue value)
+{
+	std::array<Lotte::Gui::TextureCoordDuo, Lotte::Gui::WidgetStateCount> table {};
+	for (Lotte::Gui::TextureCoordDuo& entry : table) {
+		entry.first = glm::fvec2(0.0f, 0.0f);
+		entry.second = glm::fvec2(1.0f, 1.0f);
+	}
+	if (!value.isObject()) return table;
+	JS::RootedObject array(cx, &value.toObject());
+	bool isArray = false;
+	JS::IsArrayObject(cx, array, &isArray);
+	if (!isArray) return table;
+	uint32_t length = 0;
+	JS::GetArrayLength(cx, array, &length);
+	double numbers[4] = { 0.0, 0.0, 1.0, 1.0 };
+	if (length == 4) {
+		if (readNumberArray(cx, array, 4, numbers)) {
+			std::fill(table.begin(), table.end(), makeQuad(numbers));
+		}
+		return table;
+	}
+	for (uint32_t index = 0; index < length && index < table.size(); ++index) {
+		JS::RootedValue element(cx);
+		JS_GetElement(cx, array, index, &element);
+		if (!element.isObject()) continue;
+		JS::RootedObject quadObject(cx, &element.toObject());
+		if (readNumberArray(cx, quadObject, 4, numbers)) {
+			table[index] = makeQuad(numbers);
+		}
+	}
+	return table;
+}
+
+} // namespace
+
+namespace {
+
+/// @brief `new GUI.Button(options)`.
+bool js_gui_button_constructor(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		auto arg0 = args.get(0);
-		if(!arg0.isObject()) throw std::runtime_error("Excepted object as first argument!");
-		RootedObject rootedObject0(cx,arg0.toObjectOrNull());
-		auto arg1 = args.get(1);
-		if(!arg1.isObject()) throw std::runtime_error("Excepted array object as second argument!");
-		RootedObject rootedObject1(cx,arg1.toObjectOrNull());
-		RootedValue propval(cx);
-		JS_GetProperty(cx,rootedObject0,"tex",&propval);
-		void* texref = propval.toPrivate();
-		bool isArray;
-		JS::IsArray(cx,rootedObject1,&isArray);
-		if(!isArray) throw std::runtime_error("Excepted array object as second argument!");
+		Sandbox::ScriptHost* host = gHost;
+		if (host == nullptr || host->gui == nullptr) {
+			throw std::runtime_error("GUI.Button: graphics is not available");
+		}
+		if (argc < 1 || !args.get(0).isObject()) {
+			throw std::runtime_error("GUI.Button: expected an options object");
+		}
+		JS::RootedObject options(cx, &args.get(0).toObject());
 
-		uint32_t jsArrLength;
-		JS::GetArrayLength(cx,rootedObject1,&jsArrLength);
-		std::vector<MH33::GUI::TexturedWidget::TextureCoordDuo> texCoords(jsArrLength / 4);
-		for(size_t i = 0; i < texCoords.size(); ++i)
-		{
-			JS::RootedValue rval1(cx);
-			JS::RootedValue rval2(cx);
-			JS::RootedValue rval3(cx);
-			JS::RootedValue rval4(cx);
-			JS_GetElement(cx,rootedObject1,(i*4),&rval1);
-			JS_GetElement(cx,rootedObject1,(i*4)+1,&rval2);
-			JS_GetElement(cx,rootedObject1,(i*4)+2,&rval3);
-			JS_GetElement(cx,rootedObject1,(i*4)+3,&rval4);
-			texCoords[i].first.x = rval1.toDouble();
-			texCoords[i].first.y = rval2.toDouble();
-			texCoords[i].second.x = rval3.toDouble();
-			//texCoords[i].second.y = rval4.toDouble();
-			texCoords[i].first.x = dumbWorkaround[(i*4)];
-			texCoords[i].first.y = dumbWorkaround[(i*4)+1];
-			texCoords[i].second.x = dumbWorkaround[(i*4)+2];
-			texCoords[i].second.y = dumbWorkaround[(i*4)+3];
+		Sandbox::ButtonStyle style;
+		JS::RootedValue coloursValue(cx);
+		if (JS_GetProperty(cx, options, "colours", &coloursValue) && coloursValue.isObject()) {
+			JS::RootedObject colours(cx, &coloursValue.toObject());
+			style.colours[0] = colourProperty(cx, colours, "idle", style.colours[0]);
+			style.colours[1] = colourProperty(cx, colours, "hover", style.colours[1]);
+			style.colours[2] = colourProperty(cx, colours, "active", style.colours[2]);
+			style.colours[3] = colourProperty(cx, colours, "disabled", style.colours[3]);
 		}
-		auto objecToInsert = std::make_shared<MH33::GUI::TexturedButton>(texref,texCoords);
-		objecToInsert->setNewPosition(glm::fvec2(0.4f,-0.4f),glm::fvec2(0.6f,-0.6f));
-		auto objPtr = JS_NewObjectWithGivenProto(cx,&MhTexturedButtonClass.protoClass,*MhTexturedButtonClass.prototype);
-		JS::PersistentRootedObject obj(cx, objPtr);
-		persistentMap[objecToInsert.get()] = obj;
-		connectSignalToJS(cx,obj,"onStateChange", objecToInsert->signal_onStateChanged);
-		// Define a property for the callback, initialized to undefined
-		JS::RootedValue undefinedValue(cx, JS::UndefinedValue());
-		if (!JS_DefineProperty(cx, obj, "onStateChange", undefinedValue, JSPROP_ENUMERATE | JSPROP_PERMANENT)) {
-			return false;
+
+		Lotte::Gui::GuiTextureBinding binding {};
+		JS::RootedValue textureValue(cx);
+		if (JS_GetProperty(cx, options, "texture", &textureValue) && textureValue.isObject()) {
+			if (auto texture = textureFromValue(cx, textureValue)) {
+				binding = texture->binding();
+			}
 		}
-		storeSmartPointerToObj( obj, 0, std::move(objecToInsert));
-		args.rval().setObject(*obj);
+		JS::RootedValue uvValue(cx);
+		if (JS_GetProperty(cx, options, "uv", &uvValue)) {
+			style.coordinates = readAtlasTable(cx, uvValue);
+		}
+
+		auto button = std::make_shared<Sandbox::ScriptButton>(binding, style);
+		// A loaded theme decides which element this widget is and how big it wants to be
+		// by default; the script can still name another element (a panel, a check box, ...).
+		Lotte::Gui::ThemeElement element = Lotte::Gui::ThemeElement::Button;
+		JS::RootedValue elementValue(cx);
+		if (JS_GetProperty(cx, options, "element", &elementValue) && elementValue.isString()) {
+			const std::string name = JsToNativeString(cx, elementValue.toString());
+			if (!Lotte::Gui::parseThemeElement(name, element)) {
+				throw std::runtime_error("GUI.Button: unknown theme element '" + name + "'");
+			}
+		}
+		glm::fvec2 defaultSize(128.0f, 48.0f);
+		if (host->theme != nullptr) {
+			const Lotte::Gui::ThemeMetrics metrics = host->theme->metrics(element);
+			if (metrics.minimumSize.x > 0.0f) defaultSize.x = metrics.minimumSize.x;
+			if (metrics.minimumSize.y > 0.0f) defaultSize.y = metrics.minimumSize.y;
+			button->setThemeElement(host->theme, element);
+		}
+		// x/y/width/height are *canvas* units: the scene turns them into pixels through the
+		// viewport, which is what makes the same script fit every window size.
+		Sandbox::CanvasRect rect;
+		rect.origin.x = static_cast<float>(numberProperty(cx, options, "x", 0.0));
+		rect.origin.y = static_cast<float>(numberProperty(cx, options, "y", 0.0));
+		rect.size.x = static_cast<float>(numberProperty(cx, options, "width", defaultSize.x));
+		rect.size.y = static_cast<float>(numberProperty(cx, options, "height", defaultSize.y));
+		host->gui->setCanvasRect(*button, rect);
+		button->setFlag<Lotte::Gui::WidgetStateFlag::Enabled>(
+			boolProperty(cx, options, "enabled", true));
+		button->setHidden(boolProperty(cx, options, "hidden", false));
+
+		JS::RootedObject object(cx,
+			JS_NewObjectWithGivenProto(cx, &ButtonClass.protoClass, *ButtonClass.prototype));
+		setNativePointer(object, new std::shared_ptr<Sandbox::ScriptButton>(button));
+		// The handler lives on the wrapper, so defining it before `addButton()` means
+		// no click can reach an object whose property is not there yet.
+		JS::RootedValue undefined(cx, JS::UndefinedValue());
+		JS_DefineProperty(cx, object, "onClick", undefined, JSPROP_ENUMERATE | JSPROP_PERMANENT);
+		connectSignalToJS(cx, object, "onClick", button->activated);
+		host->gui->addButton(button);
+		args.rval().setObject(*object);
 		return true;
 	}, cx, argc, vp);
 }
 
-template <MH33::GUI::WidgetStateFlags flag> static bool js_gui_textured_widget_get_flag(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::GUI::Widget::getFlag<flag>);
-};
-template <MH33::GUI::WidgetStateFlags flag> static bool js_gui_textured_widget_set_flag(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::GUI::Widget::setFlag<flag>);
-};
-static bool js_gui_textured_widget_get_hidden(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::GUI::Widget::getHidden);
-};
-static bool js_gui_textured_widget_set_hidden(JSContext* cx, unsigned argc, JS::Value* vp) {
-	return jsMemberFunctionWrapper(cx,argc,vp,&MH33::GUI::Widget::setHidden);
-};
-static bool js_gui_textured_widget_addproperty(JSContext* cx, JS::HandleObject obj,
-											   JS::HandleId id, JS::HandleValue v) {
-	return executeJSAddPropertyOp([](JSContext* cx, JS::HandleObject obj,
-								  JS::HandleId id, JS::HandleValue v) {
-		return JS_SetPropertyById(cx,obj,id,v);
-	}, cx, obj, id, v);
-}
-
-void RegisterGuiClasses(JSContext* cx, const HandleObject& global)
+/// @brief Finalizer of `GUI.Button`: drops the shared widget.
+void js_gui_button_finalizer(JS::GCContext* gcx, JSObject* obj)
 {
-	if(hasIoBeenInitialized) return;
-
-	// Let's start with the audio buffer
-
-	// AudioBuffer
-	std::memset(&MhTexturedButtonClass.protoClass, 0, sizeof(JSClass));
-	std::memset(&MhTexturedButtonClass.ops, 0, sizeof(JSClassOps));
-	MhTexturedButtonClass.constructor = js_gui_textured_button_constructor;
-	MhTexturedButtonClass.name = "TexturedButton";
-	MhTexturedButtonClass.nargs = 1;
-	MhTexturedButtonClass.ops.finalize = js_finalizer_shared;
-	MhTexturedButtonClass.ops.construct = js_gui_textured_button_constructor;
-	//MhTexturedButtonClass.ops.addProperty = js_gui_textured_widget_addproperty;
-	MhTexturedButtonClass.protoClass.cOps = &MhTexturedButtonClass.ops;
-	MhTexturedButtonClass.protoClass.name = "TexturedButton";
-	MhTexturedButtonClass.protoClass.flags = JSCLASS_HAS_RESERVED_SLOTS(1) | JSCLASS_BACKGROUND_FINALIZE;
-	MhTexturedButtonClass.prototype = std::make_unique<JS::RootedObject>(cx, JS_NewObject(cx,&MhTexturedButtonClass.protoClass));
-	MhTexturedButtonClass.ps.push_back(JS_PSGS("hidden", js_gui_textured_widget_get_hidden, js_gui_textured_widget_set_hidden, JSPROP_ENUMERATE ) );
-	MhTexturedButtonClass.ps.push_back(JS_PSGS("enabled", js_gui_textured_widget_get_flag<MH33::GUI::WidgetStateFlags::ENABLED>,
-											   js_gui_textured_widget_set_flag<MH33::GUI::WidgetStateFlags::ENABLED>, JSPROP_ENUMERATE ) );
-	MhTexturedButtonClass.ps.push_back(JS_PSGS("clicked", js_gui_textured_widget_get_flag<MH33::GUI::WidgetStateFlags::CLICKED>,
-											   js_gui_textured_widget_set_flag<MH33::GUI::WidgetStateFlags::CLICKED>, JSPROP_ENUMERATE ) );
-	MhTexturedButtonClass.ps.push_back(JS_PSGS("inMouseFocus", js_gui_textured_widget_get_flag<MH33::GUI::WidgetStateFlags::IN_MOUSE_FOCUS>,
-											   js_gui_textured_widget_set_flag<MH33::GUI::WidgetStateFlags::IN_MOUSE_FOCUS>, JSPROP_ENUMERATE ) );
-	MhTexturedButtonClass.ps.push_back(JS_PS_END);
-	MhTexturedButtonClass.static_ps.push_back(JS_PS_END);
-	MhTexturedButtonClass.fs.push_back(JS_FS_END);
-	MhTexturedButtonClass.static_fs.push_back(JS_FS_END);
-	{
-		auto toReturn = MhTexturedButtonClass.registerToJS(cx, global, *MhTexturedButtonClass.prototype);
-		auto reg = JS::RootedValue(cx,JS::ObjectOrNullValue(toReturn) );
-		auto rootedReg = JS::RootedObject(cx,toReturn);
-		JS_SetProperty(cx, global, MhTexturedButtonClass.name.c_str(), reg );
-	}
+	finalizeNative<std::shared_ptr<Sandbox::ScriptButton>>(gcx, obj);
 }
 
-}*/
+/// @brief `button.x`.
+bool js_button_get_x(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		setReturnValue(cx, args.rval(), canvasRectOf(buttonFromThis(args)).origin.x);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.x = value`.
+bool js_button_set_x(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		auto button = buttonFromThis(args);
+		Sandbox::CanvasRect rect = canvasRectOf(button);
+		rect.origin.x = static_cast<float>(args.get(0).toNumber());
+		placeAt(args, button, rect);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.y`.
+bool js_button_get_y(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		setReturnValue(cx, args.rval(), canvasRectOf(buttonFromThis(args)).origin.y);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.y = value`.
+bool js_button_set_y(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		auto button = buttonFromThis(args);
+		Sandbox::CanvasRect rect = canvasRectOf(button);
+		rect.origin.y = static_cast<float>(args.get(0).toNumber());
+		placeAt(args, button, rect);
+		return true;
+	}, cx, argc, vp);
+}
+
+} // namespace
+
+
+
+namespace {
+
+/// @brief `button.width`.
+bool js_button_get_width(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		setReturnValue(cx, args.rval(), canvasRectOf(buttonFromThis(args)).size.x);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.width = value`.
+bool js_button_set_width(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		auto button = buttonFromThis(args);
+		Sandbox::CanvasRect rect = canvasRectOf(button);
+		rect.size.x = static_cast<float>(args.get(0).toNumber());
+		placeAt(args, button, rect);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.height`.
+bool js_button_get_height(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		setReturnValue(cx, args.rval(), canvasRectOf(buttonFromThis(args)).size.y);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.height = value`.
+bool js_button_set_height(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		auto button = buttonFromThis(args);
+		Sandbox::CanvasRect rect = canvasRectOf(button);
+		rect.size.y = static_cast<float>(args.get(0).toNumber());
+		placeAt(args, button, rect);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.enabled`.
+bool js_button_get_enabled(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		setReturnValue(cx, args.rval(),
+			buttonFromThis(args)->getFlag(Lotte::Gui::WidgetStateFlag::Enabled));
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.enabled = value`.
+bool js_button_set_enabled(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		buttonFromThis(args)->setFlag<Lotte::Gui::WidgetStateFlag::Enabled>(
+			args.get(0).toBoolean());
+		args.rval().set(args.get(0));
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.hidden`.
+bool js_button_get_hidden(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		setReturnValue(cx, args.rval(), buttonFromThis(args)->hidden());
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.hidden = value`.
+bool js_button_set_hidden(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		buttonFromThis(args)->setHidden(args.get(0).toBoolean());
+		args.rval().set(args.get(0));
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.hovered`: true while the pointer is over the button.
+bool js_button_get_hovered(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		setReturnValue(cx, args.rval(),
+			buttonFromThis(args)->getFlag(Lotte::Gui::WidgetStateFlag::InMouseFocus));
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.pressed`: true while the button is held down.
+bool js_button_get_pressed(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		setReturnValue(cx, args.rval(), buttonFromThis(args)->pressed());
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `button.remove()`: takes the widget off the screen.
+bool js_button_remove(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
+		(void)argc;
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		Sandbox::ScriptHost* host = gHost;
+		if (host == nullptr || host->gui == nullptr) {
+			throw std::runtime_error("GUI.Button.remove: graphics is not available");
+		}
+		host->gui->removeWidget(buttonFromThis(args).get());
+		args.rval().setUndefined();
+		return true;
+	}, cx, argc, vp);
+}
+
+} // namespace
+
+void RegisterGuiClasses(JSContext* cx, const JS::HandleObject& global, Sandbox::ScriptHost& host)
+{
+	gHost = &host;
+
+	std::memset(&ButtonClass.protoClass, 0, sizeof(JSClass));
+	std::memset(&ButtonClass.ops, 0, sizeof(JSClassOps));
+	ButtonClass.name = "Button";
+	ButtonClass.nargs = 1;
+	ButtonClass.constructor = js_gui_button_constructor;
+	ButtonClass.ops.construct = js_gui_button_constructor;
+	ButtonClass.ops.finalize = js_gui_button_finalizer;
+	ButtonClass.protoClass.cOps = &ButtonClass.ops;
+	ButtonClass.protoClass.name = "Button";
+	// Foreground finalization: the finalizer releases a shared widget, and that
+	// widget's signal owns a JavaScript root.
+	ButtonClass.protoClass.flags = JSCLASS_HAS_RESERVED_SLOTS(1);
+	ButtonClass.prototype = std::make_unique<JS::RootedObject>(cx,
+		JS_NewObject(cx, &ButtonClass.protoClass));
+	ButtonClass.ps.push_back(JS_PSGS("x", js_button_get_x, js_button_set_x, JSPROP_ENUMERATE));
+	ButtonClass.ps.push_back(JS_PSGS("y", js_button_get_y, js_button_set_y, JSPROP_ENUMERATE));
+	ButtonClass.ps.push_back(JS_PSGS("width", js_button_get_width, js_button_set_width,
+		JSPROP_ENUMERATE));
+	ButtonClass.ps.push_back(JS_PSGS("height", js_button_get_height, js_button_set_height,
+		JSPROP_ENUMERATE));
+	ButtonClass.ps.push_back(JS_PSGS("enabled", js_button_get_enabled, js_button_set_enabled,
+		JSPROP_ENUMERATE));
+	ButtonClass.ps.push_back(JS_PSGS("hidden", js_button_get_hidden, js_button_set_hidden,
+		JSPROP_ENUMERATE));
+	ButtonClass.ps.push_back(JS_PSG("hovered", js_button_get_hovered, JSPROP_ENUMERATE));
+	ButtonClass.ps.push_back(JS_PSG("pressed", js_button_get_pressed, JSPROP_ENUMERATE));
+	ButtonClass.ps.push_back(JS_PS_END);
+	ButtonClass.static_ps.push_back(JS_PS_END);
+	ButtonClass.fs.push_back(JS_FN("remove", js_button_remove, 0, 0));
+	ButtonClass.fs.push_back(JS_FS_END);
+	ButtonClass.static_fs.push_back(JS_FS_END);
+	ButtonClass.registerToJS(cx, global, *ButtonClass.prototype);
+}
+
+} // namespace JS
+

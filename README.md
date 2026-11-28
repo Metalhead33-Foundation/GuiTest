@@ -60,7 +60,7 @@ expected to be warning-free ([`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) §
 | `UnitTests/` | The Catch2 suite — the automated gate, including the documentation-tree checks |
 | `Sandbox/` | The manual playground; hardcoded paths and experiments are allowed here and it gates nothing |
 | `docs/` | The note tree (`docs/index.md` is its root) |
-| `extern/` | Submodules (doxygen-awesome-css theme, DirectX-Headers, …); never documented by this project |
+| `extern/` | Submodules (doxygen-awesome-css theme, DirectX-Headers, …); never documented by this project. `extern/netsurf/` holds the CSS engine (libcss + libparserutils + libwapcaplet) and is built by its own buildsystem into `build/`, so the engine is the pinned checkout rather than the host copy |
 | `build/` | Shadow build output — **every** generated artefact goes here, never into the source tree |
 
 ## Module status

@@ -32,6 +32,177 @@ The inclusion of MozJS / SpiderMonkey is **temporary**. It is **not** intended t
 
 The included SpiderMonkey code is for demonstration purposes, plus for ease of integration into the windowing system.
 
+`scripts/main.js` is the program the sandbox runs: the menu (New Game, Load Game, Settings,
+Credits, Exit), its localization keys, the settings screen with its three volume sliders, the
+click sound and every handler are declared there. The engine half only provides services, and
+`GameSystem` contains neither a caption nor a demo song path, a volume or an MML string.
+
+Two rules keep the script honest:
+
+* **No visible string is written in C++ or inline in the script.** Every caption is a
+  localization key (`menu_new_game`, `settings_volume_music`) read from `require('Localization')`,
+  and an unknown key renders as the key itself rather than as an empty widget.
+* **No layout constant pretends to be a theme.** A caption asks the theme for its styling
+  (`element: 'button'`, `role: 'heading'`, or a `style` object from `System.textStyle()`), so a
+  new theme restyles the menu without touching the script.
+
+### Layout: a virtual canvas, not window pixels
+
+A script lays its GUI out on a **virtual canvas** and never reads the window size to do it.
+`new GUI.Layout({width: 800, height: 600})` declares that canvas; every `x`/`y`/`width`/`height`
+afterwards is in *canvas units*, and the engine maps the canvas onto whatever the window is:
+
+| Window | Canvas | Scale | Result |
+|---|---|---|---|
+| 800x600 | 800x600 | 1.00 | identical to the design |
+| 640x480 | 800x600 | 0.80 | the whole menu, 20% smaller - nothing clipped |
+| 1920x1080 | 800x600 | 1.80 | 1440x1080 of canvas, centred, letterboxed left and right |
+
+Three numbers describe the mapping, and they are all a layout ever needs:
+
+* `UI.scale` - real pixels per canvas unit (what a font size is multiplied by: a 34-unit
+  caption is 27.2 real pixels at 0.8x, and the SDF atlas is rasterized at 27.2, not scaled up).
+* `UI.aspect` - the canvas's width/height. `UI.resolution` reports the window's, for the rare
+  case that truly needs it (a screenshot filename, a debug overlay); a layout should not.
+* `UI.visibleWidth` / `UI.visibleHeight` - how much canvas the window shows. Under `mode: 'fit'`
+  (the default) this is never smaller than the canvas, so the canvas always fits; when the window
+  is wider than 4:3 it is *wider* than the canvas, which is the room a future "big screens get more
+  room" policy may grow into. `mode: 'fill'` covers the window instead and crops the overflow.
+
+Two ways to write a coordinate, both resolution-free: canvas units (`y: 160`) or normalized
+fractions of the canvas (`UI.x(0.5)`, `UI.w(0.45)`). `uiScale` is the player-facing multiplier on
+`scale` - the knob for "the text is too small at 4K"; `minScale`/`maxScale` clamp the result and
+are off by default, because clamping trades "the canvas always fits" for "the text is never huge",
+and that trade-off is a policy this tree has not decided yet.
+
+A widget created *before* any layout exists lives on a canvas equal to the window, i.e. canvas
+units are pixels - which is what an old pixel-based script expects.
+
+### The script modules
+
+| Module | Surface | Backing engine type |
+|---|---|---|
+| `System` | `setRichText(mml, {x, y, spacing, wordSpacing, scale})`, `loadTexture(path)` / `new System.Texture(path)`, `textStyle(roleOrElement)`, `setConfig(section, key, number)`, `quit()`, `viewport` (the *real* window size; a layout should use `GUI.Layout` instead) | `Lotte::Text` MML + layout, `Lotte::Gfx::WriteableTexture2D`, `Lotte::Gui::Theme::textStyle()`/`elementTextStyle()`, `Euph::Conf::Configuration` |
+| `Localization` | one read-only property per loaded key (`L.menu_exit`), `get(key)` with the key as the fallback, `count` | `Euph::Loc::Localization` |
+| `GUI` | `new GUI.Layout({width, height, mode?, uiScale?, minScale?, maxScale?})` with `width`, `height`, `aspect`, `scale`, `visibleWidth`, `visibleHeight`, `mode`, `resolution`, the assignable `uiScale` and the normalized helpers `x(n)`, `y(n)`, `w(n)`, `h(n)`; `new GUI.Button({x, y, width, height, element?, texture?, uv?, colours?, enabled?, hidden?})`, properties `x`, `y`, `width`, `height`, `enabled`, `hidden`, `hovered`, `pressed`, method `remove()`, and the assignable `onClick`; `new GUI.Slider({x, y, width, height, min, max, step, value, orientation?, enabled?, hidden?})` with `value`, `min`, `max`, `enabled`, `hidden`, `remove()` and the assignable `onChange`; `new GUI.Label({text? | key?, element? | role? | style?, align?, scale?, x, y, width, height, hidden?})` with `text`, `key`, `hidden`, `box(x, y, width, height)` and `remove()`. When a theme is loaded the widget is drawn through `element` (default `button`) and `width`/`height` default to that element's `minimumSize`; `texture`/`uv`/`colours` stay as the unthemed fallback | `Sandbox::ScriptButton` in a `Sandbox::GuiScene` |
+| `Audio` | `new Audio.Module(path, {volume, repeating, playing})`, properties `playing`, `paused`, `status`, `volume`, `repeating`, `cursor`, `valid`, method `stop()`; `new Audio.Sound(path, {volume})` with `valid`, `volume`, `duration` and `play()` - a missing file yields `valid === false`, and `play()` is then a no-op | `Hrk::ModuleStreamer` inside the sandbox's `Hrk::Mixer`, and `Hrk::SoundPlayer` for one-shots |
+| `IO` | `new IO.File(path, "r"\|"w"\|"a"\|"rw"\|"ra")`, `readString()`, `read(n)`, `writeString(s)`, `seek(offset, "set"\|"cur"\|"end")`, `flush()`, `size`, `tell`, `eof`, `valid`; `IO.exists`, `IO.isFile`, `IO.isDirectory` | `Elv::Io::System` / `Elv::Io::Device` |
+| `random`, `CONFIG`, `console`, `print`, `require`, `dofile` | unchanged | `JsRandom`, `Euph::Conf::Configuration` |
+
+A table entry like `colours: {idle, hover, active, disabled}` is an MML colour string
+(`'#4a6580ff'`, `'#abc'`, or a web colour name) parsed by `Lotte::Text::parseMarkupColour`, so a
+script speaks the same colour language as the text it renders.
+
+### Threading and lifetime
+
+The script executes **on the frame thread**, once, from `GameSystem::initialize()`. That is a
+deliberate simplification: a click handler arrives from the SDL event loop and mutates the same
+objects the frame draws, so the two cannot be on different threads without a marshalling layer that
+a temporary demonstration does not deserve. A script that blocks blocks the frame.
+
+The teardown order in `GameSystem::stopScript()` is the part that matters:
+
+```text
+widgets  ->  script context  ->  host  ->  renderer  ->  renderer context
+```
+
+- a widget's click callback owns a JavaScript root, so widgets must die while the context is alive;
+- the context must die before the renderer, because its finalizers release textures and unlink
+  streamers from the mixer;
+- the host outlives the context, because those finalizers reach the mixer and the SDL audio device
+  through it.
+
+**Leaving the loop.** `System.quit()`, Escape and the window's close button all post an
+`SDL_QUIT` event; nothing calls `SDL_Quit()` while the loop is still polling, because that
+tears the event subsystem down underneath it. After the explicit teardown, `main()` leaves
+through `std::_Exit(0)` on purpose: glslang/SPIRV-Tools keep process-global tables whose
+static destructors walk the heap at exit, and once a Kaldi device has existed that teardown
+aborts with a corrupted arena on roughly two out of three runs. A run without a device
+(`--theme`, or `SDL_VIDEODRIVER=dummy`) and a standalone shader-compile probe both exit
+normally, which is why this is treated as the toolchain's problem - revisit it if the
+shader stack is updated.
+
+Two rules follow for anything added here: a wrapper's finalizer must not set
+`JSCLASS_BACKGROUND_FINALIZE` (background finalization runs on a GC helper thread and would race the
+audio callback), and every audio mutation goes through `SDL_LockAudioDevice` (the `AudioLock` RAII
+helper in `HarukaContext.hpp`, shared by the module and the one-shot wrappers), because
+`Hrk::Mixer`, `Hrk::PlaybackState` and `Hrk::SoundPlayer` are read by the audio thread. The one-shot
+voices are also stopped before the widgets are released, because they are registered in the mixer
+and the audio callback reads that map independently of the script.
+
+`JsUtil.hpp` stores a wrapper's native half in a reserved slot as a typed pointer that the class's
+own finalizer deletes. The legacy `shared_ptr<void>` id table is gone: it hid the type, required a
+mutex for every access and could not be reasoned about.
+
+## The theme demo (`--theme`)
+
+```sh
+cd build/Desktop-Debug/Sandbox
+LD_LIBRARY_PATH=../Elvavena:../Euphemy:../Lotte:../Haruka ../Sandbox --theme
+```
+
+This path needs no window, no GPU and no audio device, which is what makes it usable from a
+terminal or CI. It reads `gfx/theme_000.json` through the PhysFS mount, parses it into
+`Lotte::Gui::ThemeDefinition`, generates the atlas the document asks for
+(`Lotte::Procedural::buildGuiAtlas`), writes it to `theme_out/<alias>.png` with Euphemy's PNG
+encoder, prints the manifest and finally resolves skins through a `DefinitionTheme`.
+
+```text
+theme 'legacy_crpg': 4 atlas(es), 24 element(s)
+atlas 'PROC': 1024x534, 26 part(s) -> theme_out/PROC.png
+  parchment           0    0  208  272
+  panel             210    0  272  144
+  ...
+DefinitionTheme 'legacy_crpg': 48 skin query(s) resolved
+```
+
+**Localization files are YAML, and only this directory links libyaml.** `LocalizationYaml.cpp`
+reads a document into the plain `Euph::Loc::Localization` table, exactly like `ThemeJson.cpp` reads a
+theme into `Lotte::Gui::ThemeDefinition`; no library ever sees a parser. The accepted shape is the
+reference dialect (`menu_new_game:0 "New Game"`), which is *not* valid YAML - a plain scalar may not
+contain `": "` - so the loader rewrites those lines into strict quoted pairs before libyaml parses
+the structure, and anything nested below a key is skipped with a reported problem. Files live in
+`localization/<language>/` and are copied next to the executable by the qmake project.
+
+**JSON is only linked here.** `nlohmann_json` is a dependency of the Sandbox and the
+tests, never of a library: `Sandbox/ThemeJson.cpp` is the one loader, it parses into
+the plain structs of `Lotte/Gui/LteThemeDefinition.hpp`, and every fixed vocabulary
+(element, text role, atlas source, recipe, atlas part) is resolved through Lotte's own
+name tables instead of a string map. The rules are recorded in
+[`../docs/PROCEDURAL.md`](../docs/PROCEDURAL.md).
+
+### The theme drives the sandbox, not only the CLI
+
+`GameSystem::startTheme()` runs the same load path before the script starts: it reads
+`gfx/theme_000.json`, generates every procedural atlas, uploads it through
+`GuiScene::addAtlas()` (which keeps the manifest), and installs a `DefinitionTheme` on the
+scene. `GUI.Button` then asks that theme for the skin of its *current* state, so hover and
+press come from `button_hover`/`button_pressed` in the generated atlas. A missing or
+invalid theme is logged and the widgets fall back to their own colours, which is what the
+headless run shows.
+
+A text style (and a procedural atlas entry) may also carry a `css` key with bare CSS
+declarations: libcss resolves them into the text style, the element metrics, and the
+generator's bevel and face tint, so one vocabulary styles the words and the stone they sit
+on. The demo document uses it for the `heading`/`placeholder` roles and for `PROC`
+(`border-width: 5px; background-color: #dfe4ff`).
+
+The theme document names **parts** (`"part": "button_idle"`), not rectangles: the packer
+decides where a part lands, and the atlas answers the question through its manifest. A
+file atlas would use an explicit `"rect"` instead; the schema accepts both. The manifest
+this command prints is still useful for a hand-authored document or for a visual check.
+
+```text
+theme 'legacy_crpg': 4 atlas(es), 24 element(s)
+atlas 'PROC': 1024x534, 26 part(s) -> theme_out/PROC.png
+  parchment           0    0  208  272
+  panel             210    0  272  144
+  ...
+Theme 'legacy_crpg': 1 atlas(es) uploaded        <- the game loop
+Script ready: 1 button(s)                         <- the themed button
+DefinitionTheme 'legacy_crpg': 48 skin query(s) resolved   <- the CLI
+```
+
 ## `GameSystem`: audio, a window and a cursor
 
 `main()` loads `config.ini` (if present, from the working directory), then hands it to a
@@ -40,8 +211,8 @@ window is closed or ESC is pressed:
 
 | Half | What it does | Configuration |
 |---|---|---|
-| Audio | `Haruka_SDL_Driver` opens an SDL audio device, a `Hrk::Mixer` feeds it, and a `Hrk::ModuleStreamer` plays a module file | `[Audio] uSamplerate`, `uChannels`, `uBufferSize`; `[Game] sSongPath`, `fModVolume` |
-| Graphics | `Lotte::Gfx::KaldiContext` loads a Kaldi backend library, creates its rendering device on the SDL window, and `render()` clears the window, draws the sample SDF text through `Lotte::Text::TextRenderer`, then draws a cursor through `Lotte::Gui::KaldiGuiRenderer` | `[Graphics] sBackendLibrary`, `sClearColor`, `sCursor`, `sFont` |
+| Audio | `Haruka_SDL_Driver` opens an SDL audio device and a `Hrk::Mixer` feeds it. The *script* inserts its `Audio.Module`s with `new Audio.Module(path, opts)` | `[Audio] uSamplerate`, `uChannels`, `uBufferSize`; the script reads `[Game] sSongPath` and `fModVolume` through `CONFIG` |
+| Graphics | `Lotte::Gfx::KaldiContext` loads a Kaldi backend library, creates its rendering device on the SDL window, and `render()` clears the window, draws the widgets the script created through `Lotte::Gui::KaldiGuiRenderer`, draws the rich text the script laid out through `Lotte::Text::TextRenderer`, then the cursor | `[Graphics] sBackendLibrary`, `sClearColor`, `sCursor`, `sFont` |
 
 The graphics half is the project's first end-to-end texture path. `KaldiContext` `dlopen`s the
 backend, calls `kld_create_rendering_device(window, size)` and reinterprets the handle as the
@@ -56,6 +227,7 @@ prepare text -> FontRepository::addFaceFromFile(iosys, path) / TextRenderer::pre
                 (lazy atlas uploads, submitted before the frame when new glyphs appeared)
 beginFrame   -> BeginFrame + ClearColorAttachment
 KaldiGuiRenderer::beginFrame -> reset the CPU caches
+GuiScene::render -> the widgets the script created (textured/coloured quads, in z order)
 TextRenderer::beginFrame/render -> per-page glyph runs + decoration quads
 Cursor::render -> one tinted textured quad at the mouse position
 flush        -> text draws first, then the cursor (viewport/scissor/blend,
@@ -64,11 +236,13 @@ flush        -> text draws first, then the cursor (viewport/scissor/blend,
 endFrame     -> EndFrame + Present, swapBuffers, processCommandQueue
 ```
 
-The sample text is loaded from `[Graphics] sFont` through the PhysFS
-`Elv::Io::System` (mount its directory, or point `sFont` at a virtual path) and laid
-out from MML, so it exercises the family/weight lookup, bold/italic/underline/strike/colour
-tags and the SDF atlas at once. A missing font logs `Text disabled: ...` and leaves
-the cursor path working.
+The face is loaded from `[Graphics] sFont` through the PhysFS `Elv::Io::System` (mount its
+directory, or point `sFont` at a virtual path). The text itself is whatever the script passes to
+`System.setRichText(...)`: `main.js` builds an MML document from `CONFIG`, so the family/weight
+lookup, bold/italic/underline/strike/colour tags and the SDF atlas are all exercised by content that
+lives in the script, not in the binary. A missing font logs `Text disabled: ...` and leaves the
+cursor path working; a script that calls `setRichText` without a font gets a JavaScript exception it
+can catch.
 
 Missing backend, missing GPU or a refused device is not fatal: it logs
 `Graphics disabled: ...` and the audio half keeps running. Cursor images are resolved
@@ -77,7 +251,7 @@ path still runs when the binary is started from the build directory.
 
 | Input | Effect |
 |---|---|
-| Mouse motion / click | Moves the cursor; the cursor's origin point (hotspot) is what lands on the pointer. The window system's pointer is hidden while the window is focused, so only the engine cursor is visible |
+| Mouse motion / click | Moves the cursor; the cursor's origin point (hotspot) is what lands on the pointer. The window system's pointer is hidden while the window is focused, so only the engine cursor is visible. The same position is hit-tested against the script's buttons: hover swaps their visual state and a completed click runs the button's `onClick`. In `main.js` that handler switches the music on and off and rewrites the status line, so one click exercises the GUI, the audio and the text path together |
 | `Tab` | Cycles the loaded cursors (`wodmouse.png`: upper-left arrow, `hourglass2.png`: center-intended hourglass) |
 | `1`-`9` | Sets the active cursor's anchor in enum order: TopLeft, Top, TopRight, Left, Center, Right, BottomLeft, Bottom, BottomRight. Each change logs the re-resolved hotspot |
 | `Esc` | Quits |

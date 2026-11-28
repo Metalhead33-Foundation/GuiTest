@@ -97,6 +97,7 @@ readiness or `Elv::Io::Async<ThreadPool>` for blocking file work.
 | Header | Contents |
 |---|---|
 | `EuphAudioIterator.hpp` | `ChannelCount`, `FrameCount`, `FrameIndex`, `SampleCount`, `SampleRate` and frame/sample conversion helpers |
+| `EuphSoundClip.hpp` / `.cpp` | `SoundClip` - a whole sound file decoded into interleaved float frames, plus the one-shot conversions a mixer needs: `mapChannels()` (mono replicated, several channels averaged, otherwise a plain cyclic channel map, no pan law), `resample()` (libsamplerate in one pass) and `conformTo()` which does both. `SoundSource` throws on a format mismatch from the audio callback, so this is where a clip becomes playable |
 | `EuphSoundFile.hpp` / `.cpp` | `SoundFile` - libsndfile wrapper with typed `read`/`write`, `readf`/`writef`, seeking, format query and metadata setters, plus the large `SoundFormat` enum |
 | `EuphModuleRenderer.hpp` / `.cpp` | `ModuleRenderer` - libopenmpt-backed tracker/module rendering (MOD, S3M, XM, IT, ...); `isValid()` reports whether the stream parsed before playback calls |
 | `EuphResampler.hpp` / `.cpp` | libsamplerate wrappers: `SimpleResampler`, `FullResampler`, `CallbackResampler`/`CallbackInterface`, `ResampleType` |
@@ -111,6 +112,16 @@ readiness or `Elv::Io::Async<ThreadPool>` for blocking file work.
 | `EuphConfiguration.hpp` | `ConfigurationSection` and `Configuration` (sectioned `key=value` text, parse from `std::istream`/`std::string`, typed get/set, stream output) |
 | `EuphLib.hpp` | `MH_EUPH_API` export macro |
 
+### `Localization/` - the translated string table
+
+| Header | Contents |
+|---|---|
+| `EuphLocalization.hpp` / `.cpp` | `Localization` - a key/UTF-8-text table for one language: `insert()`, `merge()` (last file wins), `overlay()` (fills only the gaps of a fallback language), `find()`/`text()` with the key itself as the answer for an unknown key, and `format()`/`formatText()` substituting `$name$` placeholders (an unknown placeholder stays visible). No parser, no file access and no language negotiation: a loader in the application fills it, which is what keeps a YAML or JSON dependency out of this library |
+
+The engine contains no user-visible string. A key follows `<area>_<subject>[_<detail>]`
+(`menu_new_game`, `settings_volume_music`), which is what makes a `grep` for a caption
+land on exactly one place.
+
 ### `Memory/` - optional PMR arenas
 
 | Header | Contents |
@@ -122,6 +133,12 @@ called, there is no global configuration symbol, and the default pool sizes tota
 roughly 512 MiB, so callers should pass a `PoolSizes` value suited to their workload.
 The resources are backed by `Elv::Util::FreelistMemoryManager` and bridged into PMR
 through `Elv::Util::AlexandrescuResource`.
+
+### `Util/` - noise and procedural fields
+
+| File | What it implements |
+|---|---|
+| `Util/EuphNoise.hpp` / `.cpp` | Deterministic 1D/2D noise: white, value, Perlin, bilinear Perlin, simplex, sum-of-sines, plus the normalize/remap helpers and an allocation-free hashed lattice for per-pixel texture work in both flavours: value noise (`latticeNoise2D`, `latticeFbm2D`) and gradient noise (`latticeGradient2D`, `latticeGradientFbm2D`), the latter rotating every octave so the lattices cannot stack their ridges into hatching. `smoothStep` is the one easing every recipe ramps through. Seeded entry points own a `std::mt19937`, random entry points take a callable, and the degenerate cases the legacy code divided by or read past are clamped and documented. The two Voronoi shapes live here too: explicit-point/sector ramps (`voronoi1D`, `voronoi2D`, `sectorVoronoi*`), and the wrapping tile grid whose one traversal fills `VoronoiSample` (`F1`, `F2`, nearest-point index) for `voronoiDistance`/`voronoiBorder`/`voronoiCellIndices` - the cell index is what turns the field into a tile map |
 
 ### `Asset/` - CPU-side asset streaming runtime
 

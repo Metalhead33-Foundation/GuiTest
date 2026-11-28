@@ -93,13 +93,13 @@ MH_LOTTE_API bool applyBackendConfig(Euph::Conf::Configuration& config,
 									 std::string_view section = "graphics");
 
 /** @brief Serializes @p config into the `.ini` text format. */
-MH_LOTTE_API std::string serializeConfiguration(Euph::Conf::Configuration& config);
+MH_LOTTE_API std::string serializeConfiguration(const Euph::Conf::Configuration& config);
 
 /** @brief Parses `.ini` text produced by serializeConfiguration(). */
 MH_LOTTE_API Euph::Conf::Configuration parseConfiguration(std::string_view text);
 
 /** @brief Writes @p config to @p path, truncating it. Throws when the file cannot be opened. */
-MH_LOTTE_API void saveConfiguration(Elv::Io::System& iosys, const char* path, Euph::Conf::Configuration& config);
+MH_LOTTE_API void saveConfiguration(Elv::Io::System& iosys, const char* path, const Euph::Conf::Configuration& config);
 
 /** @brief Reads @p path; a missing file yields an empty configuration. */
 MH_LOTTE_API Euph::Conf::Configuration loadConfiguration(Elv::Io::System& iosys, const char* path);

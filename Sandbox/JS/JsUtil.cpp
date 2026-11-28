@@ -1,62 +1,52 @@
 #include "JsUtil.hpp"
+#include <algorithm>
 #include <exception>
-#include <unordered_map>
-#include <Elvavena/Util/ElvIdPool.hpp>
 #include <js/Class.h>
 #include <js/Proxy.h>
 namespace JS {
 
-///! THIS IS A TERRIBLE IDEA!
-///! THIS MUST NOT BE CARRIED INTO ANYTHING FINAL!!!
-static Elv::Util::IdPool<uintptr_t> IdGenerator;
-static std::unordered_map<uintptr_t, std::shared_ptr<void>> smartPointerTable;
-static std::mutex smartPointerTableMutex;
+namespace {
 
-uintptr_t storeSharedVoidPtr(const std::shared_ptr<void>& ptr) {
-	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
-	uintptr_t id = IdGenerator.acquireId();
-	smartPointerTable[id] = ptr;
-	return id;
-}
-
-uintptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, const std::shared_ptr<void>& ptr)
+/**
+ * @brief Every live @ref JS::ClassCreator, so shutdown can drop their roots.
+ *
+ * A function-local static, because the creators themselves are statics in several
+ * translation units and the registry has to exist before the first of them is
+ * constructed.
+ */
+std::vector<ClassCreator*>& classCreatorRegistry()
 {
-	uintptr_t id = storeSharedVoidPtr(ptr);
-	JS_SetReservedSlot(obj, index, JS::PrivateValue( reinterpret_cast<void*>(id) ) );
-	return id;
-}
-uintptr_t storeSharedVoidPtr(std::shared_ptr<void>&& ptr) {
-	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
-	uintptr_t id = IdGenerator.acquireId();
-	smartPointerTable[id] = std::move(ptr);
-	return id;
+	static std::vector<ClassCreator*> registry;
+	return registry;
 }
 
-uintptr_t storeSharedVoidPtrToObj(JSObject* obj, uint32_t index, std::shared_ptr<void>&& ptr)
+} // namespace
+
+ClassCreator::ClassCreator()
 {
-	uintptr_t id = storeSharedVoidPtr(std::move(ptr));
-	JS_SetReservedSlot(obj, index, JS::PrivateValue( reinterpret_cast<void*>(id) ) );
-	return id;
+	classCreatorRegistry().push_back(this);
 }
-std::shared_ptr<void> getSharedVoidPtr(uintptr_t id) {
-	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
-	auto it = smartPointerTable.find(id);
-	if (it != smartPointerTable.end()) {
-		return it->second;
+
+ClassCreator::~ClassCreator()
+{
+	auto& registry = classCreatorRegistry();
+	const auto found = std::find(registry.begin(), registry.end(), this);
+	if (found != registry.end()) {
+		registry.erase(found);
 	}
-	return nullptr;
 }
 
-std::shared_ptr<void> getSharedVoidPtrFromObj(JSObject* obj, size_t slot)
+void clearAllClassPrototypes()
 {
-	uintptr_t id = reinterpret_cast<uintptr_t>(JS::GetMaybePtrFromReservedSlot<void>(obj,slot));
-	return getSharedVoidPtr(id);
+	for (ClassCreator* creator : classCreatorRegistry()) {
+		if (creator == nullptr) {
+			continue;
+		}
+		// Releasing the root here, while the runtime is alive, is the whole point: the
+		// static destructors run after `JS_ShutDown()`.
+		creator->prototype.reset();
+	}
 }
-void removeSmartPointer(uintptr_t id) {
-	std::lock_guard<std::mutex> lock(smartPointerTableMutex);
-	smartPointerTable.erase(id);
-}
-///^ Terrible idea over
 
 JSObject* ClassCreator::registerToJS(JSContext* cx, JS::HandleObject obj)
 {
@@ -223,15 +213,6 @@ std::string JsToNativeString(JSContext *cx, JSString *jsstring)
 	JS::RootedString rootedJsStr(cx,jsstring);
 	auto encoded = JS_EncodeStringToUTF8(cx,rootedJsStr);
 	return std::string(encoded.get());
-}
-
-void js_finalizer_shared(GCContext* cx, JSObject* obj)
-{
-	(void)cx;
-	if(!obj) return;
-	auto privval = reinterpret_cast<uintptr_t>(JS::GetMaybePtrFromReservedSlot<void>(obj, 0));
-	if(!privval) return;
-	removeSmartPointer(privval);
 }
 
 }

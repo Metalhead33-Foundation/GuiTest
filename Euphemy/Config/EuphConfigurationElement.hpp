@@ -203,7 +203,7 @@ public:
  * @return Reference to the output stream
  */
 template<class CharT, class Traits = std::char_traits<CharT>>
-std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& left, Euph::Conf::ConfigurationElement& right) {
+std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& left, const Euph::Conf::ConfigurationElement& right) {
 	switch (right.type) {
 		case Euph::Conf::ConfigurationElementType::CONF_FLOAT:
 			left << right.storage.f;

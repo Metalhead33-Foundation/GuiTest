@@ -1,0 +1,608 @@
+{
+	"name": "legacy_crpg",
+	"comment": "Skins into 'PROC' name a generated part; `rect` is for hand-authored atlases, `part` for packed ones.",
+	"texture_atlas": [
+		{
+			"alias": "BACKGROUND",
+			"filename": "gfx/background_000.png"
+		},
+		{
+			"alias": "WODMOUSE",
+			"filename": "gfx/wodmouse.png"
+		},
+		{
+			"alias": "HOURGLASS",
+			"filename": "gfx/hourglass2.png"
+		},
+		{
+			"alias": "PROC",
+			"proc": "crpg_stone",
+			"seed": 4242,
+			"scale": 100,
+			"css": "border-width: 5px; background-color: #dfe4ff"
+		}
+	],
+	"elements": {
+		"panel": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						22,
+						22,
+						22,
+						22
+					],
+					"part": "panel"
+				}
+			],
+			"metrics": {
+				"padding": [
+					16,
+					12
+				],
+				"spacing": [
+					8,
+					8
+				],
+				"borderWidth": 2,
+				"cornerRadius": 6
+			}
+		},
+		"button": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "button_idle"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "button_hover"
+				},
+				{
+					"states": [
+						"pressed"
+					],
+					"atlas": "PROC",
+					"tint": "#d8d8d8",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "button_pressed"
+				}
+			],
+			"metrics": {
+				"padding": [
+					10,
+					6
+				],
+				"minimumSize": [
+					96,
+					32
+				],
+				"cornerRadius": 4
+			},
+			"text": {
+				"face": "Vinque",
+				"weight": 400,
+				"size": 20,
+				"colour": "#ffeec0",
+				"css": "font-size: 20px; font-weight: bold; color: #fff4d6"
+			}
+		},
+		"check_box": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"part": "checkbox_empty"
+				},
+				{
+					"states": [
+						"clicked"
+					],
+					"atlas": "PROC",
+					"part": "checkbox_checked"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					24,
+					24
+				]
+			}
+		},
+		"slider_track": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						16,
+						12,
+						16,
+						12
+					],
+					"part": "slider_track"
+				}
+			]
+		},
+		"slider_thumb": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"part": "slider_thumb"
+				}
+			]
+		},
+		"text_box": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						14,
+						14,
+						14,
+						14
+					],
+					"part": "frame_text"
+				}
+			],
+			"text": {
+				"face": "Vinque",
+				"size": 22,
+				"colour": "#e8e8f8"
+			}
+		},
+		"scroll_area": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						16,
+						16,
+						16,
+						16
+					],
+					"part": "slot_group"
+				}
+			]
+		},
+		"window_title_bar": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						30,
+						14,
+						30,
+						14
+					],
+					"part": "title_plate"
+				}
+			],
+			"text": {
+				"face": "Vinque",
+				"weight": 700,
+				"size": 24,
+				"colour": "#ffe9a8"
+			}
+		},
+		"tool_tip": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "bar"
+				}
+			],
+			"text": {
+				"face": "Vinque",
+				"size": 18,
+				"colour": "#d8c98a"
+			}
+		},
+		"radio_button": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"part": "radio_empty"
+				},
+				{
+					"states": [
+						"clicked"
+					],
+					"atlas": "PROC",
+					"part": "radio_checked"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					24,
+					24
+				]
+			}
+		},
+		"scroll_track": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						8,
+						8,
+						8,
+						8
+					],
+					"part": "scroll_track"
+				}
+			]
+		},
+		"scroll_thumb": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"part": "scroll_thumb"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"part": "scroll_thumb",
+					"tint": "#ffffff"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					16,
+					32
+				]
+			}
+		},
+		"tab_bar": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"part": "tab_inactive"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"part": "tab_active"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					96,
+					32
+				]
+			}
+		},
+		"tab_page": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "panel"
+				}
+			]
+		},
+		"combo_box": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "bar"
+				},
+				{
+					"states": [
+						"clicked"
+					],
+					"atlas": "PROC",
+					"part": "tri_down"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					160,
+					36
+				]
+			}
+		},
+		"spin_box": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "bar"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"part": "arrow_up"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					120,
+					36
+				]
+			}
+		},
+		"dial": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"part": "slider_thumb"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					32,
+					32
+				]
+			}
+		},
+		"tool_button": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "gem_tile"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "button_hover"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					40,
+					40
+				]
+			}
+		},
+		"table_view": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						16,
+						16,
+						16,
+						16
+					],
+					"part": "slot_group"
+				}
+			]
+		},
+		"table_header": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						10,
+						10,
+						10,
+						10
+					],
+					"part": "title_plate"
+				}
+			]
+		},
+		"window_border": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						16,
+						16,
+						16,
+						16
+					],
+					"part": "border_strip"
+				}
+			]
+		},
+		"window_background": {
+			"skins": [
+				{
+					"atlas": "PROC",
+					"slice": [
+						16,
+						16,
+						16,
+						16
+					],
+					"part": "panel"
+				}
+			]
+		},
+		"tick_box": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"part": "checkbox_empty"
+				},
+				{
+					"states": [
+						"clicked"
+					],
+					"atlas": "PROC",
+					"part": "checkbox_checked"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					20,
+					20
+				]
+			}
+		},
+		"push_button": {
+			"skins": [
+				{
+					"states": [
+						"idle"
+					],
+					"atlas": "PROC",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "button_idle"
+				},
+				{
+					"states": [
+						"hover"
+					],
+					"atlas": "PROC",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "button_hover"
+				},
+				{
+					"states": [
+						"pressed"
+					],
+					"atlas": "PROC",
+					"slice": [
+						12,
+						12,
+						12,
+						12
+					],
+					"part": "button_pressed"
+				}
+			],
+			"metrics": {
+				"minimumSize": [
+					96,
+					32
+				]
+			}
+		}
+	},
+	"roles": {
+		"body": {
+			"face": "Vinque",
+			"weight": 400,
+			"size": 24,
+			"colour": "#ffffff"
+		},
+		"label": {
+			"face": "Vinque",
+			"weight": 400,
+			"size": 20,
+			"colour": "#ffeec0"
+		},
+		"heading": {
+			"face": "Vinque",
+			"weight": 700,
+			"size": 32,
+			"colour": "#ffd166",
+			"css": "font-size: 34px; letter-spacing: 1px; text-decoration: underline; color: #ffd166"
+		},
+		"window_title": {
+			"face": "Vinque",
+			"weight": 700,
+			"size": 26,
+			"colour": "#ffe9a8"
+		},
+		"placeholder": {
+			"face": "Vinque",
+			"weight": 400,
+			"size": 20,
+			"colour": "#8a8fa8",
+			"italic": true,
+			"css": "font-size: 19px; font-style: italic; color: #8a8fa8"
+		},
+		"tool_tip": {
+			"face": "Vinque",
+			"weight": 400,
+			"size": 18,
+			"colour": "#d8c98a"
+		}
+	}
+}

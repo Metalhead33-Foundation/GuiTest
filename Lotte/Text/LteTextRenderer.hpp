@@ -110,8 +110,27 @@ struct TextRendererSettings {
 	 * Empty uses the factory's device conventions, exactly like the GUI renderer.
 	 */
 	std::optional<Kld::ClipSpaceYAxis> clipSpaceYAxis;
-	/** @brief Dilation for a 300-unit weight increase (normal -> bold), as a fraction of the em size. */
-	float boldStrength = 0.04f;
+	/**
+	 * @brief Dilation for a 300-unit weight increase (normal -> bold), as a fraction of
+	 *        the em size.
+	 *
+	 * The SDF stores a contour at the 0.5 level; the shader shifts the sampling
+	 * threshold by `params.w` pixels, so a positive value thickens the glyph. 2.5% of
+	 * the em per weight step keeps `bold` recognizable without the counters of a heavy
+	 * display face filling in - the 4% it used to be melted a 34 px title into blobs.
+	 */
+	float boldStrength = 0.025f;
+	/**
+	 * @brief Constant threshold shift applied to every glyph, as a fraction of the em.
+	 *
+	 * Negative thins the reconstructed outline. The bias exists because a glyph's SDF
+	 * is normalized per axis when it is packed, which leaves the nominal contour a
+	 * little fatter than the drawn one; a small negative bias restores the crisp edge
+	 * and keeps small text from looking smeared. It is em-relative, like
+	 * @ref boldStrength, so it scales with the size instead of vanishing at 14 px and
+	 * dominating at 64 px.
+	 */
+	float weightBias = -0.010f;
 };
 
 /**

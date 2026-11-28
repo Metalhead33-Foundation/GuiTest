@@ -352,10 +352,10 @@ public:
  * @return Reference to the output stream
  */
 template<class CharT, class Traits = std::char_traits<CharT>>
-std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& left, Euph::Conf::ConfigurationSection& right) {
+std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& left, const Euph::Conf::ConfigurationSection& right) {
 	for(auto it = std::begin(right) ; it != std::end(right); ++it)
 	{
-		left << it->first << '=' << it->second << std::endl;
+		left << it->first << '=' << it->second << '\n';
 	}
 	return left;
 }
@@ -369,10 +369,10 @@ std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& l
  * @return Reference to the output stream
  */
 template<class CharT, class Traits = std::char_traits<CharT>>
-std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& left, Euph::Conf::Configuration& right) {
+std::basic_ostream<CharT,Traits>& operator<<(std::basic_ostream<CharT,Traits>& left, const Euph::Conf::Configuration& right) {
 	for(auto it = std::begin(right) ; it != std::end(right); ++it)
 	{
-		left << '[' << it->first << ']' << '\n' << it->second << std::endl;
+		left << '[' << it->first << ']' << '\n' << it->second << '\n';
 	}
 	return left;
 }
