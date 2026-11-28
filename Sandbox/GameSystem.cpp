@@ -61,6 +61,21 @@ std::optional<Lotte::Gui::CursorAnchor> anchorForNumberKey(SDL_Keycode key)
 	return numberKeyAnchors[key - SDLK_1];
 }
 
+/**
+ * @brief Asks the main loop to stop without tearing SDL down first.
+ *
+ * `SDL_Quit()` destroys the event subsystem while `AppSystem::run()` is still polling
+ * it: the loop would never see a quit event and would keep spinning on a dead SDL (and
+ * the configuration would never be written). Posting `SDL_QUIT` is what the window
+ * manager's close button does, and the loop already treats it as "stop".
+ */
+void postQuitEvent()
+{
+	SDL_Event quitEvent {};
+	quitEvent.type = SDL_QUIT;
+	SDL_PushEvent(&quitEvent);
+}
+
 /** @brief Short name of a clip-space y axis, for the startup log. */
 const char* clipSpaceAxisName(Kld::ClipSpaceYAxis axis) noexcept
 {
@@ -431,7 +446,7 @@ void GameSystem::startScript()
 	scriptHost->localization = &localization;
 	scriptHost->soundPlayer = soundPlayer.get();
 	scriptHost->config = &config;
-	scriptHost->requestQuit = [] { SDL_Quit(); };
+	scriptHost->requestQuit = [] { postQuitEvent(); };
 	scriptHost->setRichText = [this](const Sandbox::RichTextRequest& request) {
 		setRichText(request);
 	};
@@ -573,6 +588,12 @@ void GameSystem::render()
 	if (guiScene) {
 		guiScene->render(*guiRenderer);
 	}
+	// The GUI renderer batches geometry and emits it in `flush()`. The text pass records
+	// into the *same* command buffer and binds its own pipeline, so the widget batch has
+	// to be emitted here: without this flush every widget would be drawn after - and
+	// therefore on top of - the text, which hides exactly the captions that sit on a
+	// button. (`GuiRenderer::flush()` is documented to be callable at any time.)
+	guiRenderer->flush();
 	if (textRenderer && fontReady) {
 		try {
 			textRenderer->setViewportSize(std::uint16_t(width), std::uint16_t(height));
@@ -645,7 +666,9 @@ void GameSystem::handleTouchFingerEvent(const SDL_TouchFingerEvent& event)
 
 void GameSystem::handleKeyboardEvent(const SDL_KeyboardEvent& event)
 {
-	if (event.keysym.sym == SDLK_ESCAPE) SDL_Quit();
+	// Escape is the "abort" of a playground session; it goes through the same path as
+	// the Exit menu entry so the configuration still gets written.
+	if (event.keysym.sym == SDLK_ESCAPE) postQuitEvent();
 	if (event.type != SDL_KEYDOWN || event.repeat != 0) return;
 	if (event.keysym.sym == SDLK_TAB && !cursors.empty()) {
 		activeCursor = (activeCursor + 1) % cursors.size();
@@ -708,7 +731,9 @@ void GameSystem::handleMultiGestureEvent(const SDL_MultiGestureEvent& event)
 
 void GameSystem::handleQuitEvent(const SDL_QuitEvent& event)
 {
-	SDL_Quit();
+	// The window was closed (or `System.quit()` posted a quit event): leave the loop
+	// without tearing SDL down, which is `AppSystem::run()`'s job once it returns.
+	(void)event;
 }
 
 void GameSystem::handleTextEditingEvent(const SDL_TextEditingEvent& event)

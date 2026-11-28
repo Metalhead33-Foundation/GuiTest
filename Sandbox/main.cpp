@@ -1,6 +1,7 @@
 #include "sandbox.hpp"
 #include "GameSystem.hpp"
 #include "ThemeDemo.hpp"
+#include <cstdlib>
 #include <iostream>
 #include <Euphemy/Io/PhysFS.hpp>
 #include <sstream>
@@ -88,5 +89,19 @@ int main(int argc, char *argv[])
 	JS::Core::shutdownJs();
 	PhysFS::System::deinit();
 	std::cout << "Goodbye!" << std::endl;
-	return 0;
+	std::cout.flush();
+	std::cerr.flush();
+	// Everything this program owns has been released by now: `GameSystem` left its scope
+	// above (the sound player, the script context, the renderer and the resource factory
+	// are its members in the order that matters), and the two explicit shutdowns are done.
+	// What is left is third-party process-global state. glslang and SPIRV-Tools keep
+	// tables whose own static destructors walk the heap at exit, and once a Kaldi device
+	// has been created and destroyed that teardown is not reliable: glibc reports a
+	// corrupted arena from `~unordered_set<spv::Op>` in libSPIRV-Tools on roughly two out
+	// of three runs (a run without a device - `--theme`, or `SDL_VIDEODRIVER=dummy` -
+	// exits normally, and so does a standalone shader-compile probe). Leaving through
+	// `_Exit` skips static destruction on purpose instead of depending on that; the
+	// streams above are flushed, so nothing is lost. Revisit this if the shader toolchain
+	// is ever updated or replaced.
+	std::_Exit(0);
 }

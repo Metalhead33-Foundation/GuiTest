@@ -80,6 +80,16 @@ widgets  ->  script context  ->  host  ->  renderer  ->  renderer context
 - the host outlives the context, because those finalizers reach the mixer and the SDL audio device
   through it.
 
+**Leaving the loop.** `System.quit()`, Escape and the window's close button all post an
+`SDL_QUIT` event; nothing calls `SDL_Quit()` while the loop is still polling, because that
+tears the event subsystem down underneath it. After the explicit teardown, `main()` leaves
+through `std::_Exit(0)` on purpose: glslang/SPIRV-Tools keep process-global tables whose
+static destructors walk the heap at exit, and once a Kaldi device has existed that teardown
+aborts with a corrupted arena on roughly two out of three runs. A run without a device
+(`--theme`, or `SDL_VIDEODRIVER=dummy`) and a standalone shader-compile probe both exit
+normally, which is why this is treated as the toolchain's problem - revisit it if the
+shader stack is updated.
+
 Two rules follow for anything added here: a wrapper's finalizer must not set
 `JSCLASS_BACKGROUND_FINALIZE` (background finalization runs on a GC helper thread and would race the
 audio callback), and every audio mutation goes through `SDL_LockAudioDevice` (the `AudioLock` RAII

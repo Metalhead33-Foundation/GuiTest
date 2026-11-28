@@ -76,9 +76,13 @@ float4 main(VsOutput input) : SV_Target {
     float4 raw = textTexture.Sample(textSampler, input.uv);
     float distance = (input.params.x < 0.5) ? raw.r : median3(raw.r, raw.g, raw.b);
     float pxRange = max(max(input.params.y, input.params.z), 1.0);
-    // params.w is the weight threshold offset: positive dilates, negative thins.
-    float weightOffset = input.params.w;
-    float alpha = saturate((distance - 0.5) * pxRange + 0.5 + weightOffset);
+    // params.w is the weight threshold offset *in pixels*, so it belongs in the
+    // distance domain, not in the alpha domain: adding it after the pxRange
+    // conversion made a 1.4 px dilation saturate the whole glyph quad (the padding
+    // runway too), which turned a bold title into a blob. Positive dilates,
+    // negative thins.
+    float weightOffset = input.params.w / pxRange;
+    float alpha = saturate((distance - 0.5 + weightOffset) * pxRange + 0.5);
     return float4(input.color.rgb, input.color.a * alpha);
 }
 )hlsl";
@@ -300,14 +304,15 @@ std::size_t TextRenderer::render(const TextLayout& layout)
 								 effectiveDistanceRange(*face, false) * glyph.size.y / tileSize);
 		// WODF has no weight metadata, so the repository registration supplies the
 		// face weight. A 300-unit increase (normal -> bold) reproduces the historical
-		// 4%-of-em dilation; a regular face at its regular weight stays at exactly 0.
+		// 2.5%-of-em dilation, and every run is additionally thinned by the constant
+		// bias so the reconstructed contour keeps a crisp edge (see the settings doc).
 		const FontWeight faceWeight = repository_->weightForFace(face);
 		const float weightDelta = float(fontWeightValue(style.effectiveWeight()))
 			- float(fontWeightValue(faceWeight));
 		const float weightStep = float(fontWeightValue(FontWeight::Bold)
 			- fontWeightValue(FontWeight::Normal));
-		const float weightPixels = glyph.emSize * settings_.boldStrength
-			* (weightDelta / weightStep);
+		const float weightPixels = glyph.emSize * (settings_.boldStrength
+			* (weightDelta / weightStep) + settings_.weightBias);
 		const int modeValue = static_cast<int>(face->type);
 		const float mode = static_cast<float>(modeValue >= 0 && modeValue <= 2 ? modeValue : 0);
 

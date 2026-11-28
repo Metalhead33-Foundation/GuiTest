@@ -23,11 +23,27 @@ namespace JS {
 std::string JsToNativeString(JSContext* cx, JSString* jsstring);
 
 struct ClassCreator {
+	/** @brief Registers the instance so shutdown can drop its prototype root. */
+	ClassCreator();
+	/** @brief Unregisters the instance. */
+	~ClassCreator();
+	ClassCreator(const ClassCreator&) = delete;
+	ClassCreator& operator=(const ClassCreator&) = delete;
+
 	JSClassOps ops;
 	JSClass protoClass;
 	std::string name;
 	JSNative constructor;
 	unsigned nargs;
+	/**
+	 * @brief The class prototype, rooted for the lifetime of the session.
+	 *
+	 * A creator is a file-static object in every wrapper translation unit, so this
+	 * `RootedObject` would be destroyed *after* `JS_ShutDown()` - at which point
+	 * unrooting touches a runtime that no longer exists (glibc reports the resulting
+	 * heap damage as "corrupted double-linked list"). @ref clearAllClassPrototypes()
+	 * exists so the sandbox can drop every root while the runtime is still alive.
+	 */
 	std::unique_ptr<JS::RootedObject> prototype;
 	std::vector<JSPropertySpec> ps;
 	std::vector<JSFunctionSpec> fs;
@@ -36,6 +52,15 @@ struct ClassCreator {
 	JSObject* registerToJS(JSContext* cx, JS::HandleObject obj);
 	JSObject* registerToJS(JSContext* cx, JS::HandleObject obj, JS::HandleObject prototype);
 };
+
+/**
+ * @brief Drops the prototype root of every live @ref ClassCreator.
+ *
+ * Must be called while the JS runtime is still usable (i.e. before `JS_ShutDown()`,
+ * which `JS::Core::shutdownJs()` does). After it, the creators describe classes whose
+ * context is gone; a later `registerToJS()` would re-root against a fresh context.
+ */
+void clearAllClassPrototypes();
 
 /*
 using JSNative = bool (*)(JSContext* cx, unsigned argc, JS::Value* vp);

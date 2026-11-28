@@ -350,6 +350,14 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 	rendererSettings.clipSpaceYAxis = Kld::ClipSpaceYAxis::Down;
 	Lotte::Text::TextRenderer renderer(factory, repository, rendererSettings);
 
+	// The expectations below are derived from the renderer's own tuning constants, so a
+	// future change to the weight model updates one default instead of five literals.
+	const struct WeightModel {
+		float bold = Lotte::Text::TextRendererSettings{}.boldStrength;
+		float biasFraction = Lotte::Text::TextRendererSettings{}.weightBias;
+		float bias = biasFraction * 14.0f; // the run below is exactly one em of 14 px
+	} weightModel;
+
 	Lotte::Text::TextAttributes attributes;
 	attributes.familyName = "RenderFace";
 	attributes.size = 14.0f; // em = L - P = 14, so the run scale is 1
@@ -383,7 +391,9 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 	CHECK(vertices[0].params.x == Catch::Approx(0.0f));
 	CHECK(vertices[0].params.y == Catch::Approx(expectedParams.y));
 	CHECK(vertices[0].params.z == Catch::Approx(expectedParams.z));
-	CHECK(vertices[0].params.w == Catch::Approx(0.0f));
+	// A regular run carries only the constant bias: the contour is thinned slightly
+	// rather than left at the raw 0.5 threshold (see `TextRendererSettings::weightBias`).
+	CHECK(vertices[0].params.w == Catch::Approx(weightModel.bias));
 	CHECK(vertices[0].colour == attributes.colour);
 
 	const Lotte::Gfx::ClipSpaceConventions conventions =
@@ -411,7 +421,8 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 	CHECK(offsets[1] == 2u * 6u * std::uint32_t(sizeof(std::uint32_t)));
 
 	// Bold is a per-vertex weight shift. The historical boolean bold request still
-	// maps to 700, i.e. exactly 4% of the em on a regular 400 face.
+	// maps to 700, i.e. one `boldStrength` step of the em on a regular 400 face, on
+	// top of the constant bias.
 	Lotte::Text::TextAttributes boldAttributes = attributes;
 	boldAttributes.bold = true;
 	boldAttributes.underline = false;
@@ -424,7 +435,7 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 	const Lotte::Text::TextGuiVertex* boldVertices = uploadedTextVertices(dispatcher, vertexCount);
 	REQUIRE(boldVertices != nullptr);
 	REQUIRE(vertexCount == 4);
-	CHECK(boldVertices[0].params.w == Catch::Approx(14.0f * 0.04f));
+	CHECK(boldVertices[0].params.w == Catch::Approx(14.0f * (weightModel.bold + weightModel.biasFraction)));
 
 	// A weight between normal and bold scales that dilation proportionally.
 	Lotte::Text::TextAttributes semiBoldAttributes = attributes;
@@ -441,7 +452,8 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 		uploadedTextVertices(dispatcher, vertexCount);
 	REQUIRE(semiBoldVertices != nullptr);
 	REQUIRE(vertexCount == 4);
-	CHECK(semiBoldVertices[0].params.w == Catch::Approx(14.0f * 0.04f * (200.0f / 300.0f)));
+	CHECK(semiBoldVertices[0].params.w ==
+		  Catch::Approx(14.0f * (weightModel.bold * (200.0f / 300.0f) + weightModel.biasFraction)));
 
 	// Lighter weights shift the threshold the other way.
 	Lotte::Text::TextAttributes lightAttributes = attributes;
@@ -458,7 +470,8 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 		uploadedTextVertices(dispatcher, vertexCount);
 	REQUIRE(lightVertices != nullptr);
 	REQUIRE(vertexCount == 4);
-	CHECK(lightVertices[0].params.w == Catch::Approx(14.0f * 0.04f * (-100.0f / 300.0f)));
+	CHECK(lightVertices[0].params.w ==
+		  Catch::Approx(14.0f * (weightModel.bold * (-100.0f / 300.0f) + weightModel.biasFraction)));
 
 	// A real bold face must not be dilated a second time by the shader.
 	auto boldFace = makeFace("RenderFace Bold");
@@ -477,7 +490,7 @@ TEST_CASE("The text renderer emits SDF vertices, colours, bold and decorations",
 		uploadedTextVertices(dispatcher, vertexCount);
 	REQUIRE(realBoldVertices != nullptr);
 	REQUIRE(vertexCount == 4);
-	CHECK(realBoldVertices[0].params.w == Catch::Approx(0.0f));
+	CHECK(realBoldVertices[0].params.w == Catch::Approx(weightModel.bias));
 }
 
 TEST_CASE("An MSDF face selects the median mode and pages split the draw runs", "[text][renderer]")

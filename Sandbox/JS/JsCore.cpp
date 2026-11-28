@@ -263,6 +263,11 @@ bool Core::inintializeJs()
 
 void Core::shutdownJs()
 {
+	// The wrapper classes keep their prototypes in file-static `ClassCreator` objects,
+	// whose destructors run *after* this function returns. Unrooting a `RootedObject`
+	// after `JS_ShutDown()` writes into a destroyed runtime, so the roots are dropped
+	// here, while it is still alive.
+	clearAllClassPrototypes();
 	JS_ShutDown();
 }
 void Core::registerGlobals(const JS::HandleObject &global)

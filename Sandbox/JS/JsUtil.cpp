@@ -1,8 +1,52 @@
 #include "JsUtil.hpp"
+#include <algorithm>
 #include <exception>
 #include <js/Class.h>
 #include <js/Proxy.h>
 namespace JS {
+
+namespace {
+
+/**
+ * @brief Every live @ref JS::ClassCreator, so shutdown can drop their roots.
+ *
+ * A function-local static, because the creators themselves are statics in several
+ * translation units and the registry has to exist before the first of them is
+ * constructed.
+ */
+std::vector<ClassCreator*>& classCreatorRegistry()
+{
+	static std::vector<ClassCreator*> registry;
+	return registry;
+}
+
+} // namespace
+
+ClassCreator::ClassCreator()
+{
+	classCreatorRegistry().push_back(this);
+}
+
+ClassCreator::~ClassCreator()
+{
+	auto& registry = classCreatorRegistry();
+	const auto found = std::find(registry.begin(), registry.end(), this);
+	if (found != registry.end()) {
+		registry.erase(found);
+	}
+}
+
+void clearAllClassPrototypes()
+{
+	for (ClassCreator* creator : classCreatorRegistry()) {
+		if (creator == nullptr) {
+			continue;
+		}
+		// Releasing the root here, while the runtime is alive, is the whole point: the
+		// static destructors run after `JS_ShutDown()`.
+		creator->prototype.reset();
+	}
+}
 
 JSObject* ClassCreator::registerToJS(JSContext* cx, JS::HandleObject obj)
 {
