@@ -274,10 +274,15 @@ the gate, and it is warning-free.
 The HTML theme is read from `extern/doxygen-awesome-css`, a submodule of this tree: the
 `Doxyfile` names its stylesheets and scripts by path, so a checkout that skipped
 `git submodule update --init --recursive` renders unstyled and reports that those files
-cannot be read.
+cannot be read. Every entry in `.gitmodules` must be a *clone* URL: the
+`https://api.github.com/repos/<owner>/<repo>.git` form is the REST API and answers a git
+fetch with `403`, which is a checkout failure, not a rendering one.
 
 The GitHub Actions workflow (`.github/workflows/doxygen.yml`) runs the same render into
-`build/doxygen/html`, uploads it as an artifact and publishes it to GitHub Pages. It turns
+`build/doxygen/html`, uploads it as an artifact and publishes it to GitHub Pages. It checks
+out that one submodule by path (`git submodule update --init extern/doxygen-awesome-css`)
+instead of the whole `extern/` tree, so publishing the reference does not depend on the
+Windows-only header mirrors and the vendored CSS engine that no Doxygen run reads. It turns
 each warning into a run annotation instead of a red build, because `WARN_AS_ERROR = NO` is
 the committed policy — the render is expected to be clean, and a warning that appears is
 visible on the run rather than silently ignored.

@@ -62,10 +62,35 @@ jobs:
     name: Render the reference
     runs-on: ubuntu-latest
     steps:
+      # The tree alone. `submodules: true` would fetch the whole `extern/` set,
+      # but the render opens exactly one entry of it (the theme, below): the rest
+      # are Windows-only header mirrors and the vendored CSS engine, which need a
+      # compiler and a platform the site does not. Publishing the reference must
+      # not depend on repositories no Doxygen run ever reads — and a broken entry
+      # among them fails this job before Doxygen is even installed.
       - name: Check out the tree
         uses: actions/checkout@v7
-        with:
-          submodules: true
+
+      # By path, so only the theme is cloned. `Doxyfile` names these stylesheets
+      # and scripts individually: a submodule that was skipped silently would
+      # render an unstyled site, so the `test` makes that a failed run instead of
+      # a grey page.
+      #
+      # The URL check is the regression this job paid for: a `.gitmodules` entry
+      # must be the clone URL, because `https://api.github.com/repos/<o>/<r>.git`
+      # is the REST API and answers a git fetch with 403
+      # (docs/DOCUMENTATION.md §8). Now that this job checks out one submodule
+      # only, nothing else here would notice a broken entry.
+      - name: Check out the theme
+        run: |
+          urls=$(git config -f .gitmodules --get-regexp '^submodule\..*\.url$')
+          if grep -q 'api\.github\.com' <<< "$urls"; then
+            echo "::error title=.gitmodules::A submodule URL points at the GitHub REST API, not at a git repository."
+            grep 'api\.github\.com' <<< "$urls"
+            exit 1
+          fi
+          git submodule update --init extern/doxygen-awesome-css
+          test -f extern/doxygen-awesome-css/doxygen-awesome.css
 
       - name: Install Doxygen
         run: |

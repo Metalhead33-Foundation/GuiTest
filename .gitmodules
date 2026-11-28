@@ -6,7 +6,7 @@
 	url = https://github.com/microsoft/DirectX-Headers
 [submodule "extern/DXSDK"]
 	path = extern/DXSDK
-	url = https://api.github.com/repos/apitrace/dxsdk.git
+	url = https://github.com/apitrace/dxsdk.git
 [submodule "extern/netsurf/libwapcaplet"]
 	path = extern/netsurf/libwapcaplet
 	url = git://git.netsurf-browser.org/libwapcaplet.git
