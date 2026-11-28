@@ -46,13 +46,45 @@ Two rules keep the script honest:
   (`element: 'button'`, `role: 'heading'`, or a `style` object from `System.textStyle()`), so a
   new theme restyles the menu without touching the script.
 
+### Layout: a virtual canvas, not window pixels
+
+A script lays its GUI out on a **virtual canvas** and never reads the window size to do it.
+`new GUI.Layout({width: 800, height: 600})` declares that canvas; every `x`/`y`/`width`/`height`
+afterwards is in *canvas units*, and the engine maps the canvas onto whatever the window is:
+
+| Window | Canvas | Scale | Result |
+|---|---|---|---|
+| 800x600 | 800x600 | 1.00 | identical to the design |
+| 640x480 | 800x600 | 0.80 | the whole menu, 20% smaller - nothing clipped |
+| 1920x1080 | 800x600 | 1.80 | 1440x1080 of canvas, centred, letterboxed left and right |
+
+Three numbers describe the mapping, and they are all a layout ever needs:
+
+* `UI.scale` - real pixels per canvas unit (what a font size is multiplied by: a 34-unit
+  caption is 27.2 real pixels at 0.8x, and the SDF atlas is rasterized at 27.2, not scaled up).
+* `UI.aspect` - the canvas's width/height. `UI.resolution` reports the window's, for the rare
+  case that truly needs it (a screenshot filename, a debug overlay); a layout should not.
+* `UI.visibleWidth` / `UI.visibleHeight` - how much canvas the window shows. Under `mode: 'fit'`
+  (the default) this is never smaller than the canvas, so the canvas always fits; when the window
+  is wider than 4:3 it is *wider* than the canvas, which is the room a future "big screens get more
+  room" policy may grow into. `mode: 'fill'` covers the window instead and crops the overflow.
+
+Two ways to write a coordinate, both resolution-free: canvas units (`y: 160`) or normalized
+fractions of the canvas (`UI.x(0.5)`, `UI.w(0.45)`). `uiScale` is the player-facing multiplier on
+`scale` - the knob for "the text is too small at 4K"; `minScale`/`maxScale` clamp the result and
+are off by default, because clamping trades "the canvas always fits" for "the text is never huge",
+and that trade-off is a policy this tree has not decided yet.
+
+A widget created *before* any layout exists lives on a canvas equal to the window, i.e. canvas
+units are pixels - which is what an old pixel-based script expects.
+
 ### The script modules
 
 | Module | Surface | Backing engine type |
 |---|---|---|
-| `System` | `setRichText(mml, {x, y, spacing, wordSpacing, scale})`, `loadTexture(path)` / `new System.Texture(path)`, `textStyle(roleOrElement)`, `setConfig(section, key, number)`, `quit()`, `viewport` | `Lotte::Text` MML + layout, `Lotte::Gfx::WriteableTexture2D`, `Lotte::Gui::Theme::textStyle()`/`elementTextStyle()`, `Euph::Conf::Configuration` |
+| `System` | `setRichText(mml, {x, y, spacing, wordSpacing, scale})`, `loadTexture(path)` / `new System.Texture(path)`, `textStyle(roleOrElement)`, `setConfig(section, key, number)`, `quit()`, `viewport` (the *real* window size; a layout should use `GUI.Layout` instead) | `Lotte::Text` MML + layout, `Lotte::Gfx::WriteableTexture2D`, `Lotte::Gui::Theme::textStyle()`/`elementTextStyle()`, `Euph::Conf::Configuration` |
 | `Localization` | one read-only property per loaded key (`L.menu_exit`), `get(key)` with the key as the fallback, `count` | `Euph::Loc::Localization` |
-| `GUI` | `new GUI.Button({x, y, width, height, element?, texture?, uv?, colours?, enabled?, hidden?})`, properties `x`, `y`, `width`, `height`, `enabled`, `hidden`, `hovered`, `pressed`, method `remove()`, and the assignable `onClick`; `new GUI.Slider({x, y, width, height, min, max, step, value, orientation?, enabled?, hidden?})` with `value`, `min`, `max`, `enabled`, `hidden`, `remove()` and the assignable `onChange`; `new GUI.Label({text? | key?, element? | role? | style?, align?, scale?, x, y, width, height, hidden?})` with `text`, `key`, `hidden`, `box(x, y, width, height)` and `remove()`. When a theme is loaded the widget is drawn through `element` (default `button`) and `width`/`height` default to that element's `minimumSize`; `texture`/`uv`/`colours` stay as the unthemed fallback | `Sandbox::ScriptButton` in a `Sandbox::GuiScene` |
+| `GUI` | `new GUI.Layout({width, height, mode?, uiScale?, minScale?, maxScale?})` with `width`, `height`, `aspect`, `scale`, `visibleWidth`, `visibleHeight`, `mode`, `resolution`, the assignable `uiScale` and the normalized helpers `x(n)`, `y(n)`, `w(n)`, `h(n)`; `new GUI.Button({x, y, width, height, element?, texture?, uv?, colours?, enabled?, hidden?})`, properties `x`, `y`, `width`, `height`, `enabled`, `hidden`, `hovered`, `pressed`, method `remove()`, and the assignable `onClick`; `new GUI.Slider({x, y, width, height, min, max, step, value, orientation?, enabled?, hidden?})` with `value`, `min`, `max`, `enabled`, `hidden`, `remove()` and the assignable `onChange`; `new GUI.Label({text? | key?, element? | role? | style?, align?, scale?, x, y, width, height, hidden?})` with `text`, `key`, `hidden`, `box(x, y, width, height)` and `remove()`. When a theme is loaded the widget is drawn through `element` (default `button`) and `width`/`height` default to that element's `minimumSize`; `texture`/`uv`/`colours` stay as the unthemed fallback | `Sandbox::ScriptButton` in a `Sandbox::GuiScene` |
 | `Audio` | `new Audio.Module(path, {volume, repeating, playing})`, properties `playing`, `paused`, `status`, `volume`, `repeating`, `cursor`, `valid`, method `stop()`; `new Audio.Sound(path, {volume})` with `valid`, `volume`, `duration` and `play()` - a missing file yields `valid === false`, and `play()` is then a no-op | `Hrk::ModuleStreamer` inside the sandbox's `Hrk::Mixer`, and `Hrk::SoundPlayer` for one-shots |
 | `IO` | `new IO.File(path, "r"\|"w"\|"a"\|"rw"\|"ra")`, `readString()`, `read(n)`, `writeString(s)`, `seek(offset, "set"\|"cur"\|"end")`, `flush()`, `size`, `tell`, `eof`, `valid`; `IO.exists`, `IO.isFile`, `IO.isDirectory` | `Elv::Io::System` / `Elv::Io::Device` |
 | `random`, `CONFIG`, `console`, `print`, `require`, `dofile` | unchanged | `JsRandom`, `Euph::Conf::Configuration` |

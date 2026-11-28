@@ -97,3 +97,14 @@ Whenever calling `git`, always use `--no-pager`.
    a surface, value noise keeps its place where the lattice *is* the effect, the finest octave
    stays at or above ~2 px per cycle, and a stretched field gets exactly one octave. The
    parchment hatch and both of its causes are written up in `docs/PROCEDURAL.md` §5.
+
+**A GUI layout is written on a virtual canvas, never in window pixels.** The design size is a
+   `Lotte::Gui::ViewportSettings::canvas` (800x600 in the sandbox) and
+   `Lotte::Gui::GuiViewport` is the only place a real resolution may enter: it turns canvas
+   units into pixels with one uniform factor (`fit` keeps the whole canvas and letterboxes,
+   `fill` covers the window and crops). Widget rectangles, font sizes and mouse positions all
+   pass through it, so "GUI scale" is one number rather than a per-element concern, and a script
+   that never reads `GUI.Layout.resolution` works on every window. A widget's box is stored in
+   *canvas* units by `Sandbox::GuiScene` and re-derived on every viewport change - never cache a
+   pixel rectangle in a script. A layout may use `0..1` fractions (`UI.x(0.5)`) instead of
+   numbers, but it must not branch on the window size to fake scaling.

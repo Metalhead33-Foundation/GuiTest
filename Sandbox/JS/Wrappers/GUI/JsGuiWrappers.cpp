@@ -40,6 +40,20 @@ bool boolProperty(JSContext* cx, JS::HandleObject object, const char* name, bool
 	return value.toBoolean();
 }
 
+/// @brief The canvas rectangle a widget was authored with.
+Sandbox::CanvasRect canvasRectOf(const std::shared_ptr<Sandbox::ScriptButton>& button)
+{
+	return gHost->gui->canvasRect(*button);
+}
+
+/// @brief Re-places a widget from a canvas rectangle the script just changed.
+void placeAt(JS::CallArgs& args, const std::shared_ptr<Sandbox::ScriptButton>& button,
+			 const Sandbox::CanvasRect& rect)
+{
+	gHost->gui->setCanvasRect(*button, rect);
+	args.rval().set(args.get(0));
+}
+
 /// @brief The button behind `this`, never null.
 std::shared_ptr<Sandbox::ScriptButton> buttonFromThis(JS::CallArgs& args)
 {
@@ -187,12 +201,14 @@ bool js_gui_button_constructor(JSContext* cx, unsigned argc, JS::Value* vp)
 			if (metrics.minimumSize.y > 0.0f) defaultSize.y = metrics.minimumSize.y;
 			button->setThemeElement(host->theme, element);
 		}
-		const double x = numberProperty(cx, options, "x", 0.0);
-		const double y = numberProperty(cx, options, "y", 0.0);
-		const double width = numberProperty(cx, options, "width", double(defaultSize.x));
-		const double height = numberProperty(cx, options, "height", double(defaultSize.y));
-		button->setPosition(glm::fvec2(float(x), float(y)),
-			glm::fvec2(float(x + width), float(y + height)));
+		// x/y/width/height are *canvas* units: the scene turns them into pixels through the
+		// viewport, which is what makes the same script fit every window size.
+		Sandbox::CanvasRect rect;
+		rect.origin.x = static_cast<float>(numberProperty(cx, options, "x", 0.0));
+		rect.origin.y = static_cast<float>(numberProperty(cx, options, "y", 0.0));
+		rect.size.x = static_cast<float>(numberProperty(cx, options, "width", defaultSize.x));
+		rect.size.y = static_cast<float>(numberProperty(cx, options, "height", defaultSize.y));
+		host->gui->setCanvasRect(*button, rect);
 		button->setFlag<Lotte::Gui::WidgetStateFlag::Enabled>(
 			boolProperty(cx, options, "enabled", true));
 		button->setHidden(boolProperty(cx, options, "hidden", false));
@@ -223,7 +239,7 @@ bool js_button_get_x(JSContext* cx, unsigned argc, JS::Value* vp)
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
 		(void)argc;
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		setReturnValue(cx, args.rval(), buttonFromThis(args)->topLeft().x);
+		setReturnValue(cx, args.rval(), canvasRectOf(buttonFromThis(args)).origin.x);
 		return true;
 	}, cx, argc, vp);
 }
@@ -234,10 +250,9 @@ bool js_button_set_x(JSContext* cx, unsigned argc, JS::Value* vp)
 	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto button = buttonFromThis(args);
-		const float x = static_cast<float>(args.get(0).toNumber());
-		button->setPosition(glm::fvec2(x, button->topLeft().y),
-			glm::fvec2(x + button->size().x, button->bottomRight().y));
-		args.rval().set(args.get(0));
+		Sandbox::CanvasRect rect = canvasRectOf(button);
+		rect.origin.x = static_cast<float>(args.get(0).toNumber());
+		placeAt(args, button, rect);
 		return true;
 	}, cx, argc, vp);
 }
@@ -248,7 +263,7 @@ bool js_button_get_y(JSContext* cx, unsigned argc, JS::Value* vp)
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
 		(void)argc;
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		setReturnValue(cx, args.rval(), buttonFromThis(args)->topLeft().y);
+		setReturnValue(cx, args.rval(), canvasRectOf(buttonFromThis(args)).origin.y);
 		return true;
 	}, cx, argc, vp);
 }
@@ -259,10 +274,9 @@ bool js_button_set_y(JSContext* cx, unsigned argc, JS::Value* vp)
 	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto button = buttonFromThis(args);
-		const float y = static_cast<float>(args.get(0).toNumber());
-		button->setPosition(glm::fvec2(button->topLeft().x, y),
-			glm::fvec2(button->bottomRight().x, y + button->size().y));
-		args.rval().set(args.get(0));
+		Sandbox::CanvasRect rect = canvasRectOf(button);
+		rect.origin.y = static_cast<float>(args.get(0).toNumber());
+		placeAt(args, button, rect);
 		return true;
 	}, cx, argc, vp);
 }
@@ -279,7 +293,7 @@ bool js_button_get_width(JSContext* cx, unsigned argc, JS::Value* vp)
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
 		(void)argc;
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		setReturnValue(cx, args.rval(), buttonFromThis(args)->size().x);
+		setReturnValue(cx, args.rval(), canvasRectOf(buttonFromThis(args)).size.x);
 		return true;
 	}, cx, argc, vp);
 }
@@ -290,10 +304,9 @@ bool js_button_set_width(JSContext* cx, unsigned argc, JS::Value* vp)
 	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto button = buttonFromThis(args);
-		const float width = static_cast<float>(args.get(0).toNumber());
-		button->setBottomRight(
-			glm::fvec2(button->topLeft().x + width, button->bottomRight().y));
-		args.rval().set(args.get(0));
+		Sandbox::CanvasRect rect = canvasRectOf(button);
+		rect.size.x = static_cast<float>(args.get(0).toNumber());
+		placeAt(args, button, rect);
 		return true;
 	}, cx, argc, vp);
 }
@@ -304,7 +317,7 @@ bool js_button_get_height(JSContext* cx, unsigned argc, JS::Value* vp)
 	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
 		(void)argc;
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-		setReturnValue(cx, args.rval(), buttonFromThis(args)->size().y);
+		setReturnValue(cx, args.rval(), canvasRectOf(buttonFromThis(args)).size.y);
 		return true;
 	}, cx, argc, vp);
 }
@@ -315,10 +328,9 @@ bool js_button_set_height(JSContext* cx, unsigned argc, JS::Value* vp)
 	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto button = buttonFromThis(args);
-		const float height = static_cast<float>(args.get(0).toNumber());
-		button->setBottomRight(
-			glm::fvec2(button->bottomRight().x, button->topLeft().y + height));
-		args.rval().set(args.get(0));
+		Sandbox::CanvasRect rect = canvasRectOf(button);
+		rect.size.y = static_cast<float>(args.get(0).toNumber());
+		placeAt(args, button, rect);
 		return true;
 	}, cx, argc, vp);
 }

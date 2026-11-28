@@ -44,6 +44,7 @@ SOURCES += main.cpp sandbox.cpp \
     JS/Wrappers/Audio/JsAudioPlayer.cpp \
     JS/Wrappers/Audio/JsSound.cpp \
     JS/Wrappers/GUI/JsGuiLabel.cpp \
+    JS/Wrappers/GUI/JsGuiLayout.cpp \
     JS/Wrappers/GUI/JsGuiSlider.cpp \
     JS/Wrappers/GUI/JsGuiWrappers.cpp \
     JS/Wrappers/Io/JsIO.cpp \
@@ -65,6 +66,7 @@ HEADERS += sandbox.hpp \
     JS/Wrappers/Audio/JsAudioPlayer.hpp \
     JS/Wrappers/Audio/JsSound.hpp \
     JS/Wrappers/GUI/JsGuiLabel.hpp \
+    JS/Wrappers/GUI/JsGuiLayout.hpp \
     JS/Wrappers/GUI/JsGuiSlider.hpp \
     JS/Wrappers/GUI/JsGuiWrappers.hpp \
     JS/Wrappers/Io/JsIO.hpp \

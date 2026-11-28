@@ -79,12 +79,13 @@ bool js_gui_slider_constructor(JSContext* cx, unsigned argc, JS::Value* vp)
 						 float(numberProperty(cx, options, "max", 1.0)),
 						 float(numberProperty(cx, options, "step", 0.0)));
 		slider->setValue(float(numberProperty(cx, options, "value", 0.0)));
-		const double x = numberProperty(cx, options, "x", 0.0);
-		const double y = numberProperty(cx, options, "y", 0.0);
-		const double width = numberProperty(cx, options, "width", 240.0);
-		const double height = numberProperty(cx, options, "height", 32.0);
-		slider->setPosition(glm::fvec2(float(x), float(y)),
-							glm::fvec2(float(x + width), float(y + height)));
+		// Canvas units, like every other widget: the viewport turns them into pixels.
+		Sandbox::CanvasRect rect;
+		rect.origin.x = static_cast<float>(numberProperty(cx, options, "x", 0.0));
+		rect.origin.y = static_cast<float>(numberProperty(cx, options, "y", 0.0));
+		rect.size.x = static_cast<float>(numberProperty(cx, options, "width", 240.0));
+		rect.size.y = static_cast<float>(numberProperty(cx, options, "height", 32.0));
+		host->gui->setCanvasRect(*slider, rect);
 		slider->setFlag<Lotte::Gui::WidgetStateFlag::Enabled>(
 			boolProperty(cx, options, "enabled", true));
 		slider->setHidden(boolProperty(cx, options, "hidden", false));

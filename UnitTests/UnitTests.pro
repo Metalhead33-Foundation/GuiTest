@@ -145,6 +145,7 @@ SOURCES += \
     tests/FontRoundTripTests.cpp \
     tests/FormatTranslationTests.cpp \
     tests/GuiSliderTests.cpp \
+    tests/GuiViewportTests.cpp \
     tests/GuiWidgetTests.cpp \
     tests/HarukaStreamerRingTests.cpp \
     tests/HttpTests.cpp \

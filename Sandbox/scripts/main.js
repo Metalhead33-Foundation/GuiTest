@@ -136,20 +136,31 @@ function showScreen(name) {
     }
 }
 
-// 5. The main menu. Every entry is either disabled for now or wired to a screen.
-const viewport = System.viewport;
-const buttonWidth = Math.min(360, viewport.width - 128);
-const buttonHeight = 56;
-const buttonGap = 14;
-const columnX = (viewport.width - buttonWidth) / 2;
+// 5. The layout. `UI` is a *virtual canvas*: every number below is in canvas units, so
+//    the same menu appears on a 640x480 window and on a 1920x1080 one. The engine fits
+//    the canvas into the window (0.8x at 640x480, letterboxed when the window is wider
+//    than 4:3), and the script never reads the real resolution to do it.
+//
+//    Two ways to write a coordinate, both resolution-free:
+//      * canvas units      - `y: 160`, `width: 360`
+//      * normalized 0..1   - `UI.x(0.5)`, `UI.w(0.45)`
+const UI = new GUI.Layout({ width: 800, height: 600 });
+print(`Layout: ${UI.width}x${UI.height} canvas at ${UI.scale.toFixed(2)}x ` +
+      `(${UI.resolution.width}x${UI.resolution.height} window)`);
+
+const BUTTON_WIDTH = 360;
+const BUTTON_HEIGHT = 56;
+const BUTTON_GAP = 14;
+const COLUMN_X = (UI.width - BUTTON_WIDTH) / 2;
+const ROW_PITCH = BUTTON_HEIGHT + BUTTON_GAP;
 
 addLabel(screens.menu, {
     key: 'menu_title',
     role: 'heading',
     align: 'centre',
-    x: columnX,
+    x: COLUMN_X,
     y: 56,
-    width: buttonWidth,
+    width: BUTTON_WIDTH,
     height: 64
 });
 
@@ -164,9 +175,9 @@ const entries = [
 let nextY = 160;
 for (const entry of entries) {
     addButton(screens.menu, entry.key,
-        { x: columnX, y: nextY, width: buttonWidth, height: buttonHeight },
+        { x: COLUMN_X, y: nextY, width: BUTTON_WIDTH, height: BUTTON_HEIGHT },
         { enabled: entry.enabled, onClick: entry.onClick });
-    nextY += buttonHeight + buttonGap;
+    nextY += ROW_PITCH;
 }
 
 // 6. The settings screen. Only volumes for now; the resolution picker waits for a
@@ -174,21 +185,31 @@ for (const entry of entries) {
 addLabel(screens.settings, {
     key: 'settings_title',
     role: 'heading',
-    x: columnX,
+    x: COLUMN_X,
     y: 56,
-    width: buttonWidth,
+    width: BUTTON_WIDTH,
     height: 64
 });
 addLabel(screens.settings, {
     key: 'settings_hint',
     role: 'placeholder',
-    x: columnX,
+    x: COLUMN_X,
     y: 120,
-    width: buttonWidth,
+    width: BUTTON_WIDTH,
     height: 32
 });
 
-const sliderWidth = columnX > 160 ? columnX - 48 : buttonWidth;
+// The right half is written with normalized helpers: the slider starts just past the
+// middle of the canvas and the readout keeps a fixed slice of the right edge.
+const MARGIN = UI.w(0.06);                       // 48 canvas units
+const SLIDER_X = UI.x(0.51);                     // 408
+const READOUT_WIDTH = UI.w(0.09);                // 72
+const READOUT_X = UI.width - MARGIN - READOUT_WIDTH;
+const SLIDER_WIDTH = READOUT_X - SLIDER_X - MARGIN;
+
+// The settings rows are tighter than the menu's button pitch: a slider row is 40 high.
+const SETTINGS_ROW_PITCH = 56;
+
 const settingsRows = [
     { label: 'settings_volume_master', field: 'master' },
     { label: 'settings_volume_music', field: 'music' },
@@ -201,16 +222,15 @@ for (const row of settingsRows) {
         key: row.label,
         role: 'label',
         align: 'right',
-        x: 48,
+        x: MARGIN,
         y: rowY,
-        width: Math.max(sliderWidth - 48, 120),
+        width: Math.max(SLIDER_X - MARGIN - MARGIN, 120),
         height: 40
     });
-    const sliderLeft = Math.max(sliderWidth, 160) + 48;
     const slider = new GUI.Slider({
-        x: sliderLeft,
+        x: SLIDER_X,
         y: rowY + 4,
-        width: viewport.width - sliderLeft - 128,
+        width: SLIDER_WIDTH,
         height: 32,
         min: 0,
         max: 1,
@@ -221,9 +241,9 @@ for (const row of settingsRows) {
         text: `${Math.round(volumes[row.field] * 100)}%`,
         role: 'label',
         align: 'left',
-        x: viewport.width - 120,
+        x: READOUT_X,
         y: rowY,
-        width: 72,
+        width: READOUT_WIDTH,
         height: 40
     });
     slider.onChange = function (value) {
@@ -233,11 +253,11 @@ for (const row of settingsRows) {
         persistVolumes();
     };
     screens.settings.widgets.push(slider);
-    rowY += 56;
+    rowY += SETTINGS_ROW_PITCH;
 }
 
 addButton(screens.settings, 'menu_back',
-    { x: columnX, y: rowY + 24, width: buttonWidth, height: buttonHeight },
+    { x: COLUMN_X, y: rowY + 24, width: BUTTON_WIDTH, height: BUTTON_HEIGHT },
     { enabled: true, onClick: () => showScreen('menu') });
 
 // 7. Start on the menu; the settings screen exists but is hidden.

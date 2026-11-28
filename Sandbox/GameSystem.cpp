@@ -22,6 +22,7 @@
 #include "JS/Wrappers/Audio/JsAudioPlayer.hpp"
 #include "JS/Wrappers/Audio/JsSound.hpp"
 #include "JS/Wrappers/GUI/JsGuiLabel.hpp"
+#include "JS/Wrappers/GUI/JsGuiLayout.hpp"
 #include "JS/Wrappers/GUI/JsGuiSlider.hpp"
 #include "JS/Wrappers/GUI/JsGuiWrappers.hpp"
 #include "JS/Wrappers/Io/JsIO.hpp"
@@ -128,7 +129,13 @@ void GameSystem::installLabelLayout()
 		Lotte::Text::TextLayoutOptions options;
 		// The service lays the text out around the origin; the scene centres the result
 		// inside the label's box, so nothing here needs to know the box.
-		options.scale = label.scale();
+		//
+		// Two scales meet here and both are wanted: `scale()` is the script's own
+		// multiplier, `pixelScale()` is the viewport's (real pixels per canvas unit). A
+		// 34 canvas-unit caption on a 0.8x viewport lays out at 27.2 px, and the SDF
+		// atlas rasterizes that size rather than the canvas size, so the text stays sharp
+		// instead of being a scaled bitmap.
+		options.scale = label.scale() * label.pixelScale();
 		return Lotte::Text::layoutRuns(runs,
 			[this](const std::string& family, Lotte::Text::FontWeight weight) {
 				return fontRepository->faceFor(family, weight);
@@ -197,6 +204,16 @@ void GameSystem::startGraphics()
 			Lotte::Gui::KaldiGuiRendererSettings{ std::uint16_t(width),
 							      std::uint16_t(height) });
 		guiScene = std::make_unique<Sandbox::GuiScene>(kaldi->resources());
+		// Until a script asks for a designed canvas (`new GUI.Layout`), the canvas is the
+		// window itself: one canvas unit is one pixel, which is what a layout written in
+		// window pixels expects. The scene owns the mapping from here on, so a script can
+		// replace it without the application caring.
+		{
+			Lotte::Gui::ViewportSettings viewportSettings;
+			viewportSettings.canvas = glm::fvec2(float(width), float(height));
+			guiScene->setViewport(std::make_shared<Lotte::Gui::GuiViewport>(
+				viewportSettings, glm::fvec2(float(width), float(height))));
+		}
 		loadFont();
 		loadCursors();
 		// Pipeline creation, texture creation and the initial texture uploads are
@@ -497,6 +514,7 @@ void GameSystem::startScript()
 		JS::RegisterGuiClasses(&ctx, obj, *scriptHost);
 		JS::RegisterGuiSliderClass(&ctx, obj, *scriptHost);
 		JS::RegisterGuiLabelClass(&ctx, obj, *scriptHost);
+		JS::RegisterGuiLayoutClass(&ctx, obj, *scriptHost);
 	});
 	jsCore->insertModule("IO", [this](JSContext& ctx, JS::RootedObject& obj) {
 		JS::CreateIOClasses(&ctx, obj, *scriptHost);

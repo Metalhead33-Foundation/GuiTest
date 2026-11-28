@@ -31,6 +31,7 @@
 #include <Lotte/Gui/LteGuiRenderable.hpp>
 #include <Lotte/Gui/LteGuiRenderer.hpp>
 #include <Lotte/Gui/LteGuiRootNode.hpp>
+#include <Lotte/Gui/LteGuiViewport.hpp>
 #include <Lotte/Gui/LteSlider.hpp>
 #include <Lotte/Gui/LteTexturedWidget.hpp>
 #include <Lotte/Gui/LteTheme.hpp>
@@ -66,6 +67,21 @@ enum class ButtonVisual : std::uint8_t {
 
 /** @brief Number of @ref ButtonVisual entries. */
 inline constexpr std::size_t ButtonVisualCount = 4;
+
+/**
+ * @brief A widget's or label's rectangle in virtual canvas units.
+ *
+ * The scene keeps every geometry in *canvas* units and derives the real-pixel
+ * rectangle through its @ref Lotte::Gui::GuiViewport, so a layout is written once
+ * and re-applied whenever the window (or the GUI scale) changes. A script that
+ * authors for 800x600 gets the same menu on any window size.
+ */
+struct CanvasRect {
+	/** @brief Top-left corner in canvas units. */
+	glm::fvec2 origin = glm::fvec2(0.0f);
+	/** @brief Extent in canvas units. */
+	glm::fvec2 size = glm::fvec2(0.0f);
+};
 
 /**
  * @brief Colours and atlas rectangles a @ref ScriptButton draws with.
@@ -278,6 +294,15 @@ public:
 	void setScale(float newScale) noexcept;
 	/** @brief Global scale applied on top of the attribute size. */
 	float scale() const noexcept { return layoutScale; }
+	/**
+	 * @brief Sets the real-pixels-per-canvas-unit factor the scene's viewport asks for.
+	 *
+	 * Kept apart from @ref setScale() so a script's own multiplier and the resolution
+	 * scale do not overwrite each other: the layout service multiplies the two.
+	 */
+	void setPixelScale(float newScale) noexcept;
+	/** @brief Real pixels per canvas unit, as applied to the font size. */
+	float pixelScale() const noexcept { return resolutionScale; }
 
 	/** @brief True when the layout has to be recomputed before drawing. */
 	bool dirty() const noexcept { return needsLayout; }
@@ -303,6 +328,8 @@ private:
 	LabelAlign alignment = LabelAlign::Centre;
 	/** @brief Global scale on top of the attribute size. */
 	float layoutScale = 1.0f;
+	/** @brief Real pixels per canvas unit, from the scene's viewport. */
+	float resolutionScale = 1.0f;
 	/** @brief True when @ref placed is stale. */
 	bool needsLayout = true;
 	/** @brief True when the label is not drawn. */
@@ -375,6 +402,44 @@ public:
 	void setTheme(const Lotte::Gui::Theme* theme) noexcept;
 	/** @brief The active theme, or null. */
 	const Lotte::Gui::Theme* theme() const noexcept { return activeTheme; }
+
+	/**
+	 * @brief Replaces the canvas-to-window mapping every rectangle is derived from.
+	 * @param viewport Viewport to adopt; null restores a 1:1 mapping. Shared ownership:
+	 *        the script and the application may keep the same object and mutate it.
+	 */
+	void setViewport(std::shared_ptr<Lotte::Gui::GuiViewport> viewport);
+	/** @brief The viewport in force; never null. */
+	const std::shared_ptr<Lotte::Gui::GuiViewport>& viewport() const noexcept { return canvasViewport; }
+	/**
+	 * @brief Adopts a new framebuffer size and re-applies every rectangle.
+	 * @param pixels Real window size, as the renderer reports it.
+	 */
+	void setResolution(glm::fvec2 pixels);
+
+	/**
+	 * @brief Stores a widget's rectangle in canvas units and applies it to the widget.
+	 * @param widget Widget to place; it stays owned by the scene.
+	 * @param rect Rectangle in canvas units.
+	 */
+	void setCanvasRect(Lotte::Gui::Widget& widget, const CanvasRect& rect);
+	/** @brief The canvas rectangle of a widget, or a zero rectangle when unknown. */
+	CanvasRect canvasRect(const Lotte::Gui::Widget& widget) const;
+	/**
+	 * @brief Stores a label's box in canvas units and applies it to the label.
+	 * @param label Label to place.
+	 * @param rect Box in canvas units; the text is centred in it.
+	 */
+	void setCanvasRect(ScriptLabel& label, const CanvasRect& rect);
+	/** @brief The canvas box of a label, or a zero rectangle when unknown. */
+	CanvasRect canvasRect(const ScriptLabel& label) const;
+	/**
+	 * @brief Re-derives every pixel rectangle and font scale from the canvas rectangles.
+	 *
+	 * Called by @ref setViewport(), @ref setResolution() and @ref setCanvasRect(); a
+	 * caller that mutated the shared viewport directly can call it to catch up.
+	 */
+	void applyViewport();
 
 	/**
 	 * @brief Registers a button so it is drawn and receives input.
@@ -470,6 +535,24 @@ private:
 		std::shared_ptr<const Lotte::Procedural::GuiAtlas> manifest;
 	};
 
+	/**
+	 * @brief Applies one canvas rectangle to a widget as real pixels.
+	 * @param widget Widget to place.
+	 * @param rect Rectangle in canvas units.
+	 */
+	void applyWidgetRect(Lotte::Gui::Widget& widget, const CanvasRect& rect) const;
+	/**
+	 * @brief Applies one canvas box and the font scale to a label.
+	 * @param label Label to place.
+	 * @param rect Box in canvas units.
+	 */
+	void applyLabelRect(ScriptLabel& label, const CanvasRect& rect) const;
+	/**
+	 * @brief Forgets the placement of a label that is leaving the scene.
+	 * @param label Label whose canvas box is no longer tracked.
+	 */
+	void forgetLabelPlacement(const ScriptLabel* label);
+
 	/** @brief Factory used for every texture this scene creates. */
 	Lotte::Gfx::ResourceFactory& factory;
 	/** @brief On-screen widgets; the render list and hit testing walk these. */
@@ -486,6 +569,27 @@ private:
 	std::map<std::string, AtlasEntry> atlases;
 	/** @brief Theme widgets are drawn through, or null. */
 	const Lotte::Gui::Theme* activeTheme = nullptr;
+	/** @brief Canvas-to-window mapping; never null. */
+	std::shared_ptr<Lotte::Gui::GuiViewport> canvasViewport;
+	/** @brief A widget and the canvas rectangle it was placed with. */
+	struct WidgetPlacement {
+		/** @brief The placed widget; the scene's keep-alive list owns it. */
+		Lotte::Gui::Widget* widget = nullptr;
+		/** @brief Rectangle in canvas units. */
+		CanvasRect rect {};
+	};
+	/** @brief A label and the canvas box it was placed with. */
+	struct LabelPlacement {
+		/** @brief The placed label; @ref labels owns it. */
+		ScriptLabel* label = nullptr;
+		/** @brief Box in canvas units. */
+		CanvasRect rect {};
+	};
+
+	/** @brief Every widget the scene placed, with its canvas rectangle. */
+	std::vector<WidgetPlacement> widgetPlacements;
+	/** @brief Every label the scene placed, with its canvas box. */
+	std::vector<LabelPlacement> labelPlacements;
 	/** @brief Last known pointer position in window pixels. */
 	glm::fvec2 mouse = glm::fvec2(0.0f);
 };

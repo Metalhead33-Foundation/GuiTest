@@ -199,13 +199,30 @@ void ScriptLabel::setScale(float newScale) noexcept
 	needsLayout = true;
 }
 
+void ScriptLabel::setPixelScale(float newScale) noexcept
+{
+	const float clamped = newScale > 0.0f ? newScale : 1.0f;
+	if (resolutionScale == clamped) {
+		return;
+	}
+	resolutionScale = clamped;
+	needsLayout = true;
+}
+
 void ScriptLabel::setLayout(Lotte::Text::TextLayout&& newLayout)
 {
 	placed = std::move(newLayout);
 	needsLayout = false;
 }
 
-GuiScene::GuiScene(Lotte::Gfx::ResourceFactory& factory) : factory(factory) {}
+GuiScene::GuiScene(Lotte::Gfx::ResourceFactory& factory) : factory(factory)
+{
+	// A scene always has a mapping: the default is a canvas that matches the window
+	// once the application reports its size, i.e. the historical 1:1 behaviour that a
+	// pixel-based layout expects. `setViewport()` replaces it with a designed canvas.
+	canvasViewport = std::make_shared<Lotte::Gui::GuiViewport>(Lotte::Gui::ViewportSettings{},
+															glm::fvec2(1.0f));
+}
 
 GuiScene::TexturePtr GuiScene::loadTexture(Elv::Io::System& io, const std::string& path)
 {
@@ -331,18 +348,131 @@ bool GuiScene::removeLabel(const ScriptLabel* label)
 		return false;
 	}
 	labels.erase(found);
+	// A placement outliving its label would be a stale raw pointer in `applyViewport()`.
+	forgetLabelPlacement(label);
 	return true;
+}
+
+void GuiScene::forgetLabelPlacement(const ScriptLabel* label)
+{
+	labelPlacements.erase(
+		std::remove_if(labelPlacements.begin(), labelPlacements.end(),
+			[label](const LabelPlacement& entry) { return entry.label == label; }),
+		labelPlacements.end());
 }
 
 void GuiScene::clear()
 {
 	root.clearChildren();
 	labels.clear();
+	// Placements are forgotten with the objects they describe; a widget rebuilt later
+	// registers its canvas rectangle again through `setCanvasRect()`.
+	widgetPlacements.clear();
+	labelPlacements.clear();
 }
 
 void GuiScene::setLabelLayoutService(LabelLayoutFunction service)
 {
 	labelLayoutService = std::move(service);
+}
+
+void GuiScene::setViewport(std::shared_ptr<Lotte::Gui::GuiViewport> viewport)
+{
+	if (!viewport) {
+		// "No viewport" means "one canvas unit is one pixel", which is only true for a
+		// canvas that matches the window; keeping the old resolution does that.
+		Lotte::Gui::ViewportSettings settings;
+		settings.canvas = canvasViewport ? canvasViewport->resolution() : glm::fvec2(1.0f);
+		viewport = std::make_shared<Lotte::Gui::GuiViewport>(settings,
+			canvasViewport ? canvasViewport->resolution() : glm::fvec2(1.0f));
+	}
+	canvasViewport = std::move(viewport);
+	applyViewport();
+}
+
+void GuiScene::setResolution(glm::fvec2 pixels)
+{
+	if (!canvasViewport) {
+		return;
+	}
+	canvasViewport->setResolution(pixels);
+	applyViewport();
+}
+
+void GuiScene::setCanvasRect(Lotte::Gui::Widget& widget, const CanvasRect& rect)
+{
+	// Linear search on purpose: a menu has a handful of widgets, and a vector keeps the
+	// placement order (and therefore the walk in `applyViewport()`) deterministic.
+	const auto found = std::find_if(widgetPlacements.begin(), widgetPlacements.end(),
+		[&widget](const WidgetPlacement& entry) { return entry.widget == &widget; });
+	if (found != widgetPlacements.end()) {
+		found->rect = rect;
+	} else {
+		widgetPlacements.push_back(WidgetPlacement{ &widget, rect });
+	}
+	applyWidgetRect(widget, rect);
+}
+
+CanvasRect GuiScene::canvasRect(const Lotte::Gui::Widget& widget) const
+{
+	const auto found = std::find_if(widgetPlacements.begin(), widgetPlacements.end(),
+		[&widget](const WidgetPlacement& entry) { return entry.widget == &widget; });
+	return found != widgetPlacements.end() ? found->rect : CanvasRect{};
+}
+
+void GuiScene::setCanvasRect(ScriptLabel& label, const CanvasRect& rect)
+{
+	const auto found = std::find_if(labelPlacements.begin(), labelPlacements.end(),
+		[&label](const LabelPlacement& entry) { return entry.label == &label; });
+	if (found != labelPlacements.end()) {
+		found->rect = rect;
+	} else {
+		labelPlacements.push_back(LabelPlacement{ &label, rect });
+	}
+	applyLabelRect(label, rect);
+}
+
+CanvasRect GuiScene::canvasRect(const ScriptLabel& label) const
+{
+	const auto found = std::find_if(labelPlacements.begin(), labelPlacements.end(),
+		[&label](const LabelPlacement& entry) { return entry.label == &label; });
+	return found != labelPlacements.end() ? found->rect : CanvasRect{};
+}
+
+void GuiScene::applyWidgetRect(Lotte::Gui::Widget& widget, const CanvasRect& rect) const
+{
+	if (!canvasViewport) {
+		return;
+	}
+	const glm::fvec2 topLeft = canvasViewport->toPixels(rect.origin);
+	const glm::fvec2 bottomRight = canvasViewport->toPixels(rect.origin + rect.size);
+	widget.setPosition(topLeft, bottomRight);
+}
+
+void GuiScene::applyLabelRect(ScriptLabel& label, const CanvasRect& rect) const
+{
+	if (!canvasViewport) {
+		return;
+	}
+	label.setBox(canvasViewport->toPixels(rect.origin),
+					canvasViewport->toPixels(rect.origin + rect.size));
+	// The font size comes from the theme in canvas units, so the viewport scale is what
+	// turns a 34 px canvas caption into 27.2 real pixels on a 0.8x window.
+	label.setPixelScale(canvasViewport->scale());
+}
+
+void GuiScene::applyViewport()
+{
+	for (const WidgetPlacement& entry : widgetPlacements) {
+		if (entry.widget != nullptr) {
+			applyWidgetRect(*entry.widget, entry.rect);
+		}
+	}
+	for (const LabelPlacement& entry : labelPlacements) {
+		if (entry.label != nullptr) {
+			applyLabelRect(*entry.label, entry.rect);
+		}
+	}
 }
 
 void GuiScene::relayoutLabels()
@@ -434,6 +564,7 @@ void GuiScene::setMouseButton(glm::fvec2 position, std::uint8_t button, bool dow
 			continue;
 		}
 		const bool inside = widget->contains(position);
+
 		widget->setFlag<Lotte::Gui::WidgetStateFlag::InMouseFocus>(inside);
 		if (inside) {
 			widget->onClick(position - widget->topLeft(), button, state, clicks);

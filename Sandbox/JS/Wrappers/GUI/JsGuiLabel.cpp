@@ -168,12 +168,14 @@ bool js_gui_label_constructor(JSContext* cx, unsigned argc, JS::Value* vp)
 			resolveText(*host, literal, key), resolveAttributes(cx, options, *host));
 		label->setAlign(readAlign(cx, options));
 		label->setScale(static_cast<float>(numberProperty(cx, options, "scale", 1.0)));
-		const double x = numberProperty(cx, options, "x", 0.0);
-		const double y = numberProperty(cx, options, "y", 0.0);
-		const double width = numberProperty(cx, options, "width", 240.0);
-		const double height = numberProperty(cx, options, "height", 32.0);
-		label->setBox(glm::fvec2(float(x), float(y)),
-					  glm::fvec2(float(x + width), float(y + height)));
+		// x/y/width/height are canvas units, exactly like `GUI.Button`'s: the scene derives
+		// the pixel box and the font scale from its viewport, so a layout is resolution-free.
+		Sandbox::CanvasRect rect;
+		rect.origin.x = static_cast<float>(numberProperty(cx, options, "x", 0.0));
+		rect.origin.y = static_cast<float>(numberProperty(cx, options, "y", 0.0));
+		rect.size.x = static_cast<float>(numberProperty(cx, options, "width", 240.0));
+		rect.size.y = static_cast<float>(numberProperty(cx, options, "height", 32.0));
+		host->gui->setCanvasRect(*label, rect);
 		label->setHidden(boolProperty(cx, options, "hidden", false));
 
 		JS::RootedObject object(cx,
@@ -268,17 +270,21 @@ bool js_label_set_hidden(JSContext* cx, unsigned argc, JS::Value* vp)
 	}, cx, argc, vp);
 }
 
-/// @brief `label.box(x, y, width, height)`: repositions the text block.
+/// @brief `label.box(x, y, width, height)`: repositions the text block, in canvas units.
 bool js_label_set_box(JSContext* cx, unsigned argc, JS::Value* vp)
 {
 	return executeJSNative([](JSContext*, unsigned argc, JS::Value* vp) {
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 		auto label = labelFromThis(args)->label;
-		const float x = static_cast<float>(args.get(0).toNumber());
-		const float y = static_cast<float>(args.get(1).toNumber());
-		const float width = static_cast<float>(args.get(2).toNumber());
-		const float height = static_cast<float>(args.get(3).toNumber());
-		label->setBox(glm::fvec2(x, y), glm::fvec2(x + width, y + height));
+		if (gHost == nullptr || gHost->gui == nullptr) {
+			throw std::runtime_error("GUI.Label.box: graphics is not available");
+		}
+		Sandbox::CanvasRect rect;
+		rect.origin.x = static_cast<float>(args.get(0).toNumber());
+		rect.origin.y = static_cast<float>(args.get(1).toNumber());
+		rect.size.x = static_cast<float>(args.get(2).toNumber());
+		rect.size.y = static_cast<float>(args.get(3).toNumber());
+		gHost->gui->setCanvasRect(*label, rect);
 		args.rval().setUndefined();
 		return true;
 	}, cx, argc, vp);
