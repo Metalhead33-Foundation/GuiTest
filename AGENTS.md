@@ -77,6 +77,13 @@ Whenever calling `git`, always use `--no-pager`.
    enum with one name table (`parseThemeElement`, `guiAtlasPartName`, ...) - never a
    `std::map<std::string, ...>` inside a loader. The reasoning is in `docs/PROCEDURAL.md` §1.
 
+**The same holds for YAML, and no user-visible string lives in C++.** `libyaml` is a dependency
+   of `Sandbox` (and of the tests that compile its loader) only: `Sandbox/LocalizationYaml.cpp`
+   fills a plain `Euph::Loc::Localization`, which is what a library is allowed to expose.
+   Captions, labels and menu entries are keys looked up at runtime; a missing key renders as the
+   key itself, never as an empty widget, and a new caption is a new line under
+   `Sandbox/localization/<language>/` - not a string literal next to the code that shows it.
+
 **CSS is libcss's job, not a second parser.** Theme typography and box hints are CSS
    declarations resolved through `libcss` (`Lotte::Gui::resolveThemeCss` ->
    `Text::computeElementStyle`); the library wraps them in a universal rule and reads the

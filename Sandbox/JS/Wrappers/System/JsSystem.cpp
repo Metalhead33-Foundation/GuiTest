@@ -1,9 +1,12 @@
 #include "JsSystem.hpp"
 #include <ScriptHost.hpp>
 #include <GuiScene.hpp>
+#include <Lotte/Gui/LteThemeDefinition.hpp>
 #include <js/Array.h>
 #include <js/Object.h>
+#include <cstdio>
 #include <cstring>
+#include <optional>
 #include <stdexcept>
 #include <utility>
 
@@ -139,6 +142,112 @@ bool js_system_set_rich_text(JSContext* cx, unsigned argc, JS::Value* vp)
 	}, cx, argc, vp);
 }
 
+/// @brief Formats a linear colour as `#RRGGBBAA`, the shape the GUI wrappers accept.
+std::string colourToHex(const glm::fvec4& colour)
+{
+	const auto byte = [](float value) {
+		const float clamped = glm::clamp(value, 0.0f, 1.0f);
+		return static_cast<unsigned>(clamped * 255.0f + 0.5f);
+	};
+	char text[10] = {};
+	std::snprintf(text, sizeof(text), "#%02x%02x%02x%02x", byte(colour.r), byte(colour.g),
+				  byte(colour.b), byte(colour.a));
+	return text;
+}
+
+/// @brief Publishes text attributes as a plain JavaScript object.
+void defineTextStyle(JSContext* cx, JS::HandleObject target,
+					 const Lotte::Text::TextAttributes& attributes)
+{
+	const std::string colour = colourToHex(attributes.colour);
+	JS::RootedString face(cx, JS_NewStringCopyUTF8N(cx,
+		JS::UTF8Chars(attributes.familyName.data(), attributes.familyName.size())));
+	JS::RootedString colourString(cx, JS_NewStringCopyUTF8N(cx,
+		JS::UTF8Chars(colour.data(), colour.size())));
+	JS_DefineProperty(cx, target, "face", face, JSPROP_ENUMERATE);
+	JS_DefineProperty(cx, target, "colour", colourString, JSPROP_ENUMERATE);
+	JS_DefineProperty(cx, target, "size", double(attributes.size), JSPROP_ENUMERATE);
+	JS_DefineProperty(cx, target, "weight",
+		double(static_cast<unsigned>(attributes.effectiveWeight())), JSPROP_ENUMERATE);
+	JS_DefineProperty(cx, target, "italic", attributes.italic, JSPROP_ENUMERATE);
+	JS_DefineProperty(cx, target, "underline", attributes.underline, JSPROP_ENUMERATE);
+}
+
+/// @brief `System.textStyle(target)`: the theme's styling for a role or an element.
+bool js_system_text_style(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		Sandbox::ScriptHost* host = gHost;
+		if (host == nullptr || host->theme == nullptr) {
+			throw std::runtime_error("System.textStyle: no theme is loaded");
+		}
+		if (argc < 1 || !args.get(0).isString()) {
+			throw std::runtime_error("System.textStyle: expected a role or element name");
+		}
+		const std::string name = JsToNativeString(cx, args.get(0).toString());
+		Lotte::Text::TextAttributes attributes;
+		Lotte::Gui::ThemeElement element = Lotte::Gui::ThemeElement::Count;
+		Lotte::Gui::ThemeTextRole role = Lotte::Gui::ThemeTextRole::Count;
+		std::optional<Lotte::Text::TextAttributes> elementStyle;
+		if (Lotte::Gui::parseThemeElement(name, element)) {
+			// An element's own `text` block wins; a theme that only styles roles still
+			// answers with the label role, which keeps a caption readable.
+			elementStyle = host->theme->elementTextStyle(element, 0u);
+			attributes = elementStyle.has_value()
+				? *elementStyle
+				: host->theme->textStyle(Lotte::Gui::ThemeTextRole::Label, 0u);
+		} else if (Lotte::Gui::parseThemeTextRole(name, role)) {
+			attributes = host->theme->textStyle(role, 0u);
+		} else {
+			throw std::runtime_error("System.textStyle: unknown role or element '" + name + "'");
+		}
+		JS::RootedObject object(cx, JS_NewPlainObject(cx));
+		defineTextStyle(cx, object, attributes);
+		args.rval().setObject(*object);
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `System.quit()`: asks the application to leave its main loop.
+bool js_system_quit(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		if (gHost != nullptr && gHost->requestQuit) {
+			gHost->requestQuit();
+		}
+		args.rval().setUndefined();
+		return true;
+	}, cx, argc, vp);
+}
+
+/// @brief `System.setConfig(section, key, value)`: writes one number into the ini model.
+bool js_system_set_config(JSContext* cx, unsigned argc, JS::Value* vp)
+{
+	return executeJSNative([](JSContext* cx, unsigned argc, JS::Value* vp) {
+		JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+		Sandbox::ScriptHost* host = gHost;
+		if (host == nullptr || host->config == nullptr) {
+			throw std::runtime_error("System.setConfig: the configuration is not writable");
+		}
+		if (argc < 3 || !args.get(0).isString() || !args.get(1).isString() ||
+			!args.get(2).isNumber()) {
+			throw std::runtime_error(
+				"System.setConfig: expected (section, key, number)");
+		}
+		const std::string section = JsToNativeString(cx, args.get(0).toString());
+		const std::string key = JsToNativeString(cx, args.get(1).toString());
+		const double value = args.get(2).toNumber();
+		// Numeric values are written as floats: that is how the volume keys are
+		// declared, and `ConfigurationSection::setFloat` replaces the value in place
+		// instead of adding a second entry with a different type.
+		host->config->getSections()[section].setFloat(key, float(value));
+		args.rval().setUndefined();
+		return true;
+	}, cx, argc, vp);
+}
+
 } // namespace
 
 const ClassCreator* SystemTextureClass()
@@ -192,6 +301,9 @@ void RegisterSystemClasses(JSContext* cx, const JS::HandleObject& global, Sandbo
 
 	JS_DefineFunction(cx, global, "loadTexture", js_system_load_texture, 1, JSPROP_ENUMERATE);
 	JS_DefineFunction(cx, global, "setRichText", js_system_set_rich_text, 2, JSPROP_ENUMERATE);
+	JS_DefineFunction(cx, global, "textStyle", js_system_text_style, 1, JSPROP_ENUMERATE);
+	JS_DefineFunction(cx, global, "quit", js_system_quit, 0, JSPROP_ENUMERATE);
+	JS_DefineFunction(cx, global, "setConfig", js_system_set_config, 3, JSPROP_ENUMERATE);
 
 	JS::RootedObject viewport(cx, JS_NewPlainObject(cx));
 	JS_DefineProperty(cx, viewport, "width", double(host.viewport.x),

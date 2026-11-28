@@ -33,4 +33,34 @@ public:
 	Uint16 getSamples( ) const;
 };
 
+/**
+ * @brief Scoped lock over the SDL audio callback.
+ *
+ * `Hrk::Mixer`, `Hrk::PlaybackState` and `Hrk::SoundPlayer` are plain containers that
+ * the audio callback reads. `SDL_LockAudioDevice` guarantees the callback is not
+ * running, so a script that inserts a module, starts a one-shot or toggles playback
+ * cannot race the mixer. A null driver (no audio device) makes the lock a no-op,
+ * which lets every caller stay branch-free.
+ */
+class AudioLock
+{
+public:
+	/// @brief Locks @p driver when it is not null.
+	explicit AudioLock(Haruka_SDL_Driver* driver) : driver(driver)
+	{
+		if (driver != nullptr) driver->lock();
+	}
+	/// @brief Releases the lock.
+	~AudioLock()
+	{
+		if (driver != nullptr) driver->unlock();
+	}
+	AudioLock(const AudioLock&) = delete;
+	AudioLock& operator=(const AudioLock&) = delete;
+
+private:
+	/// @brief Device whose callback is held off.
+	Haruka_SDL_Driver* driver;
+};
+
 #endif // HARUKACONTEXT_HPP

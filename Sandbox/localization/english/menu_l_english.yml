@@ -1,0 +1,24 @@
+# English localization for the sandbox menu.
+#
+# The shape is the reference dialect: `<language>:` at the root, then one entry per
+# line as `key:0 "text"`. The number is a version counter (the reference format uses
+# it to invalidate a translation cache) and the loader ignores it; a plain
+# `key: "text"` line works too. `Sandbox/LocalizationYaml.hpp` documents the details.
+l_english:
+ menu_title:0 "Sandbox"
+ menu_new_game:0 "New Game"
+ menu_load_game:0 "Load Game"
+ menu_settings:0 "Settings"
+ menu_credits:0 "Credits"
+ menu_exit:0 "Exit"
+ menu_back:0 "Back"
+ settings_title:0 "Settings"
+ settings_hint:0 "Volume only. A resolution picker is not implemented yet."
+ settings_volume_master:0 "Master volume"
+ settings_volume_music:0 "Music volume"
+ settings_volume_effects:0 "Effects volume"
+ credits_title:0 "Credits"
+ credits_engine:0 "Engine, GUI and audio: this repository."
+ credits_fonts:0 "Typeface: Vinque, converted to a preprocessed SDF face."
+ credits_sounds:0 "Menu click: a single short WAV, resampled at load time."
+ credits_thanks:0 "Thank you for playing."

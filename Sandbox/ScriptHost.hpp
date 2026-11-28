@@ -15,7 +15,10 @@
  * without guessing whether the engine half still exists.
  */
 #include "GuiScene.hpp"
+#include <Euphemy/Config/EuphConfiguration.hpp>
+#include <Euphemy/Localization/EuphLocalization.hpp>
 #include <Haruka/Core/HrkMixer.hpp>
+#include <Haruka/Core/HrkSoundPlayer.hpp>
 #include <Elvavena/Io/ElvIoSystem.hpp>
 #include <Lotte/Gui/LteTheme.hpp>
 #include <glm/glm.hpp>
@@ -68,6 +71,36 @@ struct ScriptHost {
 	glm::uvec2 viewport = glm::uvec2(0);
 	/** @brief Replaces the rendered rich text; see @ref RichTextRequest. */
 	std::function<void(const RichTextRequest&)> setRichText;
+
+	/**
+	 * @brief The localization table the script reads its captions from, or null.
+	 *
+	 * Null means "no strings were loaded"; the `Localization` module is then empty and
+	 * a script that indexes it gets `undefined`, which is exactly what a fallback chain
+	 * in JavaScript wants.
+	 */
+	const Euph::Loc::Localization* localization = nullptr;
+	/**
+	 * @brief The one-shot player the `Audio.Sound` objects feed, or null.
+	 *
+	 * Null when the mixer could not be created (no audio device); the wrapper then
+	 * reports every sound as invalid instead of throwing from `play()`.
+	 */
+	Hrk::SoundPlayer* soundPlayer = nullptr;
+	/**
+	 * @brief The configuration a script may write settings into, or null.
+	 *
+	 * Writing rather than replacing is what makes the settings survive a restart: the
+	 * application serialises this object back to `config.ini` when it exits.
+	 */
+	Euph::Conf::Configuration* config = nullptr;
+	/**
+	 * @brief Asks the application to leave the main loop.
+	 *
+	 * Set by the application, because only it knows what "quit" means for its event
+	 * loop; an empty function turns `System.quit()` into a no-op.
+	 */
+	std::function<void()> requestQuit;
 
 	/**
 	 * @brief Creates the facade.

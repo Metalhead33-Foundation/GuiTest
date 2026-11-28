@@ -19,6 +19,7 @@ SOURCES +=  \
     Core/HrkMixer.cpp \
     Core/HrkProxyPlayable.cpp \
     Core/HrkResampler.cpp \
+    Core/HrkSoundPlayer.cpp \
     FX/HrkConvolver.cpp \
     FX/HrkEffectSlot.cpp \
     FX/HrkImpulseGenerator.cpp \
@@ -26,6 +27,7 @@ SOURCES +=  \
     IO/HrkPlaybackState.cpp \
     IO/HrkPlaybackStatePlayable.cpp \
     IO/HrkRingBufferedStreamer.cpp \
+    IO/HrkSoundBuffer.cpp \
     IO/HrkSoundSource.cpp \
     IO/HrkSoundStreamer.cpp
 HEADERS += \
@@ -37,6 +39,7 @@ HEADERS += \
     Core/HrkPlayable.hpp \
     Core/HrkProxyPlayable.hpp \
     Core/HrkResampler.hpp \
+    Core/HrkSoundPlayer.hpp \
     FX/HrkAudioEffect.hpp \
     FX/HrkClampEffect.hpp \
     FX/HrkConvolver.hpp \

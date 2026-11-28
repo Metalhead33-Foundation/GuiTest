@@ -3,8 +3,10 @@
 #include "AppSystem.hpp"
 #include <Elvavena/Io/ElvIoSystem.hpp>
 #include <Euphemy/Config/EuphConfiguration.hpp>
+#include <Euphemy/Localization/EuphLocalization.hpp>
 #include "HarukaContext.hpp"
 #include <Haruka/Core/HrkMixer.hpp>
+#include <Haruka/Core/HrkSoundPlayer.hpp>
 #include <Lotte/GFX/LteKaldiContext.hpp>
 #include <Lotte/GFX/LteWriteableTexture2D.hpp>
 #include <Lotte/Gui/LteCursor.hpp>
@@ -50,6 +52,22 @@ private:
 	Elv::Io::System& iosys;
 	Euph::Conf::Configuration& config;
 	Hrk::sMixer mixer;
+	/**
+	 * @brief Plays the short sounds a script starts.
+	 *
+	 * Declared right after the mixer because it unregisters its voices from it when it
+	 * is destroyed: the mixer's child map stores raw `Playable*`, so a voice must never
+	 * outlive the mixer that pulls it.
+	 */
+	Hrk::sSoundPlayer soundPlayer;
+	/**
+	 * @brief The loaded captions, in the language the configuration asked for.
+	 *
+	 * Filled by @ref loadLocalization() and read by the `Localization` module and by
+	 * `GUI.Label`; empty when no localization file was readable, which turns every
+	 * caption into its own key rather than into an empty string.
+	 */
+	Euph::Loc::Localization localization;
 	std::unique_ptr<Haruka_SDL_Driver> sdlDriver;
 	/**
 	 * @brief Engine services the script modules talk to.
@@ -125,6 +143,10 @@ private:
 	void startScript();
 	/** @brief Loads the theme document, uploads its atlases and installs the theme. */
 	void startTheme();
+	/** @brief Reads the configured language's localization files into @ref localization. */
+	void loadLocalization();
+	/** @brief Installs the label layout producer that uses the loaded fonts. */
+	void installLabelLayout();
 	/** @brief Releases the widgets, then the context, then the host. */
 	void stopScript();
 public:

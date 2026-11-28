@@ -232,6 +232,23 @@ struct DecorationLine {
 	std::uint32_t styleIndex = 0;
 };
 
+/** @brief The axis-aligned box a layout covers, in layout pixels. */
+struct TextBounds {
+	/** @brief Top-left corner of the covered box. */
+	glm::fvec2 min = glm::fvec2(0.0f);
+	/** @brief Bottom-right corner of the covered box. */
+	glm::fvec2 max = glm::fvec2(0.0f);
+	/** @brief True when nothing was measured, so the corners mean nothing. */
+	bool empty = true;
+
+	/** @brief Width of the box in pixels. */
+	float width() const noexcept { return empty ? 0.0f : max.x - min.x; }
+	/** @brief Height of the box in pixels. */
+	float height() const noexcept { return empty ? 0.0f : max.y - min.y; }
+	/** @brief Centre of the box in pixels. */
+	glm::fvec2 centre() const noexcept { return empty ? glm::fvec2(0.0f) : (min + max) * 0.5f; }
+};
+
 /** @brief Result of a layout pass, renderer-agnostic and atlas-agnostic. */
 struct TextLayout {
 	/** @brief Positioned glyphs in draw order. */
@@ -263,6 +280,64 @@ struct TextLayout {
 		faces.clear();
 		endOffset = glm::fvec2(0.0f);
 		height = 0.0f;
+	}
+
+	/**
+	 * @brief Returns the box the placed glyphs and decoration lines cover.
+	 *
+	 * The corners come from `PlacedGlyph::position`/`size`, i.e. the padded drawing
+	 * quad, so the bounds are slightly larger than the visible silhouette. That is
+	 * deliberate: a caller that centres text in a widget wants the quads it is about
+	 * to submit to end up centred, padding runway included.
+	 */
+	TextBounds bounds() const
+	{
+		TextBounds result;
+		for (const PlacedGlyph& glyph : glyphs) {
+			const glm::fvec2 topLeft = glyph.position;
+			const glm::fvec2 bottomRight = glyph.position + glyph.size;
+			if (result.empty) {
+				result.min = topLeft;
+				result.max = bottomRight;
+				result.empty = false;
+				continue;
+			}
+			result.min = glm::min(result.min, topLeft);
+			result.max = glm::max(result.max, bottomRight);
+		}
+		for (const DecorationLine& line : lines) {
+			const glm::fvec2 topLeft = glm::min(line.from, line.to);
+			const glm::fvec2 bottomRight = glm::max(line.from, line.to);
+			if (result.empty) {
+				result.min = topLeft;
+				result.max = bottomRight;
+				result.empty = false;
+				continue;
+			}
+			result.min = glm::min(result.min, topLeft);
+			result.max = glm::max(result.max, bottomRight);
+		}
+		return result;
+	}
+
+	/**
+	 * @brief Moves every placed glyph, decoration line and the end cursor by @p delta.
+	 * @param delta Offset in layout pixels; `y` grows downwards.
+	 *
+	 * Repositioning a laid-out block without re-running the layout is what lets a
+	 * caller centre text inside a rectangle whose size it only knows after the fact:
+	 * lay out at the origin, measure with @ref bounds(), then translate.
+	 */
+	void translate(const glm::fvec2& delta)
+	{
+		for (PlacedGlyph& glyph : glyphs) {
+			glyph.position += delta;
+		}
+		for (DecorationLine& line : lines) {
+			line.from += delta;
+			line.to += delta;
+		}
+		endOffset += delta;
 	}
 };
 

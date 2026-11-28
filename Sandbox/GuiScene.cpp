@@ -153,6 +153,58 @@ void ScriptButton::render(Lotte::Gui::GuiRenderer& renderer)
 	renderer.render(quad);
 }
 
+ScriptLabel::ScriptLabel(std::string newText, Lotte::Text::TextAttributes newAttributes)
+	: source(std::move(newText)), style(std::move(newAttributes))
+{
+}
+
+void ScriptLabel::setText(std::string newText)
+{
+	if (source == newText) {
+		return;
+	}
+	source = std::move(newText);
+	needsLayout = true;
+}
+
+void ScriptLabel::setAttributes(const Lotte::Text::TextAttributes& newAttributes)
+{
+	style = newAttributes;
+	needsLayout = true;
+}
+
+void ScriptLabel::setBox(const glm::fvec2& newTopLeft, const glm::fvec2& newBottomRight)
+{
+	boxTopLeft = newTopLeft;
+	boxBottomRight = newBottomRight;
+	needsLayout = true;
+}
+
+void ScriptLabel::setAlign(LabelAlign newAlign) noexcept
+{
+	if (alignment == newAlign) {
+		return;
+	}
+	alignment = newAlign;
+	needsLayout = true;
+}
+
+void ScriptLabel::setScale(float newScale) noexcept
+{
+	const float clamped = newScale > 0.0f ? newScale : 1.0f;
+	if (layoutScale == clamped) {
+		return;
+	}
+	layoutScale = clamped;
+	needsLayout = true;
+}
+
+void ScriptLabel::setLayout(Lotte::Text::TextLayout&& newLayout)
+{
+	placed = std::move(newLayout);
+	needsLayout = false;
+}
+
 GuiScene::GuiScene(Lotte::Gfx::ResourceFactory& factory) : factory(factory) {}
 
 GuiScene::TexturePtr GuiScene::loadTexture(Elv::Io::System& io, const std::string& path)
@@ -226,39 +278,147 @@ void GuiScene::setTheme(const Lotte::Gui::Theme* theme) noexcept
 	activeTheme = theme;
 	// Existing widgets follow the scene: a theme installed after the script created the
 	// buttons still dresses them, and clearing it puts them back on their own style.
-	for (const ButtonPtr& button : buttons) {
-		button->setThemeElement(theme, Lotte::Gui::ThemeElement::Button);
+	// Each widget kind maps the theme onto its own parts, which is the only place the
+	// scene needs to know about concrete widget types.
+	for (const auto& widget : buttons) {
+		if (auto* button = dynamic_cast<ScriptButton*>(widget.get())) {
+			button->setThemeElement(theme, Lotte::Gui::ThemeElement::Button);
+		} else if (auto* slider = dynamic_cast<Lotte::Gui::Slider*>(widget.get())) {
+			slider->setTheme(theme);
+		}
 	}
 }
 
 void GuiScene::addButton(ButtonPtr button)
 {
 	if (!button) return;
-	// The keep-alive list is what makes a script handle safe: `removeButton()`
+	// The keep-alive list is what makes a script handle safe: `removeWidget()`
 	// only detaches the widget from the tree, it never frees it behind the
 	// script's back.
 	if (std::find(buttons.begin(), buttons.end(), button) == buttons.end()) {
 		buttons.push_back(button);
+		root.addChild(button);
 	}
-	root.addChild(std::move(button));
 }
 
-bool GuiScene::removeButton(const ScriptButton* button)
+void GuiScene::addSlider(SliderPtr slider)
 {
-	return button != nullptr && root.removeChild(button);
+	if (!slider) return;
+	if (std::find(buttons.begin(), buttons.end(), slider) == buttons.end()) {
+		buttons.push_back(slider);
+		root.addChild(slider);
+	}
+}
+
+void GuiScene::addLabel(LabelPtr label)
+{
+	if (!label) return;
+	if (std::find(labels.begin(), labels.end(), label) == labels.end()) {
+		labels.push_back(std::move(label));
+	}
+}
+
+bool GuiScene::removeWidget(const Lotte::Gui::Widget* widget)
+{
+	return widget != nullptr && root.removeChild(widget);
+}
+
+bool GuiScene::removeLabel(const ScriptLabel* label)
+{
+	const auto found = std::find_if(labels.begin(), labels.end(),
+		[label](const LabelPtr& candidate) { return candidate.get() == label; });
+	if (found == labels.end()) {
+		return false;
+	}
+	labels.erase(found);
+	return true;
 }
 
 void GuiScene::clear()
 {
 	root.clearChildren();
+	labels.clear();
+}
+
+void GuiScene::setLabelLayoutService(LabelLayoutFunction service)
+{
+	labelLayoutService = std::move(service);
+}
+
+void GuiScene::relayoutLabels()
+{
+	if (!labelLayoutService) {
+		return;
+	}
+	for (const LabelPtr& label : labels) {
+		if (!label || !label->dirty()) {
+			continue;
+		}
+		Lotte::Text::TextLayout laidOut = labelLayoutService(*label);
+		// The service produces glyphs around the origin; placing them inside the
+		// label's box is the scene's job, so every label is centred the same way.
+		if (!laidOut.glyphs.empty() || !laidOut.lines.empty()) {
+			const Lotte::Text::TextBounds bounds = laidOut.bounds();
+			const glm::fvec2 boxSize = label->size();
+			float x = label->topLeft().x;
+			switch (label->align()) {
+				case LabelAlign::Left:
+					break;
+				case LabelAlign::Centre:
+					x += (boxSize.x - bounds.width()) * 0.5f;
+					break;
+				case LabelAlign::Right:
+					x += boxSize.x - bounds.width();
+					break;
+			}
+			const float y = label->topLeft().y + (boxSize.y - bounds.height()) * 0.5f;
+			laidOut.translate(glm::fvec2(x, y) - bounds.min);
+		}
+		label->setLayout(std::move(laidOut));
+	}
+}
+
+bool GuiScene::prepareText(Lotte::Text::TextRenderer& renderer)
+{
+	relayoutLabels();
+	bool recorded = false;
+	for (const LabelPtr& label : labels) {
+		if (!label || label->hidden() || label->layout().glyphs.empty()) {
+			continue;
+		}
+		// `prepare()` records atlas create/update work; the caller submits it before
+		// beginFrame(), which is why this is separate from `renderText()`.
+		if (renderer.prepare(label->layout())) {
+			recorded = true;
+		}
+	}
+	return recorded;
+}
+
+void GuiScene::renderText(Lotte::Text::TextRenderer& renderer)
+{
+	for (const LabelPtr& label : labels) {
+		if (!label || label->hidden() || label->layout().glyphs.empty()) {
+			continue;
+		}
+		renderer.render(label->layout());
+	}
 }
 
 void GuiScene::setMousePosition(glm::fvec2 position)
 {
 	mouse = position;
+	// Input routing is widget-generic: a button only uses the hover bit, a slider
+	// additionally follows the pointer through `onPointerMove()`.
 	for (const auto& child : root.children()) {
-		if (auto* button = dynamic_cast<ScriptButton*>(child.get())) {
-			button->setHovered(!button->hidden() && button->contains(position));
+		auto* widget = dynamic_cast<Lotte::Gui::Widget*>(child.get());
+		if (widget == nullptr || widget->hidden()) {
+			continue;
+		}
+		widget->setFlag<Lotte::Gui::WidgetStateFlag::InMouseFocus>(widget->contains(position));
+		if (widget->getFlag(Lotte::Gui::WidgetStateFlag::Clicked)) {
+			// A drag that has left the rectangle still belongs to that widget.
+			widget->onPointerMove(position - widget->topLeft());
 		}
 	}
 }
@@ -269,16 +429,18 @@ void GuiScene::setMouseButton(glm::fvec2 position, std::uint8_t button, bool dow
 	mouse = position;
 	const std::uint8_t state = down ? 1u : 0u;
 	for (const auto& child : root.children()) {
-		auto* candidate = dynamic_cast<ScriptButton*>(child.get());
-		if (candidate == nullptr || candidate->hidden()) continue;
-		const bool inside = candidate->contains(position);
-		candidate->setHovered(inside);
+		auto* widget = dynamic_cast<Lotte::Gui::Widget*>(child.get());
+		if (widget == nullptr || widget->hidden()) {
+			continue;
+		}
+		const bool inside = widget->contains(position);
+		widget->setFlag<Lotte::Gui::WidgetStateFlag::InMouseFocus>(inside);
 		if (inside) {
-			candidate->onClick(position - candidate->topLeft(), button, state, clicks);
-		} else if (candidate->pressed()) {
-			// The release happened outside the button: deliver it so the widget
-			// clears its pressed state, and let it decide not to activate.
-			candidate->onClick(position - candidate->topLeft(), button, 0u, clicks);
+			widget->onClick(position - widget->topLeft(), button, state, clicks);
+		} else if (widget->getFlag(Lotte::Gui::WidgetStateFlag::Clicked)) {
+			// The release happened outside the widget: deliver it so the widget
+			// clears its pressed state, and let it decide what that means.
+			widget->onClick(position - widget->topLeft(), button, 0u, clicks);
 		}
 	}
 }

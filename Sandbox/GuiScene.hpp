@@ -31,16 +31,22 @@
 #include <Lotte/Gui/LteGuiRenderable.hpp>
 #include <Lotte/Gui/LteGuiRenderer.hpp>
 #include <Lotte/Gui/LteGuiRootNode.hpp>
+#include <Lotte/Gui/LteSlider.hpp>
 #include <Lotte/Gui/LteTexturedWidget.hpp>
 #include <Lotte/Gui/LteTheme.hpp>
 #include <Lotte/Gui/LteThemeDefinition.hpp>
+#include <Lotte/Gui/LteWidget.hpp>
 #include <Lotte/Procedural/LteGuiAtlas.hpp>
 #include <Lotte/Procedural/LteGuiAtlasParts.hpp>
+#include <Lotte/Text/LteTextAttributes.hpp>
+#include <Lotte/Text/LteTextLayout.hpp>
+#include <Lotte/Text/LteTextRenderer.hpp>
 #include <Elvavena/Io/ElvIoSystem.hpp>
 #include <Elvavena/Util/ElvSignal.hpp>
 #include <glm/glm.hpp>
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <map>
@@ -207,6 +213,103 @@ private:
 };
 
 /**
+ * @brief Horizontal placement of a label's text inside its box.
+ */
+enum class LabelAlign : std::uint8_t {
+	Left,   /**< Text starts at the box's left edge. */
+	Centre, /**< Text is centred horizontally. */
+	Right   /**< Text ends at the box's right edge. */
+};
+
+/**
+ * @brief A text block the script owns and the text pass draws.
+ *
+ * Labels are deliberately *not* `Lotte::Gui::Widget`s: a widget draws through
+ * @ref Lotte::Gui::GuiRenderer, while text goes through the SDF pipeline of
+ * @ref Lotte::Text::TextRenderer. Keeping them apart means the widget layer needs no
+ * font knowledge and the text layer needs no widget knowledge; the scene owns both
+ * lists and draws them in order.
+ *
+ * A label stores its source text, its attributes and a box; the *layout* is produced
+ * by the application (which owns the fonts) through
+ * @ref GuiScene::setLabelLayoutService(), and this class only signals when it has to
+ * be redone via @ref dirty().
+ */
+class ScriptLabel
+{
+public:
+	/**
+	 * @brief Creates a label.
+	 * @param text UTF-8 source text.
+	 * @param attributes Styling the text is laid out with.
+	 */
+	ScriptLabel(std::string text, Lotte::Text::TextAttributes attributes);
+
+	/** @brief Replaces the source text and requests a new layout. */
+	void setText(std::string newText);
+	/** @brief The source text. */
+	const std::string& text() const noexcept { return source; }
+	/** @brief Replaces the styling and requests a new layout. */
+	void setAttributes(const Lotte::Text::TextAttributes& newAttributes);
+	/** @brief The styling the text is laid out with. */
+	const Lotte::Text::TextAttributes& attributes() const noexcept { return style; }
+
+	/**
+	 * @brief Replaces the box the text is centred in.
+	 * @param newTopLeft Top-left corner in window pixels.
+	 * @param newBottomRight Bottom-right corner in window pixels.
+	 */
+	void setBox(const glm::fvec2& newTopLeft, const glm::fvec2& newBottomRight);
+	/** @brief Top-left corner of the box. */
+	const glm::fvec2& topLeft() const noexcept { return boxTopLeft; }
+	/** @brief Bottom-right corner of the box. */
+	const glm::fvec2& bottomRight() const noexcept { return boxBottomRight; }
+	/** @brief Size of the box. */
+	glm::fvec2 size() const noexcept { return boxBottomRight - boxTopLeft; }
+	/** @brief Replaces the horizontal alignment and requests a new layout. */
+	void setAlign(LabelAlign newAlign) noexcept;
+	/** @brief Horizontal alignment inside the box. */
+	LabelAlign align() const noexcept { return alignment; }
+	/** @brief Enables or disables drawing. */
+	void setHidden(bool newHidden) noexcept { hiddenFlag = newHidden; }
+	/** @brief True when the label is not drawn. */
+	bool hidden() const noexcept { return hiddenFlag; }
+	/** @brief Global scale applied on top of the attribute size; requests a new layout. */
+	void setScale(float newScale) noexcept;
+	/** @brief Global scale applied on top of the attribute size. */
+	float scale() const noexcept { return layoutScale; }
+
+	/** @brief True when the layout has to be recomputed before drawing. */
+	bool dirty() const noexcept { return needsLayout; }
+	/** @brief Requests a new layout. */
+	void invalidate() noexcept { needsLayout = true; }
+	/** @brief Adopts a freshly computed layout and clears @ref dirty(). */
+	void setLayout(Lotte::Text::TextLayout&& newLayout);
+	/** @brief The laid-out glyphs, in window pixels. */
+	const Lotte::Text::TextLayout& layout() const noexcept { return placed; }
+
+private:
+	/** @brief UTF-8 source text. */
+	std::string source;
+	/** @brief Styling the text is laid out with. */
+	Lotte::Text::TextAttributes style;
+	/** @brief Layout result, positioned in window pixels. */
+	Lotte::Text::TextLayout placed;
+	/** @brief Top-left corner of the box the text is centred in. */
+	glm::fvec2 boxTopLeft = glm::fvec2(0.0f);
+	/** @brief Bottom-right corner of the box the text is centred in. */
+	glm::fvec2 boxBottomRight = glm::fvec2(0.0f);
+	/** @brief Horizontal alignment inside the box. */
+	LabelAlign alignment = LabelAlign::Centre;
+	/** @brief Global scale on top of the attribute size. */
+	float layoutScale = 1.0f;
+	/** @brief True when @ref placed is stale. */
+	bool needsLayout = true;
+	/** @brief True when the label is not drawn. */
+	bool hiddenFlag = false;
+};
+
+/**
  * @brief Ownership root, hit tester and renderer of the script-created widgets.
  *
  * See the file comment for the ownership rules. The class is deliberately not a
@@ -219,6 +322,19 @@ public:
 	using TexturePtr = std::shared_ptr<ScriptTexture>;
 	/** @brief Shared ownership of a scripted button. */
 	using ButtonPtr = std::shared_ptr<ScriptButton>;
+	/** @brief Shared ownership of a slider. */
+	using SliderPtr = std::shared_ptr<Lotte::Gui::Slider>;
+	/** @brief Shared ownership of a text label. */
+	using LabelPtr = std::shared_ptr<ScriptLabel>;
+	/**
+	 * @brief Produces a label's layout.
+	 *
+	 * The application supplies this because it owns the font repository; the scene
+	 * only knows *when* a layout is needed and where the result goes (see
+	 * @ref relayoutLabels()). The callable lays the label's text out at the origin,
+	 * measured from its own baseline; placement inside the box is the scene's job.
+	 */
+	using LabelLayoutFunction = std::function<Lotte::Text::TextLayout(const ScriptLabel&)>;
 
 	/**
 	 * @brief Creates an empty scene.
@@ -266,13 +382,53 @@ public:
 	 */
 	void addButton(ButtonPtr button);
 	/**
-	 * @brief Takes a button off the screen without destroying it.
-	 * @param button Widget to detach.
-	 * @return True when the button was on screen.
+	 * @brief Registers a slider so it is drawn and receives input.
+	 * @param slider Widget to add; null is ignored.
 	 */
-	bool removeButton(const ScriptButton* button);
-	/** @brief Takes every button off the screen. */
+	void addSlider(SliderPtr slider);
+	/**
+	 * @brief Registers a label so it is laid out and drawn.
+	 * @param label Label to add; null is ignored.
+	 */
+	void addLabel(LabelPtr label);
+	/**
+	 * @brief Takes a widget off the screen without destroying it.
+	 * @param widget Widget to detach.
+	 * @return True when the widget was on screen.
+	 */
+	bool removeWidget(const Lotte::Gui::Widget* widget);
+	/**
+	 * @brief Takes a label off the screen without destroying it.
+	 * @param label Label to detach.
+	 * @return True when the label was on screen.
+	 */
+	bool removeLabel(const ScriptLabel* label);
+	/** @brief Takes every widget and label off the screen. */
 	void clear();
+
+	/**
+	 * @brief Installs the layout producer for labels.
+	 * @param service Callable that lays one label out, or an empty function to disable it.
+	 */
+	void setLabelLayoutService(LabelLayoutFunction service);
+	/**
+	 * @brief Lays out every label whose text, styling or box changed.
+	 *
+	 * Called once per frame by the application, before @ref prepareText().
+	 */
+	void relayoutLabels();
+	/**
+	 * @brief Ensures the glyphs of every label exist in the text renderer's atlases.
+	 * @param renderer Text renderer to prepare through.
+	 * @return True when new glyphs or atlas pages were recorded and have to be submitted
+	 *         before the frame opens.
+	 */
+	bool prepareText(Lotte::Text::TextRenderer& renderer);
+	/**
+	 * @brief Queues every visible label into a text renderer.
+	 * @param renderer Text renderer to submit through; its `flush()` stays the caller's.
+	 */
+	void renderText(Lotte::Text::TextRenderer& renderer);
 
 	/**
 	 * @brief Updates the hover state of every on-screen button.
@@ -296,10 +452,12 @@ public:
 	void render(Lotte::Gui::GuiRenderer& renderer);
 	/** @brief Last known pointer position in window pixels. */
 	const glm::fvec2& mousePosition() const noexcept { return mouse; }
-	/** @brief Number of buttons currently on screen. */
+	/** @brief Number of widgets currently on screen. */
 	std::size_t visibleButtonCount() const noexcept { return root.childCount(); }
-	/** @brief Number of buttons ever created by this scene. */
+	/** @brief Number of widgets ever created by this scene. */
 	std::size_t buttonCount() const noexcept { return buttons.size(); }
+	/** @brief Number of labels this scene owns. */
+	std::size_t labelCount() const noexcept { return labels.size(); }
 
 private:
 	/** @brief One uploaded theme atlas: its texture, size and optional manifest. */
@@ -317,7 +475,11 @@ private:
 	/** @brief On-screen widgets; the render list and hit testing walk these. */
 	Lotte::Gui::RootNode root;
 	/** @brief Every widget this scene created, including detached ones. */
-	std::vector<ButtonPtr> buttons;
+	std::vector<std::shared_ptr<Lotte::Gui::Widget>> buttons;
+	/** @brief Every label this scene owns. */
+	std::vector<LabelPtr> labels;
+	/** @brief Lays a label out; supplied by the application, may be empty. */
+	LabelLayoutFunction labelLayoutService;
 	/** @brief Texture cache keyed by virtual path. */
 	std::unordered_map<std::string, TexturePtr> textures;
 	/** @brief Uploaded theme atlases keyed by their theme alias. */

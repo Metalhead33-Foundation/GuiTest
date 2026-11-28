@@ -308,6 +308,14 @@ DefinitionTheme(ThemeDefinition definition, ThemeTextureResolver resolver = {});
 	 */
 	Text::TextAttributes textStyle(ThemeTextRole role, WidgetState state) const override;
 	/**
+	 * @brief Resolves the caption styling an element declares.
+	 * @param element Element whose `text` block is queried.
+	 * @param state Widget-state bitmask; the data form keeps one style per element.
+	 * @return The element's attributes, or `std::nullopt` when it declares none.
+	 */
+	std::optional<Text::TextAttributes> elementTextStyle(ThemeElement element,
+														 WidgetState state) const override;
+	/**
 	 * @brief Resolves the metrics of one element.
 	 * @param element Part whose metrics are requested.
 	 */

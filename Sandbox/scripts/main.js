@@ -1,120 +1,245 @@
-// Sandbox demo script.
+// Sandbox menu.
 //
-// Everything the sandbox shows or plays originates here: the rendered rich text,
-// the module file, its volume, the button and what the button does when it is
-// clicked. The engine half (GameSystem, GuiScene, the Lotte/Haruka libraries) only
-// provides the services the `System`, `GUI`, `Audio` and `IO` modules expose.
+// Everything the player sees is declared here: the screens, their captions, the
+// volume sliders and what each entry does. The engine half (GameSystem, GuiScene and
+// the Lotte/Haruka/Euphemy libraries) only provides the services these modules expose:
+// `System`, `GUI`, `Audio`, `IO` and `Localization`.
 //
-// The script runs once, on the frame thread, and returns. Click handlers stay
-// alive in the context and are invoked from the SDL event handlers.
+// Two rules keep this file free of things that belong in C++:
+//
+// * No visible string is written literally. Every caption is a localization key read
+//   from `require('Localization')`; a key the table does not have falls back to the
+//   key itself, which is visible but never empty.
+// * No layout constant pretends to be a theme. Captions take their font, size and
+//   colour from the theme through `element: 'button'` / `role: 'heading'`, so a new
+//   theme restyles the menu without touching this script.
 
 const CONFIG = require('CONFIG');
 const System = require('System');
 const GUI = require('GUI');
 const Audio = require('Audio');
-const IO = require('IO');
+const L = require('Localization');
 
-print('Hello World from C++/JS!');
-/*for (const [key, value] of Object.entries(CONFIG)) {
-    console.log(`[${key}]`);
-    for (const [jey, jalue] of Object.entries(value)) {
-        console.log(`${jey}: ${jalue}`);
+print(`Localization: ${L.count} key(s) loaded`);
+
+/** Caption for a key: the translation when it exists, the key itself otherwise. */
+function t(key) {
+    return L[key] !== undefined ? L[key] : L.get(key);
+}
+
+// 1. The click sound. A missing file is not an error - `valid` is simply false and
+//    `play()` does nothing, which is exactly "play it if it exists".
+let clickSound = null;
+try {
+    const sound = new Audio.Sound('/Cursor1.wav');
+    if (sound.valid) {
+        clickSound = sound;
+        print(`Click sound: ${sound.duration.toFixed(3)} s`);
+    } else {
+        print('No click sound; enabled widgets stay silent');
     }
-}*/
-//print(JSON.stringify(CONFIG));
-print(CONFIG);
+} catch (error) {
+    print(`Click sound unavailable: ${error}`);
+}
 
-// Configuration with defaults that used to live in GameSystem.
-const title = CONFIG.Game.sTitle ?? 'Sandbox';
-const songPath = CONFIG.Game.sSongPath ?? '/music/Magnus.it';
-const songVolume = CONFIG.Game.fModVolume ?? 0.10;
-const titleSize = CONFIG.Graphics.uTitleSize ?? 52;
-const margin = CONFIG.Graphics.uTextMargin ?? 32;
+// 2. Volume state. The values start from the configuration and are written back the
+//    moment they change, so the ini file the application saves at exit always matches
+//    what the player hears.
+const volumes = {
+    master: CONFIG.Audio?.fVolumeMaster ?? 1,
+    music: CONFIG.Audio?.fVolumeMusic ?? CONFIG.Game?.fModVolume ?? 0.1,
+    effects: CONFIG.Audio?.fVolumeEffects ?? 1
+};
 
-// 1. Music. The module object owns the streamer: losing the last reference stops
-//    playback and closes the file.
+const songPath = CONFIG.Game?.sSongPath ?? '/music/Magnus.it';
 let music = null;
 try {
     music = new Audio.Module(songPath, {
-        volume: songVolume,
+        volume: volumes.music * volumes.master,
         repeating: true,
         playing: true
     });
-    print(`Playing '${songPath}' at volume ${songVolume}`);
 } catch (error) {
     print(`Could not start '${songPath}': ${error}`);
 }
 
-// 2. Rich text. This used to be an MML string compiled into `GameSystem`.
-function showStatus() {
-    const status = music === null
-        ? 'no module loaded'
-        : (music.playing ? 'music on' : 'music off');
+/** Pushes the volume state into the transport and the one-shot player. */
+function applyVolumes() {
+    if (music !== null) music.volume = volumes.music * volumes.master;
+    if (clickSound !== null) clickSound.volume = volumes.effects * volumes.master;
+}
+
+/** Stores the volume state in the configuration the application saves on exit. */
+function persistVolumes() {
     try {
-        System.setRichText(
-            `[font=Vinque][color=#ffffff][size=${titleSize}]${title}[/size]\n` +
-            `[size=30]Click the button to switch the music [b]on[/b] and [i]off[/i].[/size]\n` +
-            `[size=26][color=#ffd166]${status}[/color][/size]`,
-            { x: margin, y: titleSize + 24, spacing: 4, wordSpacing: 2 }
-        );
+        System.setConfig('Audio', 'fVolumeMaster', volumes.master);
+        System.setConfig('Audio', 'fVolumeMusic', volumes.music);
+        System.setConfig('Audio', 'fVolumeEffects', volumes.effects);
     } catch (error) {
-        print(`Text unavailable: ${error}`);
+        print(`Could not store the volumes: ${error}`);
     }
 }
 
-// 3. A clickable widget. `GUI.Button` auto-registers itself in the scene. When a theme
-//    was loaded (gfx/theme_000.json) the button is drawn through its `button` element
-//    instead, so idle/hover/press come from the generated atlas; the texture and colours
-//    below are the fallback for a run without a theme.
-let button = null;
-try {
-    let texture = null;
-    try {
-        texture = System.loadTexture('/gfx/hourglass2.png');
-    } catch (error) {
-        print(`No button texture: ${error}`);
-    }
+applyVolumes();
 
-    const viewport = System.viewport;
-    const buttonWidth = 192;
-    const buttonHeight = 72;
-    button = new GUI.Button({
-        x: viewport.width - buttonWidth - margin,
-        y: viewport.height - buttonHeight - margin,
-        width: buttonWidth,
-        height: buttonHeight,
-        texture: texture,
-        colours: {
-            //idle: '#32455aff',
-            idle: '#ff00ffff',
-            hover: '#00ffffff',
-            active: '#ffff00ff',
-            disabled: '#33333388'
-        }
+// 3. A disabled entry never reaches its handler, so playing the click here is the
+//    same as "only enabled widgets click".
+function playClick() {
+    if (clickSound !== null) clickSound.play();
+}
+
+// 4. Screens. A screen is the set of widgets and captions that are shown or hidden
+//    together. Nothing is destroyed when switching, so going back is instant and the
+//    sliders keep their state.
+const screens = {
+    menu: { widgets: [], labels: [] },
+    settings: { widgets: [], labels: [] }
+};
+
+function addButton(screen, captionKey, rect, options = {}) {
+    const enabled = options.enabled ?? true;
+    const button = new GUI.Button({
+        x: rect.x, y: rect.y, width: rect.width, height: rect.height, enabled
     });
-
-    button.enabled = true;
-
+    // A disabled entry cannot be clicked, so its caption has to look the part. The
+    // theme already carries a muted style for that job, which is why the *role*
+    // changes instead of a colour being hard-coded here.
+    const caption = new GUI.Label({
+        key: captionKey,
+        role: enabled ? 'label' : 'placeholder',
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height
+    });
     button.onClick = function () {
-        if (music === null) {
-            print('There is no module to toggle.');
-            return;
-        }
-        music.playing = !music.playing;
-        print(`Music ${music.playing ? 'on' : 'off'}`);
-        showStatus();
-        // A small side effect through the IO module, to show that the click
-        // handler is ordinary script code.
-        try {
-            const log = new IO.File('/sandbox-session.log', 'a');
-            log.writeString(`music=${music.playing ? 'on' : 'off'}\n`);
-            log.flush();
-        } catch (error) {
-            print(`Could not write the session log: ${error}`);
-        }
+        playClick();
+        if (options.onClick) options.onClick();
     };
-} catch (error) {
-    print(`No button: ${error}`);
+    screen.widgets.push(button);
+    screen.labels.push(caption);
+    return button;
 }
 
-showStatus();
+function addLabel(screen, options) {
+    const label = new GUI.Label(options);
+    screen.labels.push(label);
+    return label;
+}
+
+/** Shows one screen and hides the other. */
+function showScreen(name) {
+    for (const [key, screen] of Object.entries(screens)) {
+        const visible = key === name;
+        for (const widget of screen.widgets) widget.hidden = !visible;
+        for (const label of screen.labels) label.hidden = !visible;
+    }
+}
+
+// 5. The main menu. Every entry is either disabled for now or wired to a screen.
+const viewport = System.viewport;
+const buttonWidth = Math.min(360, viewport.width - 128);
+const buttonHeight = 56;
+const buttonGap = 14;
+const columnX = (viewport.width - buttonWidth) / 2;
+
+addLabel(screens.menu, {
+    key: 'menu_title',
+    role: 'heading',
+    align: 'centre',
+    x: columnX,
+    y: 56,
+    width: buttonWidth,
+    height: 64
+});
+
+const entries = [
+    { key: 'menu_new_game', enabled: false },
+    { key: 'menu_load_game', enabled: false },
+    { key: 'menu_settings', enabled: true, onClick: () => showScreen('settings') },
+    { key: 'menu_credits', enabled: false },
+    { key: 'menu_exit', enabled: true, onClick: () => System.quit() }
+];
+
+let nextY = 160;
+for (const entry of entries) {
+    addButton(screens.menu, entry.key,
+        { x: columnX, y: nextY, width: buttonWidth, height: buttonHeight },
+        { enabled: entry.enabled, onClick: entry.onClick });
+    nextY += buttonHeight + buttonGap;
+}
+
+// 6. The settings screen. Only volumes for now; the resolution picker waits for a
+//    combo box, which is a widget this tree does not have yet.
+addLabel(screens.settings, {
+    key: 'settings_title',
+    role: 'heading',
+    x: columnX,
+    y: 56,
+    width: buttonWidth,
+    height: 64
+});
+addLabel(screens.settings, {
+    key: 'settings_hint',
+    role: 'placeholder',
+    x: columnX,
+    y: 120,
+    width: buttonWidth,
+    height: 32
+});
+
+const sliderWidth = columnX > 160 ? columnX - 48 : buttonWidth;
+const settingsRows = [
+    { label: 'settings_volume_master', field: 'master' },
+    { label: 'settings_volume_music', field: 'music' },
+    { label: 'settings_volume_effects', field: 'effects' }
+];
+
+let rowY = 176;
+for (const row of settingsRows) {
+    addLabel(screens.settings, {
+        key: row.label,
+        role: 'label',
+        align: 'right',
+        x: 48,
+        y: rowY,
+        width: Math.max(sliderWidth - 48, 120),
+        height: 40
+    });
+    const sliderLeft = Math.max(sliderWidth, 160) + 48;
+    const slider = new GUI.Slider({
+        x: sliderLeft,
+        y: rowY + 4,
+        width: viewport.width - sliderLeft - 128,
+        height: 32,
+        min: 0,
+        max: 1,
+        step: 0.01,
+        value: volumes[row.field]
+    });
+    const readout = addLabel(screens.settings, {
+        text: `${Math.round(volumes[row.field] * 100)}%`,
+        role: 'label',
+        align: 'left',
+        x: viewport.width - 120,
+        y: rowY,
+        width: 72,
+        height: 40
+    });
+    slider.onChange = function (value) {
+        volumes[row.field] = value;
+        readout.text = `${Math.round(value * 100)}%`;
+        applyVolumes();
+        persistVolumes();
+    };
+    screens.settings.widgets.push(slider);
+    rowY += 56;
+}
+
+addButton(screens.settings, 'menu_back',
+    { x: columnX, y: rowY + 24, width: buttonWidth, height: buttonHeight },
+    { enabled: true, onClick: () => showScreen('menu') });
+
+// 7. Start on the menu; the settings screen exists but is hidden.
+showScreen('menu');
+print(`Menu ready: ${screens.menu.widgets.length + screens.settings.widgets.length} widget(s)`);

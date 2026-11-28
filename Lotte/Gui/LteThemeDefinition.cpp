@@ -239,6 +239,17 @@ ThemeMetrics DefinitionTheme::metrics(ThemeElement element) const
 	return definition != nullptr ? definition->metrics : ThemeMetrics{};
 }
 
+std::optional<Text::TextAttributes> DefinitionTheme::elementTextStyle(ThemeElement element,
+																	  WidgetState state) const
+{
+	(void)state;
+	const ThemeElementDefinition* definition = data.findElement(element);
+	if (definition == nullptr || !definition->textStyle.has_value()) {
+		return std::nullopt;
+	}
+	return toTextAttributes(*definition->textStyle);
+}
+
 std::vector<std::string> validate(const ThemeDefinition& definition)
 {
 	std::vector<std::string> problems;

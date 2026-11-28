@@ -36,9 +36,12 @@ INCLUDEPATH += $$PWD/../KaldiGLCommon
 # configuration chain can be tested without linking a GL library.
 # The theme loader is the one JSON consumer in the tree, and it lives in the Sandbox by
 # policy. Compiling it into the test binary lets the tests exercise the real loader.
-PKGCONFIG += nlohmann_json
+PKGCONFIG += nlohmann_json yaml-0.1
 INCLUDEPATH += $$PWD/../Sandbox
 SOURCES += ../Sandbox/ThemeJson.cpp
+# The localization loader is the one YAML consumer in the tree, and it lives in the
+# Sandbox for the same reason: no library may depend on a parser.
+SOURCES += ../Sandbox/LocalizationYaml.cpp
 # The scene is where a theme meets a widget, so the themed-render checks need it too.
 SOURCES += ../Sandbox/GuiScene.cpp
 
@@ -141,6 +144,7 @@ SOURCES += \
     tests/DocumentationTests.cpp \
     tests/FontRoundTripTests.cpp \
     tests/FormatTranslationTests.cpp \
+    tests/GuiSliderTests.cpp \
     tests/GuiWidgetTests.cpp \
     tests/HarukaStreamerRingTests.cpp \
     tests/HttpTests.cpp \
@@ -150,6 +154,7 @@ SOURCES += \
     tests/KaldiDispatchTests.cpp \
     tests/KaldiGuiRendererTests.cpp \
     tests/KaldiHalTests.cpp \
+    tests/LocalizationTests.cpp \
     tests/NativeWindowTests.cpp \
     tests/NetClockRpcTests.cpp \
     tests/NetPredictionInterpolationTests.cpp \
@@ -163,6 +168,8 @@ SOURCES += \
     tests/ProceduralAtlasTests.cpp \
     tests/ShaderAssetTests.cpp \
     tests/ShaderCompileTests.cpp \
+    tests/SoundPlaybackTests.cpp \
+    tests/StreamBufferTests.cpp \
     tests/TextRenderingTests.cpp \
     tests/ThemeDefinitionTests.cpp \
     tests/ThemedWidgetTests.cpp \

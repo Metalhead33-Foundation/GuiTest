@@ -43,6 +43,11 @@ bool Widget::contains(const glm::fvec2& point) const noexcept
 		   point.y >= minimum.y && point.y <= maximum.y;
 }
 
+void Widget::onPointerMove(const glm::fvec2& offset)
+{
+	(void)offset;
+}
+
 void Widget::changeState(WidgetState newState)
 {
 	if (state_ == newState) return;

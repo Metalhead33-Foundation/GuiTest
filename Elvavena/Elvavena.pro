@@ -23,6 +23,7 @@ HEADERS += \
     Io/ElvBitStream.hpp \
     Io/ElvDataSerializationSchema.hpp \
     Io/ElvDataStream.hpp \
+    Io/ElvStreamBuffer.hpp \
     Io/ElvEventLoopWakeup.hpp \
     Io/ElvEventPoller.hpp \
     Io/ElvIoAsync.hpp \

@@ -48,6 +48,7 @@ SOURCES += \
     Gui/LteWidget.cpp \
     Gui/LteKaldiGuiRenderer.cpp \
     Gui/LteThemeDefinition.cpp \
+    Gui/LteSlider.cpp \
     Gui/LteThemeCss.cpp \
     Procedural/LteGuiAtlas.cpp \
     Procedural/LteGuiMaterials.cpp \
@@ -85,6 +86,7 @@ HEADERS += \
     Gui/LteGuiVertex.hpp \
     Gui/LteKaldiGuiRenderer.hpp \
     Gui/LteThemeDefinition.hpp \
+    Gui/LteSlider.hpp \
     Gui/LteThemeCss.hpp \
     Procedural/LteGuiAtlas.hpp \
     Procedural/LteGuiAtlasParts.hpp \

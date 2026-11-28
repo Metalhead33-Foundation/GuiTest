@@ -37,26 +37,9 @@ struct ModuleHandle {
  * `Hrk::Mixer` and `Hrk::PlaybackState` are plain containers read by the audio
  * thread. `SDL_LockAudioDevice` guarantees the callback is not running, so a
  * script that inserts a module or toggles playback cannot race the decoder.
+ * The class itself lives in `HarukaContext.hpp`, so the one-shot player and this
+ * module share one definition.
  */
-class AudioLock
-{
-public:
-	/// @brief Locks @p driver when it is not null.
-	explicit AudioLock(Haruka_SDL_Driver* driver) : driver(driver)
-	{
-		if (driver != nullptr) driver->lock();
-	}
-	/// @brief Releases the lock.
-	~AudioLock()
-	{
-		if (driver != nullptr) driver->unlock();
-	}
-	AudioLock(const AudioLock&) = delete;
-	AudioLock& operator=(const AudioLock&) = delete;
-private:
-	/// @brief Device whose callback is held off.
-	Haruka_SDL_Driver* driver;
-};
 
 /// @brief Reads a numeric property, falling back when it is missing or not a number.
 double numberProperty(JSContext* cx, JS::HandleObject object, const char* name, double fallback)

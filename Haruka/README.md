@@ -37,13 +37,14 @@ header that includes every Haruka component.
 | `HrkMatrixPanner.hpp` / `.cpp` | `MatrixPanner` - caller-editable in/out channel matrix with editable coefficients |
 | `HrkAmbisonicPanner.hpp` / `.cpp` | `AmbisonicPanner` - derives four speaker gains (LF/LB/RF/RB) from polar position (`theta`, `phi`, inverse distance) |
 | `HrkResampler.hpp` / `.cpp` | `Resampler` - proxy node that resamples its source through Euphemy's `FullResampler` (libsamplerate) |
+| `HrkSoundPlayer.hpp` / `.cpp` | `SoundPlayer` - owns the short-lived voices a mixer plays: `play()` starts one `SoundSource` per call and registers it with the mixer, `update()` retires the voices whose buffer ran out, `setMasterVolume()`/`setMuted()` rewrite the child gains in place, `stopAll()` empties the mixer. It is not a decoder and not a resampler; a caller hands it a buffer that already matches the mixer format, because `SoundSource::outputTo()` throws on a mismatch from the audio callback. Every mutator has to be called under the device lock |
 | `HrkAudioError.hpp` / `.cpp` | `ChannelCountMismatchError`, `SamplerateMismatchError`, `InterleavingMismatchError` |
 
 ### `IO/` - playback state and streamers
 
 | Header | Contents |
 |---|---|
-| `HrkSoundBuffer.hpp` | `SoundBufferMetadata` and the intrusive, reference-counted `SoundBufferHandle` (`Elv::Util::IntrusiveArray<float, ...>`) |
+| `HrkSoundBuffer.hpp` / `.cpp` | `SoundBufferMetadata`, the intrusive reference-counted `SoundBufferHandle` and `makeSoundBuffer()`, the one place that allocates a slab and copies interleaved frames plus metadata into it. The handle is the intrusive, reference-counted `Elv::Util::IntrusiveArray<float, SoundBufferMetadata, 32>`, so it can be shared with a live voice without copying the samples |
 | `HrkPlaybackState.hpp` / `.cpp` | `PlaybackState` - cursor, play status and repeat flag |
 | `HrkPlaybackStatePlayable.hpp` / `.cpp` | `PlaybackStatePlayable` - combines `Playable` with `IHasPlaybackState` |
 | `HrkSoundSource.hpp` / `.cpp` | `SoundSource` - plays an in-memory `SoundBufferHandle`, honouring cursor/repeat and validating the output format |

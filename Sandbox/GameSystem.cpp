@@ -1,9 +1,12 @@
 #include "GameSystem.hpp"
+#include <Euphemy/Localization/EuphLocalization.hpp>
 #include <Euphemy/Media/Image/EuphPNG.hpp>
+#include <Haruka/Core/HrkSoundPlayer.hpp>
 #include <Lotte/Text/LteMml.hpp>
 #include <Lotte/Gui/LteThemeDefinition.hpp>
 #include <Lotte/Procedural/LteGuiAtlas.hpp>
 #include <Lotte/Text/LteRichText.hpp>
+#include <Lotte/Text/LteUtf.hpp>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -11,13 +14,18 @@
 #include <string_view>
 #include <utility>
 #include "GuiScene.hpp"
+#include "LocalizationYaml.hpp"
 #include "ScriptHost.hpp"
 #include "ThemeDemo.hpp"
 #include "ThemeJson.hpp"
 #include "JS/JsCore.hpp"
 #include "JS/Wrappers/Audio/JsAudioPlayer.hpp"
+#include "JS/Wrappers/Audio/JsSound.hpp"
+#include "JS/Wrappers/GUI/JsGuiLabel.hpp"
+#include "JS/Wrappers/GUI/JsGuiSlider.hpp"
 #include "JS/Wrappers/GUI/JsGuiWrappers.hpp"
 #include "JS/Wrappers/Io/JsIO.hpp"
+#include "JS/Wrappers/Localization/JsLocalization.hpp"
 #include "JS/Wrappers/System/JsSystem.hpp"
 
 namespace {
@@ -81,8 +89,71 @@ GameSystem::GameSystem(Euph::Conf::Configuration& config, Elv::Io::System& iosys
 	mixer = Elv::Util::pmr_make_shared<Hrk::Mixer>(std::pmr::get_default_resource(),
 		Hrk::ChannelCount(channels), Hrk::InterleavingType::INTERLEAVED, Hrk::SampleRate(samplerate), Hrk::FrameCount(bufferSize)
 		);
+	soundPlayer = Elv::Util::pmr_make_shared<Hrk::SoundPlayer>(std::pmr::get_default_resource(),
+		*mixer);
 	sdlDriver->setPlayable(mixer);
 	startGraphics();
+}
+
+void GameSystem::installLabelLayout()
+{
+	if (!guiScene) {
+		return;
+	}
+	guiScene->setLabelLayoutService([this](const Sandbox::ScriptLabel& label) {
+		Lotte::Text::TextLayout empty;
+		if (!fontRepository) {
+			return empty;
+		}
+		Lotte::Text::TextRunList runs;
+		Lotte::Text::TextRun run;
+		run.text = Lotte::Text::decodeUtf8(label.text());
+		run.attributes = label.attributes();
+		runs.push_back(std::move(run));
+		Lotte::Text::TextLayoutOptions options;
+		// The service lays the text out around the origin; the scene centres the result
+		// inside the label's box, so nothing here needs to know the box.
+		options.scale = label.scale();
+		return Lotte::Text::layoutRuns(runs,
+			[this](const std::string& family, Lotte::Text::FontWeight weight) {
+				return fontRepository->faceFor(family, weight);
+			},
+			options);
+	});
+}
+
+void GameSystem::loadLocalization()
+{
+	localization.clear();
+	const std::string language { config.getString("Game", "sLanguage", "english") };
+	const std::string directory = "/localization/" + language;
+	std::size_t files = 0;
+	// PhysFS enumeration gives the full virtual path, which is what the device opens;
+	// the files are independent, so they simply merge into one table.
+	iosys.enumerate(directory.c_str(),
+		[this, &files](Elv::Io::System*, const char* fullpath, const char* /*name*/) {
+			Elv::Io::uDevice device;
+			try {
+				device = iosys.openUnique(fullpath, Elv::Io::Mode::READ);
+			} catch (const std::exception& error) {
+				SDL_Log("Localization '%s' unreadable: %s", fullpath, error.what());
+				return;
+			}
+			if (!device || !device->isValid()) {
+				return;
+			}
+			const Sandbox::LocalizationParseResult parsed =
+				Sandbox::parseLocalizationYaml(device->readAllAsString<char>());
+			for (const std::string& problem : parsed.problems) {
+				SDL_Log("Localization '%s': %s", fullpath, problem.c_str());
+			}
+			if (parsed.ok) {
+				localization.merge(parsed.table);
+				++files;
+			}
+		});
+	SDL_Log("Localization '%s': %zu key(s) from %zu file(s)", language.c_str(),
+			localization.size(), files);
 }
 
 void GameSystem::startGraphics()
@@ -151,6 +222,12 @@ void GameSystem::stopScript()
 	// so it is released only after them; the context has to die before the renderer and
 	// the resource factory its textures point into; and the host has to outlive the
 	// context, because module finalizers reach the mixer and the audio device through it.
+	// The one-shot voices go first of all: they are registered in the mixer, which the
+	// audio callback reads independently of the script.
+	if (soundPlayer) {
+		AudioLock lock(sdlDriver.get());
+		soundPlayer->stopAll();
+	}
 	guiScene.reset();
 	theme.reset();
 	jsCore.reset();
@@ -292,7 +369,10 @@ void GameSystem::initialize()
 	// SDL audio devices start paused: without this the callback never runs, so a
 	// module the script inserts into the mixer is never pulled.
 	sdlDriver->pause(false);
-	// The theme comes first: the script's `GUI.Button`s are dressed through it, and the
+	// The captions come first: the script reads them the moment it runs, and they need
+	// neither a GPU nor a font.
+	loadLocalization();
+	// The theme comes next: the script's `GUI.Button`s are dressed through it, and the
 	// scene has to know the atlases before the first widget asks for a skin.
 	startTheme();
 	startScript();
@@ -348,9 +428,14 @@ void GameSystem::startScript()
 	scriptHost->gui = guiScene.get();
 	scriptHost->theme = theme.get();
 	scriptHost->viewport = glm::uvec2(std::uint32_t(width), std::uint32_t(height));
+	scriptHost->localization = &localization;
+	scriptHost->soundPlayer = soundPlayer.get();
+	scriptHost->config = &config;
+	scriptHost->requestQuit = [] { SDL_Quit(); };
 	scriptHost->setRichText = [this](const Sandbox::RichTextRequest& request) {
 		setRichText(request);
 	};
+	installLabelLayout();
 
 	jsCore = std::make_unique<JS::Core>(iosys);
 	jsCore->insertModule("CONFIG", [this](JSContext& ctx, JS::RootedObject& obj) {
@@ -391,12 +476,18 @@ void GameSystem::startScript()
 	});
 	jsCore->insertModule("Audio", [this](JSContext& ctx, JS::RootedObject& obj) {
 		JS::RegisterAudioPlayerClasses(&ctx, obj, *scriptHost);
+		JS::RegisterAudioSoundClass(&ctx, obj, *scriptHost);
 	});
 	jsCore->insertModule("GUI", [this](JSContext& ctx, JS::RootedObject& obj) {
 		JS::RegisterGuiClasses(&ctx, obj, *scriptHost);
+		JS::RegisterGuiSliderClass(&ctx, obj, *scriptHost);
+		JS::RegisterGuiLabelClass(&ctx, obj, *scriptHost);
 	});
 	jsCore->insertModule("IO", [this](JSContext& ctx, JS::RootedObject& obj) {
 		JS::CreateIOClasses(&ctx, obj, *scriptHost);
+	});
+	jsCore->insertModule("Localization", [this](JSContext& ctx, JS::RootedObject& obj) {
+		JS::RegisterLocalizationModule(&ctx, obj, *scriptHost);
 	});
 
 	try {
@@ -422,6 +513,12 @@ void GameSystem::startScript()
 
 void GameSystem::updateLogic()
 {
+	// A one-shot voice stops itself when its buffer runs out; somebody has to take it
+	// out of the mixer, and that somebody is the frame thread.
+	if (soundPlayer) {
+		AudioLock lock(sdlDriver.get());
+		soundPlayer->update();
+	}
 }
 
 void GameSystem::render()
@@ -433,7 +530,13 @@ void GameSystem::render()
 	// has to happen before beginFrame(), so prepare() and submit() are separate.
 	if (textRenderer && fontReady) {
 		try {
-			if (textRenderer->prepare(sampleLayout)) {
+			bool recorded = textRenderer->prepare(sampleLayout);
+			if (guiScene) {
+				// Labels are prepared with the sample layout's pass: their glyphs have to
+				// exist and be uploaded before the frame opens.
+				recorded = guiScene->prepareText(*textRenderer) || recorded;
+			}
+			if (recorded) {
 				const Kld::HalStatus upload = kaldi->submit();
 				if (!upload.ok()) {
 					if (!frameFailureLogged) {
@@ -474,6 +577,12 @@ void GameSystem::render()
 		try {
 			textRenderer->setViewportSize(std::uint16_t(width), std::uint16_t(height));
 			textRenderer->beginFrame();
+			// The scene's labels are ordinary text blocks from the text pipeline's point
+			// of view: they were laid out and prepared before the frame opened, so this
+			// pass only queues them and one flush covers all of them.
+			if (guiScene) {
+				guiScene->renderText(*textRenderer);
+			}
 			const std::size_t glyphs = textRenderer->render(sampleLayout);
 			const std::size_t runs = textRenderer->queuedRunCount();
 			textRenderer->flush();

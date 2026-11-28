@@ -402,7 +402,7 @@ bool js_button_remove(JSContext* cx, unsigned argc, JS::Value* vp)
 		if (host == nullptr || host->gui == nullptr) {
 			throw std::runtime_error("GUI.Button.remove: graphics is not available");
 		}
-		host->gui->removeButton(buttonFromThis(args).get());
+		host->gui->removeWidget(buttonFromThis(args).get());
 		args.rval().setUndefined();
 		return true;
 	}, cx, argc, vp);

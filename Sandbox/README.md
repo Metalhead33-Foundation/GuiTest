@@ -32,17 +32,28 @@ The inclusion of MozJS / SpiderMonkey is **temporary**. It is **not** intended t
 
 The included SpiderMonkey code is for demonstration purposes, plus for ease of integration into the windowing system.
 
-`scripts/main.js` is the demo the sandbox now runs: the rendered rich text, the module file, its
-volume, the button and the button's click handler are all declared there. The engine half only
-provides services, and `GameSystem` no longer contains a demo song path, a volume or an MML string.
+`scripts/main.js` is the program the sandbox runs: the menu (New Game, Load Game, Settings,
+Credits, Exit), its localization keys, the settings screen with its three volume sliders, the
+click sound and every handler are declared there. The engine half only provides services, and
+`GameSystem` contains neither a caption nor a demo song path, a volume or an MML string.
+
+Two rules keep the script honest:
+
+* **No visible string is written in C++ or inline in the script.** Every caption is a
+  localization key (`menu_new_game`, `settings_volume_music`) read from `require('Localization')`,
+  and an unknown key renders as the key itself rather than as an empty widget.
+* **No layout constant pretends to be a theme.** A caption asks the theme for its styling
+  (`element: 'button'`, `role: 'heading'`, or a `style` object from `System.textStyle()`), so a
+  new theme restyles the menu without touching the script.
 
 ### The script modules
 
 | Module | Surface | Backing engine type |
 |---|---|---|
-| `System` | `setRichText(mml, {x, y, spacing, wordSpacing, scale})`, `loadTexture(path)` / `new System.Texture(path)`, `viewport` | `Lotte::Text` MML + layout, `Lotte::Gfx::WriteableTexture2D` |
-| `GUI` | `new GUI.Button({x, y, width, height, element?, texture?, uv?, colours?, enabled?, hidden?})`, properties `x`, `y`, `width`, `height`, `enabled`, `hidden`, `hovered`, `pressed`, method `remove()`, and the assignable `onClick`. When a theme is loaded the widget is drawn through `element` (default `button`) and `width`/`height` default to that element's `minimumSize`; `texture`/`uv`/`colours` stay as the unthemed fallback | `Sandbox::ScriptButton` in a `Sandbox::GuiScene` |
-| `Audio` | `new Audio.Module(path, {volume, repeating, playing})`, properties `playing`, `paused`, `status`, `volume`, `repeating`, `cursor`, `valid`, method `stop()` | `Hrk::ModuleStreamer` inside the sandbox's `Hrk::Mixer` |
+| `System` | `setRichText(mml, {x, y, spacing, wordSpacing, scale})`, `loadTexture(path)` / `new System.Texture(path)`, `textStyle(roleOrElement)`, `setConfig(section, key, number)`, `quit()`, `viewport` | `Lotte::Text` MML + layout, `Lotte::Gfx::WriteableTexture2D`, `Lotte::Gui::Theme::textStyle()`/`elementTextStyle()`, `Euph::Conf::Configuration` |
+| `Localization` | one read-only property per loaded key (`L.menu_exit`), `get(key)` with the key as the fallback, `count` | `Euph::Loc::Localization` |
+| `GUI` | `new GUI.Button({x, y, width, height, element?, texture?, uv?, colours?, enabled?, hidden?})`, properties `x`, `y`, `width`, `height`, `enabled`, `hidden`, `hovered`, `pressed`, method `remove()`, and the assignable `onClick`; `new GUI.Slider({x, y, width, height, min, max, step, value, orientation?, enabled?, hidden?})` with `value`, `min`, `max`, `enabled`, `hidden`, `remove()` and the assignable `onChange`; `new GUI.Label({text? | key?, element? | role? | style?, align?, scale?, x, y, width, height, hidden?})` with `text`, `key`, `hidden`, `box(x, y, width, height)` and `remove()`. When a theme is loaded the widget is drawn through `element` (default `button`) and `width`/`height` default to that element's `minimumSize`; `texture`/`uv`/`colours` stay as the unthemed fallback | `Sandbox::ScriptButton` in a `Sandbox::GuiScene` |
+| `Audio` | `new Audio.Module(path, {volume, repeating, playing})`, properties `playing`, `paused`, `status`, `volume`, `repeating`, `cursor`, `valid`, method `stop()`; `new Audio.Sound(path, {volume})` with `valid`, `volume`, `duration` and `play()` - a missing file yields `valid === false`, and `play()` is then a no-op | `Hrk::ModuleStreamer` inside the sandbox's `Hrk::Mixer`, and `Hrk::SoundPlayer` for one-shots |
 | `IO` | `new IO.File(path, "r"\|"w"\|"a"\|"rw"\|"ra")`, `readString()`, `read(n)`, `writeString(s)`, `seek(offset, "set"\|"cur"\|"end")`, `flush()`, `size`, `tell`, `eof`, `valid`; `IO.exists`, `IO.isFile`, `IO.isDirectory` | `Elv::Io::System` / `Elv::Io::Device` |
 | `random`, `CONFIG`, `console`, `print`, `require`, `dofile` | unchanged | `JsRandom`, `Euph::Conf::Configuration` |
 
@@ -72,8 +83,10 @@ widgets  ->  script context  ->  host  ->  renderer  ->  renderer context
 Two rules follow for anything added here: a wrapper's finalizer must not set
 `JSCLASS_BACKGROUND_FINALIZE` (background finalization runs on a GC helper thread and would race the
 audio callback), and every audio mutation goes through `SDL_LockAudioDevice` (the `AudioLock` RAII
-helper in `JsAudioPlayer.cpp`), because `Hrk::Mixer` and `Hrk::PlaybackState` are read by the audio
-thread.
+helper in `HarukaContext.hpp`, shared by the module and the one-shot wrappers), because
+`Hrk::Mixer`, `Hrk::PlaybackState` and `Hrk::SoundPlayer` are read by the audio thread. The one-shot
+voices are also stopped before the widgets are released, because they are registered in the mixer
+and the audio callback reads that map independently of the script.
 
 `JsUtil.hpp` stores a wrapper's native half in a reserved slot as a typed pointer that the class's
 own finalizer deletes. The legacy `shared_ptr<void>` id table is gone: it hid the type, required a
@@ -100,6 +113,14 @@ atlas 'PROC': 1024x534, 26 part(s) -> theme_out/PROC.png
   ...
 DefinitionTheme 'legacy_crpg': 48 skin query(s) resolved
 ```
+
+**Localization files are YAML, and only this directory links libyaml.** `LocalizationYaml.cpp`
+reads a document into the plain `Euph::Loc::Localization` table, exactly like `ThemeJson.cpp` reads a
+theme into `Lotte::Gui::ThemeDefinition`; no library ever sees a parser. The accepted shape is the
+reference dialect (`menu_new_game:0 "New Game"`), which is *not* valid YAML - a plain scalar may not
+contain `": "` - so the loader rewrites those lines into strict quoted pairs before libyaml parses
+the structure, and anything nested below a key is skipped with a reported problem. Files live in
+`localization/<language>/` and are copied next to the executable by the qmake project.
 
 **JSON is only linked here.** `nlohmann_json` is a dependency of the Sandbox and the
 tests, never of a library: `Sandbox/ThemeJson.cpp` is the one loader, it parses into

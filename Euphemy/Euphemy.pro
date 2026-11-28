@@ -42,10 +42,12 @@ SOURCES += \
  Io/EuphTempFile.cpp \
  Io/EuphZstd.cpp \
  Io/PhysFS.cpp \
+ Localization/EuphLocalization.cpp \
  Media/Audio/EuphConvolver.cpp \
  Media/Audio/EuphModuleRenderer.cpp \
  Media/Audio/EuphResampler.cpp \
  Media/Audio/EuphSoundFile.cpp \
+ Media/Audio/EuphSoundClip.cpp \
  Media/Audio/FFTConvolver/AudioFFT.cpp \
  Media/Audio/FFTConvolver/FFTConvolver.cpp \
  Media/Audio/FFTConvolver/TwoStageFFTConvolver.cpp \
@@ -94,11 +96,13 @@ HEADERS += \
  Io/EuphTempFile.hpp \
  Io/EuphZstd.hpp \
  Io/PhysFS.hpp \
+ Localization/EuphLocalization.hpp \
  Media/Audio/EuphAudioIterator.hpp \
  Media/Audio/EuphConvolver.hpp \
  Media/Audio/EuphModuleRenderer.hpp \
  Media/Audio/EuphResampler.hpp \
  Media/Audio/EuphSoundFile.hpp \
+ Media/Audio/EuphSoundClip.hpp \
  Media/Audio/FFTConvolver/AudioFFT.h \
  Media/Audio/FFTConvolver/FFTConvolver.h \
  Media/Audio/FFTConvolver/TwoStageFFTConvolver.h \
